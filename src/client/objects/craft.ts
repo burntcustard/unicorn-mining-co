@@ -59,6 +59,7 @@ export type ModuleState = {
   healthActivated?: number;
   fireCooldown?: number;
   chargeCooldown?: number;
+  aimRotation?: number;
   shades?: readonly string[];
   segments: { active: number; activationProgress: number }[];
 };
@@ -839,6 +840,7 @@ export class Craft extends GameObject {
         chargeCooldown: module.chargeCooldown,
       }),
       ...(module.fireCooldown > 0 && { fireCooldown: module.fireCooldown }),
+      ...(module.aimRotation !== 0 && { aimRotation: module.aimRotation }),
       mount: mounts.indexOf(module.mount),
       health: module.mount ? module.mount.health : module.health,
       ...(module.mount?.healthActivated !== undefined && {
@@ -888,6 +890,7 @@ export class Craft extends GameObject {
       module.health = state.mount >= 0 ? Type.health : state.health;
       module.fireCooldown = state.fireCooldown ?? 0;
       module.chargeCooldown = state.chargeCooldown ?? 0;
+      module.aimRotation = state.aimRotation ?? 0;
 
       if (state.shades) module.shades = shadesOf(state.shades);
 
@@ -941,7 +944,9 @@ export class Craft extends GameObject {
     pose = this,
   }: CraftRenderOptions = {}) {
     const { ctx } = game;
-    const glow = zIndex === renderingLayers.glowBelowShips;
+    const glow =
+      zIndex === renderingLayers.glowBelowShips ||
+      zIndex === renderingLayers.glowAboveShips;
 
     super.render({
       pose,
@@ -960,6 +965,7 @@ export class Craft extends GameObject {
           ) {
             this.segments.forEach((segment: Segment) => {
               if (
+                (glow && segment.zIndex !== zIndex - 1) ||
                 !(glow
                   ? segment.module.renderGlow
                   : (segment.beam ?? segment.module.beam)) ||

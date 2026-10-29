@@ -30,10 +30,16 @@ const {
   thrusterTriple,
 } = categorize({ category: 'core', specs: core });
 
-const { autogun, laser, plasmaAccelerator, hornDrill, cannonSm } = categorize({
-  category: 'offense',
-  specs: offense,
-});
+const {
+  autogun,
+  laser,
+  plasmaAccelerator,
+  hornDrill,
+  cannonSm,
+  autogunTurret,
+  plasmaAcceleratorTurret,
+  laserTurret,
+} = categorize({ category: 'offense', specs: offense });
 
 const {
   cargoHatch,
@@ -67,6 +73,9 @@ export {
   cargoHatchPair,
   shieldGeneratorXs,
   shieldGeneratorLg,
+  autogunTurret,
+  plasmaAcceleratorTurret,
+  laserTurret,
 };
 // Stable wire IDs: folder and category order must not change these indexes.
 export const moduleIds = [
@@ -91,6 +100,9 @@ export const moduleIds = [
   'cargoHatchPair',
   'shieldGeneratorXs',
   'shieldGeneratorLg',
+  'autogunTurret',
+  'plasmaAcceleratorTurret',
+  'laserTurret',
 ] as const;
 
 export type ModuleId = (typeof moduleIds)[number];
@@ -117,6 +129,9 @@ export const moduleSpecs = {
   cargoHatchPair,
   shieldGeneratorXs,
   shieldGeneratorLg,
+  autogunTurret,
+  plasmaAcceleratorTurret,
+  laserTurret,
 };
 
 export const moduleSpecList = Object.values(moduleSpecs);
@@ -148,4 +163,7 @@ export const stationModuleIds: readonly ModuleId[] = [
   'powerPlant',
   'shieldGeneratorXs',
   'shieldGeneratorLg',
+  'autogunTurret',
+  'plasmaAcceleratorTurret',
+  'laserTurret',
 ];

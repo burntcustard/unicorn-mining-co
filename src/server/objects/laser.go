@@ -42,8 +42,8 @@ func (s *Ship) ResolveLasers(dt float64, events *[]protocol.SimulationEvent) {
 func (s *Ship) resolveLaser(module simulation.Module, dt float64, events *[]protocol.SimulationEvent) {
 	m := module.ModuleBase()
 	spec, world := &m.Spec, s.World
-	start := Vec.Add(s.Position, simulation.RotatePoint(Vec.Add(m.Mount.LocalPosition, Vec.Create(spec.BarrelLength, 0)), s.Rotation))
-	end := Vec.Add(start, simulation.RotatePoint(Vec.Create(spec.Reach, 0), s.Rotation))
+	start := s.weaponPosition(m, spec.BarrelLength)
+	end := Vec.Add(start, simulation.RotatePoint(Vec.Create(spec.Reach, 0), s.Rotation+m.AimRotation))
 	var first *collision.Collider
 	fraction := 1.0
 	shot := shape.NewCircle(Vec.Vector{}, 0.5)

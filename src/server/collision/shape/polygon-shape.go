@@ -4,6 +4,7 @@ package shape
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"math"
 )
 
 type PolygonShape struct {
@@ -85,12 +86,16 @@ func (p *PolygonShape) Set(vertices []Vec.Vector, linearSlop float64) {
 			rx, ry := ps[ie].X-origin.X, ps[ie].Y-origin.Y
 			vx, vy := ps[j].X-origin.X, ps[j].Y-origin.Y
 			cross := rx*vy - ry*vx
+			distance := rx*rx + ry*ry
+			candidateDistance := vx*vx + vy*vy
+			tolerance := 1e-12 * (distance + candidateDistance)
 
-			if cross < 0 {
+			// Rotated collinear model points must retain their farthest endpoint.
+			if cross < -tolerance {
 				ie = j
 			}
 
-			if cross == 0 && vx*vx+vy*vy > rx*rx+ry*ry {
+			if math.Abs(cross) <= tolerance && candidateDistance > distance {
 				ie = j
 			}
 		}
@@ -99,6 +104,11 @@ func (p *PolygonShape) Set(vertices []Vec.Vector, linearSlop float64) {
 
 		if ie == i0 {
 			break
+		}
+
+		if len(hull) == n {
+			p.SetAsBox(100, 100)
+			return
 		}
 	}
 
@@ -128,6 +138,7 @@ func (p *PolygonShape) Set(vertices []Vec.Vector, linearSlop float64) {
 func (p *PolygonShape) SetAsBox(hx, hy float64) {
 	p.Vertices = []Vec.Vector{{X: hx, Y: -hy}, {X: hx, Y: hy}, {X: -hx, Y: hy}, {X: -hx, Y: -hy}}
 	p.Normals = []Vec.Vector{{X: 1}, {Y: 1}, {X: -1}, {Y: -1}}
+	p.Centroid = Vec.Vector{}
 	p.Count = 4
 }
 

@@ -80,7 +80,12 @@ export const mustang = {
           {
             x: 1,
             y: 0,
-            fits: ['shieldGeneratorSm'],
+            fits: [
+              'shieldGeneratorSm',
+              'autogunTurret',
+              'plasmaAcceleratorTurret',
+              'laserTurret',
+            ],
           },
         ],
         [{ x: -8, y: 0, fits: ['powerPlant'] }],

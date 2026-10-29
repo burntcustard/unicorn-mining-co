@@ -11,6 +11,7 @@ import {
 import type { ModuleCategory } from '../../../specs/modules/categories';
 import { type ModuleSpec } from '../../../specs/modules/types';
 import { colors } from '../../../specs/colors';
+import * as Vec from '../../utilities/vector';
 
 import { type Craft } from '../craft';
 import { type Pose, type Segment, type ShapeOutline } from '../../types';
@@ -25,6 +26,7 @@ export interface ModuleRenderOptions {
 }
 
 export class Module extends GameObject {
+  aimRotation = 0;
   static [key: string]: any;
   static definitionId: ModuleId;
   declare health: number;
@@ -33,6 +35,15 @@ export class Module extends GameObject {
   static model: any[] = [];
   declare model: any[];
   declare mount: any;
+
+  muzzlePosition({ distance }: { distance: number }) {
+    const angle = this.aimRotation;
+
+    return Vec.add(
+      this.mount.localPosition,
+      Vec.create(Math.cos(angle) * distance, Math.sin(angle) * distance),
+    );
+  }
 
   static define<T extends typeof Module>(this: T, id: ModuleId): T {
     // Use the wire-ordered catalog; spec object keys are mangled separately.
@@ -113,6 +124,13 @@ export class Module extends GameObject {
         ctx.stroke(
           segment.shapeOutline ? linesPath(segment.shapeOutline) : shape,
         );
+
+        if (segment.turretBase && segment.lines) {
+          ctx.save();
+          ctx.rotate(this.aimRotation);
+          ctx.stroke(linesPath(segment.lines));
+          ctx.restore();
+        }
       },
     });
   }

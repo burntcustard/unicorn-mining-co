@@ -17,6 +17,7 @@ type Module interface {
 type ModuleData struct {
 	FireCooldown   float64
 	ChargeCooldown float64
+	AimRotation    float64
 	Type           string
 	Spec           specs.Module
 	Model          []*SegmentPlan

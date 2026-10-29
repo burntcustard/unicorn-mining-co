@@ -2,6 +2,7 @@
  * Commands for one player during a single simulation tick.
  */
 export type PlayerInput = {
+  targetId?: number;
   fire?: boolean;
   cargoRelease?: boolean;
   plasmaActive?: boolean;
@@ -74,6 +75,7 @@ export const emptyPlayerInput = (): PlayerInput => ({
  * Only changed controls need a new transition; held keys need no repeat packets.
  */
 export const sameInput = (a: PlayerInput, b: PlayerInput) =>
+  a.targetId === b.targetId &&
   !!a.cargoRelease === !!b.cargoRelease &&
   !!a.fire === !!b.fire &&
   !!a.plasmaActive === !!b.plasmaActive &&

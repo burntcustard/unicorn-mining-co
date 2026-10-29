@@ -41,7 +41,9 @@ export class FramePrediction {
   private copies = new WeakMap<object, any>();
   private endpoint?: Map<
     number,
-    Pick<GameObject, 'position' | 'velocity' | 'rotation' | 'spin'>
+    Pick<GameObject, 'position' | 'velocity' | 'rotation' | 'spin'> & {
+      modules?: Map<number, number>;
+    }
   >;
   private endpointChange?: InputFrame['changes'][number];
   private endpointInput?: InputFrame['input'];
@@ -167,8 +169,8 @@ export class FramePrediction {
         });
 
         // The solved mechanics stay in this isolated world. Interpolation only
-        // changes poses, so endpoints need motion data rather than another
-        // checkpoint of every module and cargo item.
+        // changes poses and turret bearings, so endpoints need only that data
+        // rather than another checkpoint of every module and cargo item.
         this.endpoint = new Map(
           [...this.world.entities].map(([id, entity]) => [
             id,
@@ -177,6 +179,14 @@ export class FramePrediction {
               velocity: Vec.clone(entity.velocity),
               rotation: entity.rotation,
               spin: entity.spin,
+              modules:
+                entity instanceof Craft
+                  ? new Map(
+                      entity.modules
+                        .filter((module) => module.turret)
+                        .map((module) => [module.id, module.aimRotation]),
+                    )
+                  : undefined,
             },
           ]),
         );
@@ -322,9 +332,32 @@ export class FramePrediction {
 
       if (!modules.length) return;
       const liveModules = source.modules;
+      const angles = this.endpoint?.get(entity.id)?.modules;
 
       modules.forEach((module) => {
         if (!module.mount) return;
+
+        const end = angles?.get(module.id);
+        const before =
+          end !== undefined &&
+          this.state!.entities.get(entity.id)?.moduleStates?.find(
+            (state) => state.id === module.id,
+          );
+
+        if (end !== undefined && before) {
+          const start = before.aimRotation ?? 0;
+          const turn = end - start;
+
+          // Sample the same tick fraction as the hull, including resampling
+          // backward and crossing the -PI/PI boundary.
+          module.aimRotation =
+            dt === simulationStep
+              ? end
+              : start +
+                Math.atan2(Math.sin(turn), Math.cos(turn)) *
+                  (dt / simulationStep);
+        }
+
         const live = liveModules.find(
           (candidate) => candidate.id === module.id,
         );

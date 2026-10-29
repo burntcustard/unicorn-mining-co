@@ -496,6 +496,10 @@ func (c *Craft) ModuleStates() []ModuleState {
 			state.FireCooldown = new(d.FireCooldown)
 		}
 
+		if d.AimRotation != 0 {
+			state.AimRotation = new(d.AimRotation)
+		}
+
 		for _, s := range c.SegmentsAtMount(d.Mount) {
 			if s.Module == module {
 				state.Segments = append(state.Segments, ModuleSegmentState{s.Active, s.ActivationProgress})
@@ -555,6 +559,12 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 
 		if state.FireCooldown != nil {
 			module.ModuleBase().FireCooldown = *state.FireCooldown
+		}
+
+		module.ModuleBase().AimRotation = 0
+
+		if state.AimRotation != nil {
+			module.ModuleBase().AimRotation = *state.AimRotation
 		}
 
 		if state.ID != nil {

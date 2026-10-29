@@ -10,6 +10,7 @@ type ModelPart struct {
 	Points             []Point `json:"points"`
 	Radius             float64 `json:"radius"`
 	Covers             bool    `json:"covers"`
+	TurretBase         bool    `json:"turretBase"`
 }
 
 type Projectile struct {
@@ -47,6 +48,8 @@ type Module struct {
 	Projectile            Projectile  `json:"projectile"`
 	Ammo                  *int        `json:"ammo"`
 	BarrelLength          float64     `json:"barrelLength"`
+	Turret                bool        `json:"turret"`
+	TurretTurnRate        float64     `json:"turretTurnRate"`
 	Model                 []ModelPart `json:"model"`
 	Behavior              string      `json:"behavior"`
 	Name                  string      `json:"name"`

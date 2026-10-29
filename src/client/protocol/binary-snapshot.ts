@@ -154,7 +154,7 @@ export function decodeBinarySnapshot(
     for (let index = 0; index < length; index++) {
       const mask = byte();
 
-      if (mask & ~63) return fail();
+      if (mask & ~127) return fail();
       const type = number() as number;
       const mount = number() as number;
       const id = mask & 1 ? (number() as number) : undefined;
@@ -163,6 +163,7 @@ export function decodeBinarySnapshot(
       const fireCooldown = mask & 8 ? (number() as number) : undefined;
       const chargeCooldown = mask & 16 ? (number() as number) : undefined;
       const healthActivated = mask & 32 ? (number() as number) : undefined;
+      const aimRotation = mask & 64 ? (number() as number) : undefined;
       const segmentCount = count(16);
       const segments: (typeof values)[number]['segments'] = [];
 
@@ -182,6 +183,7 @@ export function decodeBinarySnapshot(
         ...(mask & 8 && { fireCooldown }),
         ...(mask & 16 && { chargeCooldown }),
         ...(mask & 32 && { healthActivated }),
+        ...(mask & 64 && { aimRotation }),
         segments,
       });
     }

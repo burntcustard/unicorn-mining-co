@@ -84,7 +84,7 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 	mounts := binary.mountBuffer
 	p := binary.modules
 	same := p != nil && len(modules) == len(p.modules) && slices.Equal(mounts, p.mounts)
-	cooldownsChanged := false
+	stateChanged := false
 
 	if same {
 		for i, module := range modules {
@@ -119,8 +119,14 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 				break
 			}
 
-			if data.FireCooldown != cooldown || data.ChargeCooldown != charge {
-				cooldownsChanged = true
+			aim := 0.0
+
+			if state.AimRotation != nil {
+				aim = *state.AimRotation
+			}
+
+			if data.FireCooldown != cooldown || data.ChargeCooldown != charge || data.AimRotation != aim {
+				stateChanged = true
 			}
 
 			if module != p.modules[i] || state.ID == nil || float64(object.ID) != *state.ID || data.Mount != mount || state.Health == nil || health != *state.Health || !slices.Equal(object.Shades, state.Shades) {
@@ -131,11 +137,11 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 	}
 
 	if same && sameModuleSegments(entity, p) {
-		if !cooldownsChanged {
+		if !stateChanged {
 			return p
 		}
 
-		// Cooldowns change while firing; retain the stable module layout.
+		// Weapon state changes while aiming and firing; retain the module layout.
 		record := *p
 		record.states = slices.Clone(p.states)
 
@@ -143,6 +149,7 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 			data := module.ModuleBase()
 			state := &record.states[i]
 			state.FireCooldown, state.ChargeCooldown = nil, nil
+			state.AimRotation = nil
 
 			if data.FireCooldown > 0 {
 				state.FireCooldown = new(data.FireCooldown)
@@ -151,6 +158,11 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 			if data.ChargeCooldown > 0 {
 				state.ChargeCooldown = new(data.ChargeCooldown)
 			}
+
+			if data.AimRotation != 0 {
+				state.AimRotation = new(data.AimRotation)
+			}
+
 		}
 
 		binary.modules = &record
@@ -179,6 +191,10 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 
 		if d.FireCooldown > 0 {
 			value.FireCooldown = new(d.FireCooldown)
+		}
+
+		if d.AimRotation != 0 {
+			value.AimRotation = new(d.AimRotation)
 		}
 
 		for _, s := range entity.Segments {

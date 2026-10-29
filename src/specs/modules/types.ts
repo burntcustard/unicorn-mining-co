@@ -11,6 +11,8 @@ type ModuleModelPart = {
   thrusterNozzleSide?: number;
   points?: number[][];
   radius?: number;
+  // Circular support below the barrels, fixed in place during deployment.
+  turretBase?: boolean;
   lines?: number[][][];
   covers?: boolean;
   fillAlpha?: number;
@@ -91,6 +93,9 @@ type ModuleValues = {
 
   ammo?: ItemSpec;
   barrelLength?: number;
+  turret?: boolean;
+  // Maximum aiming speed relative to the craft, in radians per second.
+  turretTurnRate?: number;
   model: ModuleModelPart[];
   activationThreshold?: number;
   gripDecay?: number;
@@ -158,7 +163,8 @@ export type ModuleSpec = ModuleValues &
         damage: number;
         barrelLength: number;
         reach: number;
-        model: (ModuleModelPart & { points: number[][] })[];
+        model: (ModuleModelPart &
+          ({ points: number[][] } | { radius: number; turretBase: true }))[];
       }
     | {
         behavior: 'weapon';
@@ -166,7 +172,8 @@ export type ModuleSpec = ModuleValues &
         fireInterval: number;
         projectile: NonNullable<ModuleValues['projectile']>;
         barrelLength: number;
-        model: (ModuleModelPart & { points: number[][] })[];
+        model: (ModuleModelPart &
+          ({ points: number[][] } | { radius: number; turretBase: true }))[];
       }
     | {
         behavior: 'shieldGenerator';

@@ -21,6 +21,7 @@ type Ship struct {
 	cargoReleaseTime  float64
 	*Craft
 	NPCState                                 string
+	TargetID                                 *int64
 	Firing                                   bool
 	Fuel, FuelCapacity                       float64
 	StoredPower, ThrusterPower, SystemsPower float64
@@ -654,14 +655,16 @@ func (s *Ship) fireWeapons(dt float64) {
 			}
 
 			spec := m.Spec
-			position := Vec.Add(s.Position, simulation.RotatePoint(Vec.Add(m.Mount.LocalPosition, Vec.Create(spec.BarrelLength+spec.Projectile.Radius+1, 0)), s.Rotation))
-			velocity := Vec.Add(s.Velocity, simulation.RotatePoint(Vec.Create(spec.Projectile.Speed, 0), s.Rotation))
+
+			rotation := s.Rotation + m.AimRotation
+			position := s.weaponPosition(m, spec.BarrelLength+spec.Projectile.Radius+1)
+			velocity := Vec.Add(s.Velocity, simulation.RotatePoint(Vec.Create(spec.Projectile.Speed, 0), rotation))
 			id := simulation.EntityID(s.World)
 			projectile := NewProjectile(m.Type, simulation.ObjectProperties{World: s.World, ID: &id, Position: position, Velocity: velocity, PlayerID: s.PlayerID}, s.Catalog)
 			simulation.AddEntity(s.World, projectile)
 
 			if spec.Recoil != 0 {
-				physics.ApplyForce(s, simulation.RotatePoint(Vec.Create(-spec.Recoil, 0), s.Rotation), 0)
+				physics.ApplyForce(s, simulation.RotatePoint(Vec.Create(-spec.Recoil, 0), rotation), 0)
 			}
 
 			m.FireCooldown += spec.FireInterval
@@ -725,6 +728,7 @@ func (s *Ship) Update(dt float64) {
 	}
 
 	s.Craft.Update(dt)
+	s.updateTurrets(dt)
 	s.fireWeapons(dt)
 }
 

@@ -42,13 +42,13 @@ class LaserModule extends Module {
     const start = Vec.add(
       pose.position,
       rotatePoint(
-        Vec.add(this.mount.localPosition, Vec.create(this.barrelLength, 0)),
+        this.muzzlePosition({ distance: this.barrelLength }),
         pose.rotation,
       ),
     );
     const end = Vec.add(
       start,
-      rotatePoint(Vec.create(this.reach, 0), pose.rotation),
+      rotatePoint(Vec.create(this.reach, 0), pose.rotation + this.aimRotation),
     );
     let first: Collider | undefined;
     let fraction = 1;
@@ -148,10 +148,7 @@ class LaserModule extends Module {
       position: Vec.add(
         craft.position,
         rotatePoint(
-          Vec.add(
-            this.mount.localPosition,
-            Vec.create(this.barrelLength + length, 0),
-          ),
+          this.muzzlePosition({ distance: this.barrelLength + length }),
           craft.rotation,
         ),
       ),
@@ -179,6 +176,9 @@ class LaserModule extends Module {
     ) {
       const { first, length } = this.trace(craft, pose);
 
+      game.ctx.save();
+      game.ctx.rotate(this.aimRotation);
+
       renderBeamEffect({
         ctx: game.ctx,
         effect: this.beamEffect,
@@ -187,8 +187,15 @@ class LaserModule extends Module {
         end: this.barrelLength + length,
         hit: !!first,
         elapsed: (craft.world.tick ?? 0) * simulationStep * 1000,
-        draw: () => super.render(options),
+        draw: () => {
+          game.ctx.save();
+          game.ctx.rotate(-this.aimRotation);
+          super.render(options);
+          game.ctx.restore();
+        },
       });
+
+      game.ctx.restore();
 
       return;
     }
@@ -198,3 +205,4 @@ class LaserModule extends Module {
 }
 
 export const Laser = LaserModule.define('laser');
+export const LaserTurret = Laser.define('laserTurret');

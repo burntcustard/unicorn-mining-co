@@ -54,6 +54,7 @@ export class Ship extends Craft {
   static angularInertiaScale = flight.angularInertiaScale;
   kind = 'ship';
   firing = false;
+  declare targetId?: number;
   declare fuelCapacity: number;
   fuel: number;
   storedPower = 0;
@@ -669,6 +670,46 @@ export class Ship extends Craft {
     }
   }
 
+  updateTurrets(dt: number) {
+    if (!this.world || this.dead) return;
+    const target = this.world.entities.get(this.targetId);
+
+    for (const module of this.modules) {
+      if (
+        !module.turret ||
+        !module.mount ||
+        module.mount.health <= 0 ||
+        !this.segments.some(
+          (segment) => segment.module === module && segment.active === 1,
+        )
+      ) {
+        continue;
+      }
+
+      const position = Vec.add(
+        this.position,
+        rotatePoint(module.mount.localPosition, this.rotation),
+      );
+      const angle =
+        target && target !== this && !target.dead && !target.buried
+          ? Math.atan2(
+              target.position.y - position.y,
+              target.position.x - position.x,
+            ) - this.rotation
+          : 0;
+
+      const difference = angle - module.aimRotation;
+      const turn = approach(
+        0,
+        Math.atan2(Math.sin(difference), Math.cos(difference)),
+        module.turretTurnRate * dt,
+      );
+      const rotation = module.aimRotation + turn;
+
+      module.aimRotation = Math.atan2(Math.sin(rotation), Math.cos(rotation));
+    }
+  }
+
   fireWeapons(
     dt: number,
     preview?: {
@@ -733,16 +774,19 @@ export class Ship extends Craft {
         const position = Vec.add(
           this.position,
           rotatePoint(
-            Vec.add(
-              module.mount.localPosition,
-              Vec.create(module.barrelLength + module.projectile.radius + 1, 0),
-            ),
+            module.muzzlePosition({
+              distance: module.barrelLength + module.projectile.radius + 1,
+            }),
             this.rotation,
           ),
         );
+
         const velocity = Vec.add(
           this.velocity,
-          rotatePoint(Vec.create(module.projectile.speed, 0), this.rotation),
+          rotatePoint(
+            Vec.create(module.projectile.speed, 0),
+            this.rotation + module.aimRotation,
+          ),
         );
 
         const projectile = addEntity(
@@ -808,7 +852,10 @@ export class Ship extends Craft {
         if (module.recoil) {
           applyForce(
             this,
-            rotatePoint(Vec.create(-module.recoil, 0), this.rotation),
+            rotatePoint(
+              Vec.create(-module.recoil, 0),
+              this.rotation + module.aimRotation,
+            ),
           );
         }
 
@@ -907,6 +954,10 @@ export class Ship extends Craft {
 
     if (throttle !== this.fuelThrottle) this.fly(this.forward, this.turn);
     super.update(dt);
+
+    // Other players' target choices are private input; retain their replicated
+    // turret angles during remote movement extrapolation.
+    if (this.world?.players.has(this.playerId)) this.updateTurrets(dt);
     this.fireWeapons(dt, shotState);
   }
 }

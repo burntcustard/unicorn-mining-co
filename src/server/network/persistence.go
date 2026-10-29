@@ -33,8 +33,8 @@ type sessionPersistence struct {
 	tickStarted       time.Time
 }
 
-// EnablePersistence restores before accepting connections. Corrupt or
-// incompatible data fails startup rather than silently starting a new world.
+// EnablePersistence restores before accepting connections, skipping removed
+// definitions while preserving saved accounts and the remaining world.
 func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 	saved, err := store.Load(s.worldSeed)
 
@@ -91,6 +91,16 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 				return fmt.Errorf("restore entity %d: %w", e.ID, err)
 			}
 
+			if entity == nil {
+				discarded = append(discarded, persistence.Entity{SectorID: e.SectorID, ID: e.ID, Generated: e.Generated, Deleted: true})
+
+				if e.Generated {
+					s.regions.regions.Remove(uint32(e.ID))
+				}
+
+				continue
+			}
+
 			s.regions.sleeping.Set(e.ID, entity)
 
 			if !e.Generated {
@@ -110,6 +120,12 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 			if err != nil {
 				return fmt.Errorf("restore player %s: %w", profile.ID, err)
+			}
+
+			if ship == nil {
+				// A removed hull leaves the account ready to respawn in a starter ship.
+				ship = objects.CreatePlayerShip(s.World, objects.Properties{ObjectProperties: simulation.ObjectProperties{ID: &profile.Ship.ID, PlayerID: &id}})
+				ship.Dead = true
 			}
 
 			now := s.now()

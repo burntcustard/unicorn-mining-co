@@ -67,7 +67,7 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 			plan.Points = points(part.Points)
 		}
 
-		if spec.Behavior == "weapon" || spec.Behavior == "beam" {
+		if !part.TurretBase && (spec.Behavior == "weapon" || spec.Behavior == "beam") {
 			radius := max(
 				simulation.RadiusOf(plan.Points.Points, simulation.Point{}),
 				simulation.RadiusOf(plan.Points.Points, simulation.Point{spec.RetractionDistance, 0}),
@@ -79,7 +79,7 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 			plan.DynamicPoints = func(segment *simulation.Segment) *simulation.ShapeOutline {
 				side := 1.0
 
-				if segment.Mount.LocalPosition.Y < 0 {
+				if !spec.Turret && segment.Mount.LocalPosition.Y < 0 {
 					side = -1
 				}
 
@@ -94,6 +94,14 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 				for i := range outline.Points {
 					outline.Points[i][0] -= spec.RetractionDistance * (1 - progress)
 					outline.Points[i][1] *= side
+				}
+
+				if spec.Turret {
+					sin, cos := math.Sincos(m.AimRotation)
+
+					for i, point := range outline.Points {
+						outline.Points[i] = simulation.Point{point[0]*cos - point[1]*sin, point[0]*sin + point[1]*cos}
+					}
 				}
 
 				return outline

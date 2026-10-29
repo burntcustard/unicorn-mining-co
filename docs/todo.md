@@ -1,11 +1,5 @@
 # TODO
 
-## Next prompt(?)
-
-Ensure that when the full suite of rendering benchmarks is run (rather than just one of them by itself), as little time as possible is wasted between them doing things like closing/opening the web browser or setting up, resetting, etc. the world. We want one rendering benchmark category to run straight away after another. We also want to show the FPS on the screen in those benchmarks - we have an FPS toggle in the game so it can probably be toggled on in each of the rendering benchmarks with a single keypress or something similarly simple and hopefully only a line or two extra of benchmark code.
-
-Also ensure that words like "benchmarking" and other frequently used words in our recent uncommitted changes have been added to our terminology.md, with brief (a sentance or two if really needed) explanations, and that we haven't accidentally used incorrect words in our new benchmarking code, and/or check if there's any existing terminology entries that may need updating slightly.
-
 ## Ongoing
 
 [-] Server CPU performance improvements
@@ -73,7 +67,7 @@ Also ensure that words like "benchmarking" and other frequently used words in ou
 [ ] New items, unique values and health
 [x] Collisions with rotation physics
 [ ] Figure out new hull/mounting-points relationship
-[ ] New UI v1
+[x] New UI v1
 [x] Rewrite keyboard handler with full key strings
 [x] Better text demo
 [x] Create lower case versions of A-Z
@@ -106,7 +100,7 @@ Also ensure that words like "benchmarking" and other frequently used words in ou
 [x] Fix stations having gone back to wireframe icon in info panels
 [x] Fix not being able to sell Autocannon with inventory full
 [x] Fix "Heard reports of mining" on losing track of player
-[ ] Make map icons for other ships just simple triangles with no rotation
+[x] Make map icons for other ships just simple triangles with no rotation
 
 ## Big future things
 

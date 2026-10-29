@@ -39,6 +39,8 @@ func TestModuleCooldownCacheRetainsExactMutableWireState(t *testing.T) {
 		{"decreasing cooldown", func() { gun.ModuleBase().FireCooldown = .1 }},
 		{"charge cooldown", func() { gun.ModuleBase().ChargeCooldown = .3 }},
 		{"cleared cooldowns", func() { gun.ModuleBase().FireCooldown, gun.ModuleBase().ChargeCooldown = 0, 0 }},
+		{"turret aim", func() { gun.ModuleBase().AimRotation = .75 }},
+		{"reset turret state", func() { gun.ModuleBase().AimRotation = 0 }},
 		{"mount health", func() { gun.ModuleBase().Mount.Health-- }},
 		{"module health", func() { spare.Base().Health-- }},
 		{"shades", func() { gun.Base().Shades = []string{"#123456"} }},

@@ -5,7 +5,7 @@ import {
   encodeClientMessage,
   encodeServerControl,
 } from '../../src/client/protocol/binary-control';
-import { emptyPlayerInput } from '../../src/client/protocol/input';
+import { emptyPlayerInput, sameInput } from '../../src/client/protocol/input';
 import type { ClientMessage } from '../../src/client/protocol/network';
 
 const token = '12345678-9abc-4def-8012-3456789abcde';
@@ -132,6 +132,52 @@ for (const message of controls) {
   assert.deepEqual(decodeClientMessage(encoded.buffer), message);
 }
 
+for (const targetId of [
+  0,
+  -1,
+  2 ** 45,
+  Number.MAX_SAFE_INTEGER,
+  -Number.MAX_SAFE_INTEGER,
+]) {
+  for (const offset of [undefined, 0, 0.015]) {
+    const message: ClientMessage = {
+      type: 'input',
+      tick: 9,
+      sequence: 10,
+      input: {
+        ...emptyPlayerInput(),
+        targetId,
+        fire: true,
+        autogunActive: true,
+      },
+      ...(offset !== undefined && { offset }),
+    };
+
+    assert.deepEqual(
+      decodeClientMessage(encodeClientMessage(message)),
+      message,
+    );
+    assert(!sameInput(message.input, emptyPlayerInput()));
+    assert(sameInput(message.input, { ...message.input }));
+    assert(
+      !sameInput(message.input, { ...message.input, targetId: undefined }),
+    );
+  }
+}
+
+for (const targetId of [NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+  assert.throws(
+    () =>
+      encodeClientMessage({
+        type: 'input',
+        tick: 1,
+        sequence: 1,
+        input: { ...emptyPlayerInput(), targetId },
+      }),
+    /Invalid binary control integer/,
+  );
+}
+
 for (const message of [
   {
     type: 'chat' as const,
@@ -215,6 +261,12 @@ const input = encodeClientMessage({
   input: emptyPlayerInput(),
 });
 
+assert.deepEqual(
+  [...input],
+  [0x55, 0x43, 1, 1, 1, 1, 0, 0],
+  'untargeted inputs retain their wire format',
+);
+
 const paint = encodeClientMessage({
   type: 'dock',
   action: 'paint',
@@ -238,7 +290,20 @@ for (const invalid of [
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
-  changed(input, 7, 64), // invalid input flags
+  changed(input, 7, 128), // invalid input flags
+  changed(input, 7, 64), // missing target ID
+  Uint8Array.from([...changed(input, 7, 64), 0x80, 0]), // noncanonical target ID
+  Uint8Array.from([
+    ...changed(input, 7, 64),
+    0x80,
+    0x80,
+    0x80,
+    0x80,
+    0x80,
+    0x80,
+    0x80,
+    0x20,
+  ]), // unsafe target ID
   changed(paint, 6, 4), // unknown optional field bit
   Uint8Array.from([0x55, 0x43, 1, 2, 1, 0]), // empty sell list
 ]) {

@@ -809,8 +809,12 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	p.clearInputs()
 
 	p.lastInput = protocol.Input{
+		TargetID:  p.ship.TargetID,
 		HornDrill: p.ship.ModuleActive("hornDrill"), CargoHatch: p.ship.ModuleActive("cargoHatch"),
-		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"), PlasmaActive: p.ship.ModuleActive("plasmaAccelerator"), AutogunActive: p.ship.ModuleActive("autogun") || p.ship.ModuleActive("cannonSm"),
+		SearchLight: p.ship.ModuleActive("searchLight"), ShieldGenerator: p.ship.ModuleActive("shieldGenerator"),
+		PlasmaActive:  p.ship.ModuleActive("plasmaAccelerator") || p.ship.ModuleActive("plasmaAcceleratorTurret"),
+		AutogunActive: p.ship.ModuleActive("autogun") || p.ship.ModuleActive("autogunTurret") || p.ship.ModuleActive("cannonSm"),
+		LaserActive:   p.ship.ModuleActive("laser") || p.ship.ModuleActive("laserTurret"),
 	}
 
 	p.lastSequence = 0

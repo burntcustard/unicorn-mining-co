@@ -1,6 +1,6 @@
 import { withAlpha } from '../../utilities/color';
 import { game } from '../../game';
-import { shapeOutlineExtent } from '../../utilities/geometry';
+import { rotatePoint, shapeOutlineExtent } from '../../utilities/geometry';
 import * as Vec from '../../utilities/vector';
 import { addEffect } from '../../effects/effect';
 import { type Craft } from '../craft';
@@ -55,11 +55,10 @@ export class Weapon extends Module {
       addEffect({
         effect: this.muzzleFlash,
         parent: craft,
-        position: Vec.add(
-          this.mount.localPosition,
-          Vec.create(this.barrelLength, 0),
-        ),
-        rotation: 0,
+        position: this.muzzlePosition({
+          distance: this.barrelLength,
+        }),
+        rotation: this.aimRotation,
       });
 
       previous[0] = deadline;
@@ -73,6 +72,8 @@ export class Weapon extends Module {
     spec: Extract<ModuleSpec, { behavior: 'weapon' | 'beam' }>,
   ) {
     return super.createModel(spec).map((part) => {
+      if (part.turretBase) return { ...part, radius: () => part.radius };
+
       const radius = Math.max(
         radiusOf(part.points),
         radiusOf(
@@ -97,10 +98,18 @@ export class Weapon extends Module {
                 : 1),
           );
 
-          return (part.points as ShapeOutline).map(([x, y]) => [
-            x - (spec.retractionDistance ?? 0) * (1 - progress),
-            y * (segment.mount.localPosition.y < 0 ? -1 : 1),
-          ]);
+          return (part.points as ShapeOutline).map(([x, y]) => {
+            x -= (spec.retractionDistance ?? 0) * (1 - progress);
+            y *= !spec.turret && segment.mount.localPosition.y < 0 ? -1 : 1;
+
+            if (!spec.turret) return [x, y];
+            const point = rotatePoint(
+              Vec.create(x, y),
+              segment.module?.aimRotation ?? 0,
+            );
+
+            return [point.x, point.y];
+          });
         },
       };
     });
@@ -153,10 +162,16 @@ export class Weapon extends Module {
         ? segment.points(segment)
         : segment.points;
     const [middleX, middleY] = shapeOutlineExtent(points).middle;
-    const x = middleX + (glow.offset?.[0] ?? 0);
-    const y =
-      middleY +
-      (glow.offset?.[1] ?? 0) * (segment.mount.localPosition.y < 0 ? -1 : 1);
+    const offset = rotatePoint(
+      Vec.create(
+        glow.offset?.[0] ?? 0,
+        (glow.offset?.[1] ?? 0) *
+          (!this.turret && segment.mount.localPosition.y < 0 ? -1 : 1),
+      ),
+      this.aimRotation,
+    );
+    const x = middleX + offset.x;
+    const y = middleY + offset.y;
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, glow.radius);
 
     glow.stops.forEach(
@@ -236,10 +251,11 @@ class AutogunModule extends KineticWeapon {
 
     // Keep the authored barrel shapes for collision and detached wreckage.
     // Draw the rear pair first and the front pair second, before the collars.
-    const pair = this.model.findIndex((part) => part.points === segment.points);
+    const barrels = this.model.filter((part) => !part.turretBase);
+    const pair = barrels.findIndex((part) => part.points === segment.points);
 
     if (
-      this.model.length < 3 ||
+      barrels.length < 3 ||
       pair < 0 ||
       pair > 1 ||
       typeof segment.points !== 'function'
@@ -248,7 +264,14 @@ class AutogunModule extends KineticWeapon {
       return;
     }
 
-    const points = this.model[0].points(segment) as ShapeOutline;
+    const points = (barrels[0].points(segment) as ShapeOutline).map(
+      ([x, y]) => {
+        const point = rotatePoint(Vec.create(x, y), -this.aimRotation);
+
+        return [point.x, point.y];
+      },
+    );
+
     const { middle } = shapeOutlineExtent(points);
     const radius = Math.abs(middle[1]) * Math.SQRT2;
     // A quarter turn per shot puts a barrel on the center line whenever the
@@ -256,23 +279,34 @@ class AutogunModule extends KineticWeapon {
     const phase = this.firingPhase(segment) ?? (segment.phase || 0);
     const angle = Math.PI / 4 + (phase * Math.PI) / 2;
 
-    const barrels = Array.from({ length: 4 }, (_, index) => {
+    const rotating = Array.from({ length: 4 }, (_, index) => {
       const rotation = angle + (index * Math.PI) / 2;
 
       return [Math.sin(rotation) * radius, Math.cos(rotation)];
     }).sort((a, b) => a[1] - b[1]);
 
-    barrels.slice(pair * 2, pair * 2 + 2).forEach(([offset, depth]) => {
+    rotating.slice(pair * 2, pair * 2 + 2).forEach(([offset, depth]) => {
       super.render({
         ...options,
         segment: {
           ...segment,
           fillShade: depth > 0 ? 2 : 0,
         },
-        points: points.map(([x, y]) => [x, y - middle[1] + offset]),
+        points: points.map(([x, y]) => {
+          const point = rotatePoint(
+            Vec.create(x, y - middle[1] + offset),
+            this.aimRotation,
+          );
+
+          return [point.x, point.y];
+        }),
       });
     });
   }
 }
 
 export const Autogun = AutogunModule.define('autogun');
+export const AutogunTurret = Autogun.define('autogunTurret');
+export const PlasmaAcceleratorTurret = PlasmaAccelerator.define(
+  'plasmaAcceleratorTurret',
+);

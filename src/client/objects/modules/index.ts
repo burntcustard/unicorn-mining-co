@@ -1,5 +1,11 @@
-import { Laser } from './laser';
-import { PlasmaAccelerator, Autogun, CannonSm } from './weapon';
+import { Laser, LaserTurret } from './laser';
+import {
+  PlasmaAccelerator,
+  Autogun,
+  CannonSm,
+  PlasmaAcceleratorTurret,
+  AutogunTurret,
+} from './weapon';
 import { moduleIds, type ModuleId } from '../../../specs/modules/index';
 import { Module } from './module';
 
@@ -26,6 +32,9 @@ import { ThrusterDualXl } from './thruster';
 import { ThrusterTriple } from './thruster';
 
 export {
+  PlasmaAcceleratorTurret,
+  AutogunTurret,
+  LaserTurret,
   PlasmaAccelerator,
   Autogun,
   CannonSm,
@@ -74,6 +83,9 @@ export const moduleTypesById = new Map<ModuleId, typeof Module>(
     PowerPlant,
     CannonSm,
     CargoHatchPair,
+    PlasmaAcceleratorTurret,
+    AutogunTurret,
+    LaserTurret,
   ].map((Type) => [Type.definitionId, Type]),
 );
 export const moduleTypes = moduleIds.map((id) => moduleTypesById.get(id)!);

@@ -10,6 +10,7 @@ type ModuleState struct {
 	HealthActivated *float64             `json:"healthActivated,omitempty"`
 	ChargeCooldown  *float64             `json:"chargeCooldown,omitempty"`
 	FireCooldown    *float64             `json:"fireCooldown,omitempty"`
+	AimRotation     *float64             `json:"aimRotation,omitempty"`
 	ID              *int64               `json:"id,omitempty"`
 	Type            int                  `json:"type"`
 	Mount           int                  `json:"mount"`

@@ -177,9 +177,43 @@ func TestCargoReleaseInputFlag(t *testing.T) {
 		t.Fatalf("cargo release control: %+v %v", control, err)
 	}
 
-	packet[7] = 64
+	packet[7] = 128
 
 	if _, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
 		t.Fatal("unknown flag accepted")
+	}
+}
+
+func TestTargetInput(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, targetID := range []int64{0, -1, 1 << 45, (1 << 53) - 1, -((1 << 53) - 1)} {
+		for _, offset := range []bool{false, true} {
+			packet := writer{data: []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 64 | 8 | 2}}
+
+			if offset {
+				packet.data[7] |= 1
+				packet.number(.01)
+			}
+
+			packet.signed(targetID)
+			control, err := DecodeClientControl(packet.data, catalog.Protocol, catalog.Simulation.SimulationStep)
+
+			if err != nil || control.Input.TargetID == nil || *control.Input.TargetID != targetID || !control.Input.Fire || !control.Input.AutogunActive || control.HasOffset != offset {
+				t.Fatalf("target input lost: target=%d offset=%v control=%+v err=%v", targetID, offset, control, err)
+			}
+		}
+	}
+
+	for _, target := range [][]byte{nil, {0x80, 0}, {0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x20}} {
+		packet := append([]byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 64}, target...)
+
+		if _, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
+			t.Fatalf("invalid target accepted: %x", target)
+		}
 	}
 }

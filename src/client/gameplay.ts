@@ -78,6 +78,14 @@ type Background = {
 let gameStarted = false;
 const targeting = new Targeting();
 
+const updateTargetInput = () => {
+  const targetId = targeting.target?.id;
+
+  if (playerInput.targetId === targetId) return;
+  playerInput.targetId = targetId;
+  network.recordInput({ input: { ...playerInput } });
+};
+
 const hud = createHud({
   onToggle: (Type) => {
     if (
@@ -202,6 +210,7 @@ canvas.addEventListener('click', (event) => {
 
   updatePointer(event);
   targeting.targetHovered();
+  updateTargetInput();
 });
 
 canvas.addEventListener('pointerleave', () => {
@@ -321,6 +330,7 @@ bindAction(defaultKeybindings.targetNext, (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
   event.preventDefault();
   targeting.cycleTarget(event.shiftKey);
+  updateTargetInput();
 });
 
 bindAction(defaultKeybindings.requestGateAccess, (event) => {
@@ -578,6 +588,8 @@ const gameLoop = GameLoop({
         poses: remotePoses,
         ship: renderedShip,
       });
+
+      updateTargetInput();
 
       game.ctx = view.ctx = hudContext();
 

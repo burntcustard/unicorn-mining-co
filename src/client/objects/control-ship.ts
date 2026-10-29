@@ -72,6 +72,8 @@ export const controlShip = (
   input: PlayerInput,
   events: SimulationEvent[],
 ) => {
+  ship.targetId = input.targetId;
+
   if (ship.transitTime) {
     ship.firing = false;
     ship.fly(0, 0);

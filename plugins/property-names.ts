@@ -5,6 +5,13 @@
  * skips quoted paths, so a name can also occur inside shape-distance.
  */
 export const propertyNames = [
+  'turret',
+  'turretTurnRate',
+  'turretBase',
+  'aimRotation',
+  'muzzlePosition',
+  'updateTurrets',
+  'targetId',
   'stationModuleIds',
   'stranded',
   'paired',

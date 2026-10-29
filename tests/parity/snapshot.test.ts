@@ -38,6 +38,7 @@ assert.equal(projectile.health, 1.25);
 assert.equal(ship.modules?.[0].type, 12);
 assert.equal(ship.modules?.[0].fireCooldown, 0.375);
 assert.equal(ship.modules?.[0].chargeCooldown, 1.125);
+assert.equal(ship.modules?.[0].aimRotation, 0.75);
 
 assert.equal(ship.id, 7);
 assert.equal(ship.definitionId, 'testScout');

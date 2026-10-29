@@ -14,6 +14,7 @@ import (
 var ErrControl = errors.New("invalid binary control")
 
 type Input struct {
+	TargetID                                            *int64
 	HornDrill, CargoHatch, SearchLight, ShieldGenerator bool
 	Launch, Fire, CargoRelease                          bool
 	PlasmaActive, AutogunActive, LaserActive            bool
@@ -281,7 +282,7 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 
 		hasOffset, err := r.byte()
 
-		if err != nil || hasOffset > 63 {
+		if err != nil || hasOffset > 127 {
 			return Control{}, ErrControl
 		}
 
@@ -300,6 +301,16 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 			}
 
 			message.HasOffset = true
+		}
+
+		if hasOffset&64 != 0 {
+			targetID, err := r.signed()
+
+			if err != nil {
+				return Control{}, err
+			}
+
+			message.Input.TargetID = &targetID
 		}
 	case ids.ControlMessageIDs["dock"]:
 		message.Type = "dock"

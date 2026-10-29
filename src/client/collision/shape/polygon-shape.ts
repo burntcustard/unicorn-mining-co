@@ -21,8 +21,8 @@ export class PolygonShape extends Shape {
    * Create a convex hull from at least three local points.
    *
    * Warning: the points may be re-ordered, even if they form a convex polygon
-   * Warning: collinear points are handled but not removed. Collinear points may
-   * lead to poor stacking behavior.
+   * Collinear points are reduced to the farthest endpoint, allowing for
+   * floating-point error in rotated model geometry.
    */
   _set(vertices: Vec.Value[]): void {
     if (vertices.length < 3) {
@@ -97,13 +97,17 @@ export class PolygonShape extends Shape {
         const vx = ps[j].x - origin.x;
         const vy = ps[j].y - origin.y;
         const cross = rx * vy - ry * vx;
+        const distance = rx * rx + ry * ry;
+        const candidateDistance = vx * vx + vy * vy;
+        const tolerance = 1e-12 * (distance + candidateDistance);
 
-        // Negative cross wraps counter-clockwise.
-        if (cross < 0) {
+        // Rotation leaves tiny cross products between collinear model points.
+        // Keep the farthest endpoint instead of wrapping into an interior cycle.
+        if (cross < -tolerance) {
           ie = j;
         }
 
-        if (cross === 0 && vx * vx + vy * vy > rx * rx + ry * ry) {
+        if (Math.abs(cross) <= tolerance && candidateDistance > distance) {
           ie = j;
         }
       }
@@ -113,6 +117,11 @@ export class PolygonShape extends Shape {
 
       if (ie === i0) {
         break;
+      }
+
+      if (m === n) {
+        this._setAsBox(100, 100);
+        return;
       }
     }
 
@@ -144,16 +153,19 @@ export class PolygonShape extends Shape {
    */
   _setAsBox(hx: number, hy: number): void {
     // start with right-bottom, counter-clockwise, as in Gift wrapping algorithm in PolygonShape._set()
-    this.m_vertices[0] = Vec.create(hx, -hy);
-    this.m_vertices[1] = Vec.create(hx, hy);
-    this.m_vertices[2] = Vec.create(-hx, hy);
-    this.m_vertices[3] = Vec.create(-hx, -hy);
-
-    this.m_normals[0] = Vec.create(1, 0);
-    this.m_normals[1] = Vec.create(0, 1);
-    this.m_normals[2] = Vec.create(-1, 0);
-    this.m_normals[3] = Vec.create(0, -1);
-
+    this.m_vertices = [
+      Vec.create(hx, -hy),
+      Vec.create(hx, hy),
+      Vec.create(-hx, hy),
+      Vec.create(-hx, -hy),
+    ];
+    this.m_normals = [
+      Vec.create(1, 0),
+      Vec.create(0, 1),
+      Vec.create(-1, 0),
+      Vec.create(0, -1),
+    ];
+    Vec.setXY(this.m_centroid, 0, 0);
     this.m_count = 4;
   }
 

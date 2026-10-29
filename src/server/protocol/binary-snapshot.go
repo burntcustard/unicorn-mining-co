@@ -16,6 +16,7 @@ type Vector = specs.Vector
 type ModuleState struct {
 	Type, Mount                                               float64
 	ID, Health, HealthActivated, FireCooldown, ChargeCooldown *float64
+	AimRotation                                               *float64
 	Shades                                                    []string
 	Segments                                                  []ModuleSegment
 }
@@ -152,6 +153,10 @@ func (w *writer) modules(values []ModuleState) {
 			mask |= 32
 		}
 
+		if value.AimRotation != nil {
+			mask |= 64
+		}
+
 		w.byte(mask)
 		w.number(value.Type)
 		w.number(value.Mount)
@@ -178,6 +183,10 @@ func (w *writer) modules(values []ModuleState) {
 
 		if value.HealthActivated != nil {
 			w.number(*value.HealthActivated)
+		}
+
+		if value.AimRotation != nil {
+			w.number(*value.AimRotation)
 		}
 
 		w.unsigned(uint64(len(value.Segments)))
