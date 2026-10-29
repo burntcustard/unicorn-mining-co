@@ -92,7 +92,7 @@
 [ ] Add missions to stations
 [ ] Add wormhole-scanning sensor
 [ ] Add missile/torpedo module
-[ ] Add turret modules
+[-] Add turret modules
 [ ] Add holding cargo hatch key to drop all cargo
 [ ] In outfitting, have current ammo listed somewhere
 [ ] Figure out dual/split thrusters
@@ -101,12 +101,14 @@
 [x] Fix not being able to sell Autocannon with inventory full
 [x] Fix "Heard reports of mining" on losing track of player
 [x] Make map icons for other ships just simple triangles with no rotation
+[ ] Map
+[ ] "Random" NPC spaceship name generator
+[ ] Shield generator should have health and UI so can be disrupted
 
 ## Big future things
 
 [ ] New UI v2
 [ ] Roads
-[ ] Map
 [ ] New ships
 [x] New space stations, with more than 1 docking bay
 [ ] Flashy dots near docking bays
@@ -117,8 +119,7 @@
 [ ] New graphics like concept art
 [ ] Redo path-outline.ts with different colors and stuff
 [ ] Make stars consistent with world location
-[ ] Shield generator should have health and UI so can be disrupted
-[ ] "Random" spaceship name generator
+
 
 ## Js13kGames
 
