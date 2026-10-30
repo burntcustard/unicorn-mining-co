@@ -178,7 +178,8 @@ export const setupGameplay = `(async () => {
   const { default: gameplay } = await loadedGameModule('gameplay.ts');
   const { network } = await loadedGameModule('network/network.ts');
   await network.authenticated;
-  if (!network.displayName) await network.createProfile(new URLSearchParams(location.search).get('scenario') === 'pirate' ? 'Render pirate' : 'Perf pilot');
+  const scenario = new URLSearchParams(location.search).get('scenario');
+  if (!network.displayName) await network.createProfile(scenario === 'pirate' ? 'Render pirate' : 'Perf pilot');
   await gameplay.start();
   const { ui } = await loadedGameModule('ui/dom/ui.ts');
   ui.clear();

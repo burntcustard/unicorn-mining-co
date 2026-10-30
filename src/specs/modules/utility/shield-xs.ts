@@ -9,7 +9,7 @@ export const shieldGeneratorXs = {
   power: 0.4,
   powerActivated: 1.2,
   price: 600,
-  shieldRadius: 40,
+  shieldRadius: 42,
   model: [
     {
       ...shield.model[0],

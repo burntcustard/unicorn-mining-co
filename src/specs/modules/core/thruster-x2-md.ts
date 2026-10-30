@@ -8,7 +8,7 @@ export const thrusterDualMd = {
   power: 1.8,
   powerActivated: 1.8,
   price: 350,
-  fuelUsage: 3.3 / 60,
+  fuelUsage: 0.06,
   forwardThrust: 16,
   rotationalThrust: 16,
   offset: 10,

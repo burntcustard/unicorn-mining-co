@@ -24,6 +24,7 @@ const {
   thrusterSingleMd,
   thrusterSingleLg,
   thrusterSingleXl,
+  thrusterDualSm,
   thrusterDualMd,
   thrusterDualLg,
   thrusterDualXl,
@@ -76,6 +77,7 @@ export {
   autogunTurret,
   plasmaAcceleratorTurret,
   laserTurret,
+  thrusterDualSm,
 };
 // Stable wire IDs: folder and category order must not change these indexes.
 export const moduleIds = [
@@ -103,6 +105,7 @@ export const moduleIds = [
   'autogunTurret',
   'plasmaAcceleratorTurret',
   'laserTurret',
+  'thrusterDualSm',
 ] as const;
 
 export type ModuleId = (typeof moduleIds)[number];
@@ -132,6 +135,7 @@ export const moduleSpecs = {
   autogunTurret,
   plasmaAcceleratorTurret,
   laserTurret,
+  thrusterDualSm,
 };
 
 export const moduleSpecList = Object.values(moduleSpecs);
@@ -166,4 +170,5 @@ export const stationModuleIds: readonly ModuleId[] = [
   'autogunTurret',
   'plasmaAcceleratorTurret',
   'laserTurret',
+  'thrusterDualSm',
 ];

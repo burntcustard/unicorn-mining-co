@@ -39,6 +39,8 @@ export const propertyNames = [
   'accessResponseDelay',
   'targetLabel',
   'npcState',
+  'viewShip',
+  'camera',
   'travelRadius',
   'gateId',
   'channel',

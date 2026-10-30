@@ -88,6 +88,7 @@ export class ProtocolClient {
     players: number;
     runtime: ProtocolRuntime;
     preparationTimeoutMs?: number;
+    displayName?: string;
   };
   readonly entities = new Map<number, ReplicatedEntity>();
   readonly traffic: SnapshotTrafficMessage[] = [];
@@ -194,6 +195,7 @@ export class ProtocolClient {
     players: number;
     runtime: ProtocolRuntime;
     preparationTimeoutMs?: number;
+    displayName?: string;
   }) {
     this.options = options;
     const target = new URL('/game-socket', options.url);
@@ -202,9 +204,14 @@ export class ProtocolClient {
       ? 'wss:'
       : 'ws:';
     this.socket = new WebSocket(target, { perMessageDeflate: false });
+
     this.socket.on('open', () =>
-      this.send({ type: 'hello', playerToken: null }),
+      this.send({
+        type: options.displayName ? 'prepare' : 'hello',
+        playerToken: null,
+      }),
     );
+
     this.socket.on('error', (error) => this.errors.push(String(error)));
 
     this.socket.on('close', (code, reason) => {
@@ -285,8 +292,12 @@ export class ProtocolClient {
 
           this.send({
             type: 'profile',
-            displayName: `CPU benchmark ${options.index + 1}`,
+            displayName:
+              options.displayName || `CPU benchmark ${options.index + 1}`,
           });
+
+          // Compiler fixtures select a scenario at the ordinary Play boundary.
+          if (options.displayName) this.send({ type: 'play' });
 
           return;
         }

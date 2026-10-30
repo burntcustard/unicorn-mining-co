@@ -8,6 +8,7 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { Ship } from '${root}/src/client/objects/ship.ts';
 import { CannonSm, Laser } from '${root}/src/client/objects/modules/index.ts';
+import { colors } from '${root}/src/specs/colors.ts';
 
 let frame;
 let now = performance.now();
@@ -55,6 +56,13 @@ Object.assign(globalThis, {
 const viewer = await import('${root}/src/tools/game-object-viewer/main.ts');
 const ship = viewer.previewObject;
 assert(ship instanceof Ship);
+const moduleShades = ship.mounts.map(mount => mount.module?.shades);
+const paint = elements.get('#hull-paint');
+paint.value = 'cyan';
+elements.get('aside').onchange({ target: paint });
+assert.deepEqual(ship.shades, colors.cyan, 'the hull color control repaints the ship');
+assert(ship.segments.filter(segment => segment.hull).every(segment => segment.shades === colors.cyan));
+assert.deepEqual(ship.mounts.map(mount => mount.module?.shades), moduleShades, 'hull paint preserves fitted module colors');
 const world = ship.world;
 const gunMounts = () => ship.mounts.filter(mount => mount.module instanceof CannonSm || mount.module instanceof Laser);
 const rows = () => elements.get('#modules').children;
@@ -115,6 +123,7 @@ assert(!ship.moduleFiring(first.module));
 // Replace the two cannons with identical lasers using the actual dropdown handlers.
 elements.get('aside').onchange({ target: elements.get('#spec') });
 const laserShip = viewer.previewObject;
+assert.deepEqual(laserShip.shades, colors.cyan, 'hull color survives preview rebuilding');
 const laserMounts = laserShip.mounts.filter(mount => mount.module instanceof CannonSm);
 for (const mount of laserMounts) {
   const row = rows()[laserShip.mounts.indexOf(mount)];

@@ -25,11 +25,12 @@ import {
   ThrusterSingleSm,
   ThrusterSingleLg,
   ThrusterSingleXl,
+  ThrusterDualSm,
+  ThrusterDualMd,
+  ThrusterDualLg,
+  ThrusterDualXl,
+  ThrusterTriple,
 } from './thruster';
-import { ThrusterDualLg } from './thruster';
-import { ThrusterDualMd } from './thruster';
-import { ThrusterDualXl } from './thruster';
-import { ThrusterTriple } from './thruster';
 
 export {
   PlasmaAcceleratorTurret,
@@ -51,6 +52,7 @@ export {
   ThrusterSingleSm,
   ThrusterSingleLg,
   ThrusterSingleXl,
+  ThrusterDualSm,
   ThrusterDualMd,
   ThrusterDualLg,
   ThrusterDualXl,
@@ -62,6 +64,7 @@ export const thrusters = [
   ThrusterSingleMd,
   ThrusterSingleLg,
   ThrusterSingleXl,
+  ThrusterDualSm,
   ThrusterDualMd,
   ThrusterDualLg,
   ThrusterDualXl,

@@ -9,6 +9,7 @@ import { moduleControls as gameModuleControls } from '../../client/objects/contr
 import { moduleBinding } from '../../client/input/keybindings';
 import { createWorld } from '../../client/simulation/world';
 import { autogunAmmo } from '../../specs/items';
+import { colors } from '../../specs/colors';
 import { Laser } from '../../client/objects/modules/laser';
 import { Weapon } from '../../client/objects/modules/weapon';
 import { type Module } from '../../client/objects/modules/module';
@@ -36,6 +37,7 @@ type ViewerState = {
   spin: boolean;
   rotation: number;
   zoom: number;
+  paint: keyof typeof colors;
   modules: Record<string, Record<string, boolean>>;
   attachments: Record<string, Record<string, string>>;
 };
@@ -53,6 +55,7 @@ export const state: ViewerState = {
   spin: false,
   rotation: 0,
   zoom: 2,
+  paint: 'white',
   modules: {},
   attachments: {},
   ...restored,
@@ -69,6 +72,7 @@ const mountPointsInput =
 const spinInput = document.querySelector<HTMLInputElement>('#spin')!;
 const zoomInput = document.querySelector<HTMLInputElement>('#zoom')!;
 const zoomValue = document.querySelector<HTMLOutputElement>('#zoom-value')!;
+const hullPaint = document.querySelector<HTMLSelectElement>('#hull-paint')!;
 const moduleControls =
   document.querySelector<HTMLFieldSetElement>('#module-controls')!;
 const modules = document.querySelector<HTMLDivElement>('#modules')!;
@@ -88,6 +92,18 @@ const world = createWorld();
 const firingModules = new Set<Module>();
 const releases = new Set<() => void>();
 const stopFiring = () => releases.forEach((release) => release());
+
+const paintHull = () => {
+  hullPaint.disabled = !(previewObject instanceof Ship);
+
+  if (!(previewObject instanceof Ship)) return;
+  const shades = colors[state.paint] || colors.white;
+
+  previewObject.shades = shades;
+  previewObject.segments
+    .filter((segment) => segment.hull)
+    .forEach((segment) => (segment.shades = shades));
+};
 
 const createMountControls = ({
   craft,
@@ -289,6 +305,8 @@ const rebuild = () => {
       ...mounts.map((mount) => createMountControls({ craft, ...mount })),
     );
   }
+
+  paintHull();
 };
 
 const resize = () => {
@@ -453,6 +471,12 @@ spinInput.checked = state.spin;
 zoomInput.value = String(state.zoom);
 state.zoom = zoomInput.valueAsNumber;
 zoomValue.value = `${state.zoom.toFixed(2)}×`;
+hullPaint.replaceChildren(
+  ...Object.keys(colors).map(
+    (name) => new Option(name[0].toUpperCase() + name.slice(1), name),
+  ),
+);
+hullPaint.value = state.paint;
 
 controls.onchange = ({ target }) => {
   if (target === typeSelect) {
@@ -467,15 +491,27 @@ controls.onchange = ({ target }) => {
     state.mountPoints = mountPointsInput.checked;
   } else if (target === spinInput) {
     state.spin = spinInput.checked;
+  } else if (target === hullPaint) {
+    state.paint = hullPaint.value as keyof typeof colors;
+    paintHull();
   }
 
   persist();
 };
 
-zoomInput.oninput = () => {
+const updateZoom = () => {
   state.zoom = zoomInput.valueAsNumber;
   zoomValue.value = `${state.zoom.toFixed(2)}×`;
   persist();
+};
+
+zoomInput.oninput = updateZoom;
+
+canvas.onwheel = (event) => {
+  if (!event.deltaY) return;
+  event.preventDefault();
+  zoomInput.stepUp(event.deltaY < 0 ? 1 : -1);
+  updateZoom();
 };
 
 document.querySelector<HTMLButtonElement>('#reset-rotation')!.onclick = () => {

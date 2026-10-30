@@ -150,7 +150,7 @@ func TestTradeItemsSurviveRestart(t *testing.T) {
 
 	s, store = persistedSession(t, path)
 	defer store.Close(context.Background())
-	entity, ok = s.regions.sleeping.Get(stationID)
+	entity, ok = s.regions.Sleeping.Get(stationID)
 
 	if !ok || len(entity.(*objects.Station).CargoContents) != 300 {
 		t.Fatal("purchased stock reappeared after restart")
@@ -227,7 +227,7 @@ func TestStationAmmoSupplySurvivesRestart(t *testing.T) {
 
 	s, store = persistedSession(t, path)
 	defer store.Close(context.Background())
-	entity, ok = s.regions.sleeping.Get(stationID)
+	entity, ok = s.regions.Sleeping.Get(stationID)
 
 	if !ok || len(entity.(*objects.Station).CargoContents) != 0 {
 		t.Fatal("empty station stock must remain empty after restart")

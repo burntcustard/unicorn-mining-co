@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
+	ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
@@ -12,6 +14,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -174,14 +177,14 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 		t.Fatal("lost unlocks, visits or cargo")
 	}
 
-	if s.World.Entities.Has(asteroidID) || s.regions.sleeping.Has(asteroidID) {
+	if s.World.Entities.Has(asteroidID) || s.regions.Sleeping.Has(asteroidID) {
 		t.Fatal("destroyed asteroid regenerated")
 	}
 
 	restored, ok := s.World.Entities.Get(itemID)
 
 	if !ok {
-		restored, ok = s.regions.sleeping.Get(itemID)
+		restored, ok = s.regions.Sleeping.Get(itemID)
 	}
 
 	if !ok || restored.Base().Velocity != Vec.Create(3, 4) {
@@ -247,7 +250,7 @@ func TestCargoTransferSavedAtomically(t *testing.T) {
 
 	s.players.ForEach(func(p *playerRecord, _ string) { restored = p })
 
-	if len(restored.ship.CargoContents) != 1 || restored.ship.CargoContents[0].Base().ID != id || s.regions.sleeping.Has(id) {
+	if len(restored.ship.CargoContents) != 1 || restored.ship.CargoContents[0].Base().ID != id || s.regions.Sleeping.Has(id) {
 		t.Fatal("cargo duplicated or lost on restart")
 	}
 }
@@ -533,7 +536,7 @@ func TestDeadShipAndDrilledAsteroidSurviveRestart(t *testing.T) {
 	a, ok := s.World.Entities.Get(asteroidID)
 
 	if !ok {
-		a, ok = s.regions.sleeping.Get(asteroidID)
+		a, ok = s.regions.Sleeping.Get(asteroidID)
 	}
 
 	if !ok || a.(*simulation.Asteroid).Segments()[0].Health != health {
@@ -543,7 +546,7 @@ func TestDeadShipAndDrilledAsteroidSurviveRestart(t *testing.T) {
 	debris, ok := s.World.Entities.Get(spareID)
 
 	if !ok {
-		debris, ok = s.regions.sleeping.Get(spareID)
+		debris, ok = s.regions.Sleeping.Get(spareID)
 	}
 
 	if !ok || debris.(simulation.Module).ModuleBase().Type != "searchLight" {
@@ -692,5 +695,374 @@ func TestModuleStateSurvivesReconnectAndRestart(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func npcShip(t testing.TB, manager interface{ ForEachShip(func(*objects.Ship)) }) *objects.Ship {
+	t.Helper()
+	var ship *objects.Ship
+
+	manager.ForEachShip(func(current *objects.Ship) {
+		if ship != nil {
+			t.Fatal("expected one NPC")
+		}
+
+		ship = current
+	})
+
+	if ship == nil {
+		t.Fatal("missing NPC ship")
+	}
+
+	return ship
+}
+
+func npcState(t testing.TB, data []byte, changes map[string]any) []byte {
+	t.Helper()
+	var fields map[string]json.RawMessage
+
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatal(err)
+	}
+
+	for key, value := range changes {
+		encoded, err := json.Marshal(value)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fields[key] = encoded
+	}
+
+	result, err := json.Marshal(fields)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return result
+}
+
+func persistedPirate(t testing.TB, s *GameSession, victim *playerRecord) *objects.Ship {
+	t.Helper()
+
+	for range 7 {
+		item := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World))}, s.World.Specification)
+		item.Mined = true
+		victim.ship.CargoContents = append(victim.ship.CargoContents, item)
+	}
+
+	s.sectors[s.currentSector].pirates.Dispatch()
+	return npcShip(t, s.sectors[s.currentSector].pirates)
+}
+
+func TestPirateBehaviorAndMechanicsSurviveRestart(t *testing.T) {
+	for state, name := range []string{"Pursuing", "Waiting", "Fighting", "Search", "Collecting", "Returning", "Docked", "Stranded"} {
+		if state == 0 || state == 2 || state == 6 {
+			continue
+		}
+
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "world.sqlite")
+			s, store := persistedSession(t, path)
+			socket, aggressorSocket := &benchmarkSocket{}, &benchmarkSocket{}
+			s.Receive(protocol.Control{Type: "hello"}, socket)
+			s.Receive(protocol.Control{Type: "hello"}, aggressorSocket)
+			victim, aggressor := s.playersBySocket[socket], s.playersBySocket[aggressorSocket]
+			s.World.Tick = 4200
+			ship := persistedPirate(t, s, victim)
+			victim.pirateAfter = 9000
+			ship.Name = "Blackbird"
+			ship.Position, ship.Velocity = Vec.Create(500, 700), Vec.Create(12, 23)
+			ship.Rotation, ship.Spin = .4, -.15
+			ship.Fuel, ship.StoredPower = 2.5, .75
+			ship.Launching, ship.Forward, ship.Turn = .2, .4, -.5
+
+			for _, segment := range ship.Segments {
+				if segment.Hull {
+					segment.Health -= 2
+					break
+				}
+			}
+
+			ship.SetModuleActive("cargoHatch", true)
+			ship.UpdateModules(.1)
+			item := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World)), Position: Vec.Create(800, 900)}, s.World.Specification)
+			simulation.AddEntity(s.World, item)
+			cargo := objects.NewItem("diamond", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World))}, s.World.Specification)
+			victim.ship.CargoContents = append(victim.ship.CargoContents, cargo)
+			s.savePlayer(victim)
+			manager := s.sectors[s.currentSector].pirates
+
+			data := npcState(t, manager.Capture()[0].State, map[string]any{
+				"State": state, "Credits": 123, "Search": ai.Search{Origin: Vec.Create(150, 230), Heading: .5, Angle: 12}, "Destination": Vec.Create(200, 300),
+				"WarnedAt": 130, "ThinkAfter": 141, "SearchStartedAt": 135, "AttackAfter": 148, "TauntAfter": 150, "CollectAfter": 146, "ReDemandAfter": 145,
+				"Countdown": 2, "Following": true, "PlayerSeen": true, "CargoAccepted": true, "Aggressors": []string{victim.profile.ID, aggressor.profile.ID},
+				"Input": protocol.Input{Thrust: .4, Turn: -.5, CargoHatch: true}, "Loot": []int64{item.ID, cargo.ID}, "LootTarget": item.ID,
+			})
+
+			manager.Pirates = nil
+
+			if err := manager.Restore(ship, data); err != nil {
+				t.Fatal(err)
+			}
+
+			manager.DispatchAt = s.World.Tick + 17
+			wantShip, wantController := objects.CaptureEntity(ship), manager.Capture()[0]
+			victimAccount := victim.profile.ID
+			committedSession(t, s)
+
+			if err := store.Close(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+
+			s, store = persistedSession(t, path)
+			defer store.Close(context.Background())
+			manager = s.sectors[s.currentSector].pirates
+
+			if s.World.Tick != 4200 || manager.DispatchAt != 4217 || len(manager.Capture()) != 1 {
+				t.Fatal("pirate or paused simulation timer was lost")
+			}
+
+			ship = npcShip(t, manager)
+			victim, _ = s.players.Get(victimAccount)
+
+			if victim.pirateAfter != 9000 || ship.Name != "Blackbird" || !ship.Hostile || ship.NPCState != name || !s.World.Players.Has(*ship.PlayerID) {
+				t.Fatal("NPC identity, observer or encounter cooldown was lost")
+			}
+
+			actual := objects.CaptureEntity(ship)
+
+			if actual.Object.Position != wantShip.Object.Position || actual.Object.Velocity != wantShip.Object.Velocity || actual.Object.Spin != wantShip.Object.Spin || actual.Launching != wantShip.Launching || actual.Fuel != wantShip.Fuel || actual.StoredPower != wantShip.StoredPower || !reflect.DeepEqual(actual.HullHealth, wantShip.HullHealth) || !reflect.DeepEqual(actual.Modules, wantShip.Modules) {
+				t.Fatal("NPC motion, fuel, equipment or module animation was reset")
+			}
+
+			if len(ship.CargoContents) != 1 || ship.CargoContents[0].(*objects.Item).Rounds == nil || victim.ship.CargoContents[len(victim.ship.CargoContents)-1].Base().ID != cargo.ID {
+				t.Fatal("NPC ammunition or victim cargo was lost")
+			}
+
+			if actual := manager.Capture()[0]; !reflect.DeepEqual(actual, wantController) {
+				t.Fatalf("NPC account references, loot references, behavior or encounter timers changed across shutdown:\n%s\n%s", wantController.State, actual.State)
+			}
+		})
+	}
+}
+
+func TestPirateNPCAggressorsSurviveRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "world.sqlite")
+	s, store := persistedSession(t, path)
+	firstSocket, secondSocket := &benchmarkSocket{}, &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, firstSocket)
+	s.Receive(protocol.Control{Type: "hello"}, secondSocket)
+	firstVictim, secondVictim := s.playersBySocket[firstSocket], s.playersBySocket[secondSocket]
+	// Restart must resolve stable ship IDs, not accidentally retain these observers.
+	s.nextPlayerID = 1000
+	first := persistedPirate(t, s, firstVictim)
+
+	for range 7 {
+		item := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World))}, s.World.Specification)
+		item.Mined = true
+		secondVictim.ship.CargoContents = append(secondVictim.ship.CargoContents, item)
+	}
+
+	manager := s.sectors[s.currentSector].pirates
+	manager.DispatchAt = 0
+	manager.Dispatch()
+	var second *objects.Ship
+
+	manager.ForEachShip(func(ship *objects.Ship) {
+		if ship != first {
+			second = ship
+		}
+	})
+
+	if second == nil {
+		t.Fatal("second pirate did not launch")
+	}
+
+	first.Launching, second.Launching = 0, 0
+
+	manager.Hits([]protocol.SimulationEvent{
+		protocol.CollisionEvent{By: firstVictim.playerID, B: first.ID, Damage: [2]float64{0, 3}},
+		protocol.CollisionEvent{By: *second.PlayerID, B: first.ID, Damage: [2]float64{0, 3}},
+		protocol.CollisionEvent{By: *first.PlayerID, B: second.ID, Damage: [2]float64{0, 3}},
+	})
+
+	want := manager.Capture()
+
+	var saved struct {
+		Aggressors     []string
+		AggressorShips []int64
+	}
+
+	if err := json.Unmarshal(want[0].State, &saved); err != nil {
+		t.Fatal(err)
+	}
+
+	if !slices.Equal(saved.Aggressors, []string{firstVictim.profile.ID}) || !slices.Equal(saved.AggressorShips, []int64{second.ID}) {
+		t.Fatal("human and NPC aggressors were not captured with stable identities")
+	}
+
+	committedSession(t, s)
+
+	if err := store.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	s, store = persistedSession(t, path)
+	defer store.Close(context.Background())
+	manager = s.sectors[s.currentSector].pirates
+
+	manager.ForEachShip(func(ship *objects.Ship) {
+		if *ship.PlayerID >= 1000 {
+			t.Fatal("test did not reassign the NPC observer identity")
+		}
+	})
+
+	if got := manager.Capture(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("NPC or human hostility changed across restart:\n%v\n%v", want, got)
+	}
+}
+
+func TestCollectorTripAndDispatchSurviveRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "world.sqlite")
+	s, store := persistedSession(t, path)
+	s.World.Tick = 12345
+	home := s.nearestStation(Vec.Vector{})
+	manager := s.sectors[s.currentSector].collectors
+	item := map[string]any{"ID": 123456, "Position": Vec.Create(200, 300), "Name": "Gold", "Taken": false}
+	dispatch, _ := json.Marshal(map[int64]any{int64(home.ID): map[string]any{"Home": home, "CheckAt": 14000, "Seen": map[int64]bool{123456: true}, "Queue": [][]any{{item}}, "LaunchAt": 12450}})
+
+	if err := manager.RestoreDispatch(dispatch); err != nil {
+		t.Fatal(err)
+	}
+
+	playerID := s.nextPlayerID
+	s.nextPlayerID++
+	ship := objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: "finch", ObjectProperties: simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World)), PlayerID: &playerID, Position: Vec.Create(200, 350)}})
+	ship.Name = "Sweep"
+	ship.Velocity, ship.Fuel = Vec.Create(17, 23), 2
+	data, _ := json.Marshal(map[string]any{"Home": home, "HomeID": int64(home.ID), "State": "Inspecting", "Items": []any{item}, "TargetID": 123456, "AttemptStartedAt": 400, "ThinkAfter": 411.6, "Missing": 2, "Inspect": map[string]any{"ID": 654321, "Position": Vec.Create(210, 350), "Name": "Diamond", "ArrivedAt": 409, "Announced": true}, "Inspected": map[int64]bool{123: true}, "HullSegments": 7, "Modules": 4})
+	simulation.AddEntity(s.World, ship)
+
+	if err := manager.Restore(ship, data); err != nil {
+		t.Fatal(err)
+	}
+
+	cargo := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World))}, s.World.Specification)
+	ship.CargoContents = append(ship.CargoContents, cargo)
+	want, wantDispatch := manager.Capture()[0], manager.CaptureDispatch()
+
+	if err := s.shutdownPersistence(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	s, store = persistedSession(t, path)
+	defer store.Close(context.Background())
+	manager = s.sectors[s.currentSector].collectors
+
+	if s.World.Tick != 12345 || len(manager.Capture()) != 1 || string(manager.CaptureDispatch()) != string(wantDispatch) {
+		t.Fatal("station grace interval or queued launch timer changed during shutdown")
+	}
+
+	ship = npcShip(t, manager)
+
+	if actual := manager.Capture()[0]; !reflect.DeepEqual(actual, want) || ship.Velocity != Vec.Create(17, 23) || ship.Fuel != 2 || ship.Name != "Sweep" || len(ship.CargoContents) != 1 || ship.CargoContents[0].Base().ID != cargo.ID {
+		t.Fatal("collector trip, inspection, physical state or cargo was lost")
+	}
+
+	if !s.World.Players.Has(*ship.PlayerID) || !s.World.Entities.Has(ship.ID) || s.regions.Sleeping.Has(ship.ID) {
+		t.Fatal("restored collector did not resume as an active observer without players")
+	}
+}
+
+func TestNPCCargoAndDespawnSaveAtomically(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "world.sqlite")
+	s, store := persistedSession(t, path)
+	socket := &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	ship := persistedPirate(t, s, s.playersBySocket[socket])
+	item := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World))}, s.World.Specification)
+	simulation.AddEntity(s.World, item)
+	committedSession(t, s)
+	item.Remove()
+	ship.CargoContents = append(ship.CargoContents, item)
+	committedSession(t, s)
+
+	if err := store.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	s, store = persistedSession(t, path)
+	ship = npcShip(t, s.sectors[s.currentSector].pirates)
+
+	if len(ship.CargoContents) != 2 || ship.CargoContents[1].Base().ID != item.ID || s.regions.Sleeping.Has(item.ID) || s.World.Entities.Has(item.ID) {
+		t.Fatal("NPC pickup duplicated or lost the collected item")
+	}
+
+	s.World.Entities.Delete(ship.ID)
+	s.World.Players.Delete(*ship.PlayerID)
+	s.sectors[s.currentSector].pirates.Pirates = nil
+	committedSession(t, s)
+
+	if err := store.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	s, store = persistedSession(t, path)
+	defer store.Close(context.Background())
+
+	if len(s.sectors[s.currentSector].pirates.Capture()) != 0 || s.World.Entities.Has(ship.ID) || s.regions.Sleeping.Has(ship.ID) {
+		t.Fatal("despawned NPC returned as a controller or uncontrolled ship")
+	}
+}
+
+func TestIdleCollectorTimerUsesBackgroundSave(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "world.sqlite")
+	s, store := persistedSession(t, path)
+	clock := s.now()
+
+	s.now = func() time.Time { return clock }
+
+	home := s.nearestStation(Vec.Vector{})
+	manager := s.sectors[s.currentSector].collectors
+	data, _ := json.Marshal(map[int64]any{int64(home.ID): map[string]any{"Home": home, "CheckAt": 6000, "Seen": map[int64]bool{42: true}}})
+
+	if err := manager.RestoreDispatch(data); err != nil {
+		t.Fatal(err)
+	}
+
+	committedSession(t, s)
+	before := s.persistence.sequence
+	s.World.Tick = 600
+	manager.Stations[int64(home.ID)].CheckAt = 6600
+	clock = clock.Add(29 * time.Second)
+	s.flushBackgroundChanges()
+
+	if s.persistence.sequence != before {
+		t.Fatal("idle NPC state saved before the existing background interval")
+	}
+
+	clock = clock.Add(time.Second)
+	s.flushBackgroundChanges()
+
+	if s.persistence.sequence != before+1 {
+		t.Fatal("idle dispatch timer was not saved without player or entity changes")
+	}
+
+	if err := store.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	s, store = persistedSession(t, path)
+	defer store.Close(context.Background())
+
+	if s.World.Tick != 600 || s.sectors[s.currentSector].collectors.Stations[int64(home.ID)].CheckAt != 6600 {
+		t.Fatal("idle timer state did not survive restart")
 	}
 }

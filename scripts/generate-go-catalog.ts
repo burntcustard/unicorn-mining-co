@@ -25,7 +25,9 @@ import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { colors, paintColors } from '../src/specs/colors';
 import { pirateDialog } from '../src/specs/dialog/pirate';
-import { pirateSpec } from '../src/specs/pirate';
+import { pirateSpec } from '../src/specs/npcs/pirate';
+import { collectorSpec } from '../src/specs/npcs/collector';
+import { collectorDialog } from '../src/specs/dialog/collector';
 import { npcMovement } from '../src/specs/npc-movement';
 import { jumpGateDialog } from '../src/specs/dialog/jump-gate';
 import { itemIds, itemSpecs } from '../src/specs/items/index';
@@ -95,6 +97,8 @@ const simulation = {
 const catalog = {
   npcMovement,
   pirateSpec,
+  collectorSpec,
+  collectorDialog,
   jumpGateDialog,
   pirateDialog,
   jumpGateSpec,

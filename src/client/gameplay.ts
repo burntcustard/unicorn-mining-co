@@ -349,6 +349,8 @@ bindAction(defaultKeybindings.fpsCounter, (event) => {
 bindDebug(game);
 // @endif
 
+game.camera = camera;
+
 const gameLoop = GameLoop({
   render: ({ dt, now }) => {
     const predicted = network.predictFrame({ now });
@@ -363,10 +365,11 @@ const gameLoop = GameLoop({
       shipId: network.shipId,
     });
 
-    const predictedPlayerShip = predicted.entities.get(player.ship.id);
+    const viewShip = game.viewShip || player.ship;
+    const predictedViewShip = predicted.entities.get(viewShip.id);
     const renderedShip =
-      predictedPlayerShip instanceof Ship ? predictedPlayerShip : player.ship;
-    const playerPose = remotePoses.get(player.ship.id) || renderedShip;
+      predictedViewShip instanceof Ship ? predictedViewShip : viewShip;
+    const playerPose = remotePoses.get(viewShip.id) || renderedShip;
     const transitPortal = renderedShip.transitTime
       ? predicted.entities.get(renderedShip.transitGate)
       : undefined;
@@ -376,7 +379,7 @@ const gameLoop = GameLoop({
         game,
         {
           position: transitPortal?.position || playerPose.position,
-          dockedTo: transitPortal?.id || player.ship.dockedTo,
+          dockedTo: transitPortal?.id || viewShip.dockedTo,
         },
         dt,
         transitPortal
@@ -686,10 +689,11 @@ const gameLoop = GameLoop({
     if (activeTime >= 1 / 15 || spriteCount !== game.sprites.length) {
       activeTime %= 1 / 15;
       spriteCount = game.sprites.length;
+      const center = (game.viewShip || player.ship).position;
+
       activeSprites = game.sprites.filter(
         (sprite) =>
-          !sprite.dead &&
-          Vec.distance(sprite.position, player.ship.position) <= activeRadius,
+          !sprite.dead && Vec.distance(sprite.position, center) <= activeRadius,
       );
     }
 

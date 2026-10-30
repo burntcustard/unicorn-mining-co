@@ -11,7 +11,7 @@ export const autogunTurret = {
   behavior: 'weapon',
   name: 'Autogun Turret',
   turret: true,
-  turretTurnRate: Math.PI,
+  turretTurnRate: 3,
   health: 0,
   healthActivated: 20,
   power: 0.2,

@@ -2,11 +2,15 @@ package network
 
 import (
 	"fmt"
+	"github.com/burntcustard/unicorn-mining-co/src/server/regions"
 	"math"
 	"slices"
 	"time"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
+	ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
+	"github.com/burntcustard/unicorn-mining-co/src/server/npc/collector"
+	"github.com/burntcustard/unicorn-mining-co/src/server/npc/pirate"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
@@ -15,15 +19,15 @@ import (
 )
 
 type sectorRuntime struct {
-	pirates          []*pirate
-	pirateDispatchAt uint64
-	world            *simulation.World
-	regions          *RegionManager
-	view             *ReplicationView
-	batch            *BinarySnapshotBatch
-	syncedAt         float64
-	portals          []*objects.Portal
-	closing          map[*objects.Portal]bool
+	collectors *collector.Manager
+	pirates    *pirate.Manager
+	world      *simulation.World
+	regions    *regions.Manager
+	view       *ReplicationView
+	batch      *BinarySnapshotBatch
+	syncedAt   float64
+	portals    []*objects.Portal
+	closing    map[*objects.Portal]bool
 }
 
 type tickPlayer struct {
@@ -103,11 +107,14 @@ func (s *GameSession) activateSector(id string) {
 		// Global IDs distinguish persistent objects and ships across isolated worlds.
 		world.NextEntityID = s.nextEntityID
 		world.NextObjectID = -offset
-		regions := NewRegionManager(uint32(s.worldSeed), catalog, *sector)
-		regions.idOffset = offset
-		runtime = &sectorRuntime{world: world, regions: regions, view: NewReplicationView(world), batch: NewBinarySnapshotBatch(catalog), syncedAt: math.Inf(-1)}
+		regionManager := regions.New(uint32(s.worldSeed), catalog, *sector)
+		regionManager.IDOffset = offset
+		runtime = &sectorRuntime{world: world, regions: regionManager, view: NewReplicationView(world), batch: NewBinarySnapshotBatch(catalog), syncedAt: math.Inf(-1)}
 		runtime.closing = make(map[*objects.Portal]bool)
 		s.sectors[id] = runtime
+		environment := &sectorEnvironment{session: s, runtime: runtime, sector: id}
+		runtime.collectors = collector.New(environment)
+		runtime.pirates = pirate.New(environment)
 
 		for kind, links := range [][]simulation.SectorLink{s.sectorMap.Links, s.sectorMap.WormholeLinks} {
 			for _, link := range links {
@@ -245,7 +252,7 @@ func (s *GameSession) preparePortals() map[*playerRecord]Vec.Vector {
 					}
 				} else if gate.Opening == 0 && gate.OpeningTarget == 0 && gate.ContainsInterior(p.ship.Position) {
 					gate.RequestExitOpening()
-					message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: dialogText(gate.World.Specification.JumpGateDialog.Recovery, "{player}", p.profile.DisplayName)}
+					message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: ai.DialogText(gate.World.Specification.JumpGateDialog.Recovery, "{player}", p.profile.DisplayName)}
 
 					s.sectorPlayers(func(recipient *playerRecord, _ string) {
 						if recipient.socket != nil && s.World.Players.Has(recipient.playerID) {
@@ -399,7 +406,7 @@ func (s *GameSession) crossPortals(before map[*playerRecord]Vec.Vector) {
 					player = "pilot"
 				}
 
-				text := dialogText(exit.World.Specification.JumpGateDialog.Arrival, "{destination}", portal.DestinationName, "{player}", player)
+				text := ai.DialogText(exit.World.Specification.JumpGateDialog.Arrival, "{destination}", portal.DestinationName, "{player}", player)
 				p.arrivalMessage = &protocol.ServerControl{Type: "chat", Sender: exit.Name, SenderRole: "friendly", Text: text}
 			}
 
@@ -516,3 +523,146 @@ func (s *GameSession) sectorForWorld(world *simulation.World) string {
 
 	return s.World.Specification.StartingSectorID
 }
+
+/*
+sectorEnvironment connects controllers to this sector without exposing sockets
+or depending on whichever sector the session happens to be processing.
+*/
+type sectorEnvironment struct {
+	session *GameSession
+	runtime *sectorRuntime
+	sector  string
+}
+
+func (e *sectorEnvironment) World() *simulation.World { return e.runtime.world }
+
+func (e *sectorEnvironment) NextObserverID() int64 {
+	id := e.session.nextPlayerID
+	e.session.nextPlayerID++
+	return id
+}
+
+func (e *sectorEnvironment) Players(visit func(ai.Player)) {
+	s := e.session
+
+	if s.tickPlayersReady {
+		for _, entry := range s.tickPlayers {
+			if entry.player.sectorID == e.sector {
+				visit(entry.player)
+			}
+		}
+
+		return
+	}
+
+	s.players.ForEach(func(p *playerRecord, _ string) {
+		if p.sectorID == e.sector {
+			visit(p)
+		}
+	})
+}
+
+func (e *sectorEnvironment) Player(account string) ai.Player {
+	if p, ok := e.session.players.Get(account); ok {
+		return p
+	}
+
+	return nil
+}
+
+func (e *sectorEnvironment) AllPlayers(visit func(ai.Player)) {
+	e.session.players.ForEach(func(p *playerRecord, _ string) { visit(p) })
+}
+
+func (e *sectorEnvironment) Entity(id int64) simulation.Entity {
+	if entity, ok := e.runtime.world.Entities.Get(id); ok {
+		return entity
+	}
+
+	entity, _ := e.runtime.regions.Sleeping.Get(id)
+	return entity
+}
+
+func (e *sectorEnvironment) Sleeping(visit func(simulation.Entity, int64)) {
+	e.runtime.regions.Sleeping.ForEach(visit)
+}
+
+func (e *sectorEnvironment) SyncRegions() {
+	var positions []Vec.Vector
+
+	e.Players(func(p ai.Player) {
+		if e.World().Players.Has(p.ObserverID()) || e.World().Entities.Has(p.Ship().ID) {
+			positions = append(positions, p.Ship().Position)
+		}
+	})
+
+	e.runtime.regions.Sync(e.World(), positions)
+}
+
+func (e *sectorEnvironment) Stations(position Vec.Vector, ranges *protocol.WorldRanges) []protocol.StationDescription {
+	return e.runtime.regions.View(position, ranges).StationMarkers
+}
+
+func (e *sectorEnvironment) StationID(home protocol.StationDescription) int64 {
+	return e.runtime.regions.IDOffset + int64(home.ID)
+}
+
+func (e *sectorEnvironment) NearestStation(position Vec.Vector) protocol.StationDescription {
+	return e.runtime.regions.NearestStation(position)
+}
+
+func (e *sectorEnvironment) SetInput(id int64, input protocol.Input) {
+	e.session.inputs[id] = protocol.InputFrame{Input: input}
+}
+
+func (e *sectorEnvironment) ClearInput(id int64) { delete(e.session.inputs, id) }
+
+func (e *sectorEnvironment) Broadcast(message protocol.ServerControl) {
+	e.Players(func(p ai.Player) {
+		if p.Connected() && e.World().Players.Has(p.ObserverID()) {
+			e.Send(p, message)
+		}
+	})
+}
+
+func (e *sectorEnvironment) Send(player ai.Player, message protocol.ServerControl) {
+	if p, ok := player.(*playerRecord); ok && p.socket != nil {
+		e.session.sendControl(p.socket, message)
+	}
+}
+
+func (p *playerRecord) AccountID() string { return p.profile.ID }
+
+func (p *playerRecord) ObserverID() int64 { return p.playerID }
+
+func (p *playerRecord) Ship() *objects.Ship { return p.ship }
+
+func (p *playerRecord) Connected() bool { return p.socket != nil }
+
+func (p *playerRecord) EncounterAfter() uint64 { return p.pirateAfter }
+
+func (p *playerRecord) SetEncounterAfter(tick uint64) { p.pirateAfter = tick }
+
+/*
+SectorView exposes simulation state to local diagnostics without exposing session
+connections, replication caches, or controller internals.
+*/
+type SectorView struct {
+	ID          string
+	World       *simulation.World
+	Environment ai.Environment
+	Pirates     *pirate.Manager
+	Collectors  *collector.Manager
+}
+
+func (s *GameSession) VisitSectors(visit func(SectorView)) {
+	for id, runtime := range s.sectors {
+		visit(SectorView{ID: id, World: runtime.world, Environment: runtime.collectors.Environment, Pirates: runtime.pirates, Collectors: runtime.collectors})
+	}
+}
+
+func (s *GameSession) VisitPlayers(visit func(ai.Player)) {
+	s.players.ForEach(func(p *playerRecord, _ string) { visit(p) })
+}
+
+func (e *sectorEnvironment) WorldSeed() float64 { return e.session.worldSeed }

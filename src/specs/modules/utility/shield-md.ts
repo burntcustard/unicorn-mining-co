@@ -9,5 +9,5 @@ export const shieldGeneratorMd = {
   power: 0.4,
   powerActivated: 1.4,
   price: 1200,
-  shieldRadius: 61,
+  shieldRadius: 60,
 } satisfies ModuleSpec;

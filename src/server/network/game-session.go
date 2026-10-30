@@ -3,6 +3,7 @@ package network
 
 import (
 	"cmp"
+	"github.com/burntcustard/unicorn-mining-co/src/server/regions"
 	"math"
 	"slices"
 	"time"
@@ -133,7 +134,7 @@ type GameSession struct {
 	inputs           map[int64]protocol.InputFrame
 	binaryBatch      *BinarySnapshotBatch
 	replicationView  *ReplicationView
-	regions          *RegionManager
+	regions          *regions.Manager
 	regionsSyncedAt  float64
 	worldSeed        float64
 	now              func() time.Time
@@ -144,9 +145,18 @@ type GameSession struct {
 	loadSince        loadBaseline
 }
 
-func NewGameSession(seed float64, catalog specs.Catalog) *GameSession {
+type SessionOptions struct {
+	Now func() time.Time
+}
+
+func NewGameSession(seed float64, catalog specs.Catalog, options ...SessionOptions) *GameSession {
 	world := simulation.CreateWorld(seed, catalog)
 	session := &GameSession{nextEntityID: 1 << 48, World: world, nextPlayerID: 1, players: utilities.NewOrderedMap[string, *playerRecord](), playersByID: map[int64]*playerRecord{}, playersBySocket: map[SessionSocket]*playerRecord{}, inputs: map[int64]protocol.InputFrame{}, worldSeed: seed, now: time.Now}
+
+	if len(options) > 0 && options[0].Now != nil {
+		session.now = options[0].Now
+	}
+
 	session.sectorMap = simulation.GenerateSectorMap(uint32(seed), catalog)
 	session.sectors = map[string]*sectorRuntime{}
 	session.activateSector(catalog.StartingSectorID)
@@ -191,27 +201,7 @@ func send(socket SessionSocket, packet []byte) {
 }
 
 func (s *GameSession) nearestStation(position Vec.Vector) protocol.StationDescription {
-	ranges := protocol.Ranges(s.World.Specification.Simulation.WorldRanges)
-	stations := s.regions.View(position, nil).StationMarkers
-
-	for len(stations) == 0 && ranges.StationMarker < 200000 {
-		ranges.StationMarker *= 2
-		stations = s.regions.View(position, &ranges).StationMarkers
-	}
-
-	if len(stations) == 0 {
-		return protocol.StationDescription{}
-	}
-
-	closest := stations[0]
-
-	for _, station := range stations[1:] {
-		if Vec.Distance(station.Position, position) < Vec.Distance(closest.Position, position) {
-			closest = station
-		}
-	}
-
-	return closest
+	return s.regions.NearestStation(position)
 }
 
 func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
@@ -480,7 +470,8 @@ func (s *GameSession) tickSector(ticks uint64) {
 		})
 	}
 
-	s.dispatchPirates()
+	s.sectors[s.currentSector].pirates.Dispatch()
+	s.sectors[s.currentSector].collectors.Dispatch()
 
 	if float64(world.Tick)-s.regionsSyncedAt >= 8 {
 		s.regions.Sync(world, s.positions())
@@ -500,11 +491,18 @@ func (s *GameSession) tickSector(ticks uint64) {
 
 		object.InactivePhysics = true
 
-		for _, npc := range s.sectors[s.currentSector].pirates {
-			if !npc.ship.Dead && Vec.DistanceSquared(object.Position, npc.ship.Position) <= pirateRange*pirateRange {
-				object.InactivePhysics = false
+		world.Players.ForEach(func(observer simulation.Player, _ int64) {
+			if !object.InactivePhysics || observer.ObserverRange <= 0 {
 				return
 			}
+
+			if entity, ok := world.Entities.Get(observer.ShipID); ok && !entity.Base().Dead && Vec.DistanceSquared(object.Position, entity.Base().Position) <= observer.ObserverRange*observer.ObserverRange {
+				object.InactivePhysics = false
+			}
+		})
+
+		if !object.InactivePhysics {
+			return
 		}
 
 		for _, position := range positions {
@@ -599,11 +597,13 @@ func (s *GameSession) tickSector(ticks uint64) {
 
 	before := s.preparePortals()
 	dt := float64(ticks) * step
-	s.updatePirates()
+	s.sectors[s.currentSector].pirates.Update()
+	s.sectors[s.currentSector].collectors.Update()
 	s.updateGateAccess(dt)
 	events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: s.inputs, DT: &dt, Ticks: int(ticks)})
-	s.pirateLootCollected(events)
-	s.pirateHits(events)
+	s.sectors[s.currentSector].pirates.ItemsCollected(events)
+	s.sectors[s.currentSector].collectors.ItemsCollected(events)
+	s.sectors[s.currentSector].pirates.Hits(events)
 	s.interruptGateClosing(before)
 	s.crossPortals(before)
 	s.progress(events)
@@ -882,7 +882,7 @@ func (s *GameSession) respawn(p *playerRecord) {
 	}
 
 	s.regions.Sync(s.World, append(s.positions(), nearest.Position))
-	station, ok := s.World.Entities.Get(s.regions.idOffset + int64(nearest.ID))
+	station, ok := s.World.Entities.Get(s.regions.IDOffset + int64(nearest.ID))
 
 	if !ok || station.Base().Kind != "station" {
 		return

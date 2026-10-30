@@ -62,7 +62,7 @@ func TestPersistenceSkipsRemovedDefinitions(t *testing.T) {
 		t.Fatal("restart must preserve the account, ship and remaining possessions")
 	}
 
-	if _, exists := s.regions.sleeping.Get(removedID); exists {
+	if _, exists := s.regions.Sleeping.Get(removedID); exists {
 		t.Fatal("the removed world module must not be restored")
 	}
 

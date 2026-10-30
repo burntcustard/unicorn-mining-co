@@ -85,8 +85,8 @@ func BenchmarkCheckpointPersistence(b *testing.B) {
 			// No region loading or simulation runs after this setup.
 			for _, sector := range s.sectors {
 				sector.world.Entities.Clear()
-				sector.regions.managed.Clear()
-				sector.regions.sleeping.Clear()
+				sector.regions.Managed.Clear()
+				sector.regions.Sleeping.Clear()
 			}
 
 			for _, p := range players {
@@ -113,7 +113,7 @@ func BenchmarkCheckpointPersistence(b *testing.B) {
 					Contents:         []int{1, 2}, PointCount: 11,
 				}).LockGeometry()
 
-				s.regions.managed.Set(pristine.ID, true)
+				s.regions.Managed.Set(pristine.ID, true)
 				simulation.AddEntity(s.World, pristine)
 				spinning = append(spinning, pristine)
 

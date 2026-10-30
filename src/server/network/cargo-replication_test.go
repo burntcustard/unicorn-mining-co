@@ -2,6 +2,7 @@ package network
 
 import (
 	"bytes"
+	"encoding/json"
 	"slices"
 	"testing"
 
@@ -128,6 +129,67 @@ func TestCargoSerializationCacheRetainsMutableStateAndModuleIndexes(t *testing.T
 				if record.nested[0] != sentinel {
 					t.Fatal("unchanged cargo was serialized again")
 				}
+			}
+		})
+	}
+}
+
+func TestDockedPirateDisappearsImmediately(t *testing.T) {
+	for state, name := range []string{"Pursuing", "Waiting", "Fighting", "Search", "Collecting", "Returning", "Docked", "Stranded"} {
+		t.Run(name, func(t *testing.T) {
+			catalog, _ := specs.Load()
+			s := NewGameSession(25, catalog)
+			socket := &soundSocket{}
+			s.Receive(protocol.Control{Type: "hello"}, socket)
+			p := s.playersBySocket[socket]
+			ship := persistedPirate(t, s, p)
+			controller := s.sectors[s.currentSector].pirates
+
+			var saved struct{ HomeID int64 }
+
+			json.Unmarshal(controller.Capture()[0].State, &saved)
+			data := npcState(t, controller.Capture()[0].State, map[string]any{"State": state, "ThinkAfter": 1e9})
+			controller.Pirates = nil
+
+			if err := controller.Restore(ship, data); err != nil {
+				t.Fatal(err)
+			}
+
+			ship.Launching = 0
+			ship.DockedTo = &saved.HomeID
+			station, _ := s.World.Entities.Get(saved.HomeID)
+			cargo := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World))}, s.World.Specification)
+			ship.CargoContents = append(ship.CargoContents, cargo)
+			loot := objects.NewItem("gold", simulation.ObjectProperties{World: s.World, ID: new(simulation.EntityID(s.World)), Position: p.ship.Position}, s.World.Specification)
+			simulation.AddEntity(s.World, loot)
+
+			manager := NewBinaryReplicationManager(s.World.Specification)
+			options := SnapshotOptions{World: s.World, ShipID: p.ship.ID}
+			manager.Initial(options)
+
+			if manager.members[ship.ID] == nil {
+				t.Fatal("pirate was not initially replicated")
+			}
+
+			observer, _ := s.World.Players.Get(*ship.PlayerID)
+			credits := observer.Credits
+			controller.Update()
+			manager.Snapshot(options)
+
+			if s.World.Entities.Has(ship.ID) || s.World.Players.Has(*ship.PlayerID) || len(controller.Capture()) != 0 || manager.members[ship.ID] != nil {
+				t.Fatal("docked pirate remained in the world or client snapshot")
+			}
+
+			if !slices.Contains(station.(*objects.Station).CargoContents, simulation.Entity(cargo)) || *credits != 1000+cargo.Price {
+				t.Fatal("pirate did not sell its carried cargo before disappearing")
+			}
+
+			if !s.World.Entities.Has(loot.ID) || ship.Launching != 0 || p.pirateAfter <= s.World.Tick {
+				t.Fatal("pirate relaunched for leftover cargo or skipped the encounter cooldown")
+			}
+
+			if ship.Dead || slices.ContainsFunc(socket.frames, func(frame []byte) bool { return bytes.Contains(frame, []byte("AHH!")) }) {
+				t.Fatal("docking was treated as ship destruction")
 			}
 		})
 	}

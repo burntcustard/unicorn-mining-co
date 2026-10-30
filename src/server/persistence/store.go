@@ -40,6 +40,18 @@ type SectorState struct {
 	Tick                       uint64
 	RandomState                float64
 	NextEntityID, NextObjectID int64
+	PirateDispatchAt           uint64            `json:",omitempty"`
+	PirateCooldowns            map[string]uint64 `json:",omitempty"`
+	NPCs                       []NPC             `json:",omitempty"`
+	NPCDispatch                json.RawMessage   `json:",omitempty"`
+}
+
+// NPC controllers refer to ordinary entity rows so ships and their cargo share
+// the world's existing atomic save transaction and full mechanics format.
+type NPC struct {
+	Kind  string
+	ID    int64
+	State json.RawMessage
 }
 
 type World struct {

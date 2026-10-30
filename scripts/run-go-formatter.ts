@@ -8,6 +8,8 @@ const visit = (directory: string) => {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
 
+    if (path === 'benchmarking/_local') continue;
+
     if (entry.isDirectory()) {
       visit(path);
     } else if (entry.isFile() && path.endsWith('.go')) {

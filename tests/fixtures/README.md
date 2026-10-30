@@ -36,6 +36,9 @@ The range update includes additional nearby objects and the resulting runtime
 allocation IDs; packet counts, timing, acknowledgments, and account data stay fixed.
 The replay uses the example module and ammunition catalog, with the normal
 ship, station, and fuel specs. Full ship records include the replicated
+fuel values calculated with the rounded module fuel rates; updating those
+rates changed only fuel values in the fixed replay, preserving all other fields.
+Full ship records also include the replicated
 `firing` boolean, initially false in these actions. The test decodes newly emitted packets through the
 client codec and checks every message against those fixed records, including
 account metadata, rejected actions, interest sets, reconnects, and respawns.

@@ -970,6 +970,7 @@ export class Craft extends GameObject {
                   ? segment.module.renderGlow
                   : (segment.beam ?? segment.module.beam)) ||
                 (!segment.activationProgress &&
+                  !(segment.module.forwardThrust && segment.phase) &&
                   (!glow || segment.module.forwardThrust)) ||
                 (segment.mount || segment).health < 1
               ) {

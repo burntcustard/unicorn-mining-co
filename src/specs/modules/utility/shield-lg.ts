@@ -9,19 +9,33 @@ export const shieldGeneratorLg = {
   power: 0.4,
   powerActivated: 1.5,
   price: 1500,
-  shieldRadius: 73,
+  shieldRadius: 74,
   model: [
     {
       ...shield.model[0],
       radius: 7.5,
-      lines: Array.from({ length: 5 }, (_, index) => {
-        const angle = (index * Math.PI * 2) / 5 - Math.PI / 2;
-
-        return [
+      lines: [
+        [
           [0, 0],
-          [Math.cos(angle) * 7.5, Math.sin(angle) * 7.5],
-        ];
-      }),
+          [0, -7.5],
+        ],
+        [
+          [0, 0],
+          [7.13, -2.32],
+        ],
+        [
+          [0, 0],
+          [4.4, 6.07],
+        ],
+        [
+          [0, 0],
+          [-4.4, 6.07],
+        ],
+        [
+          [0, 0],
+          [-7.13, -2.32],
+        ],
+      ],
     },
     shield.model[1],
   ],

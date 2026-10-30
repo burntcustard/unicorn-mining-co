@@ -25,8 +25,17 @@ type obstacleMotion struct {
 	fromRotation, toRotation Vec.Vector
 }
 
+type predictionOptions struct {
+	obstacles []obstacle
+	radius    float64
+	step      float64
+	steps     int
+	coast     bool
+}
+
 type predictor struct {
-	ship *objects.Ship
+	coast bool
+	ship  *objects.Ship
 
 	clearance, angular, maxSpin, acceleration  float64
 	maximumSpeed, drag, angularDrag, speedDrag float64
@@ -34,7 +43,7 @@ type predictor struct {
 	obstacles        []obstacleForecast
 	motion           []obstacleMotion
 	path, directions []Vec.Vector
-	steps            int
+	step             float64
 
 	heading, turn float64
 	steeringReady bool
@@ -44,23 +53,36 @@ type predictor struct {
 reset shares ship mechanics and obstacle forecasts across every candidate.
 All candidates inspect the same moving and rotating geometry for this decision.
 */
-func (p *predictor) reset(ship *objects.Ship, radius float64, obstacles []obstacle) *predictor {
+func (p *predictor) reset(ship *objects.Ship, options predictionOptions) *predictor {
+	step := options.step
+
+	if step == 0 {
+		step = predictionStep
+	}
+
+	steps := options.steps
+
+	if steps == 0 {
+		steps = int((ship.Catalog.NPCMovement.PredictionTime + .001) / step)
+	}
+
+	obstacles := options.obstacles
 	angular := ship.RotationalThrust()
 	clear(p.obstacles)
 
 	*p = predictor{
-		ship: ship, clearance: radius + ship.Catalog.NPCMovement.ClearanceDistance*.5,
+		ship: ship, coast: options.coast, clearance: options.radius + ship.Catalog.NPCMovement.ClearanceDistance*.5,
 		angular: angular, maxSpin: ship.TurnRate * angular / ship.Rules.Flight.SpinDivisor,
 		acceleration: ship.Rules.Flight.ThrustScale * ship.ForwardThrust() / ship.Mass,
-		maximumSpeed: ship.MaxSpeed(), drag: math.Exp(-ship.Drag * predictionStep),
-		angularDrag: math.Exp(-ship.AngularDrag * predictionStep), speedDrag: math.Pow(ship.Rules.Motion.MaxSpeedDrag, predictionStep*60),
+		maximumSpeed: ship.MaxSpeed(), drag: math.Exp(-ship.Drag * step),
+		angularDrag: math.Exp(-ship.AngularDrag * step), speedDrag: math.Pow(ship.Rules.Motion.MaxSpeedDrag, step*60),
 		obstacles: p.obstacles[:0], motion: p.motion, path: p.path, directions: p.directions,
-		steps: int((ship.Catalog.NPCMovement.PredictionTime + .001) / predictionStep),
+		step: step,
 	}
 
-	p.motion = slices.Grow(p.motion[:0], p.steps*len(obstacles))[:p.steps*len(obstacles)]
-	p.path = slices.Grow(p.path[:0], p.steps+1)[:p.steps+1]
-	p.directions = slices.Grow(p.directions[:0], p.steps)[:p.steps]
+	p.motion = slices.Grow(p.motion[:0], steps*len(obstacles))[:steps*len(obstacles)]
+	p.path = slices.Grow(p.path[:0], steps+1)[:steps+1]
+	p.directions = slices.Grow(p.directions[:0], steps)[:steps]
 
 	for _, object := range obstacles {
 		limit := p.clearance
@@ -75,13 +97,13 @@ func (p *predictor) reset(ship *objects.Ship, radius float64, obstacles []obstac
 		p.obstacles = append(p.obstacles, obstacleForecast{object: object, limit: limit, reachSquared: reach * reach})
 	}
 
-	elapsed := predictionStep
+	elapsed := step
 
-	for step := range p.steps {
-		motion := p.motion[step*len(obstacles) : (step+1)*len(obstacles)]
+	for index := range p.directions {
+		motion := p.motion[index*len(obstacles) : (index+1)*len(obstacles)]
 
 		for index, object := range obstacles {
-			pose := obstacleMotion{from: object.positionAt(elapsed - predictionStep), to: object.positionAt(elapsed)}
+			pose := obstacleMotion{from: object.positionAt(elapsed - step), to: object.positionAt(elapsed)}
 			pose.fromRotation, pose.toRotation = object.inverseRotation, object.inverseRotation
 
 			if object.spin != 0 && object.polygon != nil {
@@ -91,7 +113,7 @@ func (p *predictor) reset(ship *objects.Ship, radius float64, obstacles []obstac
 					base.X = 1
 				}
 
-				sine, cosine := math.Sincos(-object.spin * (elapsed - predictionStep))
+				sine, cosine := math.Sincos(-object.spin * (elapsed - step))
 				pose.fromRotation = Vec.Create(base.X*cosine-base.Y*sine, base.X*sine+base.Y*cosine)
 				sine, cosine = math.Sincos(-object.spin * elapsed)
 				pose.toRotation = Vec.Create(base.X*cosine-base.Y*sine, base.X*sine+base.Y*cosine)
@@ -100,7 +122,7 @@ func (p *predictor) reset(ship *objects.Ship, radius float64, obstacles []obstac
 			motion[index] = pose
 		}
 
-		elapsed += predictionStep
+		elapsed += step
 	}
 
 	return p
@@ -122,10 +144,15 @@ func (p *predictor) project(heading, thrust, turn float64) prediction {
 	p.steer(heading, turn)
 	position, velocity := ship.Position, ship.Velocity
 	p.path[0] = position
-	const dt = predictionStep
+	dt := p.step
 	acceleration := p.acceleration * thrust * dt
 
-	for step := range p.steps {
+	for step := range p.directions {
+		// A pickup retry tests the held input followed by a safe passive coast.
+		if p.coast && float64(step)*dt >= ship.Catalog.NPCMovement.DecisionInterval {
+			acceleration = 0
+		}
+
 		velocity = Vec.AddScaled(velocity, p.directions[step], acceleration)
 		kept := p.drag
 
@@ -153,16 +180,12 @@ func (p *predictor) steer(heading, turn float64) {
 
 	p.heading, p.turn, p.steeringReady = heading, turn, true
 	rotation, spin := p.ship.Rotation, p.ship.Spin
-	const dt = predictionStep
+	dt := p.step
 
-	for step := range p.steps {
+	for step := range p.directions {
 		if float64(step+1)*dt > p.ship.Catalog.NPCMovement.DecisionInterval+.001 {
 			error := math.Remainder(heading-rotation, 2*math.Pi)
-			turn = 0
-
-			if p.maxSpin > 0 && math.Abs(error) > .02 {
-				turn = max(-1, min(1, error*1.8/p.maxSpin))
-			}
+			turn = turnCommand(error, p.maxSpin)
 		}
 
 		spin += max(-p.angular*dt, min(p.angular*dt, turn*p.maxSpin-spin))
@@ -179,9 +202,9 @@ func (p *predictor) inspect(result prediction) prediction {
 	rules := p.ship.Catalog.NPCMovement
 	minimum, violation := math.Inf(1), 0.0
 	safe := true
-	const dt = predictionStep
+	dt := p.step
 
-	for step := range p.steps {
+	for step := range p.directions {
 		motion := p.motion[step*len(p.obstacles) : (step+1)*len(p.obstacles)]
 		previous, position := p.path[step], p.path[step+1]
 
@@ -229,4 +252,15 @@ func (p *predictor) inspect(result prediction) prediction {
 
 	result.safe, result.score = safe, score
 	return result
+}
+
+/*
+StoppingPosition predicts one held decision followed by passive braking.
+The residual velocity accounts for the coast beyond the collision forecast.
+*/
+func (p *Pilot) StoppingPosition(ship *objects.Ship, thrust, turn float64) Vec.Vector {
+	step := ship.Catalog.Simulation.SimulationStep / float64(ship.Catalog.Simulation.UpdateTiers["visible"].Substeps)
+	forecast := p.forecast.reset(ship, predictionOptions{step: step, coast: true})
+	result := forecast.project(ship.Rotation, thrust, turn)
+	return Vec.AddScaled(result.position, result.velocity, 1/ship.Drag)
 }

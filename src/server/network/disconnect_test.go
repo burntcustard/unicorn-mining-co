@@ -1,11 +1,16 @@
 package network
 
 import (
+	"context"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -70,7 +75,7 @@ func TestDisconnectedShipCooldown(t *testing.T) {
 				s.regions.Sync(s.World, s.positions())
 				s.Tick(1)
 
-				if s.World.Entities.Has(p.shipID) || s.regions.sleeping.Has(p.shipID) {
+				if s.World.Entities.Has(p.shipID) || s.regions.Sleeping.Has(p.shipID) {
 					t.Fatal("offline ship reappeared through region loading")
 				}
 
@@ -154,5 +159,101 @@ func TestFatalDamageDisconnectStillAllowsRespawn(t *testing.T) {
 				t.Fatal("reconnected dead player cannot respawn")
 			}
 		})
+	}
+}
+
+func socketTick(s *GameSession, socket *soundSocket) {
+	p := s.playersBySocket[socket]
+	s.Receive(protocol.Control{Type: "snapshotAck", Sequence: p.snapshotSequence}, socket)
+	s.Tick(1)
+}
+
+func TestDockedReconnectWithMinedCargoDoesNotDispatchPirates(t *testing.T) {
+	for _, restart := range []bool{false, true} {
+		for _, login := range []string{"hello", "prepare"} {
+			t.Run(strconv.FormatBool(restart)+"/"+login, func(t *testing.T) {
+				var s *GameSession
+				var p *playerRecord
+				var socket *soundSocket
+				var store *persistence.Store
+				path := filepath.Join(t.TempDir(), "world.sqlite")
+
+				if restart {
+					s, store = persistedSession(t, path)
+					socket = &soundSocket{}
+					s.Receive(protocol.Control{Type: "hello"}, socket)
+					p = s.playersBySocket[socket]
+				} else {
+					catalog, _ := specs.Load()
+					s = NewGameSession(25, catalog)
+					socket = &soundSocket{}
+					s.Receive(protocol.Control{Type: "hello"}, socket)
+					p = s.playersBySocket[socket]
+				}
+
+				home := s.nearestStation(p.ship.Position)
+				dockedTo := s.regions.IDOffset + int64(home.ID)
+				p.ship.Position = home.Position
+				p.ship.DockedTo = &dockedTo
+				p.ship.CargoContents = nil
+
+				for range 3 {
+					id := simulation.EntityID(s.World)
+					item := objects.NewItem("diamond", simulation.ObjectProperties{World: s.World, ID: &id}, s.World.Specification)
+					item.Mined = true
+					p.ship.CargoContents = append(p.ship.CargoContents, item)
+				}
+
+				token := p.profile.ID
+				s.Disconnect(socket)
+
+				if restart {
+					committedSession(t, s)
+
+					if err := store.Close(context.Background()); err != nil {
+						t.Fatal(err)
+					}
+
+					s, store = persistedSession(t, path)
+					defer store.Close(context.Background())
+				}
+
+				socket = &soundSocket{}
+				s.Receive(protocol.Control{Type: login, PlayerToken: token}, socket)
+				p = s.playersBySocket[socket]
+
+				if login == "prepare" {
+					for range 31 {
+						socketTick(s, socket)
+					}
+
+					if len(s.sectors[s.currentSector].pirates.Capture()) != 0 {
+						t.Fatal("preparing a docked returning player dispatched a pirate")
+					}
+
+					s.Receive(protocol.Control{Type: "play"}, socket)
+				}
+
+				for range 90 {
+					socketTick(s, socket)
+				}
+
+				if p.ship.DockedTo == nil || *p.ship.DockedTo != dockedTo || p.ship.MinedCargoValue() <= s.World.Specification.PirateSpec.CargoValueThreshold || !s.World.Players.Has(p.playerID) {
+					t.Fatal("reconnection did not preserve an active docked ship and its valuable mined cargo")
+				}
+
+				if len(s.sectors[s.currentSector].pirates.Capture()) != 0 {
+					t.Fatal("docked mined cargo dispatched a pirate after reconnection")
+				}
+
+				p.ship.Launch()
+				s.World.Tick += 30
+				s.sectors[s.currentSector].pirates.Dispatch()
+
+				if len(s.sectors[s.currentSector].pirates.Capture()) != 1 {
+					t.Fatal("the docked guard permanently disabled later dispatches")
+				}
+			})
+		}
 	}
 }

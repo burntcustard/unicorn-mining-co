@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -145,7 +146,7 @@ type gateAccessRequest struct {
 }
 
 func (s *GameSession) gateChat(gate *objects.Portal, lines []string) {
-	message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: dialogText(lines)}
+	message := protocol.ServerControl{Type: "chat", Channel: 0, Sender: gate.Name, SenderRole: "friendly", Text: ai.DialogText(lines)}
 
 	s.players.ForEach(func(recipient *playerRecord, _ string) {
 		if recipient.socket != nil && recipient.ship.World == gate.World && gate.World.Players.Has(recipient.playerID) {
@@ -191,7 +192,7 @@ func (s *GameSession) updateGateAccess(dt float64) {
 		delay := gate.Spec.AccessResponseDelay / 1000
 
 		if !request.pendingSent && request.elapsed+1e-9 >= delay {
-			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: dialogText(gate.World.Specification.JumpGateDialog.AccessPending)})
+			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: ai.DialogText(gate.World.Specification.JumpGateDialog.AccessPending)})
 			request.pendingSent = true
 		}
 
@@ -199,7 +200,7 @@ func (s *GameSession) updateGateAccess(dt float64) {
 			s.connectedPortal(gate.Portal)
 			gate.RequestOpening(1)
 			gate.CloseAfter = float64(s.World.Tick)*s.World.Specification.Simulation.SimulationStep + gate.Spec.OpeningDuration/1000
-			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: dialogText(gate.World.Specification.JumpGateDialog.AccessGranted)})
+			s.sendControl(p.socket, protocol.ServerControl{Type: "chat", Sender: gate.Name, SenderRole: "friendly", Text: ai.DialogText(gate.World.Specification.JumpGateDialog.AccessGranted)})
 			p.gateAccess = nil
 		}
 	})

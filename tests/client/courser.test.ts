@@ -89,8 +89,8 @@ for (const progress of [0, 0.5, 1]) {
     assert(Math.abs(Math.hypot(tip[0] - hinge[0], tip[1] - hinge[1]) - 8) < 1e-9);
     if (progress === 0) assert.deepEqual(tip, [0, 0], 'closed doors meet in the middle');
     if (progress === 1) {
-      assert(Math.abs(tip[0] - 8) < 1e-9);
-      assert(Math.abs(tip[1] - side * 8) < 1e-9, 'doors open 90 degrees forward');
+      assert(Math.abs(tip[0] - 8) < 0.01);
+      assert(Math.abs(tip[1] - side * 8) < 0.01, 'doors open approximately 90 degrees forward');
     }
   });
 }

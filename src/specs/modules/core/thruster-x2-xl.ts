@@ -8,7 +8,7 @@ export const thrusterDualXl = {
   power: 3,
   powerActivated: 3,
   price: 800,
-  fuelUsage: 4 / 60,
+  fuelUsage: 0.07,
   forwardThrust: 22,
   rotationalThrust: 24,
   offset: 11,

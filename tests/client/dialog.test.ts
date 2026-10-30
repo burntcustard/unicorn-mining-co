@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { collectorDialog } from '../../src/specs/dialog/collector';
 import { pirateDialog } from '../../src/specs/dialog/pirate';
 import { jumpGateDialog } from '../../src/specs/dialog/jump-gate';
 import type { DialogSpec } from '../../src/specs/dialog/types';
@@ -12,7 +13,7 @@ const noVariants: DialogSpec = { greeting: [] };
 
 assert(singleText && nonText && noVariants);
 
-for (const dialog of [pirateDialog, jumpGateDialog]) {
+for (const dialog of [collectorDialog, pirateDialog, jumpGateDialog]) {
   for (const lines of Object.values(dialog)) {
     assert(lines.length > 0 && lines.every((line) => typeof line === 'string'));
   }

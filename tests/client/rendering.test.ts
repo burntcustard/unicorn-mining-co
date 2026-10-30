@@ -70,6 +70,29 @@ import { sparks } from '${root}/src/client/effects/shrapnel.ts';
 
 init();
 
+// A benchmark observer exists only in replication: its zero-health stock
+// hull must hydrate without geometry or a stranded/dead-player fallback.
+{
+  const world = createWorld();
+  const template = new Ship();
+  const record = {kind: 'ship', id: 987654, radius: 0,
+    position: Vec.create(), rotation: 0, spin: 0,
+    hullHealth: template.hullHealth.map(() => 0), modules: []};
+  const anchor = makeEntity({entity: record, world});
+
+  for (const ship of [anchor,
+    makeEntity({entity: {...record, position: Vec.create(200,300)}, world, previous: anchor}),
+    cloneEntity({entity: anchor})]) {
+    assert.equal(ship.radius, 0);
+    assert.equal(ship.segments.length, 0);
+    assert.equal(ship.hitbox().length, 0);
+    assert.equal(ship.modules.length, 0);
+    assert.equal(ship.cockpit, undefined);
+    assert.equal(ship.dead, false);
+    assert.equal(ship.stranded, false);
+  }
+}
+
 // Gate safety state survives wire hydration, prediction, and authoritative reset.
 {
   const world = createWorld();
@@ -623,6 +646,136 @@ for (const [Type, size] of [
     22,
     'all single sizes retain the existing forward thrust',
   );
+}
+// Thruster visibility is presentation only: synthetic nozzles retain the
+// original full-power timing while low power and rapid pulses remain readable.
+{
+  const fixture = () => {
+    const ship = new Ship({
+      shades: colors.cyan,
+      hullSegments: [{health: 100, core: true,
+        points: [[-20,-20],[20,0],[-20,20]],
+        mounts: [[{x: -20, y: 0, fits: [ThrusterSingleSm.definitionId]}]]}],
+    });
+    const engine = new ThrusterSingleSm();
+
+    engine.activationDuration = .2;
+    engine.model = [-1,0,1].map(side => ({flareSize: 8, thrusterNozzleSide: side}));
+    ship.fit(engine);
+    const segments = ship.segmentsAtMount(engine.mount);
+    const nozzle = segments[1];
+    const step = (power, dt, turn = 0) => {
+      ship.fly(power, turn);
+      ship.updateModules(dt);
+      ship.updateVisual(dt);
+    };
+    const flare = (segment = nozzle) => {
+      draws.length = 0;
+      segment.module.render({segment});
+      return draws.length ? -Reflect.get(draws[0].path, 'vertices')[1][0] / (segment.flareSize * 2.5) : 0;
+    };
+
+    return {ship, engine, nozzle, segments, step, flare};
+  };
+
+  for (const fps of [30,60,120]) {
+    const {nozzle, step, flare} = fixture();
+    const dt = 1/fps;
+
+    for (const power of [1,0]) {
+      for (let frame = 0; frame < fps; frame++) {
+        step(power, dt);
+        assert(Math.abs(flare() - nozzle.activationProgress) < 1e-12,
+          'full held thrust retains every sample of the normal ramp and release');
+      }
+    }
+
+    step(.25, .2);
+    assert.equal(nozzle.activationProgress, .25, 'visual gain does not change simulated activation');
+    assert.equal(flare(), .5, 'sustained quarter thrust has a half-height flare');
+    step(0, .2);
+    assert.equal(flare(), 0, 'sustained zero thrust extinguishes the envelope');
+
+    for (let frame = 0; frame < fps * 3; frame++) {
+      step(frame % 2 ? 0 : 1, dt);
+      if (frame > fps) {
+        assert(flare() >= .4 && flare() <= .5,
+          'rapid on/off pulses remain visible near half height instead of resetting each frame');
+      }
+    }
+    step(0, .2);
+    assert.equal(flare(), 0);
+  }
+
+  const {ship, engine, nozzle, step, flare} = fixture();
+  const glow = () => {
+    const scale = game.ctx.scale, fill = game.ctx.fill;
+    let radius = 0, alpha = 0;
+
+    try {
+      game.ctx.scale = x => {radius = x};
+      game.ctx.fill = () => {alpha = game.ctx.globalAlpha};
+      engine.renderGlow({segment: nozzle});
+    } finally {
+      game.ctx.scale = scale;
+      game.ctx.fill = fill;
+    }
+    return {radius, alpha};
+  };
+
+  step(1, .2);
+  const fullGlow = glow();
+  step(0, .2);
+  step(.25, .2);
+  const lowGlow = glow();
+
+  assert.equal(lowGlow.radius, fullGlow.radius / 2);
+  assert.equal(lowGlow.alpha, fullGlow.alpha / 2, 'flare and glow use the same visual envelope');
+  const saved = ship.moduleStates;
+  const mount = engine.mount;
+
+  ship.fit(0, mount);
+  ship.moduleStates = saved;
+  const rebuilt = ship.segmentsAtMount(ship.engine.mount).find(segment => segment.thrusterNozzleSide === 0);
+
+  assert.equal(rebuilt.phase, 0);
+  ship.updateVisual(0);
+  assert.equal(flare(rebuilt), .5, 'snapshot-driven segment rebuilds retain presentation history');
+
+  // The envelope can outlive the raw pulse; the craft must still draw its glow.
+  ship.fly(0, 0);
+  ship.updateModules(.05);
+  ship.updateVisual(.05);
+  assert.equal(rebuilt.activationProgress, 0);
+  draws.length = 0;
+  ship.render({zIndex: renderingLayers.glowBelowShips});
+  assert(draws.length > 0, 'the retained pulse glow passes the craft render gate');
+
+  const turning = fixture();
+
+  turning.step(0, .2, 1);
+  assert.equal(turning.flare(turning.segments[0]), 1, 'turning lights the active side nozzle');
+  assert.equal(turning.flare(turning.segments[1]), 0);
+  assert.equal(turning.flare(turning.segments[2]), 0);
+  turning.ship.velocity = Vec.create(100, 200);
+  turning.ship.spin = 1;
+  turning.step(0, .2);
+  assert(turning.segments.every(segment => turning.flare(segment) === 0),
+    'coasting and passive rotation do not light any nozzle');
+
+  for (const disable of [
+    ship => {ship.fuel = 0},
+    ship => {ship.thrusterPower = 0},
+    ship => {ship.dockedTo = 123},
+  ]) {
+    const test = fixture();
+
+    test.step(.25, .2);
+    disable(test.ship);
+    test.step(.25, .2);
+    assert(test.segments.every(segment => segment.phase === 0),
+      'normal module activation extinguishes unpowered and docked thruster flares');
+  }
 }
 for (const [Type, radius] of [
   [ShieldGenerator, 50],

@@ -3,6 +3,7 @@ export { thrusterSingleSm } from './thruster-x1-sm';
 export { thrusterSingleMd } from './thruster-x1-md';
 export { thrusterSingleLg } from './thruster-x1-lg';
 export { thrusterSingleXl } from './thruster-x1-xl';
+export { thrusterDualSm } from './thruster-x2-sm';
 export { thrusterDualMd } from './thruster-x2-md';
 export { thrusterDualLg } from './thruster-x2-lg';
 export { thrusterDualXl } from './thruster-x2-xl';

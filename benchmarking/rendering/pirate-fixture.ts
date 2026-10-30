@@ -14,9 +14,7 @@ import (
  "path/filepath"
  "slices"
  "time"
- ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
  "github.com/burntcustard/unicorn-mining-co/src/server/objects"
- "github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
  "github.com/burntcustard/unicorn-mining-co/src/server/protocol"
  "github.com/burntcustard/unicorn-mining-co/src/server/simulation"
  Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -76,7 +74,7 @@ func (s *GameSession) preparePirateRendering(p *playerRecord) {
  // Remove only this fixture's disconnected previous encounter.
  if old:=renderingEncounters[s];old!=nil&&old.player.socket==nil {
   for _,ship:=range old.ships {s.World.Entities.Delete(ship.ID);s.World.Players.Delete(*ship.PlayerID)}
-  s.sectors[s.currentSector].pirates=slices.DeleteFunc(s.sectors[s.currentSector].pirates,func(npc *pirate)bool{return npc.victim==old.player})
+  s.sectors[s.currentSector].pirates.RemoveRendering(old.player)
  }
  s.World.Entities.Delete(p.ship.ID)
  p.ship=objects.CreatePlayerShip(s.World,objects.Properties{DefinitionID:"courser",Shades:catalog.Colors["cyan"],ObjectProperties:simulation.ObjectProperties{World:s.World,ID:&p.shipID,PlayerID:&p.playerID,Position:chosen,Name:new("Render pirate")}})
@@ -86,31 +84,7 @@ func (s *GameSession) preparePirateRendering(p *playerRecord) {
  p.ship.CargoContents=append(p.ship.CargoContents,objects.NewItem("autogunAmmo",simulation.ObjectProperties{World:s.World,ID:&ammoID},catalog))
  s.regions.Sync(s.World,s.positions())
  home:=s.nearestStation(chosen)
- ships:=[]*objects.Ship{p.ship}
- pirates:=[]*pirate{}
- for i,definition:=range []string{"mustang","arrow"} {
-  npc:=s.spawnPirate(p,home)
-  id,owner:=npc.ship.ID,*npc.ship.PlayerID
-  s.World.Entities.Delete(id)
-  npc.ship=objects.CreatePlayerShip(s.World,objects.Properties{DefinitionID:definition,Shades:catalog.Colors[[]string{"orange","violet"}[i]],ObjectProperties:simulation.ObjectProperties{World:s.World,ID:&id,PlayerID:&owner,Position:Vec.Add(chosen,offsets[i+1]),Name:new("Pirate "+definition)}})
-  npc.ship.Hostile,npc.ship.NPCState=true,pirateStateNames[pirateFighting]
-  weapon:="autogun"
-  if i==1 {weapon="laser"} else {npc.ship.CargoContents=append(npc.ship.CargoContents,npc.ammunition)}
-  moduleID:=simulation.EntityID(s.World)
-  weaponModule:=modules.Create(weapon,simulation.ObjectProperties{World:s.World,ID:&moduleID},catalog)
-  var mount *simulation.Mount
-  for _,candidate:=range npc.ship.Mounts(){if candidate.Module==nil&&slices.Contains(candidate.Fits,weapon){mount=candidate;break}}
-  if mount==nil {for _,candidate:=range npc.ship.Mounts(){if slices.Contains(candidate.Fits,weapon)&&candidate.Module!=nil&&candidate.Module.ModuleBase().Spec.Behavior=="cargoHatch"{mount=candidate;break}}}
-  npc.ship.Fit(weaponModule,mount)
-  if weaponModule.ModuleBase().Mount==nil {panic("combat ship has no compatible weapon mount")}
-  npc.state=pirateFighting
-  npc.aggressors[p.playerID]=true
-  npc.ship.Face(math.Atan2(chosen.Y-npc.ship.Position.Y,chosen.X-npc.ship.Position.X))
-  simulation.AddEntity(s.World,npc.ship)
-  pirates=append(pirates,npc)
-  ships=append(ships,npc.ship)
- }
- for _,npc:=range pirates {for _,other:=range ships {if other!=npc.ship {npc.aggressors[*other.PlayerID]=true}};if enemy:=ai.NearestEnemy(npc.ship,npc.aggressors);enemy!=nil{npc.ship.Face(math.Atan2(enemy.Position.Y-npc.ship.Position.Y,enemy.Position.X-npc.ship.Position.X))}}
+ ships:=s.sectors[s.currentSector].pirates.PrepareRendering(p,home,chosen,offsets)
  encounter:=&renderingEncounter{player:p,ships:ships,movement:make([]float64,len(ships)),startedAt:time.Now().UnixMilli()}
  for _,ship:=range ships {
   // Durable, finite targets keep the same encounter active for a full capture;
@@ -120,24 +94,6 @@ func (s *GameSession) preparePirateRendering(p *playerRecord) {
  }
  renderingEncounters[s]=encounter
  s.regions.Sync(s.World,s.positions())
-}
-
-// The fixture uses the real Go Pilot for obstacle navigation and passing runs,
-// with the mounted weapon's speed (or instantaneous beam) for its firing aim.
-func(s *GameSession) renderingPirateInput(npc *pirate)protocol.Input {
- input:=protocol.Input{AutogunActive:true,LaserActive:true,CargoHatch:true}
- enemy:=ai.NearestEnemy(npc.ship,npc.aggressors)
- if enemy==nil {return input}
- ship:=npc.ship
- offset:=Vec.Subtract(enemy.Position,ship.Position)
- distance:=Vec.Length(offset)
- flight:=0.
- for _,module:=range ship.Modules(){spec:=module.ModuleBase().Spec;if spec.Projectile.Speed>0{flight=min(1,distance/spec.Projectile.Speed);break}}
- aim:=Vec.AddScaled(enemy.Position,Vec.Subtract(enemy.Velocity,ship.Velocity),flight)
- input.Thrust,input.Turn=npc.pilot.Steer(ship,ai.Movement{Position:aim,Velocity:enemy.Velocity,PassDistance:s.World.Specification.PirateSpec.PassDistance,TargetID:enemy.ID})
- angle:=math.Remainder(math.Atan2(aim.Y-ship.Position.Y,aim.X-ship.Position.X)-ship.Rotation,2*math.Pi)
- input.Fire=math.Abs(angle)<s.World.Specification.PirateSpec.AimTolerance&&distance<700
- return input
 }
 
 func(s *GameSession) keepPirateRenderingReady(){
@@ -180,6 +136,73 @@ func(s *GameSession) recordRenderingCombat(events []protocol.SimulationEvent){
 }
 `;
 
+const roleFixture = String.raw`package pirate
+
+import (
+ "math"
+ "slices"
+ ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
+ "github.com/burntcustard/unicorn-mining-co/src/server/objects"
+ "github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
+ "github.com/burntcustard/unicorn-mining-co/src/server/protocol"
+ "github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+ Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+)
+
+func(m *Manager) RemoveRendering(victim ai.Player) {
+ m.Pirates=slices.DeleteFunc(m.Pirates,func(npc *pirate)bool{return npc.victim.AccountID()==victim.AccountID()})
+}
+
+func(m *Manager) PrepareRendering(victim ai.Player,home protocol.StationDescription,chosen Vec.Vector,offsets []Vec.Vector) []*objects.Ship {
+ catalog:=m.World.Specification
+ ships:=[]*objects.Ship{victim.Ship()}
+ pirates:=[]*pirate{}
+ for i,definition:=range []string{"mustang","arrow"} {
+  npc:=m.spawn(victim,home)
+  id,owner:=npc.ship.ID,*npc.ship.PlayerID
+  m.World.Entities.Delete(id)
+  npc.ship=objects.CreatePlayerShip(m.World,objects.Properties{DefinitionID:definition,Shades:catalog.Colors[[]string{"orange","violet"}[i]],ObjectProperties:simulation.ObjectProperties{World:m.World,ID:&id,PlayerID:&owner,Position:Vec.Add(chosen,offsets[i+1]),Name:new("Pirate "+definition)}})
+  npc.ship.Hostile,npc.ship.NPCState=true,stateNames[fighting]
+  weapon:="autogun"
+  if i==1 {weapon="laser"} else {npc.ship.CargoContents=append(npc.ship.CargoContents,npc.ammunition)}
+  moduleID:=simulation.EntityID(m.World)
+  weaponModule:=modules.Create(weapon,simulation.ObjectProperties{World:m.World,ID:&moduleID},catalog)
+  var mount *simulation.Mount
+  for _,candidate:=range npc.ship.Mounts(){if candidate.Module==nil&&slices.Contains(candidate.Fits,weapon){mount=candidate;break}}
+  if mount==nil {for _,candidate:=range npc.ship.Mounts(){if slices.Contains(candidate.Fits,weapon)&&candidate.Module!=nil&&candidate.Module.ModuleBase().Spec.Behavior=="cargoHatch"{mount=candidate;break}}}
+  npc.ship.Fit(weaponModule,mount)
+  if weaponModule.ModuleBase().Mount==nil {panic("combat ship has no compatible weapon mount")}
+  npc.State=fighting
+  npc.aggressors[victim.ObserverID()]=true
+  npc.ship.Face(math.Atan2(chosen.Y-npc.ship.Position.Y,chosen.X-npc.ship.Position.X))
+  simulation.AddEntity(m.World,npc.ship)
+  pirates=append(pirates,npc)
+  ships=append(ships,npc.ship)
+ }
+ for _,npc:=range pirates {for _,other:=range ships {if other!=npc.ship {npc.aggressors[*other.PlayerID]=true}};if enemy:=ai.NearestEnemy(npc.ship,npc.aggressors);enemy!=nil{npc.ship.Face(math.Atan2(enemy.Position.Y-npc.ship.Position.Y,enemy.Position.X-npc.ship.Position.X))}}
+ return ships
+}
+
+// The fixture uses the real Go Pilot for obstacle navigation and passing runs,
+// with the mounted weapon's speed (or instantaneous beam) for its firing aim.
+func(m *Manager) renderingInput(npc *pirate)protocol.Input {
+ input:=protocol.Input{AutogunActive:true,LaserActive:true,CargoHatch:true}
+ enemy:=ai.NearestEnemy(npc.ship,npc.aggressors)
+ if enemy==nil {return input}
+ ship:=npc.ship
+ offset:=Vec.Subtract(enemy.Position,ship.Position)
+ distance:=Vec.Length(offset)
+ flight:=0.
+ for _,module:=range ship.Modules(){spec:=module.ModuleBase().Spec;if spec.Projectile.Speed>0{flight=min(1,distance/spec.Projectile.Speed);break}}
+ aim:=Vec.AddScaled(enemy.Position,Vec.Subtract(enemy.Velocity,ship.Velocity),flight)
+ input.Thrust,input.Turn=npc.pilot.Steer(ship,ai.Movement{Position:aim,Velocity:enemy.Velocity,PassDistance:m.World.Specification.PirateSpec.PassDistance,TargetID:enemy.ID})
+ angle:=math.Remainder(math.Atan2(aim.Y-ship.Position.Y,aim.X-ship.Position.X)-ship.Rotation,2*math.Pi)
+ input.Fire=math.Abs(angle)<m.World.Specification.PirateSpec.AimTolerance&&distance<700
+ return input
+}
+
+`;
+
 export function preparePirateRenderingFixture({
   directory,
 }: {
@@ -190,8 +213,8 @@ export function preparePirateRenderingFixture({
   const source = readFileSync(sourcePath, 'utf8');
   const play =
     '\tp.playedAt = s.now()\n\ts.regions.Sync(s.World, s.positions())\n\ts.sendSnapshot(p, nil, nil)';
-  const update = '\ts.updatePirates()';
-  const events = '\ts.pirateLootCollected(events)';
+  const update = '\ts.sectors[s.currentSector].pirates.Update()';
+  const events = '\ts.sectors[s.currentSector].pirates.ItemsCollected(events)';
 
   assert.equal(
     source.split(play).length,
@@ -214,17 +237,16 @@ export function preparePirateRenderingFixture({
       '\tp.playedAt = s.now()\n\ts.preparePirateRendering(p)\n\ts.regions.Sync(s.World, s.positions())\n\ts.sendSnapshot(p, nil, nil)',
     )
     .replace(update, '\ts.keepPirateRenderingReady()\n' + update)
-    .replace(
-      events,
-      '\ts.recordRenderingCombat(events)\n\ts.pirateLootCollected(events)',
-    );
+    .replace(events, '\ts.recordRenderingCombat(events)\n' + events);
 
   mkdirSync(output, { recursive: true });
   const gameSession = resolve(output, 'game-session.go');
   const helper = resolve(output, 'pirate-rendering-fixture.go');
+  const roleHelper = resolve(output, 'rendering-role-fixture.go');
   const overlay = resolve(output, 'overlay.json');
 
   writeFileSync(gameSession, replacement);
+  writeFileSync(roleHelper, roleFixture);
   writeFileSync(
     helper,
     fixture.replace('__REPORT_DIRECTORY__', JSON.stringify(output)),
@@ -235,21 +257,20 @@ export function preparePirateRenderingFixture({
     JSON.stringify({ directory: output }, null, 2),
   );
 
-  const combatPath = resolve('src/server/network/pirate-combat.go');
-  const movementPath = resolve('src/server/network/pirate-movement.go');
-  const combat = readFileSync(combatPath, 'utf8').replace(
+  const behaviorPath = resolve('src/server/npc/pirate/behavior.go');
+  const behavior = readFileSync(behaviorPath, 'utf8');
+  const combat = behavior.replace(
     'cannon = cannon || module.Type == "cannonSm"',
-    'cannon = cannon || module.Type == "cannonSm" || npc.victim.profile.DisplayName == "Render pirate" && (module.Spec.Behavior == "weapon" || module.Spec.Behavior == "beam")',
+    'cannon = cannon || module.Type == "cannonSm" || npc.victim.Ship().Name == "Render pirate" && (module.Spec.Behavior == "weapon" || module.Spec.Behavior == "beam")',
   );
-  const movement = readFileSync(movementPath, 'utf8').replace(
-    'func (s *GameSession) pirateInput(npc *pirate) protocol.Input {',
-    'func (s *GameSession) pirateInput(npc *pirate) protocol.Input {\n if npc.victim.profile.DisplayName == "Render pirate" { return s.renderingPirateInput(npc) }',
+  const movement = combat.replace(
+    'func (m *Manager) inputFor(npc *pirate) protocol.Input {',
+    'func (m *Manager) inputFor(npc *pirate) protocol.Input {\n if npc.victim.Ship().Name == "Render pirate" { return m.renderingInput(npc) }',
   );
 
-  assert.notEqual(combat, readFileSync(combatPath, 'utf8'));
-  assert.notEqual(movement, readFileSync(movementPath, 'utf8'));
-  writeFileSync(resolve(output, 'pirate-combat.go'), combat);
-  writeFileSync(resolve(output, 'pirate-movement.go'), movement);
+  assert.notEqual(combat, behavior);
+  assert.notEqual(movement, combat);
+  writeFileSync(resolve(output, 'pirate-behavior.go'), movement);
 
   writeFileSync(
     overlay,
@@ -257,9 +278,9 @@ export function preparePirateRenderingFixture({
       {
         Replace: {
           [sourcePath]: gameSession,
-          [combatPath]: resolve(output, 'pirate-combat.go'),
-          [movementPath]: resolve(output, 'pirate-movement.go'),
+          [behaviorPath]: resolve(output, 'pirate-behavior.go'),
           [resolve('src/server/network/pirate-rendering-fixture.go')]: helper,
+          [resolve('src/server/npc/pirate/rendering-fixture.go')]: roleHelper,
         },
       },
       null,

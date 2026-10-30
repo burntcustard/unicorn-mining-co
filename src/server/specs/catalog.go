@@ -13,6 +13,8 @@ type Vector = vector.Vector
 type Catalog struct {
 	NPCMovement      NPCMovement         `json:"npcMovement"`
 	PirateSpec       Pirate              `json:"pirateSpec"`
+	CollectorSpec    Collector           `json:"collectorSpec"`
+	CollectorDialog  CollectorDialog     `json:"collectorDialog"`
 	JumpGateDialog   JumpGateDialog      `json:"jumpGateDialog"`
 	PirateDialog     PirateDialog        `json:"pirateDialog"`
 	StationModuleIDs []string            `json:"stationModuleIds"`

@@ -31,7 +31,7 @@ const testOrder = new Map(
   ].map((file, index) => [file, index]),
 );
 
-const testFiles = ['tests', 'src/server']
+const testFiles = ['tests', 'src/server', 'benchmarking/npc']
   .flatMap((directory) =>
     readdirSync(directory, { recursive: true, encoding: 'utf8' })
       .filter((file) => /(?:\.test\.(?:mjs|js|ts)|_test\.go)$/.test(file))
@@ -221,7 +221,7 @@ if (needsFixtures) {
 if (!requested.length) {
   await run(
     'go',
-    ['test', './src/server/network', './src/server/npc', './src/server/...'],
+    ['test', './src/server/...', './benchmarking/npc/...'],
     goEnv,
   );
 } else {

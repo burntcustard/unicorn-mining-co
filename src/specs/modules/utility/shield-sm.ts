@@ -14,14 +14,20 @@ export const shieldGeneratorSm = {
     {
       ...shield.model[0],
       radius: 6.5,
-      lines: Array.from({ length: 3 }, (_, index) => {
-        const angle = (index * Math.PI * 2) / 3 + Math.PI / 2;
-
-        return [
+      lines: [
+        [
           [0, 0],
-          [Math.cos(angle) * 6.5, Math.sin(angle) * 6.5],
-        ];
-      }),
+          [0, 6.5],
+        ],
+        [
+          [0, 0],
+          [-5.63, -3.25],
+        ],
+        [
+          [0, 0],
+          [5.63, -3.25],
+        ],
+      ],
     },
     shield.model[1],
   ],

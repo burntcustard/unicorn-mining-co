@@ -70,7 +70,7 @@ Related player and world records are captured together, so cargo and its source
 entity removal still commit atomically. Account creation, initial naming, and
 moderation changes request immediate commits; their existing snapshot barriers
 remain, including automatic owner-role assignment. The current rollout/validation status is recorded in the
-[SQLite CPU investigation](server-sqlite-cpu-investigation-2026-10-28.md).
+[SQLite CPU investigation](investigations/2026-10-28-server-sqlite-cpu.md).
 
 Ordinary saves become eligible after 30 seconds. The scheduler runs after the
 complete global simulation update and prefers a tick that used less than half
@@ -125,6 +125,26 @@ active mechanics within the server's eight-second
 shutdown deadline; Fly allows ten seconds. Resume parks disconnected player
 ships rather than applying offline movement. World simulation also pauses while
 the server is down. Offline time does not count as playtime.
+
+## NPC recovery
+
+Pirates and collectors use ordinary world-entity records for their full ship
+mechanics, equipment, fuel, and cargo. Controller metadata lives in the world's
+per-sector JSON: behavior, pickup lists, inspections, encounter timers, and
+station dispatch queues. Pirate references to human players use persistent
+account UUIDs; NPC aggressors use stable ship IDs because numeric observer IDs
+are reassigned at startup. Navigation caches are
+rebuilt when movement resumes.
+
+Each save captures NPC ships and controller metadata with the related item,
+station, and player changes. Pickups, sales, and NPC removals therefore commit
+atomically without duplicating cargo or reviving a finished trip. The existing
+background save interval also captures idle station timers when no player or
+entity record is dirty. Simulation ticks and deadlines resume from the saved
+state, so shutdown time consumes no grace, launch, inspection, pickup, or
+encounter interval. Restored NPCs immediately become world observers again;
+collectors keep loading their surroundings, collecting, and returning to stations
+even when no players are connected.
 
 ## Local development
 
@@ -320,6 +340,8 @@ running in WAL mode.
 
 Recovery tests cover encoded mechanics, module/cargo state, disconnects, long
 offline sessions, procedural deletion, region unloading, atomic cargo transfer,
+NPC behavior and ship recovery, idle station timers, queued collector departures,
+inspection recovery, NPC cargo transfers and despawns,
 write failure/retry, bounded queue coalescing, rounding without
 mutating live mechanics, UUID identity, minimal ship records, future/corrupt schemas and backup
 restoration. WebSocket integration tests also restart the real executable and

@@ -9,7 +9,7 @@ export const laserTurret = {
   behavior: 'beam',
   name: 'Beam Laser Turret',
   turret: true,
-  turretTurnRate: Math.PI,
+  turretTurnRate: 3,
   health: 0,
   healthActivated: 40,
   power: 0.3,

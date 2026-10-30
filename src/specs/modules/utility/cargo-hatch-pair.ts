@@ -24,8 +24,8 @@ export const cargoHatchPair = {
   cargoGeometry: {
     ...cargoHatch.cargoGeometry,
     paired: true,
-    length: cargoHatch.cargoGeometry.length / 2,
-    openAngle: Math.PI / 2,
+    length: 8,
+    openAngle: 1.57,
     doorRadius: 16,
     throatRadius: 10,
   },

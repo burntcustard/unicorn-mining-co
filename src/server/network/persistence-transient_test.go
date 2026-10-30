@@ -26,7 +26,7 @@ func TestTemporaryWorldObjectsNeverQueueSaveWork(t *testing.T) {
 
 		for _, entity := range []simulation.Entity{shot, fragment} {
 			simulation.AddEntity(s.World, entity)
-			s.regions.onSleep(entity)
+			s.regions.OnSleep(entity)
 
 			if len(s.persistence.entities) != 0 {
 				t.Fatal("temporary object queued a save at creation or sleep")
@@ -132,7 +132,7 @@ func TestSavedObjectBecomingTemporaryCannotResurrect(t *testing.T) {
 
 			if generated {
 				s.World.Entities.ForEach(func(e simulation.Entity, id int64) {
-					if a, ok := e.(*simulation.Asteroid); ok && s.regions.managed.Has(id) && asteroid == nil {
+					if a, ok := e.(*simulation.Asteroid); ok && s.regions.Managed.Has(id) && asteroid == nil {
 						asteroid = a
 					}
 				})
@@ -160,7 +160,7 @@ func TestSavedObjectBecomingTemporaryCannotResurrect(t *testing.T) {
 			defer store.Close(context.Background())
 			s.regions.Sync(s.World, []Vec.Vector{position})
 
-			if s.World.Entities.Has(id) || s.regions.sleeping.Has(id) {
+			if s.World.Entities.Has(id) || s.regions.Sleeping.Has(id) {
 				t.Fatal("temporary object reappeared after restart or generation")
 			}
 		})
@@ -198,7 +198,7 @@ func TestLegacyTemporaryRowsAreRemovedOnRestore(t *testing.T) {
 	committedSession(t, s)
 
 	for _, e := range []simulation.Entity{shot, fragment} {
-		if s.regions.sleeping.Has(e.Base().ID) || s.World.Entities.Has(e.Base().ID) {
+		if s.regions.Sleeping.Has(e.Base().ID) || s.World.Entities.Has(e.Base().ID) {
 			t.Fatal("legacy temporary object restored into gameplay")
 		}
 	}
@@ -273,7 +273,7 @@ func TestTemporaryGeneratedObjectKeepsItsLiveLifetime(t *testing.T) {
 	var asteroid *simulation.Asteroid
 
 	s.World.Entities.ForEach(func(e simulation.Entity, id int64) {
-		if a, ok := e.(*simulation.Asteroid); ok && s.regions.managed.Has(id) && asteroid == nil {
+		if a, ok := e.(*simulation.Asteroid); ok && s.regions.Managed.Has(id) && asteroid == nil {
 			asteroid = a
 		}
 	})
@@ -315,7 +315,7 @@ func TestTemporaryGeneratedObjectKeepsItsLiveLifetime(t *testing.T) {
 	asteroid.Remove()
 	s.regions.Sync(s.World, []Vec.Vector{position})
 
-	if s.World.Entities.Has(id) || s.regions.sleeping.Has(id) {
+	if s.World.Entities.Has(id) || s.regions.Sleeping.Has(id) {
 		t.Fatal("actual deletion did not remove the generated object")
 	}
 }

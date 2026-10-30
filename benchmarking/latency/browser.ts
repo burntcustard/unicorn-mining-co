@@ -19,6 +19,7 @@ export type LatencyPage = {
   evaluate: (expression: string, options?: CommandOptions) => Promise<any>;
   key: (type: 'keyDown' | 'keyUp', key: string) => Promise<void>;
   activate: () => Promise<void>;
+  navigate: (url: string, options?: CommandOptions) => Promise<void>;
 };
 
 /*
@@ -59,16 +60,26 @@ const preload = `(() => {
   };
 })()`;
 
+export const latencyBrowserPreload = (source = '') => source + ';\n' + preload;
+
 export async function openLatencyBrowser({
   options,
   production,
   signal,
   registerClose,
+  pageCount = 4,
+  columns = 2,
+  backgroundRendering = false,
+  preloadSource = '',
 }: {
   options: ReturnType<typeof parseLatencyOptions>;
   production: Awaited<ReturnType<typeof loadLatencyAssets>>;
   signal: AbortSignal;
   registerClose: (close: () => Promise<void>) => void;
+  pageCount?: number;
+  columns?: number;
+  backgroundRendering?: boolean;
+  preloadSource?: string;
 }) {
   signal.throwIfAborted();
   const gameUrl = new URL(options.url);
@@ -116,6 +127,13 @@ export async function openLatencyBrowser({
     const args = [
       '--no-first-run',
       '--no-default-browser-check',
+      ...(backgroundRendering
+        ? [
+            '--disable-background-timer-throttling',
+            '--disable-renderer-backgrounding',
+            '--disable-backgrounding-occluded-windows',
+          ]
+        : []),
       `--remote-debugging-port=${port}`,
       `--user-data-dir=${profile}`,
       `--window-size=${options.width + 24},${options.height + 120}`,
@@ -146,6 +164,16 @@ export async function openLatencyBrowser({
 
     const connect = async (url: string) => {
       const socket = new WebSocket(url, { handshakeTimeout: 10000 });
+      let closed = '';
+
+      const connectionError = (method: string, cause?: Error) => {
+        const exited = child.exitCode !== null || child.signalCode !== null;
+
+        return Error(
+          `Chrome control connection failed during ${method} (${new URL(url).pathname}, WebSocket state ${socket.readyState})${closed ? `: ${closed}` : ''}${cause ? `: ${cause.message}` : ''}${exited ? `; Chrome exited (${child.signalCode || child.exitCode})${logs ? `\n${logs.slice(-4000)}` : ''}` : ''}`,
+          { cause },
+        );
+      };
 
       sockets.push(socket);
 
@@ -159,6 +187,7 @@ export async function openLatencyBrowser({
       const pending = new Map<
         number,
         {
+          method: string;
           resolve: (reply: BrowserReply) => void;
           reject: (error: Error) => void;
           timer: ReturnType<typeof setTimeout>;
@@ -191,10 +220,12 @@ export async function openLatencyBrowser({
         }
       });
 
-      socket.on('close', () => {
-        pending.forEach(({ reject, timer }) => {
+      socket.on('close', (code, reason) => {
+        closed = `closed with code ${code}${reason.length ? ` (${reason.toString()})` : ''}`;
+
+        pending.forEach(({ method, reject, timer }) => {
           clearTimeout(timer);
-          reject(Error('Owned browser connection closed'));
+          reject(connectionError(method));
         });
 
         pending.clear();
@@ -207,6 +238,12 @@ export async function openLatencyBrowser({
       ) =>
         new Promise<BrowserReply>((resolve, reject) => {
           if (!duringShutdown) signal.throwIfAborted();
+
+          if (socket.readyState !== WebSocket.OPEN) {
+            reject(connectionError(method));
+            return;
+          }
+
           const id = ++sequence;
 
           const timer = setTimeout(() => {
@@ -214,13 +251,13 @@ export async function openLatencyBrowser({
             reject(Error(`Timed out: ${method}`));
           }, timeoutMs);
 
-          pending.set(id, { resolve, reject, timer });
+          pending.set(id, { method, resolve, reject, timer });
 
           socket.send(JSON.stringify({ id, method, params }), (error) => {
             if (!error) return;
             pending.delete(id);
             clearTimeout(timer);
-            reject(error);
+            reject(connectionError(method, error));
           });
         });
 
@@ -271,7 +308,7 @@ export async function openLatencyBrowser({
     const browser = await connect(endpoint);
     const version = await browser.send('Browser.getVersion');
 
-    for (let index = 0; index < 4; index++) {
+    for (let index = 0; index < pageCount; index++) {
       const { browserContextId } = await browser.send(
         'Target.createBrowserContext',
       );
@@ -319,7 +356,9 @@ export async function openLatencyBrowser({
         await send('Page.handleJavaScriptDialog', { accept: false });
       });
 
-      await send('Page.addScriptToEvaluateOnNewDocument', { source: preload });
+      await send('Page.addScriptToEvaluateOnNewDocument', {
+        source: latencyBrowserPreload(preloadSource),
+      });
 
       const { windowId } = await browser.send('Browser.getWindowForTarget', {
         targetId,
@@ -328,8 +367,8 @@ export async function openLatencyBrowser({
       await browser.send('Browser.setWindowBounds', {
         windowId,
         bounds: {
-          left: (index % 2) * (options.width + 24),
-          top: Math.floor(index / 2) * (options.height + 120),
+          left: (index % columns) * (options.width + 24),
+          top: Math.floor(index / columns) * (options.height + 120),
           width: options.width + 24,
           height: options.height + 120,
           windowState: 'normal',
@@ -414,6 +453,9 @@ export async function openLatencyBrowser({
         },
         activate: async () => {
           await send('Page.bringToFront');
+        },
+        navigate: async (url, command) => {
+          await send('Page.navigate', { url }, command);
         },
       });
 

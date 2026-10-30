@@ -148,7 +148,7 @@ func TestCrashBeforeDeferredCollectionKeepsOldCoherentState(t *testing.T) {
 		}
 	})
 
-	if !s.regions.sleeping.Has(id) && !s.World.Entities.Has(id) {
+	if !s.regions.Sleeping.Has(id) && !s.World.Entities.Has(id) {
 		t.Fatal("crash lost the world item before its collection was saved")
 	}
 }

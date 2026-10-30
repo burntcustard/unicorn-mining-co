@@ -11,7 +11,7 @@ export const exampleThruster = {
   power: 0.15,
   powerActivated: 1.2,
   price: 200,
-  fuelUsage: 2.5 / 60,
+  fuelUsage: 0.04,
   forwardThrust: 22,
   rotationalThrust: 14,
   zIndex: renderingLayers.modulesBelowShipHull,
@@ -23,15 +23,27 @@ export const exampleThruster = {
 export const exampleTripleThruster = {
   ...exampleThruster,
   name: 'Example Triple Thruster',
-  fuelUsage: 4.4 / 60,
+  fuelUsage: 0.07,
   forwardThrust: 28,
   rotationalThrust: 24,
   offset: 14,
-  model: [-1, 0, 1].map((thrusterNozzleSide) => ({
-    outline: true,
-    flareSize: 5,
-    thrusterNozzleSide,
-  })),
+  model: [
+    {
+      outline: true,
+      flareSize: 5,
+      thrusterNozzleSide: -1,
+    },
+    {
+      outline: true,
+      flareSize: 5,
+      thrusterNozzleSide: 0,
+    },
+    {
+      outline: true,
+      flareSize: 5,
+      thrusterNozzleSide: 1,
+    },
+  ],
 } satisfies ModuleSpec;
 
 export const exampleSmallThruster = {
@@ -41,7 +53,7 @@ export const exampleSmallThruster = {
   power: 0.1,
   powerActivated: 0.8,
   price: 200,
-  fuelUsage: 2.2 / 60,
+  fuelUsage: 0.04,
   forwardThrust: 22,
   rotationalThrust: 14,
   model: [
@@ -60,7 +72,7 @@ export const exampleLargeThruster = {
   power: 0.2,
   powerActivated: 1.6,
   price: 200,
-  fuelUsage: 2.8 / 60,
+  fuelUsage: 0.05,
   forwardThrust: 22,
   rotationalThrust: 14,
   model: [
@@ -79,7 +91,7 @@ export const exampleExtraLargeThruster = {
   power: 0.25,
   powerActivated: 2,
   price: 200,
-  fuelUsage: 3.1 / 60,
+  fuelUsage: 0.05,
   forwardThrust: 22,
   rotationalThrust: 14,
   model: [
@@ -98,7 +110,7 @@ export const exampleDualThruster = {
   power: 0.3,
   powerActivated: 2.4,
   price: 350,
-  fuelUsage: 3.3 / 60,
+  fuelUsage: 0.06,
   forwardThrust: 16,
   rotationalThrust: 16,
   offset: 10,
@@ -123,7 +135,7 @@ export const exampleLargeDualThruster = {
   power: 0.4,
   powerActivated: 3.2,
   price: 575,
-  fuelUsage: 3.6 / 60,
+  fuelUsage: 0.06,
   forwardThrust: 19,
   rotationalThrust: 20,
   offset: 10.5,
@@ -148,7 +160,7 @@ export const exampleExtraLargeDualThruster = {
   power: 0.5,
   powerActivated: 4,
   price: 800,
-  fuelUsage: 4 / 60,
+  fuelUsage: 0.07,
   forwardThrust: 22,
   rotationalThrust: 24,
   offset: 11,

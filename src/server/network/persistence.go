@@ -24,6 +24,7 @@ type sessionPersistence struct {
 	sequence          uint64
 	entities          map[int64]changedEntity
 	storedEntities    map[int64]bool
+	npcs              map[int64]string
 	players           map[*playerRecord]bool // True only for an immediate account or moderation commit.
 	checkpoint        []simulation.Entity
 	checkpointPlayers []*playerRecord
@@ -43,6 +44,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 	}
 
 	stored := map[int64]bool{}
+	npcs := map[int64]string{}
 	var discarded []persistence.Entity
 
 	if saved.World != nil {
@@ -71,7 +73,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 				discarded = append(discarded, persistence.Entity{SectorID: e.SectorID, ID: e.ID, Generated: e.Generated, Deleted: true})
 
 				if e.Generated {
-					s.regions.regions.Remove(uint32(e.ID))
+					s.regions.Procedural.Remove(uint32(e.ID))
 				}
 
 				continue
@@ -79,7 +81,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 			if e.Deleted {
 				if e.Generated {
-					s.regions.regions.Remove(uint32(e.ID))
+					s.regions.Procedural.Remove(uint32(e.ID))
 				}
 
 				continue
@@ -95,20 +97,20 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 				discarded = append(discarded, persistence.Entity{SectorID: e.SectorID, ID: e.ID, Generated: e.Generated, Deleted: true})
 
 				if e.Generated {
-					s.regions.regions.Remove(uint32(e.ID))
+					s.regions.Procedural.Remove(uint32(e.ID))
 				}
 
 				continue
 			}
 
-			s.regions.sleeping.Set(e.ID, entity)
+			s.regions.Sleeping.Set(e.ID, entity)
 
 			if !e.Generated {
 				stored[e.ID] = true
 			}
 
 			if e.Generated {
-				s.regions.managed.Set(e.ID, true)
+				s.regions.Managed.Set(e.ID, true)
 			}
 		}
 
@@ -150,19 +152,23 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 				continue
 			}
 
-			entity, ok := s.regions.sleeping.Get(e.ID)
-			parent, hasParent := s.regions.sleeping.Get(e.State.Object.LocalMovementParent)
+			entity, ok := s.regions.Sleeping.Get(e.ID)
+			parent, hasParent := s.regions.Sleeping.Get(e.State.Object.LocalMovementParent)
 
 			if ok && hasParent {
 				entity.Base().LocalMovementParent = parent
 			}
+		}
+
+		if err := s.restoreNPCs(w.Sectors, npcs); err != nil {
+			return err
 		}
 	} else {
 		// Procedural IDs are uint32; runtime objects occupy a separate range.
 		s.World.NextEntityID = s.nextEntityID
 	}
 
-	s.persistence = &sessionPersistence{generationDigest: persistence.GenerationDigest(s.World.Specification), store: store, entities: map[int64]changedEntity{}, storedEntities: stored, players: map[*playerRecord]bool{}, nextCheckpoint: s.now().Add(3 * time.Minute), nextFlush: s.now().Add(30 * time.Second), flushDeadline: s.now().Add(time.Minute)}
+	s.persistence = &sessionPersistence{generationDigest: persistence.GenerationDigest(s.World.Specification), store: store, entities: map[int64]changedEntity{}, storedEntities: stored, npcs: npcs, players: map[*playerRecord]bool{}, nextCheckpoint: s.now().Add(3 * time.Minute), nextFlush: s.now().Add(30 * time.Second), flushDeadline: s.now().Add(time.Minute)}
 
 	s.activateSector(s.World.Specification.StartingSectorID)
 
@@ -191,8 +197,23 @@ func (s *GameSession) worldRecord() persistence.World {
 
 	for id, runtime := range s.sectors {
 		w := runtime.world
-		states[id] = persistence.SectorState{Tick: w.Tick, RandomState: w.Random.State, NextEntityID: w.NextEntityID, NextObjectID: w.NextObjectID}
+		states[id] = persistence.SectorState{Tick: w.Tick, RandomState: w.Random.State, NextEntityID: w.NextEntityID, NextObjectID: w.NextObjectID, PirateDispatchAt: runtime.pirates.DispatchAt, NPCs: append(runtime.pirates.Capture(), runtime.collectors.Capture()...), NPCDispatch: runtime.collectors.CaptureDispatch()}
 	}
+
+	s.players.ForEach(func(p *playerRecord, _ string) {
+		if p.pirateAfter == 0 {
+			return
+		}
+
+		state := states[p.sectorID]
+
+		if state.PirateCooldowns == nil {
+			state.PirateCooldowns = map[string]uint64{}
+		}
+
+		state.PirateCooldowns[p.profile.ID] = p.pirateAfter
+		states[p.sectorID] = state
+	})
 
 	return persistence.World{Sectors: states, Seed: s.worldSeed, GenerationDigest: s.persistence.generationDigest, Tick: s.World.Tick, RandomState: s.World.Random.State, NextEntityID: s.World.NextEntityID, NextObjectID: s.World.NextObjectID}
 }
@@ -239,7 +260,7 @@ func (s *GameSession) capturePlayer(p *playerRecord) persistence.Player {
 func (s *GameSession) flushChanges() bool {
 	persist := s.persistence
 
-	if persist == nil || len(persist.players)+len(persist.entities) == 0 {
+	if persist == nil {
 		return true
 	}
 
@@ -268,6 +289,8 @@ func (s *GameSession) flushChanges() bool {
 		batch.Entities = append(batch.Entities, e)
 	}
 
+	npcs := s.captureNPCShips(&batch)
+
 	if !persist.store.Submit(batch) {
 		return false
 	}
@@ -281,6 +304,7 @@ func (s *GameSession) flushChanges() bool {
 	}
 
 	persist.sequence = batch.Sequence
+	persist.npcs = npcs
 	persist.nextFlush = s.now().Add(30 * time.Second)
 	persist.flushDeadline = s.now().Add(time.Minute)
 
@@ -374,7 +398,7 @@ func (s *GameSession) checkpoint() {
 		}
 
 		if transientWorldObject(e.Base().Kind, e.Base().Decay) {
-			s.recordWorldChange(e, s.sectors[s.sectorForWorld(e.Base().World)].regions.managed.Has(e.Base().ID), false)
+			s.recordWorldChange(e, s.sectors[s.sectorForWorld(e.Base().World)].regions.Managed.Has(e.Base().ID), false)
 			continue
 		}
 
@@ -382,7 +406,7 @@ func (s *GameSession) checkpoint() {
 			// Capture checkpoint records within the per-tick budget, so a later
 			// batched write does not copy a whole second of checkpoints at once.
 			state := objects.CaptureEntity(e)
-			persist.entities[e.Base().ID] = changedEntity{entity: e, generated: s.sectors[s.sectorForWorld(e.Base().World)].regions.managed.Has(e.Base().ID), state: &state}
+			persist.entities[e.Base().ID] = changedEntity{entity: e, generated: s.sectors[s.sectorForWorld(e.Base().World)].regions.Managed.Has(e.Base().ID), state: &state}
 		}
 	}
 
@@ -410,7 +434,7 @@ func (s *GameSession) shutdownPersistence(ctx context.Context) error {
 	for _, runtime := range s.sectors {
 		runtime.world.Entities.ForEach(func(e simulation.Entity, id int64) {
 			if e.Base().PlayerID == nil && e.Base().Kind != "jumpGate" && e.Base().Kind != "wormhole" {
-				s.recordWorldChange(e, runtime.regions.managed.Has(id), false)
+				s.recordWorldChange(e, runtime.regions.Managed.Has(id), false)
 			}
 		})
 
@@ -492,7 +516,7 @@ func (s *GameSession) attachSectorPersistence(runtime *sectorRuntime) {
 		}
 
 		if transientWorldObject(e.Base().Kind, e.Base().Decay) {
-			s.recordWorldChange(e, runtime.regions.managed.Has(e.Base().ID), deleted)
+			s.recordWorldChange(e, runtime.regions.Managed.Has(e.Base().ID), deleted)
 			return
 		}
 
@@ -506,13 +530,13 @@ func (s *GameSession) attachSectorPersistence(runtime *sectorRuntime) {
 			return
 		}
 
-		generated := runtime.regions.managed.Has(e.Base().ID)
+		generated := runtime.regions.Managed.Has(e.Base().ID)
 
 		s.recordWorldChange(e, generated, deleted)
 	}
 
-	runtime.regions.onSleep = func(e simulation.Entity) {
-		s.recordWorldChange(e, runtime.regions.managed.Has(e.Base().ID), false)
+	runtime.regions.OnSleep = func(e simulation.Entity) {
+		s.recordWorldChange(e, runtime.regions.Managed.Has(e.Base().ID), false)
 	}
 
 }
@@ -527,7 +551,7 @@ func (s *GameSession) recordWorldChange(entity simulation.Entity, generated, del
 	o := entity.Base()
 
 	if deleted && generated {
-		s.sectors[s.sectorForWorld(o.World)].regions.regions.Remove(uint32(o.ID))
+		s.sectors[s.sectorForWorld(o.World)].regions.Procedural.Remove(uint32(o.ID))
 	}
 
 	// A restart tombstone must not remove a still-living generated object from
@@ -543,3 +567,109 @@ func (s *GameSession) recordWorldChange(entity simulation.Entity, generated, del
 
 	s.persistence.entities[o.ID] = changedEntity{entity: entity, generated: generated, deleted: deleted}
 }
+
+/*
+Capture NPC mechanics in the same transaction as controller state and item
+transfers. Only a due save calls this; idle ticks do not copy ships or cargo.
+*/
+func (s *GameSession) captureNPCShips(batch *persistence.Batch) map[int64]string {
+	npcs := map[int64]string{}
+
+	for sector, state := range batch.World.Sectors {
+		for _, npc := range state.NPCs {
+			entity, ok := s.sectors[sector].world.Entities.Get(npc.ID)
+
+			if ok {
+				batch.Entities = append(batch.Entities, persistence.Entity{SectorID: sector, ID: npc.ID, State: objects.CaptureEntity(entity)})
+				npcs[npc.ID] = sector
+			}
+		}
+	}
+
+	for id, sector := range s.persistence.npcs {
+		if _, active := npcs[id]; !active {
+			batch.Entities = append(batch.Entities, persistence.Entity{SectorID: sector, ID: id, Deleted: true})
+		}
+	}
+
+	return npcs
+}
+
+/*
+Restore controller records alongside their ordinary saved ships. Roles own the
+semantic JSON; the session owns entity loading and observer identity.
+*/
+func (s *GameSession) restoreNPCs(sectors map[string]persistence.SectorState, npcs map[int64]string) error {
+	for sector, state := range sectors {
+		s.activateSector(sector)
+		runtime := s.sectors[sector]
+		runtime.pirates.DispatchAt = state.PirateDispatchAt
+
+		if err := runtime.collectors.RestoreDispatch(state.NPCDispatch); err != nil {
+			return fmt.Errorf("restore collector dispatch in %s: %w", sector, err)
+		}
+
+		for account, tick := range state.PirateCooldowns {
+			if p, ok := s.players.Get(account); ok {
+				p.pirateAfter = tick
+			}
+		}
+
+		// Assign every observer before restoring references between NPCs.
+		ships := make([]*objects.Ship, len(state.NPCs))
+
+		for index, saved := range state.NPCs {
+			npcs[saved.ID] = sector
+			entity, ok := runtime.regions.Sleeping.Get(saved.ID)
+
+			if !ok {
+				continue
+			}
+
+			ship, ok := entity.(*objects.Ship)
+
+			if !ok {
+				return fmt.Errorf("NPC %d is not a ship", saved.ID)
+			}
+
+			playerID := s.nextPlayerID
+			s.nextPlayerID++
+			ship.PlayerID = &playerID
+			ships[index] = ship
+		}
+
+		for index, saved := range state.NPCs {
+			ship := ships[index]
+
+			if ship == nil {
+				continue
+			}
+
+			simulation.AddEntity(runtime.world, ship)
+			var err error
+
+			switch saved.Kind {
+			case "pirate":
+				err = runtime.pirates.Restore(ship, saved.State)
+			case "collector":
+				err = runtime.collectors.Restore(ship, saved.State)
+			default:
+				err = fmt.Errorf("unknown saved NPC kind %q", saved.Kind)
+			}
+
+			if err != nil {
+				return fmt.Errorf("restore %s %d: %w", saved.Kind, saved.ID, err)
+			}
+
+			runtime.regions.Sleeping.Delete(ship.ID)
+		}
+	}
+
+	return nil
+}
+
+/*
+Shutdown queues the current simulation state. Close the persistence store after
+this returns to drain its queue and wait for the final transaction to commit.
+*/
+func (s *GameSession) Shutdown(ctx context.Context) error { return s.shutdownPersistence(ctx) }

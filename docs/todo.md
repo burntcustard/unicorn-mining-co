@@ -120,7 +120,6 @@
 [ ] Redo path-outline.ts with different colors and stuff
 [ ] Make stars consistent with world location
 
-
 ## Js13kGames
 
 [-] Minifiy under 13312 B.

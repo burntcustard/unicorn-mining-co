@@ -121,7 +121,10 @@ moduleSpecList.forEach((spec, index) => {
   assert.equal(overridden.model, module.model);
 });
 
-assert.equal(thrusters.length, 8);
+assert.equal(
+  thrusters.length,
+  moduleSpecList.filter((spec) => spec.behavior === 'thruster').length,
+);
 
 // Prediction may have destroyed a different mounting hull before reconciliation.
 // Both histories must hydrate the same mount indexes from authoritative state.

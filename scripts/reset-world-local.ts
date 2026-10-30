@@ -9,9 +9,9 @@ const child = spawn('go', ['run', './src/server', '--reset-world'], {
     GOEXPERIMENT: 'simd',
     APP_ENV: 'development',
     NODE_ENV: 'development',
-    DATABASE_PATH: fileURLToPath(
-      new URL('../.data/world.sqlite', import.meta.url),
-    ),
+    DATABASE_PATH:
+      process.env.DATABASE_PATH ||
+      fileURLToPath(new URL('../.data/world.sqlite', import.meta.url)),
   },
   stdio: 'inherit',
 });

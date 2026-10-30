@@ -112,7 +112,7 @@ const report: Reply = {
     trace: Boolean(process.env.GAMEPLAY_TRACE),
   },
   snapshotNote:
-    'Live and pirate start fresh pages with normal Go networking. Large, combat, and flight reset isolated deterministic worlds in the running page.',
+    'Live and pirate cases start fresh pages with normal Go networking. Large, combat, and flight reset isolated deterministic worlds in the running page.',
   setupInfo,
   results,
   validity: { pass: false },

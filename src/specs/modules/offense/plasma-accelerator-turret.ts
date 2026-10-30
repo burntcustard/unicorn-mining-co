@@ -10,7 +10,7 @@ export const plasmaAcceleratorTurret = {
   behavior: 'weapon',
   name: 'Plasma Accelerator Turret',
   turret: true,
-  turretTurnRate: Math.PI,
+  turretTurnRate: 3,
   health: 0,
   healthActivated: 20,
   power: 0.3,
@@ -97,30 +97,68 @@ export const plasmaAcceleratorTurret = {
         [0, 3],
       ],
     },
-    ...[0, 1, 2].map((index) => {
-      const x = 1 + index * 3.5;
-
-      return {
-        outline: false,
-        color: colors.violet[2],
-        rechargeDelay: (index + 1) * 500,
-        rechargeColor: colors.violet[0],
-        glow: {
-          radius: 5,
-          alpha: 0.3,
-          stops: [
-            [0, colors.violet[2]],
-            [0.3, colors.violet[2], 0.4],
-            [1, colors.black[0], 0],
-          ] as [number, string, number?][],
-        },
-        points: [
-          [x, 1.5],
-          [x + 2, 1.5],
-          [x + 2, 3],
-          [x, 3],
+    {
+      outline: false,
+      color: colors.violet[2],
+      rechargeDelay: 500,
+      rechargeColor: colors.violet[0],
+      glow: {
+        radius: 5,
+        alpha: 0.3,
+        stops: [
+          [0, colors.violet[2]],
+          [0.3, colors.violet[2], 0.4],
+          [1, colors.black[0], 0],
         ],
-      };
-    }),
+      },
+      points: [
+        [1, 1.5],
+        [3, 1.5],
+        [3, 3],
+        [1, 3],
+      ],
+    },
+    {
+      outline: false,
+      color: colors.violet[2],
+      rechargeDelay: 1000,
+      rechargeColor: colors.violet[0],
+      glow: {
+        radius: 5,
+        alpha: 0.3,
+        stops: [
+          [0, colors.violet[2]],
+          [0.3, colors.violet[2], 0.4],
+          [1, colors.black[0], 0],
+        ],
+      },
+      points: [
+        [4.5, 1.5],
+        [6.5, 1.5],
+        [6.5, 3],
+        [4.5, 3],
+      ],
+    },
+    {
+      outline: false,
+      color: colors.violet[2],
+      rechargeDelay: 1500,
+      rechargeColor: colors.violet[0],
+      glow: {
+        radius: 5,
+        alpha: 0.3,
+        stops: [
+          [0, colors.violet[2]],
+          [0.3, colors.violet[2], 0.4],
+          [1, colors.black[0], 0],
+        ],
+      },
+      points: [
+        [8, 1.5],
+        [10, 1.5],
+        [10, 3],
+        [8, 3],
+      ],
+    },
   ],
 } satisfies ModuleSpec;

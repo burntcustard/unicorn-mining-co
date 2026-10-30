@@ -79,7 +79,10 @@ const rebuild = async () => {
   }
 };
 
-const watchers = ['src/server', 'src/specs'].map((directory) =>
+// A managed benchmark keeps its compiled simulation fixed until capture ends.
+const watchers = (
+  process.env.NPC_BENCHMARK_SESSION ? [] : ['src/server', 'src/specs']
+).map((directory) =>
   watch(directory, { recursive: true }, (_, filename) => {
     if (
       !filename ||

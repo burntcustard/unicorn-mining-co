@@ -1,5 +1,7 @@
 import { type Craft } from './objects/craft';
 import { type GameObject } from './objects/game-object';
+import { type Ship } from './objects/ship';
+import type * as Vec from './utilities/vector';
 
 export type GameState = {
   canvas: HTMLCanvasElement;
@@ -16,6 +18,9 @@ export type GameState = {
   physicsOn?: boolean;
   sprites: GameObject[];
   crafts: Craft[];
+  // Presentation can follow another ship without changing local ownership.
+  viewShip?: Ship;
+  camera?: Vec.Value;
 };
 
 export const game = {

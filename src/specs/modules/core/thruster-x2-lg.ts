@@ -8,7 +8,7 @@ export const thrusterDualLg = {
   power: 2.4,
   powerActivated: 2.4,
   price: 575,
-  fuelUsage: 3.6 / 60,
+  fuelUsage: 0.06,
   forwardThrust: 19,
   rotationalThrust: 20,
   offset: 10.5,
