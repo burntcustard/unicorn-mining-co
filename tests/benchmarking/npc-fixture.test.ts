@@ -93,8 +93,10 @@ func npcFixturePlayer(t *testing.T, s *GameSession, name string, seeds ...uint32
 
 func TestNPCFixtureSeededLayouts(t *testing.T) {
 	var previous []Vec.Vector
+	minerals := map[string]bool{}
 	for _, seed := range []uint32{0, 1, 37, math.MaxUint32} {
 		var shared []Vec.Vector
+		var sharedTypes []string
 		for _, name := range []string{"Gather Courser", "Gather Finch", "Gather Courser"} {
 			s, socket, e := npcFixtureActor(t, name, seed)
 			manager := s.sectors[s.currentSector].collectors
@@ -104,8 +106,12 @@ func TestNPCFixtureSeededLayouts(t *testing.T) {
 			}
 			if shared == nil {
 				shared = slices.Clone(e.layout)
+				sharedTypes = slices.Clone(e.itemTypes)
 			} else if !slices.Equal(shared, e.layout) {
 				t.Fatalf("seed %d did not reproduce the shared Courser/Finch layout", seed)
+			}
+			if len(e.itemTypes) != len(e.itemIDs) || !slices.Equal(sharedTypes[:len(e.itemTypes)], e.itemTypes) {
+				t.Fatalf("seed %d did not reproduce the shared mineral prefix", seed)
 			}
 			ids := []int64{}
 			for id := range e.itemIDs {
@@ -114,6 +120,11 @@ func TestNPCFixtureSeededLayouts(t *testing.T) {
 			slices.Sort(ids)
 			for index, id := range ids {
 				item := manager.Environment.Entity(id).Base()
+				definition := e.itemTypes[index]
+				if !slices.Contains([]string{"gold", "amethyst", "diamond", "opal"}, definition) || item.Resource != s.World.Specification.ItemSpecs[definition].Resource {
+					t.Fatal("collection contains a non-mineral item or incorrect spec")
+				}
+				minerals[definition] = true
 				if Vec.Distance(Vec.Subtract(item.Position, home), e.layout[index]) > 1e-9 {
 					t.Fatal("hull did not use the common layout prefix")
 				}
@@ -155,6 +166,9 @@ func TestNPCFixtureSeededLayouts(t *testing.T) {
 			t.Fatal("different seeds produced identical layouts")
 		}
 		previous = shared
+	}
+	if len(minerals) != 4 {
+		t.Fatal("seeded collection cases did not exercise all four asteroid minerals")
 	}
 }
 

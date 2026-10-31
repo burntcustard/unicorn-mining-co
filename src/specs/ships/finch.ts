@@ -5,7 +5,7 @@ export const finch = {
   name: 'Finch',
   fuelCapacity: 120,
   cargoSpace: 6,
-  drag: 5 / 9,
+  drag: 0.56,
   mass: 9,
   radius: 40,
   turnRate: 2,

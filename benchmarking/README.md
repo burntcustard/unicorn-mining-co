@@ -76,13 +76,15 @@ Add `--scenario all --concurrency 1` to run all seven NPC cases with the same
 automatic setup; CPU-only scenes remain serial.
 
 Collection items use seeded random x/y positions around the station, avoiding
-existing hulls, asteroids, and overlapping pickups. Each repetition uses a new
+existing hulls, asteroids, and overlapping pickups. A separate seeded stream
+chooses gold, amethyst, diamond, or opal from the asteroid mineral specs without
+changing the position draws. Each repetition uses a new
 seed; both hulls receive matching layouts, with the Finch using six of the
 Courser's eight positions to match their cargo capacities. Items remain within
 roughly 1,400 units of the station. The five ordinary collector CPU scenes keep
 their existing layouts and timing.
 
-The report records each seed and the station-relative positions, and the runner
+The report records each seed, mineral sequence, and station-relative positions, and the runner
 verifies that paired layouts match. Its summary
 includes completion rate, average fraction collected, and mean/median completion
 time with the number of completed runs. Unfinished runs stay in the success and
@@ -192,6 +194,18 @@ discovery-only benchmark.
 ```sh
 GOMEMLIMIT=300MiB GOMAXPROCS=2 GOEXPERIMENT=simd go test ./benchmarking/npc -run '^$' -bench '^Benchmark(Collection|CollectorDispatch)' -benchmem
 ```
+
+For a short collection-only CPU profile, retain the same stock mechanics and
+memory budget and sample complete physical trips rather than stationary steering:
+
+```sh
+GOMEMLIMIT=300MiB GOGC=100 GOMAXPROCS=2 GOEXPERIMENT=simd go test ./benchmarking/npc -run '^$' -bench '^BenchmarkCollection$' -benchtime=1x -benchmem -cpuprofile /tmp/npc-collection.cpu -o /tmp/npc-collection.test
+go tool pprof -top /tmp/npc-collection.test /tmp/npc-collection.cpu
+```
+
+Use repeated unprofiled runs for CPU comparisons. Profiling adds overhead, and
+these clear-space pickup diagnostics do not measure the full station round trip;
+confirm final collection times with the unchanged 18-case collection command.
 
 ### Cleanup after real mining
 

@@ -1,6 +1,7 @@
 package npc
 
 import (
+	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision/query"
 	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
@@ -10,6 +11,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
+	"slices"
 	"testing"
 )
 
@@ -145,6 +147,66 @@ func TestObstaclesFollowPhysicalFixturesAcrossObjectKinds(t *testing.T) {
 	}
 }
 
+/*
+The station's enclosing circle extends beyond its flat walls. Cargo in that
+space must remain collectible without permitting a shortcut into a docking bay.
+*/
+func TestCollectionReachesCargoOutsideAFlatStationFace(t *testing.T) {
+	for _, definition := range []string{"courser", "finch"} {
+		for _, rotation := range []float64{0, -.4, .4} {
+			t.Run(fmt.Sprintf("%s/rotation%g", definition, rotation), func(t *testing.T) {
+				ship := arrivalShip(t, definition)
+				angle := rotation
+				direction := Vec.Create(math.Cos(angle), math.Sin(angle))
+				ship.Position = Vec.Scale(direction, 550)
+				ship.Face(angle + math.Pi)
+				collectionThroat(t, ship)
+				station := objects.CreateStation(objects.Properties{DefinitionID: "corral-5", ObjectProperties: simulation.ObjectProperties{World: ship.World, ID: new(int64(100)), Radius: new(400.), Rotation: rotation}}, ship.Catalog)
+				simulation.AddEntity(ship.World, station)
+				item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Scale(direction, 300), Rotation: angle}, ship.Catalog)
+				simulation.AddEntity(ship.World, item)
+				health := ship.HullHealthTotal()
+				elapsed, _ := collectOneItem(t, ship, item, &Pilot{})
+
+				if elapsed > 15 || ship.HullHealthTotal() != health || ship.DockedTo != nil {
+					t.Fatalf("pickup outside the flat wall was unsafe or slow: seconds=%g health=%g/%g docked=%v", elapsed, ship.HullHealthTotal(), health, ship.DockedTo)
+				}
+			})
+		}
+	}
+}
+
+/*
+Geometry is rebuilt from live colliders: removing a wall must change the next
+pickup envelope, while ordinary captures keep their reserved circular bounds.
+*/
+func TestStationPickupEnvelopeFollowsRemainingPhysicalHull(t *testing.T) {
+	ship := arrivalShip(t, "courser")
+	station := objects.CreateStation(objects.Properties{DefinitionID: "corral-5", ObjectProperties: simulation.ObjectProperties{World: ship.World, ID: new(int64(100)), Radius: new(400.)}}, ship.Catalog)
+	simulation.AddEntity(ship.World, station)
+	_, before := physicalBounds(station, true)
+
+	for _, segment := range station.Segments {
+		outline := segment.Outline()
+
+		if outline != nil && slices.ContainsFunc(outline.Points, func(point simulation.Point) bool { return point[0] > 0 }) {
+			*segment.TargetHealth() = 0
+		}
+	}
+
+	_, after := physicalBounds(station, true)
+
+	if before == nil || after == nil || after.maximum.X > before.maximum.X-50 {
+		t.Fatalf("pickup envelope retained destroyed walls: before=%+v after=%+v", before, after)
+	}
+
+	for _, object := range obstaclesFor(ship, 0) {
+		if object.station && (object.polygon != nil || object.radius < station.Radius) {
+			t.Fatal("ordinary station capture lost its reserved circular obstacle")
+		}
+	}
+}
+
 type shipContacts struct {
 	*gameplay.GameCollisions
 	first, second int64
@@ -258,14 +320,14 @@ func TestSelectiveGeometryCacheTracksOutlineAndPose(t *testing.T) {
 	rock := simulation.CreateAsteroid(ship.World, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{Position: Vec.Create(500, 0), Radius: new(130.), ShapeOutline: outline}}).LockGeometry()
 	simulation.AddEntity(ship.World, rock)
 	snapshot := obstacleSnapshot{}
-	first := snapshot.capture(ship, 0)[0]
+	first := snapshot.capture(ship, Movement{})[0]
 
 	if first.distance(Vec.Create(500, 90)) < 69 {
 		t.Fatal("long thin outline was treated as its outer circle")
 	}
 
 	rock.Rotation = math.Pi / 2
-	second := snapshot.capture(ship, 0)[0]
+	second := snapshot.capture(ship, Movement{})[0]
 
 	if first.polygon != second.polygon || second.distance(Vec.Create(500, 90)) >= 0 {
 		t.Fatal("pose changes did not reuse and rotate immutable geometry")
@@ -273,7 +335,7 @@ func TestSelectiveGeometryCacheTracksOutlineAndPose(t *testing.T) {
 
 	rock.ShapeOutline = &simulation.ShapeOutline{Points: []simulation.Point{{-120, -45}, {120, -45}, {120, 45}, {-120, 45}}}
 	rock.Rotation = 0
-	third := snapshot.capture(ship, 0)[0]
+	third := snapshot.capture(ship, Movement{})[0]
 
 	if third.polygon == first.polygon || math.Abs(third.distance(Vec.Create(500, 90))-45) > .001 {
 		t.Fatal("replaced unlocked outline reused stale geometry")
@@ -281,7 +343,7 @@ func TestSelectiveGeometryCacheTracksOutlineAndPose(t *testing.T) {
 
 	rock.ShapeOutline.Points[2][1] = 65
 	rock.ShapeOutline.Points[3][1] = 65
-	fourth := snapshot.capture(ship, 0)[0]
+	fourth := snapshot.capture(ship, Movement{})[0]
 
 	if fourth.polygon == third.polygon || math.Abs(fourth.distance(Vec.Create(500, 90))-25) > .001 {
 		t.Fatal("mutable outline bypass did not update local bounds")
@@ -297,7 +359,7 @@ func TestSelectiveGeometrySweepsMatchIndependentAsteroidContact(t *testing.T) {
 
 	for angle := 0.; angle < 2*math.Pi; angle += .31 {
 		rock.Rotation = angle
-		obstacles := snapshot.capture(ship, 0)
+		obstacles := snapshot.capture(ship, Movement{})
 
 		for y := -250.; y <= 250; y += 5 {
 			from, to := Vec.Create(-250, y), Vec.Create(250, y)

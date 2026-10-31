@@ -14,7 +14,7 @@ export const kestrel = {
   name: 'Kestrel',
   fuelCapacity: 155,
   cargoSpace: 18,
-  drag: 5 / 12,
+  drag: 0.42,
   mass: 12,
   radius: 73,
   turnRate: 2.6,

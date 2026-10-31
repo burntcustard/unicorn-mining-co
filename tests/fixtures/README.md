@@ -52,10 +52,16 @@ replay. All existing decoded values, packet counts, timing, and balances remain
 unchanged. The computed gameplay fixture separately exercises storage depletion,
 partial thruster supply, surplus recharge, and an undersupplied systems budget.
 
-The radar position stream includes 40 replacement lists containing 499 asteroid
+The radar position stream includes 40 replacement lists containing 497 asteroid
 positions across the replay. Contacts extend 300 units beyond the visible map
-range so partially visible dots remain available at its edge. All other decoded
-values, packet counts, timing, and balances remain unchanged.
+range so partially visible dots remain available at its edge.
+
+Rounded ship drag updates movement positions and velocities, one respawn
+position, and the resulting radar boundary memberships and refresh timing.
+The previous drag values were verified against the original fixed records before
+updating these affected fields. All 983 actions, 757 packet types and counts,
+runtime IDs, server ticks, acknowledgments, and account data remain unchanged;
+the numeric comparison still uses its original tolerance.
 
 `rendering.json` captures representative replicated ship, station, mixed cargo,
 and drilling stages. Browser tests hydrate it under source and production

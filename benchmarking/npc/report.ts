@@ -63,8 +63,8 @@ function collectionTimes(values: (number | null)[]) {
 
 /*
  * Every recorded run stays in the success and collected-fraction denominators,
- * including runs without an authoritative outcome. Completion times describe
- * completed runs only; each time statistic includes its actual sample count.
+ * including runs without an authoritative outcome. Pickup times require all
+ * items; full-trip times also require docking. Each retains its sample count.
  */
 export function summarizeNPCCollection({
   scenarios,
@@ -75,6 +75,8 @@ export function summarizeNPCCollection({
   repetitions: number;
   results: {
     scenario: string;
+    elapsedSeconds?: number;
+    endedBecause?: string;
     authoritativeCollection?: {
       collection: ReturnType<typeof collectionProgress>;
     } | null;
@@ -108,6 +110,14 @@ export function summarizeNPCCollection({
         completionSeconds: collectionTimes(
           completed.map((outcome) => outcome.completionSeconds),
         ),
+        fullTripSeconds: collectionTimes(
+          runs.map((run) =>
+            run.authoritativeCollection?.collection.complete &&
+            run.endedBecause === 'docked'
+              ? (run.elapsedSeconds ?? null)
+              : null,
+          ),
+        ),
         t50Seconds: collectionTimes(
           outcomes.map((outcome) => outcome?.t50Seconds ?? null),
         ),
@@ -116,6 +126,66 @@ export function summarizeNPCCollection({
         ),
       };
     });
+}
+
+/*
+ * Render plain cells without the inspection quotes or implicit index heading
+ * added by console.table. Keep units beside the displayed durations.
+ */
+export function formatNPCCollection(
+  summary: ReturnType<typeof summarizeNPCCollection>,
+) {
+  const duration = (seconds: number | null) =>
+    seconds === null ? '—' : `${seconds.toFixed(2)}s`;
+
+  const entries = summary.map((entry, index) => ({
+    index: String(index),
+    scenario: entry.scenario,
+    runs: `${entry.runs}/${entry.requestedRuns}`,
+    'pickups complete': `${entry.completedRuns}/${entry.runs}`,
+    'items collected':
+      entry.meanCollectedFraction === null
+        ? '—'
+        : `${Math.round(100 * entry.meanCollectedFraction)}%`,
+    'mean pickup': duration(entry.completionSeconds.mean),
+    'median pickup': duration(entry.completionSeconds.median),
+    'trips complete': `${entry.fullTripSeconds.samples}/${entry.runs}`,
+    'mean full-trip': duration(entry.fullTripSeconds.mean),
+    'median full-trip': duration(entry.fullTripSeconds.median),
+  }));
+
+  if (!entries.length) return '';
+
+  const rows = [Object.keys(entries[0]), ...entries.map(Object.values)];
+  const widths = rows[0].map((_, index) =>
+    Math.max(...rows.map((row) => row[index].length)),
+  );
+  const border = (left: string, middle: string, right: string) =>
+    left + widths.map((width) => '─'.repeat(width + 2)).join(middle) + right;
+  const row = (cells: string[]) =>
+    `│ ${cells.map((cell, index) => cell.padEnd(widths[index])).join(' │ ')} │`;
+
+  return [
+    border('┌', '┬', '┐'),
+    row(rows[0]),
+    border('├', '┼', '┤'),
+    ...rows.slice(1).map(row),
+    border('└', '┴', '┘'),
+  ].join('\n');
+}
+
+/*
+ * Round emitted elapsed times while retaining full precision for calculations.
+ */
+export function serializeNPCReport(report: unknown, space?: number) {
+  return JSON.stringify(
+    report,
+    (key, value: unknown) =>
+      key === 'elapsedSeconds' && typeof value === 'number'
+        ? Number(value.toFixed(2))
+        : value,
+    space,
+  );
 }
 
 /*
@@ -150,6 +220,7 @@ export async function readNPCReport({
     scenario: string;
     seed: number | null;
     layout: Vec.Value[] | null;
+    itemTypes: string[];
     items: number;
     maximumActive: number;
     deposited: number;

@@ -2,6 +2,7 @@ package npc_test
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/npc/testhost"
@@ -31,6 +32,7 @@ func TestCollectionValidation(t *testing.T) {
 
 func testCollections(t *testing.T, scenarios []testhost.CollectionCase) {
 	t.Helper()
+	paired := map[uint64]testhost.CollectionResult{}
 
 	for _, definition := range []string{"courser", "finch"} {
 		t.Run(definition, func(t *testing.T) {
@@ -41,6 +43,15 @@ func testCollections(t *testing.T, scenarios []testhost.CollectionCase) {
 
 				t.Run(scenario.Name, func(t *testing.T) {
 					result := testhost.RunCollection(t, definition, scenario)
+
+					if other, exists := paired[scenario.Seed]; exists {
+						if !slices.Equal(result.Items, other.Items[:len(result.Items)]) || !slices.Equal(result.ItemTypes, other.ItemTypes[:len(result.ItemTypes)]) {
+							t.Fatal("paired hulls changed seeded positions, rotations, or minerals")
+						}
+					} else {
+						paired[scenario.Seed] = result
+					}
+
 					seconds += result.Seconds
 					data, err := json.Marshal(result)
 

@@ -6,7 +6,7 @@ export const moth = {
   name: 'Moth',
   fuelCapacity: 180,
   cargoSpace: 20,
-  drag: 5 / 14,
+  drag: 0.36,
   mass: 14,
   radius: 74.5,
   turnRate: 2.4,

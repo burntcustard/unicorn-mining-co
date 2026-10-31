@@ -2,6 +2,7 @@ package npc
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
@@ -9,10 +10,12 @@ import (
 
 // Movement separates waiting, arrival and combat runs without changing ship physics.
 type Movement struct {
+	NextPositions                []Vec.Vector
 	Position, Velocity           Vec.Vector
 	FollowDistance, PassDistance float64
 	IgnoreID, TargetID           int64
-	Collect, Waiting, Coasting   bool
+	Collect, Waiting             bool
+	controls                     *protocol.Input
 }
 
 // Pilot retains navigation, docking and attack runs between decisions.
@@ -28,8 +31,7 @@ type Pilot struct {
 	targetMotion              motionObservation
 	dockingID                 int64
 	dockingBay                int
-	enteringDock              bool
-	collection                collectionApproach
+	collection                collectionProgress
 }
 
 /*
@@ -37,37 +39,41 @@ Steer translates a persistent route into the ship's ordinary thrust and turn inp
 Angular commands describe a desired spin, accounting for the actual engine response.
 */
 func (p *Pilot) Steer(ship *objects.Ship, destination Movement) (float64, float64) {
-	if destination.Waiting || destination.Coasting {
+	if destination.controls != nil {
+		p.passing = false
+		return destination.controls.Thrust, destination.controls.Turn
+	}
+
+	if destination.Waiting {
 		p.passing = false
 		offset := Vec.Subtract(destination.Position, ship.Position)
 		angle := math.Remainder(math.Atan2(offset.Y, offset.X)-ship.Rotation, 2*math.Pi)
-
-		if destination.Coasting {
-			return 0, turnInput(ship, angle)
-		}
-
-		return p.avoid(ship, offset, 0, turnInput(ship, angle), p.obstacles.capture(ship, destination.IgnoreID))
+		return p.avoid(ship, offset, 0, turnInput(ship, angle), p.obstacles.capture(ship, destination))
 	}
 
 	if ship.Launching > 0 {
 		return 1, 0
 	}
 
-	ignore := destination.IgnoreID
+	scene := destination
 	entity, _ := ship.World.Entities.Get(destination.TargetID)
 
 	// Pursuit forecasts its target separately with observed acceleration; it
 	// must not also become a stationary route obstacle at its current position.
 	if _, shipTarget := entity.(*objects.Ship); shipTarget && (destination.PassDistance > 0 || destination.FollowDistance > 0) {
-		ignore = destination.TargetID
+		scene.IgnoreID = destination.TargetID
 	}
 
-	return p.steer(ship, destination, entity, p.obstacles.capture(ship, ignore))
+	return p.steer(ship, destination, entity, p.obstacles.capture(ship, scene))
 }
 
 // steer shares one captured scene across route planning and physical controls.
 func (p *Pilot) steer(ship *objects.Ship, destination Movement, entity simulation.Entity, obstacles []obstacle) (float64, float64) {
-	destination = p.collection.movement(ship, destination, obstacles)
+	p.collection.update(ship, destination)
+
+	if turn, wiggling := p.collectionWiggle(ship, obstacles); wiggling {
+		return 0, turn
+	}
 
 	combatTarget := destination
 	// Pursuit checks the previous target before velocity observation advances it.
@@ -88,18 +94,6 @@ func (p *Pilot) steer(ship *objects.Ship, destination Movement, entity simulatio
 	if destination.Collect {
 		centers = collectionCenters(ship, centers)
 
-		if len(centers) > 0 {
-			local := simulation.RotatePoint(Vec.Subtract(target, ship.Position), -ship.Rotation)
-			center := centers[0]
-
-			for _, candidate := range centers[1:] {
-				if Vec.DistanceSquared(local, candidate) < Vec.DistanceSquared(local, center) {
-					center = candidate
-				}
-			}
-
-			target = Vec.Subtract(target, simulation.RotatePoint(center, ship.Rotation))
-		}
 	}
 
 	offset := Vec.Subtract(target, ship.Position)
@@ -147,28 +141,14 @@ func (p *Pilot) steer(ship *objects.Ship, destination Movement, entity simulatio
 
 	// Circle routes can end outside a usable hatch approach. Hand nearby cargo
 	// to the pickup controller while retaining its obstacle forecast.
-	collectNearby := destination.Collect && (!detour || distance < navigationRadius(ship)*3) && distance < ship.MaxSpeed()*float64(collectionPredictionSteps)*predictionStep
-	nearStation := false
+	collectNearby := destination.Collect && (!detour || distance < navigationRadius(ship)*3) && distance < ship.MaxSpeed()*collectionApproachTime
 
 	if collectNearby {
-		pickupReach := ship.MaxSpeed()*float64(collectionPredictionSteps)*predictionStep + navigationRadius(ship)
-
-		for _, object := range obstacles {
-			reach := object.radius + pickupReach
-
-			if object.station && Vec.DistanceSquared(ship.Position, object.position) < reach*reach {
-				nearStation = true
-				break
-			}
+		if len(centers) == 0 {
+			return 0, 0
 		}
 
-		if !nearStation {
-			if len(centers) == 0 {
-				return 0, 0
-			}
-
-			return p.collectControls(ship, destination, obstacles, centers)
-		}
+		return p.collectControls(ship, destination, obstacles, centers)
 	}
 
 	// Compensate for drift relative to the target while retaining a forward course.
@@ -177,29 +157,13 @@ func (p *Pilot) steer(ship *objects.Ship, destination Movement, entity simulatio
 	heading := Vec.Add(velocity, Vec.Subtract(Vec.Scale(direction, max(80, speed)), Vec.Scale(lateral, 1.2)))
 	desired := Vec.Add(velocity, Vec.Scale(direction, speed))
 
-	// Keep a controlled closing speed near docking interiors, where a fast
-	// glancing contact can send cargo inside circular navigation bounds.
-	if nearStation {
-		desired = Vec.Add(velocity, Vec.Scale(direction, min(50, max(40, distance*.8))))
-	} else if chasing && !detour {
+	if chasing && !detour {
 		wanted := Vec.Dot(velocity, direction) + (distance-destination.FollowDistance)*ship.Drag
 		desired = Vec.Scale(direction, max(0, min(ship.MaxSpeed(), wanted)))
 	}
 
 	maximum := ship.Rules.Flight.ThrustScale * ship.ForwardThrust() / ship.Mass
 	acceleration := Vec.Add(Vec.Scale(desired, ship.Drag), Vec.Scale(Vec.Subtract(desired, ship.Velocity), 1/rules.ResponseTime))
-
-	if nearStation {
-		forward := simulation.DirectionOf(ship.Rotation)
-		thrust := 0.0
-
-		if maximum > 0 {
-			thrust = max(0, min(1, Vec.Dot(acceleration, forward)/maximum))
-		}
-
-		angle := math.Remainder(math.Atan2(heading.Y, heading.X)-ship.Rotation, 2*math.Pi)
-		return p.avoid(ship, heading, thrust, turnInput(ship, angle), obstacles)
-	}
 
 	if chasing && !detour {
 		acceleration = Vec.Add(acceleration, targetAcceleration)
@@ -244,10 +208,6 @@ func (p *Pilot) steer(ship *objects.Ship, destination Movement, entity simulatio
 
 	turn := turnInput(ship, angle)
 
-	if p.collection.repositioning || combatTarget.Collect && distance < 4*navigationRadius(ship) {
-		return p.avoidPickup(ship, heading, thrust, turn, obstacles)
-	}
-
 	return p.avoid(ship, heading, thrust, turn, obstacles)
 }
 
@@ -255,12 +215,18 @@ func (p *Pilot) steer(ship *objects.Ship, destination Movement, entity simulatio
 turnInput converts a heading error into ordinary rotational controls.
 */
 func turnInput(ship *objects.Ship, angle float64) float64 {
-	return turnCommand(angle, ship.TurnRate*ship.RotationalThrust()/ship.Rules.Flight.SpinDivisor)
+	return turnCommand(angle, ship.TurnRate*ship.RotationalThrust()/ship.Rules.Flight.SpinDivisor, 1.8)
 }
 
-func turnCommand(angle, maxSpin float64) float64 {
+const collectionTurnGain = 3.5
+
+func collectionTurnInput(ship *objects.Ship, angle float64) float64 {
+	return turnCommand(angle, ship.TurnRate*ship.RotationalThrust()/ship.Rules.Flight.SpinDivisor, collectionTurnGain)
+}
+
+func turnCommand(angle, maxSpin, gain float64) float64 {
 	if maxSpin > 0 && math.Abs(angle) > 0.02 {
-		return max(-1, min(1, angle*1.8/maxSpin))
+		return max(-1, min(1, angle*gain/maxSpin))
 	}
 
 	return 0

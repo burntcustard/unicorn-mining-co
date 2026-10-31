@@ -107,10 +107,14 @@ const summaries = summarizeNPCCollection({
   results: [
     {
       scenario: 'collection-courser',
+      elapsedSeconds: 10,
+      endedBecause: 'docked',
       authoritativeCollection: outcome([2, 4]),
     },
     {
       scenario: 'collection-courser',
+      elapsedSeconds: 20,
+      endedBecause: 'docked',
       authoritativeCollection: outcome([3, 8]),
     },
     { scenario: 'collection-courser', authoritativeCollection: outcome([5]) },
@@ -128,6 +132,7 @@ assert.deepEqual(summaries, [
     completionRate: 0.5,
     meanCollectedFraction: 0.625,
     completionSeconds: { samples: 2, mean: 6, median: 6, min: 4, max: 8 },
+    fullTripSeconds: { samples: 2, mean: 15, median: 15, min: 10, max: 20 },
     t50Seconds: { samples: 3, mean: 10 / 3, median: 3, min: 2, max: 5 },
     t90Seconds: { samples: 2, mean: 6, median: 6, min: 4, max: 8 },
   },
@@ -139,6 +144,13 @@ assert.deepEqual(summaries, [
     completionRate: null,
     meanCollectedFraction: null,
     completionSeconds: {
+      samples: 0,
+      mean: null,
+      median: null,
+      min: null,
+      max: null,
+    },
+    fullTripSeconds: {
       samples: 0,
       mean: null,
       median: null,
@@ -164,6 +176,49 @@ assert.equal(incomplete.completionRate, 0);
 assert.equal(incomplete.meanCollectedFraction, 0.25);
 assert.equal(incomplete.completionSeconds.samples, 0);
 assert.equal(incomplete.completionSeconds.mean, null);
+assert.equal(incomplete.fullTripSeconds.samples, 0);
+assert.equal(incomplete.fullTripSeconds.mean, null);
+
+const trips = summarizeNPCCollection({
+  scenarios: ['collection-finch'],
+  repetitions: 4,
+  results: [
+    {
+      scenario: 'collection-finch',
+      endedBecause: 'docked',
+      elapsedSeconds: 12,
+      authoritativeCollection: outcome([2, 5]),
+    },
+    {
+      scenario: 'collection-finch',
+      endedBecause: 'timeout',
+      elapsedSeconds: 120,
+      authoritativeCollection: outcome([3, 8]),
+    },
+    {
+      scenario: 'collection-finch',
+      endedBecause: 'docked',
+      elapsedSeconds: 4,
+      authoritativeCollection: outcome([1]),
+    },
+    {
+      scenario: 'collection-finch',
+      endedBecause: 'docked',
+      elapsedSeconds: 9,
+      authoritativeCollection: null,
+    },
+  ],
+})[0];
+
+assert.equal(trips.completionSeconds.samples, 2);
+
+assert.deepEqual(trips.fullTripSeconds, {
+  samples: 1,
+  mean: 12,
+  median: 12,
+  min: 12,
+  max: 12,
+});
 
 const directory = await mkdtemp(join(tmpdir(), 'npc-report-test-'));
 const previousManifest = process.env.NPC_BENCHMARK_FIXTURE;
@@ -181,6 +236,7 @@ try {
       scenario: 'collection-finch',
       seed: 42,
       layout: [{ x: -200, y: 300 }],
+      itemTypes: ['gold', 'diamond'],
       items: 2,
       maximumActive: 1,
       deposited: 0,
@@ -204,6 +260,7 @@ try {
 
   assert.equal(report.seed, 42);
   assert.deepEqual(report.layout, [{ x: -200, y: 300 }]);
+  assert.deepEqual(report.itemTypes, ['gold', 'diamond']);
   assert.equal(report.events.length, 3);
   assert.equal(report.captureEvents.length, 2);
   assert.equal(report.collection.pickedUp, 1);

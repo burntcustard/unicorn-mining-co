@@ -42,6 +42,7 @@ type CollectionResult struct {
 	LongestGap  float64      `json:"longestGap"`
 	Heading     float64      `json:"heading"`
 	Items       [][3]float64 `json:"items"`
+	ItemTypes   []string     `json:"itemTypes"`
 }
 
 /*
@@ -68,6 +69,16 @@ func RunCollection(t testing.TB, definition string, scenario CollectionCase) Col
 	simulation.AddEntity(world, ship)
 	simulation.AddPlayer(world, simulation.Player{ID: *ship.PlayerID, ShipID: ship.ID})
 	random := rand.New(rand.NewPCG(scenario.Seed, 8))
+	// Asteroid rewards use resource IDs 0–3; their draws must not move cargo.
+	minerals := []string{}
+
+	for _, id := range catalog.ItemIDs {
+		if resource := catalog.ItemSpecs[id].Resource; resource >= 0 && resource < 4 {
+			minerals = append(minerals, id)
+		}
+	}
+
+	mineralRandom := rand.New(rand.NewPCG(scenario.Seed, 1))
 	result := CollectionResult{Ship: definition, Seed: scenario.Seed, Spread: scenario.Spread, Expected: min(8, ship.CargoSpace), Heading: random.Float64() * 2 * math.Pi}
 
 	if result.Expected == 0 {
@@ -88,11 +99,13 @@ func RunCollection(t testing.TB, definition string, scenario CollectionCase) Col
 			}
 		}
 
-		item := objects.NewItem("gold", simulation.ObjectProperties{World: world, ID: new(simulation.EntityID(world)), Position: Vec.Add(center, position)}, catalog)
+		definition := minerals[mineralRandom.IntN(len(minerals))]
+		item := objects.NewItem(definition, simulation.ObjectProperties{World: world, ID: new(simulation.EntityID(world)), Position: Vec.Add(center, position)}, catalog)
 		item.Rotation, item.Mined = random.Float64()*2*math.Pi, true
 		simulation.AddEntity(world, item)
 		items = append(items, item)
 		result.Items = append(result.Items, [3]float64{position.X, position.Y, item.Rotation})
+		result.ItemTypes = append(result.ItemTypes, definition)
 	}
 
 	pilot := &npc.Pilot{}

@@ -99,19 +99,24 @@ async function localProcess(pid: number): Promise<LocalProcess> {
 }
 
 async function listeners(port: number) {
-  const { stdout } = await execute('ss', ['-ltnp', `sport = :${port}`]);
-  const pids = [
-    ...new Set(
-      [...stdout.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1])),
-    ),
-  ];
+  for (let attempt = 0; ; attempt++) {
+    const { stdout } = await execute('ss', ['-ltnp', `sport = :${port}`]);
+    const pids = [
+      ...new Set(
+        [...stdout.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1])),
+      ),
+    ];
 
-  assert(pids.length <= 1, `Multiple processes are listening on port ${port}`);
-  assert(
-    pids.length || stdout.trim().split('\n').length <= 1,
-    `Cannot identify the process using port ${port}`,
-  );
-  return pids;
+    assert(
+      pids.length <= 1,
+      `Multiple processes are listening on port ${port}`,
+    );
+
+    if (pids.length || stdout.trim().split('\n').length <= 1) return pids;
+    // ss can see a newly bound socket before its process scan finds the owner.
+    assert(attempt < 3, `Cannot identify the process using port ${port}`);
+    await pause(50);
+  }
 }
 
 async function belongsTo(pid: number, ancestor: number) {

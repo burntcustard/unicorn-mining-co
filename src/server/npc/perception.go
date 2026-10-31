@@ -2,6 +2,7 @@ package npc
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -9,10 +10,12 @@ import (
 )
 
 type obstacle struct {
+	entity             simulation.Entity
 	station, asteroid  bool
 	position, velocity Vec.Vector
 	acceleration       Vec.Vector
 	radius             float64
+	physicalRadius     float64
 	spin               float64
 	inverseRotation    Vec.Vector
 	polygon            *obstacleGeometry
@@ -85,30 +88,46 @@ navigationRadius encloses the ship's physical fixtures, including polygon skin.
 Decorative models, pickup contacts and the broad replication radius do not set it.
 */
 func navigationRadius(ship *objects.Ship) float64 {
-	return max(1, physicalRadius(ship))
+	radius, _ := physicalBounds(ship, false)
+	return max(1, radius)
 }
 
 /*
-physicalRadius encloses collidable fixtures rather than decorative object bounds.
-An empty physical hitbox excludes docked ships, portals and other triggers.
+physicalBounds reads collidable fixtures once for their radius and, when needed,
+a convex outline. The outline closes station bay recesses for pickup guidance;
+ordinary docking keeps its reserved circle. Mutable fixtures are read afresh.
 */
-func physicalRadius(entity simulation.Entity) float64 {
+func physicalBounds(entity simulation.Entity, outline bool) (float64, *obstacleGeometry) {
 	radius := 0.0
 	object := entity.Base()
+	var storage [96]Vec.Vector
+	vertices := storage[:0]
+	padding := 0.0
 
 	for _, collider := range entity.Hitbox() {
 		if collider.Physics != nil && !*collider.Physics || collider.Collides != nil && !*collider.Collides {
 			continue
 		}
 
-		center := simulation.RotatePoint(Vec.Subtract(collider.Position, object.Position), -object.Rotation)
+		center := simulation.RotatePoint(Vec.Subtract(collider.GetPosition(), object.Position), -object.Rotation)
 
 		if collider.LocalPosition != nil {
 			center = *collider.LocalPosition
 		}
 
 		if len(collider.ShapeOutline) == 0 {
-			radius = max(radius, Vec.Length(center)+collider.Radius)
+			radius = max(radius, Vec.Length(center)+collider.GetRadius())
+
+			if outline {
+				// Tangent octagon sides enclose the whole circular fixture.
+				outer := collider.GetRadius() / math.Cos(math.Pi/8)
+
+				for index := range 8 {
+					angle := (float64(index) + .5) * math.Pi / 4
+					vertices = append(vertices, Vec.AddScaled(center, Vec.Create(math.Cos(angle), math.Sin(angle)), outer))
+				}
+			}
+
 			continue
 		}
 
@@ -118,6 +137,7 @@ func physicalRadius(entity simulation.Entity) float64 {
 			margin = *collider.CollisionMargin
 		}
 
+		padding = max(padding, math.Sqrt2*margin)
 		rotation := collider.GetRotation() - object.Rotation
 
 		for _, point := range collider.ShapeOutline {
@@ -127,11 +147,34 @@ func physicalRadius(entity simulation.Entity) float64 {
 				local = simulation.RotatePoint(local, rotation)
 			}
 
-			radius = max(radius, Vec.Length(Vec.Add(center, local))+margin)
+			local = Vec.Add(center, local)
+			radius = max(radius, Vec.Length(local)+margin)
+
+			if outline {
+				vertices = append(vertices, local)
+			}
 		}
 	}
 
-	return radius
+	if !outline || len(vertices) < 3 {
+		return radius, nil
+	}
+
+	hull := shape.NewPolygon(vertices, new(0.0), object.World.Specification.Simulation.LinearSlop)
+	points := make([]simulation.Point, hull.Count)
+
+	for index, vertex := range hull.Vertices[:hull.Count] {
+		points[index] = simulation.Point{vertex.X, vertex.Y}
+	}
+
+	geometry := newObstacleGeometry(points)
+
+	if geometry != nil {
+		geometry.padding = padding
+		geometry.radius += padding
+	}
+
+	return radius, geometry
 }
 
 /*
@@ -139,7 +182,7 @@ capture keeps circle bounds for every obstacle and shares immutable local astero
 outlines. Exact geometry is inspected only after the circle rejects a query.
 Only locked geometry sources are cached; mutable outlines are rebuilt on capture.
 */
-func (s *obstacleSnapshot) capture(ship *objects.Ship, ignore int64) []obstacle {
+func (s *obstacleSnapshot) capture(ship *objects.Ship, destination Movement) []obstacle {
 	clear(s.objects)
 	s.objects = s.objects[:0]
 
@@ -160,11 +203,11 @@ func (s *obstacleSnapshot) capture(ship *objects.Ship, ignore int64) []obstacle 
 	ship.World.Entities.ForEach(func(entity simulation.Entity, _ int64) {
 		object := entity.Base()
 
-		if object.ID == ship.ID || object.ID == ignore || object.Dead || object.Buried || object.Item && len(ship.CargoContents) < ship.CargoSpace {
+		if object.ID == ship.ID || object.ID == destination.IgnoreID || object.Dead || object.Buried || object.Item && len(ship.CargoContents) < ship.CargoSpace {
 			return
 		}
 
-		value := obstacle{station: object.Kind == "station", position: object.Position, velocity: object.Velocity, radius: object.Radius, spin: object.Spin}
+		value := obstacle{entity: entity, station: object.Kind == "station", position: object.Position, velocity: object.Velocity, radius: object.Radius, spin: object.Spin}
 
 		if asteroid, ok := entity.(*simulation.Asteroid); ok {
 			if !object.Physics {
@@ -183,22 +226,28 @@ func (s *obstacleSnapshot) capture(ship *objects.Ship, ignore int64) []obstacle 
 				}
 			}
 
-			if geometry != nil {
-				value.polygon = geometry
-				value.radius = max(value.radius, geometry.radius)
-				sine, cosine := math.Sincos(-object.Rotation)
-				value.inverseRotation = Vec.Create(cosine, sine)
-			}
+			value.polygon = geometry
 		} else {
-			value.radius = physicalRadius(entity)
+			precise := value.station && (destination.Collect || object.ID == destination.TargetID && destination.FollowDistance > 0)
+			value.radius, value.polygon = physicalBounds(entity, precise)
 
 			if value.radius == 0 {
 				return
 			}
 
 			if value.station {
-				value.radius = max(value.radius, object.Radius)
+				value.physicalRadius = value.radius
+
+				if !precise {
+					value.radius = max(value.radius, object.Radius)
+				}
 			}
+		}
+
+		if value.polygon != nil {
+			value.radius = max(value.radius, value.polygon.radius)
+			sine, cosine := math.Sincos(-object.Rotation)
+			value.inverseRotation = Vec.Create(cosine, sine)
 		}
 
 		previous, observed := s.motion[object.ID]
@@ -347,6 +396,7 @@ type obstacleGeometry struct {
 	points              []simulation.Point
 	minimum, maximum    Vec.Vector
 	radius, innerRadius float64
+	padding             float64
 }
 
 /*
@@ -407,13 +457,15 @@ func (g *obstacleGeometry) distance(point Vec.Vector) float64 {
 	distance := math.Sqrt(nearest)
 
 	if inside {
-		return -distance
+		distance = -distance
 	}
 
-	return distance
+	return distance - g.padding
 }
 
 func (g *obstacleGeometry) clear(from, to Vec.Vector, radius float64) bool {
+	radius += g.padding
+
 	if min(from.X, to.X) > g.maximum.X+radius || max(from.X, to.X) < g.minimum.X-radius || min(from.Y, to.Y) > g.maximum.Y+radius || max(from.Y, to.Y) < g.minimum.Y-radius {
 		return true
 	}

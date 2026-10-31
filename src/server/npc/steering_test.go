@@ -303,7 +303,7 @@ func predict(ship *objects.Ship, heading, thrust, turn, radius float64, obstacle
 }
 
 func obstaclesFor(ship *objects.Ship, ignore int64) []obstacle {
-	return new(obstacleSnapshot).capture(ship, ignore)
+	return new(obstacleSnapshot).capture(ship, Movement{IgnoreID: ignore})
 }
 
 func avoid(ship *objects.Ship, heading Vec.Vector, thrust, turn float64, obstacles []obstacle) (float64, float64) {

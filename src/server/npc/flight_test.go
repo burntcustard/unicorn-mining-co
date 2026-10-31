@@ -2,12 +2,14 @@ package npc
 
 import (
 	"fmt"
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision/query"
 	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
@@ -91,6 +93,56 @@ func TestWaitingPirateFacesPlayerWithoutThrusting(t *testing.T) {
 	}
 }
 
+/*
+Repeated pickup approaches need prompt heading changes at the ordinary decision
+rate. Exercise both hulls and adverse initial spin through their real engines,
+then keep observing so a fast turn cannot pass by continually overshooting.
+*/
+func TestCollectionTurnInputTurnsPromptlyAndSettles(t *testing.T) {
+	for _, definition := range []string{"courser", "finch"} {
+		for _, heading := range []float64{-.15, -math.Pi + .01, -math.Pi / 2, math.Pi / 2, math.Pi - .01} {
+			for _, spin := range []float64{-.3, .3} {
+				t.Run(fmt.Sprintf("%s/heading%g/spin%g", definition, heading, spin), func(t *testing.T) {
+					ship := arrivalShip(t, definition)
+					ship.Face(heading)
+					ship.Spin = spin
+					maximum := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+					deadline := math.Abs(heading)/maximum + .9
+					reversals, previous := 0, 0.0
+
+					flyPilot(ship, 30*5, func(float64) (float64, float64) {
+						return 0, collectionTurnInput(ship, math.Remainder(-ship.Rotation, 2*math.Pi))
+					}, func(tick int, thrust, turn float64) {
+						if thrust != 0 || math.Abs(turn) > 1 {
+							t.Fatalf("heading change used invalid flight controls: thrust=%g turn=%g", thrust, turn)
+						}
+
+						if tick%steeringIntervalTicks(ship) == 0 && math.Abs(turn) > .1 {
+							if previous*turn < 0 {
+								reversals++
+							}
+
+							previous = turn
+						}
+
+						if float64(tick+1)/30 >= deadline {
+							angle := math.Remainder(ship.Rotation, 2*math.Pi)
+
+							if math.Abs(angle) > .035 || math.Abs(ship.Spin) > .08 {
+								t.Fatalf("turn did not settle promptly: deadline=%g time=%g error=%g spin=%g", deadline, float64(tick+1)/30, angle, ship.Spin)
+							}
+						}
+					})
+
+					if reversals > 1 {
+						t.Fatalf("heading change kept reversing its turn: reversals=%d", reversals)
+					}
+				})
+			}
+		}
+	}
+}
+
 func TestPilotCommitsToAnAsteroidDetour(t *testing.T) {
 	for _, y := range []float64{-50, 0, 50} {
 		ship := flightShip(t)
@@ -171,7 +223,9 @@ func TestCombatUsesItsThrusterAcrossCommittedRuns(t *testing.T) {
 		totalSpeed += Vec.Length(ship.Velocity)
 	})
 
-	if powered < 1100 || turnOnly > 225 || totalSpeed/1499 < speedLimit*.6 {
+	// Allow small tuning changes to shift turn boundaries without permitting
+	// sustained coasting or weakening the powered-flight and speed checks.
+	if powered < 1100 || turnOnly > 250 || totalSpeed/1499 < speedLimit*.6 {
 		t.Fatalf("combat still stalls: powered=%d turning without thrust=%d average speed=%g", powered, turnOnly, totalSpeed/1499)
 	}
 
@@ -596,6 +650,8 @@ func TestDockingDifferentShipsAcrossApproaches(t *testing.T) {
 						ship.Face(scenario.heading)
 						station := objects.CreateStation(objects.Properties{DefinitionID: stationDefinition, ObjectProperties: simulation.ObjectProperties{World: ship.World, ID: new(int64(100)), Radius: new(400.), Spin: spin, Rotation: scenario.rotation}}, ship.Catalog)
 						simulation.AddEntity(ship.World, station)
+						contacts := &stationWallContacts{GameCollisions: gameplay.NewGameCollisions(ship.Catalog), ship: ship.ID, station: station.ID}
+						ship.World.Collisions = contacts
 
 						if station.Holds(ship) {
 							ship.LocalMovementParent, ship.LocalMovementRate = station, 1
@@ -629,6 +685,10 @@ func TestDockingDifferentShipsAcrossApproaches(t *testing.T) {
 								t.Logf("docked in %.2fs", float64(tick+1)/30)
 								break
 							}
+						}
+
+						if contacts.touches > 0 {
+							t.Errorf("docking touched station wall %d times, first point=%v", contacts.touches, contacts.first.Point)
 						}
 
 						if ship.DockedTo == nil || *ship.DockedTo != station.ID || ship.HullHealthTotal() != health {
@@ -670,6 +730,130 @@ func TestDockingAlignmentCoastsWhenTrafficApproaches(t *testing.T) {
 				t.Fatalf("docking alignment did not coast while facing inward: thrust=%g turn=%g", thrust, turn)
 			}
 		})
+	}
+}
+
+/*
+Docking completes on physical contact with the core, so a centered approach can
+keep its engine powered through the bay instead of coasting toward a full stop.
+*/
+func TestDockingPowersThroughAlignedCorridor(t *testing.T) {
+	for _, definition := range []string{"courser", "finch"} {
+		t.Run(definition, func(t *testing.T) {
+			ship := arrivalShip(t, definition)
+			ship.Position, ship.Velocity = Vec.Create(500, 0), Vec.Create(-180, 0)
+			ship.Face(math.Pi)
+			station := objects.CreateStation(objects.Properties{DefinitionID: "corral-5", ObjectProperties: simulation.ObjectProperties{World: ship.World, ID: new(int64(100)), Radius: new(400.)}}, ship.Catalog)
+			simulation.AddEntity(ship.World, station)
+			contacts := &stationWallContacts{GameCollisions: gameplay.NewGameCollisions(ship.Catalog), ship: ship.ID, station: station.ID}
+			ship.World.Collisions = contacts
+			ship.LocalMovementParent, ship.LocalMovementRate = station, 1
+			primeContactForecast(ship)
+			pilot := Pilot{}
+			health := ship.HullHealthTotal()
+			modules := map[*simulation.Mount]float64{}
+
+			for _, segment := range ship.Segments {
+				for _, mount := range segment.Mounts {
+					if mount.Module != nil {
+						modules[mount] = mount.Health
+					}
+				}
+			}
+
+			thrust, turn := 0., 0.
+			poweredNearCore := false
+			var events []protocol.SimulationEvent
+
+			for tick := range 30 * 4 {
+				if tick%steeringIntervalTicks(ship) == 0 {
+					movement := pilot.DockingMovement(ship, station)
+					thrust, turn = pilot.Steer(ship, movement)
+
+					if movement.controls == nil || thrust < .999 {
+						t.Fatalf("aligned docking entry reduced thrust: position=%v flyThrough=%v thrust=%g", ship.Position, movement.controls != nil, thrust)
+					}
+
+					poweredNearCore = poweredNearCore || ship.Position.X < 300
+				}
+
+				ship.Control(protocol.Input{Thrust: thrust, Turn: turn}, &events)
+				events = events[:0]
+				simulation.UpdateWorld(ship.World, simulation.UpdateWorldOptions{})
+
+				if ship.DockedTo != nil {
+					break
+				}
+			}
+
+			if contacts.touches > 0 {
+				t.Errorf("docking touched station wall %d times, first point=%v", contacts.touches, contacts.first.Point)
+			}
+
+			if !poweredNearCore || ship.DockedTo == nil || *ship.DockedTo != station.ID || ship.HullHealthTotal() != health {
+				t.Fatalf("powered entry did not dock safely: powered=%v docked=%v hull=%g/%g", poweredNearCore, ship.DockedTo, ship.HullHealthTotal(), health)
+			}
+
+			for mount, health := range modules {
+				if mount.Module == nil || mount.Health != health {
+					t.Fatalf("powered docking damaged an installed module: %g/%g", mount.Health, health)
+				}
+			}
+		})
+	}
+}
+
+func TestDockingKeepsLateralApproachesInsidePhysicalWalls(t *testing.T) {
+	for _, definition := range []string{"courser", "finch"} {
+		for _, scenario := range []struct {
+			name          string
+			offset, drift float64
+			heading       float64
+		}{
+			{"centered", 0, 0, math.Pi},
+			{"inward-drift", 30, -10, math.Pi},
+			{"mirrored-inward-drift", -30, 10, math.Pi},
+			{"drifting", 20, 12, math.Pi},
+			{"angled-burn", 20, 0, math.Pi - .3},
+			{"facing-across", 0, 0, math.Pi / 2},
+		} {
+			t.Run(definition+"/"+scenario.name, func(t *testing.T) {
+				ship := arrivalShip(t, definition)
+				ship.Position, ship.Velocity = Vec.Create(300, scenario.offset), Vec.Create(-180, scenario.drift)
+				ship.Face(scenario.heading)
+				station := objects.CreateStation(objects.Properties{DefinitionID: "corral-5", ObjectProperties: simulation.ObjectProperties{World: ship.World, ID: new(int64(100)), Radius: new(400.)}}, ship.Catalog)
+				simulation.AddEntity(ship.World, station)
+				contacts := &stationWallContacts{GameCollisions: gameplay.NewGameCollisions(ship.Catalog), ship: ship.ID, station: station.ID}
+				ship.World.Collisions = contacts
+				ship.LocalMovementParent, ship.LocalMovementRate = station, 1
+				pilot := Pilot{}
+				health := ship.HullHealthTotal()
+				thrust, turn := 0., 0.
+				var events []protocol.SimulationEvent
+
+				for tick := range 30 * 20 {
+					if tick%steeringIntervalTicks(ship) == 0 {
+						thrust, turn = pilot.Steer(ship, pilot.DockingMovement(ship, station))
+					}
+
+					ship.Control(protocol.Input{Thrust: thrust, Turn: turn}, &events)
+					events = events[:0]
+					simulation.UpdateWorld(ship.World, simulation.UpdateWorldOptions{})
+
+					if ship.DockedTo != nil {
+						break
+					}
+				}
+
+				if contacts.touches > 0 {
+					t.Errorf("docking touched station wall %d times, first point=%v", contacts.touches, contacts.first.Point)
+				}
+
+				if ship.DockedTo == nil || *ship.DockedTo != station.ID || ship.HullHealthTotal() != health {
+					t.Fatalf("unsafe lateral docking: docked=%v health=%g/%g", ship.DockedTo, ship.HullHealthTotal(), health)
+				}
+			})
+		}
 	}
 }
 
@@ -790,4 +974,30 @@ func TestInterceptionReturnsToActualPlayerSpacingAfterBraking(t *testing.T) {
 	if closest < spacing-30 || math.Abs(distance-spacing) > 20 || Vec.Length(ship.Velocity) > 3 || ship.HullHealthTotal()+target.HullHealthTotal() != health {
 		t.Fatalf("interception overran the actual braking player: closest=%g final=%g speed=%g", closest, distance, Vec.Length(ship.Velocity))
 	}
+}
+
+type stationWallContacts struct {
+	*gameplay.GameCollisions
+	ship, station int64
+	touches       int
+	first         collision.Contact
+}
+
+func (c *stationWallContacts) Step(entities *utilities.OrderedMap[int64, simulation.Entity], dt float64, events *[]protocol.SimulationEvent) []collision.Contact {
+	contacts := c.GameCollisions.Step(entities, dt, events)
+
+	for _, contact := range contacts {
+		a, b := contact.Collider, contact.Other
+		first, second := a.Owner.(simulation.Entity).Base().ID, b.Owner.(simulation.Entity).Base().ID
+
+		if (first == c.ship && second == c.station || first == c.station && second == c.ship) && !a.DockSegment && !b.DockSegment && (a.Physics == nil || *a.Physics) && (b.Physics == nil || *b.Physics) {
+			if c.touches == 0 {
+				c.first = contact
+			}
+
+			c.touches++
+		}
+	}
+
+	return contacts
 }

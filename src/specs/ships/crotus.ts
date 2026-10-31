@@ -4,7 +4,7 @@ export const crotus = {
   name: 'Crotus',
   fuelCapacity: 120,
   cargoSpace: 12,
-  drag: 5 / 9,
+  drag: 0.56,
   mass: 9,
   radius: 40,
   turnRate: 3,

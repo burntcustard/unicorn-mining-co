@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
-	"github.com/burntcustard/unicorn-mining-co/src/server/collision/query"
-	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
+	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -14,65 +13,6 @@ import (
 	"slices"
 	"testing"
 )
-
-func TestCollectionContactBoundKeepsNativeCornerContacts(t *testing.T) {
-	const slop = .5
-	square := []Vec.Vector{{X: -1, Y: -1}, {X: 1, Y: -1}, {X: 1, Y: 1}, {X: -1, Y: 1}}
-	item := shape.NewPolygon(square, new(0.0), slop)
-
-	for _, scenario := range []struct {
-		name     string
-		margin   *float64
-		distance float64
-	}{
-		{"large", new(10.0), 11.9},
-		{"default", nil, 2.9},
-		{"zero", new(0.0), 1.9},
-	} {
-		for _, rotation := range []float64{0, math.Pi / 7, math.Pi / 2} {
-			t.Run(fmt.Sprintf("%s/rotation%g", scenario.name, rotation), func(t *testing.T) {
-				hull := collectionHull{shape: shape.NewPolygon(square, scenario.margin, slop)}
-				position := simulation.RotatePoint(Vec.Create(scenario.distance, scenario.distance), rotation)
-				a := Vec.Transform(0, 0, rotation)
-				b := Vec.Transform(position.X, position.Y, rotation)
-
-				if _, touching := query.ContactShapes(hull.shape, item, a, b, slop); !touching {
-					t.Fatal("fixture must produce a native polygon corner contact")
-				}
-
-				reach := collectionRadius(hull.shape) + collectionRadius(item) + slop
-
-				if Vec.DistanceSquared(a.P, b.P) > reach*reach {
-					t.Fatal("collection bound discarded a native polygon corner contact")
-				}
-			})
-		}
-	}
-}
-
-func TestCollectionContactBoundKeepsOffsetCircleContacts(t *testing.T) {
-	const slop = .5
-	hull := shape.NewCircle(Vec.Create(3, 4), 10)
-	item := shape.NewCircle(Vec.Vector{}, .1)
-
-	for _, rotation := range []float64{0, math.Pi / 7, math.Pi / 2} {
-		t.Run(fmt.Sprintf("rotation%g", rotation), func(t *testing.T) {
-			position := simulation.RotatePoint(Vec.Create(9, 12), rotation)
-			a := Vec.Transform(0, 0, rotation)
-			b := Vec.Transform(position.X, position.Y, rotation)
-
-			if _, touching := query.ContactShapes(hull, item, a, b, slop); !touching {
-				t.Fatal("fixture must produce a native circle contact")
-			}
-
-			reach := collectionRadius(hull) + collectionRadius(item) + slop
-
-			if Vec.DistanceSquared(a.P, b.P) > reach*reach {
-				t.Fatal("collection bound discarded a native circle contact")
-			}
-		})
-	}
-}
 
 func collectionThroat(t *testing.T, ship *objects.Ship) (*simulation.Segment, *collision.Collider) {
 	t.Helper()
@@ -199,32 +139,79 @@ func TestCollectionMovesThroughTheCourserChannel(t *testing.T) {
 	}
 }
 
-func TestCollectionRecoveryLeavesCargoMovingWithTheShip(t *testing.T) {
-	ship := arrivalShip(t, "courser")
-	collectionThroat(t, ship)
-	ship.Velocity = Vec.Create(180, 0)
-	item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Create(16, 0), Velocity: Vec.Clone(ship.Velocity), Rotation: 2}, ship.Catalog)
-	simulation.AddEntity(ship.World, item)
-	approach := collectionApproach{}
-	destination := Movement{Position: item.Position, Velocity: item.Velocity, IgnoreID: item.ID, Collect: true}
-	approach.movement(ship, destination, nil)
-	ship.World.Tick += uint64(math.Ceil(2.1 / ship.Catalog.Simulation.SimulationStep))
-	first := approach.movement(ship, destination, nil)
+/*
+The station's forecast radius must not impose its docking speed on clear cargo
+hundreds of units outside the hull. Keep the real station, hatches and contacts.
+*/
+func TestCollectionOutsideStationUsesFullEngine(t *testing.T) {
+	for _, definition := range []string{"courser", "finch"} {
+		t.Run(definition, func(t *testing.T) {
+			ship := arrivalShip(t, definition)
+			ship.Position = Vec.Create(850, 0)
+			ship.Face(math.Pi / 2)
+			collectionThroat(t, ship)
+			station := objects.CreateStation(objects.Properties{DefinitionID: "corral-5", ObjectProperties: simulation.ObjectProperties{World: ship.World, ID: new(int64(100)), Radius: new(400.)}}, ship.Catalog)
+			simulation.AddEntity(ship.World, station)
+			contacts := &stationWallContacts{GameCollisions: gameplay.NewGameCollisions(ship.Catalog), ship: ship.ID, station: station.ID}
+			ship.World.Collisions = contacts
+			var centers [4]Vec.Vector
+			center := collectionCenters(ship, centers[:0])[0]
+			position := Vec.Add(ship.Position, simulation.RotatePoint(Vec.Add(center, Vec.Create(350, 0)), ship.Rotation))
+			item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: position, Rotation: math.Pi / 2}, ship.Catalog)
+			simulation.AddEntity(ship.World, item)
+			pilot := &Pilot{}
+			health := ship.HullHealthTotal()
+			thrust, _ := pilot.Steer(ship, Movement{Position: item.Position, IgnoreID: item.ID, Collect: true})
 
-	if first.Collect {
-		t.Fatal("wedged cargo never triggered another approach")
+			if thrust < .999 {
+				t.Fatalf("clear aligned pickup limited the engine to %g", thrust)
+			}
+
+			elapsed, _ := collectOneItem(t, ship, item, pilot)
+
+			if contacts.touches > 0 {
+				t.Errorf("pickup touched station wall %d times, first point=%v", contacts.touches, contacts.first.Point)
+			}
+
+			if elapsed > 4 || ship.HullHealthTotal() != health {
+				t.Fatalf("clear station pickup was slow or damaged its ship: seconds=%g health=%g/%g", elapsed, ship.HullHealthTotal(), health)
+			}
+		})
 	}
+}
 
-	// A blocked item can travel with the ship while neither closes the gap.
-	// Recovery must leave that moving pair rather than chasing its own offset.
-	ship.Position = Vec.Add(ship.Position, Vec.Create(180, 0))
-	item.Position = Vec.Add(item.Position, Vec.Create(180, 0))
-	ship.World.Tick++
-	destination.Position = item.Position
-	next := approach.movement(ship, destination, nil)
+/*
+Cargo can settle inside the station's broad object radius while remaining
+outside every wall. A reserved docking circle must not make it unreachable.
+*/
+func TestCollectionReachesCargoInsideBroadStationRadius(t *testing.T) {
+	for _, definition := range []string{"courser", "finch"} {
+		for _, rotation := range []float64{0, -.4, .4} {
+			t.Run(fmt.Sprintf("%s/rotation%g", definition, rotation), func(t *testing.T) {
+				ship := arrivalShip(t, definition)
+				ship.Position = Vec.Create(550, 0)
+				ship.Face(math.Pi)
+				collectionThroat(t, ship)
+				station := objects.CreateStation(objects.Properties{DefinitionID: "corral-5", ObjectProperties: simulation.ObjectProperties{World: ship.World, ID: new(int64(100)), Radius: new(400.), Rotation: rotation}}, ship.Catalog)
+				simulation.AddEntity(ship.World, station)
+				contacts := &stationWallContacts{GameCollisions: gameplay.NewGameCollisions(ship.Catalog), ship: ship.ID, station: station.ID}
+				ship.World.Collisions = contacts
+				item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Create(350, 0)}, ship.Catalog)
+				simulation.AddEntity(ship.World, item)
+				health := ship.HullHealthTotal()
+				elapsed, _ := collectOneItem(t, ship, item, &Pilot{})
 
-	if next.Collect || next.Position != first.Position || Vec.LengthSquared(next.Velocity) != 0 {
-		t.Fatalf("recovery followed the moving cargo: first=%v next=%v velocity=%v", first.Position, next.Position, next.Velocity)
+				if contacts.touches > 0 {
+					t.Errorf("pickup touched station wall %d times, first point=%v", contacts.touches, contacts.first.Point)
+				}
+
+				if ship.HullHealthTotal() != health || ship.DockedTo != nil {
+					t.Fatalf("cargo beside the physical hull was not reached safely: seconds=%g health=%g/%g docked=%v", elapsed, ship.HullHealthTotal(), health, ship.DockedTo)
+				}
+
+				t.Logf("collected cargo outside the station walls in %.2fs", elapsed)
+			})
+		}
 	}
 }
 
@@ -469,7 +456,7 @@ func collectMinedItem(t *testing.T, ship *objects.Ship, item *objects.Item) floa
 	return 0
 }
 
-func TestCollectionHatchOnlyOpensNearCargo(t *testing.T) {
+func TestCollectionHatchOpensBeforePickupForecast(t *testing.T) {
 	base := flightShip(t)
 
 	for _, definition := range []string{"courser", "finch"} {
@@ -484,8 +471,8 @@ func TestCollectionHatchOnlyOpensNearCargo(t *testing.T) {
 
 			inbound := Vec.Add(ship.Position, Vec.Create(ship.Radius+325, 0))
 
-			if CollectionHatch(ship, inbound) {
-				t.Fatal("stationary ships should keep their hatches closed away from cargo")
+			if !CollectionHatch(ship, inbound) {
+				t.Fatal("pickup forecasts need unfolded hatches before the approach begins")
 			}
 
 			ship.Velocity = Vec.Create(300, 0)
@@ -494,5 +481,71 @@ func TestCollectionHatchOnlyOpensNearCargo(t *testing.T) {
 				t.Fatal("fast approaches need time for hatch animation before arrival")
 			}
 		})
+	}
+}
+
+func TestCollectionWigglesThenRetriesWithoutAnEscape(t *testing.T) {
+	ship := arrivalShip(t, "courser")
+	collectionThroat(t, ship)
+	item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Create(16, 0), Rotation: 2}, ship.Catalog)
+	simulation.AddEntity(ship.World, item)
+	pilot := &Pilot{}
+	destination := Movement{Position: item.Position, IgnoreID: item.ID, Collect: true}
+	pilot.Steer(ship, destination)
+	turns := []float64{}
+
+	for _, elapsed := range []float64{.7, 1.1} {
+		ship.World.Tick = uint64(math.Ceil(elapsed / ship.Catalog.Simulation.SimulationStep))
+		thrust, turn := pilot.Steer(ship, destination)
+
+		if thrust != 0 || turn == 0 {
+			t.Fatalf("jam recovery did not wiggle without an engine impulse: thrust=%g turn=%g", thrust, turn)
+		}
+
+		turns = append(turns, turn)
+	}
+
+	if turns[0]*turns[1] >= 0 {
+		t.Fatal("jam recovery kept turning in one direction")
+	}
+
+	ship.World.Tick = uint64(math.Ceil(2.1 / ship.Catalog.Simulation.SimulationStep))
+	thrust, _ := pilot.Steer(ship, destination)
+
+	if thrust <= 0 {
+		t.Fatal("jam recovery never retried the pickup")
+	}
+}
+
+func TestCollectionWiggleDoesNotFlingMovingCargo(t *testing.T) {
+	ship := arrivalShip(t, "courser")
+	collectionThroat(t, ship)
+	ship.Velocity = Vec.Create(180, 0)
+	item := objects.NewItem("gold", simulation.ObjectProperties{World: ship.World, Position: Vec.Create(16, 0), Velocity: Vec.Clone(ship.Velocity), Rotation: 2}, ship.Catalog)
+	simulation.AddEntity(ship.World, item)
+	pilot := &Pilot{collection: collectionProgress{itemID: item.ID}}
+	step := ship.Catalog.Simulation.SimulationStep
+	ship.World.Tick = uint64(math.Ceil(.6 / step))
+	maximum := Vec.Length(item.Velocity)
+	health := ship.HullHealthTotal()
+
+	for range int(.8 / step) {
+		turn, wiggling := pilot.collectionWiggle(ship, nil)
+
+		if !wiggling {
+			break
+		}
+
+		ship.Fly(0, turn)
+		simulation.UpdateWorld(ship.World, simulation.UpdateWorldOptions{})
+		maximum = max(maximum, Vec.Length(item.Velocity))
+
+		if slices.Contains(ship.CargoContents, simulation.Entity(item)) {
+			break
+		}
+	}
+
+	if maximum > 200 || item.Dead || ship.HullHealthTotal() != health {
+		t.Fatalf("wiggling struck or flung wedged cargo: maximum speed=%g item dead=%v hull=%g/%g", maximum, item.Dead, ship.HullHealthTotal(), health)
 	}
 }

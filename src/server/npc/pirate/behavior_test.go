@@ -1576,8 +1576,12 @@ func TestPirateKeepsItsLootTargetAndWaitsForHeldCargo(t *testing.T) {
 
 	input := s.inputFor(npc)
 
-	if npc.lootTarget != target || !slices.Equal(npc.loot, []simulation.Entity{held, near, target, far}) || input.CargoHatch {
+	if npc.lootTarget != target || !slices.Equal(npc.loot, []simulation.Entity{held, near, target, far}) {
 		t.Fatal("collection abandoned its target, reordered the list, or retained missing loot")
+	}
+
+	if !input.CargoHatch {
+		t.Fatal("collection did not open its hatch for the planned loot target")
 	}
 
 	target.Dead = true

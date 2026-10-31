@@ -2,6 +2,7 @@ package npc
 
 import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
 	"slices"
@@ -113,10 +114,8 @@ func (p *predictor) reset(ship *objects.Ship, options predictionOptions) *predic
 					base.X = 1
 				}
 
-				sine, cosine := math.Sincos(-object.spin * (elapsed - step))
-				pose.fromRotation = Vec.Create(base.X*cosine-base.Y*sine, base.X*sine+base.Y*cosine)
-				sine, cosine = math.Sincos(-object.spin * elapsed)
-				pose.toRotation = Vec.Create(base.X*cosine-base.Y*sine, base.X*sine+base.Y*cosine)
+				pose.fromRotation = simulation.RotatePoint(base, -object.spin*(elapsed-step))
+				pose.toRotation = simulation.RotatePoint(base, -object.spin*elapsed)
 			}
 
 			motion[index] = pose
@@ -185,7 +184,7 @@ func (p *predictor) steer(heading, turn float64) {
 	for step := range p.directions {
 		if float64(step+1)*dt > p.ship.Catalog.NPCMovement.DecisionInterval+.001 {
 			error := math.Remainder(heading-rotation, 2*math.Pi)
-			turn = turnCommand(error, p.maxSpin)
+			turn = turnCommand(error, p.maxSpin, 1.8)
 		}
 
 		spin += max(-p.angular*dt, min(p.angular*dt, turn*p.maxSpin-spin))

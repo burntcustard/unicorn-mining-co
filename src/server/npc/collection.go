@@ -1,109 +1,100 @@
 package npc
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/collision/query"
-	"github.com/burntcustard/unicorn-mining-co/src/server/collision/shape"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"math"
+	"slices"
 )
 
 // CollectionHatch opens the doors near a pickup, allowing time to unfold at speed.
 func CollectionHatch(ship *objects.Ship, position Vec.Vector) bool {
-	reach := ship.Radius + math.Max(300, Vec.Length(ship.Velocity)*1.5)
+	reach := ship.Radius + math.Max(300, ship.MaxSpeed()*collectionApproachTime)
 	return Vec.DistanceSquared(ship.Position, position) <= reach*reach
 }
 
-type collectionApproach struct {
-	itemID        int64
-	checkedAt     uint64
-	distance      float64
-	reposition    Vec.Vector
-	repositioning bool
+type collectionProgress struct {
+	itemID    int64
+	checkedAt uint64
+	distance  float64
 }
 
 /*
-Back away and approach from another angle when cargo stops entering the scoop.
-Items still have to turn and pass through the ship's physical gap themselves.
+Track stalled cargo so a short, unpowered turn can free it before retrying.
+Reset while approaching and after each attempt to keep rocking intermittent.
 */
-func (c *collectionApproach) movement(ship *objects.Ship, destination Movement, obstacles []obstacle) Movement {
+func (c *collectionProgress) update(ship *objects.Ship, destination Movement) {
 	if !destination.Collect {
-		*c = collectionApproach{}
-		return destination
+		*c = collectionProgress{}
+		return
 	}
 
 	distance := Vec.Distance(ship.Position, destination.Position)
 
 	if c.itemID != destination.IgnoreID {
-		*c = collectionApproach{itemID: destination.IgnoreID, checkedAt: ship.World.Tick, distance: distance}
+		*c = collectionProgress{itemID: destination.IgnoreID, checkedAt: ship.World.Tick, distance: distance}
 	}
 
-	// A centered throat needs the full alignment. Opposing side throats can
-	// collect during the broad turn once the ship has backed away.
-	recoveryDistance := 20.0
-
-	if c.repositioning {
-		var centers [4]Vec.Vector
-		left, right := false, false
-
-		for _, center := range collectionCenters(ship, centers[:0]) {
-			left, right = left || center.Y < 0, right || center.Y > 0
-		}
-
-		if left && right {
-			recoveryDistance = 2 * navigationRadius(ship)
-		}
-	}
-
-	if c.repositioning && Vec.Distance(ship.Position, c.reposition) <= recoveryDistance {
-		c.repositioning = false
+	if distance < c.distance-2 || (distance > 2*navigationRadius(ship) && Vec.LengthSquared(ship.Velocity) >= ship.Rules.Motion.MinimumSpeedSquared || distance > 4*navigationRadius(ship)) || float64(ship.World.Tick-c.checkedAt)*ship.Catalog.Simulation.SimulationStep >= 2 {
 		c.checkedAt, c.distance = ship.World.Tick, distance
 	}
+}
 
-	if !c.repositioning {
-		if distance < c.distance-2 || (distance > 2*navigationRadius(ship) && Vec.LengthSquared(ship.Velocity) >= ship.Rules.Motion.MinimumSpeedSquared || distance > 4*navigationRadius(ship)) {
-			c.checkedAt, c.distance = ship.World.Tick, distance
-		}
+/*
+Rock loose cargo between pickup attempts using only ordinary turning and no
+engine impulse. Collision avoidance can suppress the turn without substituting
+forward thrust near the wedged item.
+*/
+func (p *Pilot) collectionWiggle(ship *objects.Ship, obstacles []obstacle) (float64, bool) {
+	c := &p.collection
+	elapsed := float64(ship.World.Tick-c.checkedAt) * ship.Catalog.Simulation.SimulationStep
 
-		if float64(ship.World.Tick-c.checkedAt)*ship.Catalog.Simulation.SimulationStep >= 2 {
-			c.reposition = simulation.RotatePoint(Vec.Create(-100, 80), ship.Rotation)
+	if c.itemID == 0 || elapsed < .6 || elapsed >= 1.4 {
+		return 0, false
+	}
 
-			if item, ok := ship.World.Entities.Get(destination.IgnoreID); ok {
-				// A lengthwise approach lets broadside ore fit through the channel.
-				c.reposition = simulation.RotatePoint(Vec.Create(120, 0), item.Base().Rotation)
+	entity, exists := ship.World.Entities.Get(c.itemID)
 
-				if Vec.Dot(c.reposition, Vec.Subtract(ship.Position, destination.Position)) < 0 {
-					c.reposition = Vec.Scale(c.reposition, -1)
-				}
-			}
+	if !exists || collectionRecoveryConstrained(ship, entity.Base().Position, obstacles) {
+		return 0, false
+	}
 
-			// Keep the escape point fixed. Following a waypoint attached to a
-			// wedged, moving item keeps pushing the ship and item together.
-			offset := c.reposition
-			c.checkedAt = ship.World.Tick
+	spin := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+	turn := 0.0
 
-			for _, angle := range []float64{0, math.Pi, math.Pi / 2, -math.Pi / 2, math.Pi / 4, -math.Pi / 4, math.Pi * 3 / 4, -math.Pi * 3 / 4} {
-				point := Vec.Add(destination.Position, simulation.RotatePoint(offset, angle))
+	if spin > 0 {
+		turn = min(1, 1.5/spin)
 
-				if Vec.Distance(ship.Position, point) < 60 || !clearSegment(point, point, navigationRadius(ship), obstacles, false) {
-					continue
-				}
-
-				c.reposition, c.repositioning = point, true
-				break
-			}
+		if elapsed >= 1 {
+			turn = -turn
 		}
 	}
 
-	if c.repositioning {
-		destination.Position = c.reposition
-		destination.Collect = false
-		destination.Velocity = Vec.Vector{}
-		destination.FollowDistance = 1
+	steps := max(1, int(math.Ceil(ship.Catalog.NPCMovement.DecisionInterval/predictionStep)))
+	forecast := p.forecast.reset(ship, predictionOptions{radius: navigationRadius(ship), obstacles: obstacles, steps: steps})
+
+	if !forecast.predict(ship.Rotation, 0, turn).safe {
+		turn = 0
 	}
 
-	return destination
+	return turn, true
+}
+
+/*
+Avoid rocking near other obstacles or powering a pickup before their fixtures
+are ready for contact planning.
+*/
+func collectionRecoveryConstrained(ship *objects.Ship, position Vec.Vector, obstacles []obstacle) bool {
+	reach := navigationRadius(ship) + 60
+
+	for _, object := range obstacles {
+		if !object.station && (object.distance(ship.Position) < reach || object.distance(position) < reach) {
+			return true
+		}
+	}
+
+	return false
 }
 
 /*
@@ -129,169 +120,124 @@ func collectionCenters(ship *objects.Ship, centers []Vec.Vector) []Vec.Vector {
 	return centers
 }
 
-type collectionHull struct {
-	transform Vec.TransformValue
-	shape     shape.Shape
-	radius    float64
-}
-
-const collectionPredictionSteps = 40
+const (
+	collectionApproachTime   = 4
+	collectionPredictionTime = 2.1
+)
 
 /*
-collectControls chooses an ordinary engine input that carries the item through
-the pickup throat. Passive arrival aims for an eventual stop, which can strand
-cargo at the doors. Forecasting the actual hatch and physical hull also avoids
-approaches that look close at the ship's center but knock the item away.
+collectControls compares short pickup forecasts at full thrust or coasting,
+including the departure toward remaining cargo.
 */
 func (p *Pilot) collectControls(ship *objects.Ship, destination Movement, obstacles []obstacle, centers []Vec.Vector) (float64, float64) {
-	// Aim beyond the throat center so slowing cannot leave cargo at its entrance.
-	for index := range centers {
-		centers[index].X -= 5
+	item, exists := ship.World.Entities.Get(destination.IgnoreID)
+
+	if !exists {
+		return 0, 0
 	}
 
-	offset := Vec.Subtract(destination.Position, ship.Position)
+	offset := Vec.Subtract(item.Base().Position, ship.Position)
 	bearing := math.Atan2(offset.Y, offset.X)
-	radius := navigationRadius(ship)
-	// Collection needs to see a complete turn and pickup. Obstacle avoidance
-	// resets this shared storage to its usual, shorter prediction horizon.
-	forecast := p.forecast.reset(ship, predictionOptions{radius: radius, steps: collectionPredictionSteps})
-	slop := ship.Catalog.Simulation.LinearSlop
-	var hullStorage [16]collectionHull
-	hull := hullStorage[:0]
+	maximum := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+	forecast := newContactForecast(ship, item, centers)
+	gain := collectionTurnGain
 
-	for _, collider := range ship.Hitbox() {
-		if collider.Physics != nil && !*collider.Physics || collider.Collides != nil && !*collider.Collides {
+	if forecast.rocks {
+		gain = 1.8
+	}
+
+	desired := turnCommand(math.Remainder(bearing-ship.Rotation, 2*math.Pi), maximum, gain)
+	turns := []float64{desired, 0, -1, 1}
+	best, bestThrust, bestTurn := math.Inf(1), 0., desired
+
+	for index, turn := range turns {
+		duplicate := false
+
+		for _, previous := range turns[:index] {
+			if math.Abs(previous-turn) < .001 {
+				duplicate = true
+			}
+		}
+
+		if duplicate {
 			continue
 		}
 
-		position := *collider.LocalPosition
-		colliderShape := query.ShapeOf(query.ShapeData{Outline: collider.ShapeOutline, Radius: collider.GetRadius(), CollisionMargin: collider.CollisionMargin}, slop)
+		for _, thrust := range []float64{1, 0} {
+			// Pickup time and departure cost are nonnegative, so a later
+			// pickup cannot improve the best captured candidate's score.
+			horizon := min(collectionPredictionTime, best)
 
-		hull = append(hull, collectionHull{
-			transform: Vec.Transform(position.X, position.Y, collider.GetRotation()-ship.Rotation),
-			shape:     colliderShape,
-			radius:    collectionRadius(colliderShape),
-		})
-	}
+			prediction, ready := forecast.predict(thrust, turn, horizon)
 
-	entity, exists := ship.World.Entities.Get(destination.IgnoreID)
-	var itemShape shape.Shape
-	var itemRotation, itemSpin float64
-	contactReach := 60.0
-	itemRadius := 0.0
+			if !ready {
+				thrust := 1.
 
-	if exists {
-		item := entity.Base()
-		contactReach = max(contactReach, radius+item.Radius)
-		itemRotation, itemSpin = item.Rotation, item.Spin
+				if collectionRecoveryConstrained(ship, item.Base().Position, obstacles) {
+					thrust = 0
+				}
 
-		if item.ShapeOutline == nil {
-			itemShape = shape.NewCircle(Vec.Vector{}, item.Radius)
-		} else {
-			vertices := make([]Vec.Vector, len(item.ShapeOutline.Points))
-
-			for index, point := range item.ShapeOutline.Points {
-				vertices[index] = Vec.Create(point[0], point[1])
+				return p.avoid(ship, simulation.DirectionOf(bearing), thrust, desired, obstacles)
 			}
 
-			itemShape = shape.NewPolygon(vertices, new(0.0), slop)
-		}
-
-		itemRadius = collectionRadius(itemShape)
-	}
-
-	var items [collectionPredictionSteps]Vec.TransformValue
-
-	for step := range forecast.directions {
-		elapsed := float64(step+1) * predictionStep
-		position := Vec.AddScaled(destination.Position, destination.Velocity, elapsed)
-		items[step] = Vec.Transform(position.X, position.Y, itemRotation+itemSpin*elapsed)
-	}
-
-	best := math.Inf(1)
-	bestHeading, bestThrust, bestTurn := bearing, 0.0, 0.0
-
-	for _, offset := range []float64{0, -.05, .05, -.1, .1, -.2, .2, -.35, .35, -.5, .5, -.75, .75, -1, 1, -1.5, 1.5, -2, 2, math.Pi} {
-		heading := bearing + offset
-		turn := turnInput(ship, math.Remainder(heading-ship.Rotation, 2*math.Pi))
-
-		for _, thrust := range []float64{0, .25, .5, .75, 1} {
-			thrust = restartThrust(ship, thrust)
-			forecast.project(heading, thrust, turn)
-			var costs [collectionPredictionSteps]float64
-			minimum := math.Inf(1)
-
-			// Geometry bounds the score before physical contacts add penalties.
-			for step := range forecast.directions {
-				elapsed := float64(step+1) * predictionStep
-				direction := forecast.directions[step]
-				local := Vec.Subtract(items[step].P, forecast.path[step+1])
-				local = Vec.Create(Vec.Dot(local, direction), Vec.Cross(direction, local))
-				closest := math.Inf(1)
-
-				for _, center := range centers {
-					error := Vec.Subtract(local, center)
-					x, y := max(0, math.Abs(error.X)-2), max(0, math.Abs(error.Y)-4)
-					closest = min(closest, x*x+y*y)
-				}
-
-				costs[step] = math.Sqrt(closest) + 4*elapsed
-				minimum = min(minimum, costs[step])
+			if !prediction.safe {
+				continue
 			}
 
-			penalty := 0.0
+			score := 1000 + prediction.distance
 
-			for step := range forecast.directions {
-				elapsed := float64(step+1) * predictionStep
+			if prediction.arrived {
+				futureShip, futureCraft := *ship, *ship.Craft
+				futureCraft.GameObject, futureShip.Craft = &prediction.ship, &futureCraft
+				departure := math.Inf(1)
 
-				// Neither elapsed time nor accumulated contact penalties can decrease.
-				if max(minimum, 4*elapsed)+penalty >= best {
-					break
+				for _, position := range destination.NextPositions {
+					departure = min(departure, PickupDeparture(&futureShip, position))
 				}
 
-				direction := forecast.directions[step]
-				shipPose := Vec.TransformValue{P: forecast.path[step+1], Q: Vec.RotValue{Sin: direction.Y, Cos: direction.X}}
-				var itemTransform Vec.TransformValue
-				// Keep every hull fixed and transform only the item into the ship frame.
-				Vec.DetransformTransform(&itemTransform, shipPose, items[step])
-
-				if exists && Vec.LengthSquared(itemTransform.P) < contactReach*contactReach {
-					for _, collider := range hull {
-						reach := collider.radius + itemRadius + slop
-
-						if Vec.DistanceSquared(collider.transform.P, itemTransform.P) > reach*reach {
-							continue
-						}
-
-						contact, touching := query.ContactShapes(collider.shape, itemShape, collider.transform, itemTransform, slop)
-
-						if touching {
-							penalty += 2 * max(.1, contact.Depth)
-						}
-					}
+				if math.IsInf(departure, 1) {
+					departure = 0
 				}
 
-				if score := costs[step] + penalty; score < best {
-					best, bestHeading, bestThrust, bestTurn = score, heading, thrust, turn
-				}
+				score = prediction.seconds + .25*departure
+			}
+
+			if score < best {
+				best, bestThrust, bestTurn = score, thrust, turn
 			}
 		}
 	}
 
-	return p.avoidPickup(ship, simulation.DirectionOf(bestHeading), bestThrust, bestTurn, obstacles)
+	if math.IsInf(best, 1) {
+		return p.avoid(ship, simulation.DirectionOf(bearing), 0, desired, obstacles)
+	}
+
+	remaining := make([]obstacle, 0, len(obstacles))
+
+	for _, obstacle := range obstacles {
+		if !slices.Contains(forecast.sources, obstacle.entity) {
+			remaining = append(remaining, obstacle)
+		}
+	}
+
+	heading := ship.Rotation + bestTurn*maximum/gain
+	return p.avoid(ship, simulation.DirectionOf(heading), bestThrust, bestTurn, remaining)
 }
 
 /*
-collectionRadius encloses local geometry and its collision skin. Native polygon
-clipping can extend corners along both axes, so pad skins by sqrt(2).
+PickupDeparture estimates travel time from the current heading and momentum.
+Drift away from the new course costs both the coast and the trip back.
 */
-func collectionRadius(collider shape.Shape) float64 {
-	geometry := collider.Base()
-	radiusSquared := 0.0
+func PickupDeparture(ship *objects.Ship, position Vec.Vector) float64 {
+	offset := Vec.Subtract(position, ship.Position)
+	maximum := max(1, ship.MaxSpeed())
+	duration := Vec.Length(offset) / maximum
+	duration += 2 * (Vec.Length(ship.Velocity) - Vec.Dot(ship.Velocity, Vec.Normalize(offset))) / (max(.001, ship.Drag) * maximum)
+	spin := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
 
-	for _, vertex := range geometry.Vertices[:geometry.Count] {
-		radiusSquared = max(radiusSquared, Vec.LengthSquared(vertex))
+	if spin > 0 {
+		duration += math.Abs(math.Remainder(math.Atan2(offset.Y, offset.X)-ship.Rotation, 2*math.Pi)) / spin
 	}
 
-	return math.Sqrt(radiusSquared) + math.Sqrt2*max(0, geometry.Radius)
+	return duration
 }

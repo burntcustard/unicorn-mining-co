@@ -39,6 +39,7 @@ type collectorBenchmarkEncounter struct {
  scenario string
  seed *uint32
  layout []Vec.Vector
+ itemTypes []string
  itemIDs map[int64]bool
  shipIDs map[int64]bool
  existingShips map[int64]bool
@@ -187,10 +188,20 @@ func(s *GameSession) prepareCollectorBenchmark(p *playerRecord) {
   }
  }
  if len(candidates)<count {panic(fmt.Sprintf("collector fixture needs %d clear item positions, found %d",count,len(candidates)))}
+ // Asteroid rewards use resource IDs 0–3. Keep mineral draws separate from
+ // position draws so existing seeded layouts and paired hull prefixes survive.
+ minerals:=[]string{}
+ for _,id:=range world.Specification.ItemIDs {
+  if resource:=world.Specification.ItemSpecs[id].Resource;resource>=0&&resource<4 {minerals=append(minerals,id)}
+ }
+ mineralRandom:=rand.New(rand.NewPCG(uint64(seed),1))
  for i:=0;i<count;i++ {
   id:=simulation.EntityID(world)
-  item:=objects.NewItem("gold",simulation.ObjectProperties{World:world,ID:&id,Position:candidates[i]},world.Specification)
+  definition:="gold"
+  if collection {definition=minerals[mineralRandom.IntN(len(minerals))]}
+  item:=objects.NewItem(definition,simulation.ObjectProperties{World:world,ID:&id,Position:candidates[i]},world.Specification)
   simulation.AddEntity(world,item)
+  encounter.itemTypes=append(encounter.itemTypes,definition)
   encounter.itemIDs[id]=true
  }
  runtime:=s.sectors[s.currentSector]
@@ -331,7 +342,7 @@ func(s *GameSession) recordCollectorBenchmark(events []protocol.SimulationEvent)
  slices.Sort(removedCargo)
  preparation:="Initial station observation is primed once; idle defers its next check by 180 seconds. Production gameplay timing remains unchanged."
  if encounter.scenario=="collection-courser"||encounter.scenario=="collection-finch" {preparation="Explicit launch after warmup; the shared collector policy flies the chosen stock hull with its native cargo capacity. No item-age wait or altered gameplay timing."}
- report:=map[string]any{"startedAt":encounter.startedAt,"endedAt":now,"scenario":encounter.scenario,"seed":encounter.seed,"layout":encounter.layout,"dockedTick":encounter.dockedTick,"items":len(encounter.itemIDs),"maximumActive":encounter.maximumActive,"deposited":deposited,"cleanupCargoItems":removedCargo,"events":encounter.events,"agePreparation":preparation}
+ report:=map[string]any{"startedAt":encounter.startedAt,"endedAt":now,"scenario":encounter.scenario,"seed":encounter.seed,"layout":encounter.layout,"itemTypes":encounter.itemTypes,"dockedTick":encounter.dockedTick,"items":len(encounter.itemIDs),"maximumActive":encounter.maximumActive,"deposited":deposited,"cleanupCargoItems":removedCargo,"events":encounter.events,"agePreparation":preparation}
  data,err:=json.MarshalIndent(report,"","  ")
  if err!=nil {panic(err)}
  path:=filepath.Join(__REPORT_DIRECTORY__,fmt.Sprintf("npc-%d.json",encounter.player.shipID))

@@ -18,7 +18,12 @@ import { ProtocolClient } from '../server/client.ts';
 import { limitServerCores } from '../server/cores.ts';
 import { localServerPid, observeServerCpu } from '../server/observer.ts';
 import { loadProtocolRuntime } from '../utilities/protocol-runtime.ts';
-import { readNPCReport, summarizeNPCCollection } from './report.ts';
+import {
+  formatNPCCollection,
+  readNPCReport,
+  serializeNPCReport,
+  summarizeNPCCollection,
+} from './report.ts';
 import { npcDocked, npcObservations } from './observations.ts';
 import { openNPCBrowser, type NPCFrame } from './browser.ts';
 
@@ -111,7 +116,7 @@ const save = () =>
     });
 
     await mkdir(dirname(output), { recursive: true });
-    await writeFile(output, JSON.stringify(report, null, 2) + '\n');
+    await writeFile(output, serializeNPCReport(report, 2) + '\n');
   }));
 
 let limits: Awaited<ReturnType<typeof limitServerCores>>;
@@ -530,13 +535,23 @@ try {
             paired.layout,
             `Collection seed ${seed} produced different layouts for the two hulls; world geometry changed between runs`,
           );
+          const count = Math.min(
+            result.authoritativeCollection.items,
+            paired.items,
+          );
+
+          assert.deepEqual(
+            result.authoritativeCollection.itemTypes.slice(0, count),
+            paired.itemTypes.slice(0, count),
+            `Collection seed ${seed} produced different mineral types for the two hulls`,
+          );
         }
       }
 
       await save();
 
       console.log(
-        JSON.stringify({
+        serializeNPCReport({
           scenario,
           repetition,
           seed,
@@ -634,22 +649,10 @@ try {
 
 if (report.summary.length) {
   console.log(
-    `${report.complete ? 'Collection' : 'Partial collection'} summary; times include completed runs only:`,
+    `${report.complete ? 'Collection' : 'Partial collection'} summary; pickup times require all items, full-trip times also require docking:`,
   );
 
-  console.table(
-    report.summary.map((entry) => ({
-      scenario: entry.scenario,
-      runs: `${entry.runs}/${entry.requestedRuns}`,
-      completed: `${entry.completedRuns}/${entry.runs}`,
-      'items collected':
-        entry.meanCollectedFraction === null
-          ? '—'
-          : `${(100 * entry.meanCollectedFraction).toFixed(1)}%`,
-      'mean seconds': entry.completionSeconds.mean?.toFixed(2) ?? '—',
-      'median seconds': entry.completionSeconds.median?.toFixed(2) ?? '—',
-    })),
-  );
+  console.log(formatNPCCollection(report.summary));
 }
 
 console.log(`Report: ${output}`);
