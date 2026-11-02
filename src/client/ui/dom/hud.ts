@@ -108,7 +108,6 @@ export const createHud = ({
       asteroidPositions,
       poses,
       shown,
-      alpha,
     }: {
       ship: Ship;
       credits: number;
@@ -119,7 +118,6 @@ export const createHud = ({
       asteroidPositions?: Vec.Value[];
       poses: Map<number, Pose>;
       shown: boolean;
-      alpha: number;
     }) {
       setShown(shown);
 
@@ -130,15 +128,17 @@ export const createHud = ({
       if (!mapWidth) mapWidth = mapCanvas.clientWidth;
       const displayScale = 300 / (mapWidth || 300);
 
-      panels.forEach((panel) => {
-        panel.style.opacity = String(alpha);
-      });
-
       text('[data-pilot]', displayName);
       text('[data-credits]', `${credits.toLocaleString('en-US')}$`);
       text('[data-sector]', sectorName);
-      text('[data-coordinate-x]', String(Math.round(ship.position.x)));
-      text('[data-coordinate-y]', String(Math.round(ship.position.y)));
+      const x = String(Math.round(ship.position.x));
+      const y = String(Math.round(ship.position.y));
+      const coordinateWidth = Math.max(6, x.length, y.length);
+
+      text(
+        '[data-coordinates]',
+        `${x.padStart(coordinateWidth)}\u2009/\u2009${y.padEnd(coordinateWidth)}`,
+      );
 
       const cargoCount = ship.cargoContents.length;
 

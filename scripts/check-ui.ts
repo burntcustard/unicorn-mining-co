@@ -24,7 +24,7 @@ const fixtureDirectory = resolve('dist', fixturePath);
 const entryId = resolve('src/__dom_fixture.ts');
 const fixtureModules = new Map(
   await Promise.all(
-    ['dom-ui', 'graphics'].map(
+    ['dom-ui', 'graphics', 'telemetry', 'hud-layout'].map(
       async (name) =>
         [
           resolve(`src/__${name}_fixture.ts`),
@@ -443,7 +443,8 @@ checkUi: try {
     check(`Array.from(document.querySelectorAll('.ui-card:not(.hud-stores-panel)')).every(panel => {
       const style = getComputedStyle(panel);
       const expected = panel.classList.contains('hud-map') ? [0, 0, 0, 0]
-        : panel.classList.contains('hud-credits') ? [8, 18, 6, 18]
+        : panel.classList.contains('hud-telemetry') ? [12, 12, 12, 12]
+        : panel.matches('.hud-credits, .hud-sector') ? [8, 18, 6, 18]
         : panel.classList.contains('chat-panel') ? [12, 18, 18, 18]
         : [16, 16, 16, 16];
       return ['padding-top', 'padding-right', 'padding-bottom', 'padding-left'].every((side, index) =>
@@ -476,7 +477,7 @@ checkUi: try {
           e.params.exceptionDetails.text,
       );
 
-  if (!process.env.UI_DOCK_ONLY) {
+  if (!process.env.UI_DOCK_ONLY && !process.env.UI_HUD_ONLY) {
     assert(
       await check(
         `document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root')`,
@@ -659,6 +660,13 @@ checkUi: try {
       ),
       'Target next objectt',
       'targeting appears in Settings with T as its default',
+    );
+    assert.equal(
+      await check(
+        `[...document.querySelectorAll('[data-bindings] > *')].find(row => row.textContent.startsWith('Toggle movement telemetry')).textContent.trim()`,
+      ),
+      'Toggle movement telemetryv',
+      'telemetry appears in Settings with V as its default',
     );
     assert(
       await check(`(() => {
@@ -1160,6 +1168,54 @@ checkUi: try {
       `document.querySelector('#connection-status').hidden`,
       'game connection stays available after profile creation',
     );
+    assert(
+      await check(`document.querySelector('.hud-telemetry').hidden`),
+      'telemetry starts disabled',
+    );
+    await pressKey('v');
+    await waitFor(
+      `!document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry .telemetry-player')?.textContent.includes('Position ')`,
+      'telemetry shortcut enables production simulation readouts',
+    );
+    await capture('telemetry');
+    await pressKey('v', { repeat: true });
+    assert(
+      !(await check(`document.querySelector('.hud-telemetry').hidden`)),
+      'key repeat does not toggle telemetry',
+    );
+
+    for (const tag of ['input', 'textarea', 'div']) {
+      await check(`(() => {
+        const input = document.createElement('${tag}');
+        input.id = 'telemetry-typing-test';
+        if ('${tag}' === 'div') input.contentEditable = 'true';
+        document.body.append(input);
+        input.focus();
+      })()`);
+      await pressKey('v');
+      assert(
+        !(await check(`document.querySelector('.hud-telemetry').hidden`)),
+        `${tag} typing suppresses telemetry`,
+      );
+      await check(`document.querySelector('#telemetry-typing-test').remove()`);
+    }
+
+    await pressKey('Enter');
+    await waitFor(
+      `document.activeElement?.matches('.chat-panel input')`,
+      'chat opens for telemetry keyboard check',
+    );
+    await pressKey('v');
+    assert(
+      !(await check(`document.querySelector('.hud-telemetry').hidden`)),
+      'chat typing suppresses telemetry',
+    );
+    await pressKey('Escape');
+    await pressKey('v');
+    assert(
+      await check(`document.querySelector('.hud-telemetry').hidden`),
+      'telemetry shortcut disables the panel',
+    );
     await check(`(() => {
       window.targetLabels = [];
       window.targetAlphas = [];
@@ -1278,7 +1334,7 @@ checkUi: try {
         const root = document.querySelector('.hud');
         return document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root') &&
           !document.querySelector('.hud-instruments') &&
-          ['.hud-left', '.hud-right', '.hud-sector', '.hud-map'].every(selector => document.querySelector(selector).parentElement === root) &&
+          ['.hud-modules', '.hud-stores', '.hud-credits', '.hud-target', '.hud-sector', '.hud-map'].every(selector => document.querySelector(selector).parentElement === root) &&
           document.querySelector('.chat-panel').parentElement === root &&
           document.querySelector('.ui-notification').parentElement === root;
       })()`),
@@ -1413,7 +1469,7 @@ checkUi: try {
 
       await pause(250);
       assert(
-        await check(`['.hud-left', '.hud-right', '.hud-sector', '.hud-stores', '.hud-map'].every(selector => {
+        await check(`['.hud-modules', '.hud-stores', '.hud-credits', '.hud-target', '.hud-sector', '.hud-map'].every(selector => {
         const bounds = document.querySelector(selector).getBoundingClientRect();
         return bounds.left >= 0 && bounds.top >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight;
       })`),
@@ -1889,6 +1945,11 @@ checkUi: try {
   const bays = await check('fixture.checkStationBay()');
   const chat = await check('fixture.checkChat()');
   const hud = await check('fixture.checkHud()');
+  const telemetry = await check('fixture.checkTelemetry()');
+
+  for (const [behavior, passed] of Object.entries(telemetry)) {
+    assert(passed, `telemetry: ${behavior}`);
+  }
 
   for (const [behavior, passed] of Object.entries(hud)) {
     assert(passed, `HUD: ${behavior}`);
@@ -1896,6 +1957,103 @@ checkUi: try {
 
   for (const [behavior, passed] of Object.entries(chat)) {
     assert(passed, `chat: ${behavior}`);
+  }
+
+  if (process.env.UI_HUD_ONLY) {
+    const width = 1280;
+    const height = 900;
+
+    await c.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+
+    for (const [mode, name] of [
+      'flight',
+      'target',
+      'chat',
+      'telemetry',
+      'hidden',
+      'tooltip',
+    ].entries()) {
+      await check(`fixture.showHudLayout(${mode})`);
+      await check('document.fonts.ready.then(() => true)');
+      await pause(300);
+
+      if (mode === 3) {
+        assert(
+          await check(`(() => {
+            const panel = document.querySelector('.hud-telemetry');
+            const chat = document.querySelector('.chat-panel');
+            const gap = parseFloat(getComputedStyle(chat.parentElement).rowGap);
+            return panel.parentElement === chat.parentElement &&
+              getComputedStyle(panel).position === 'static' &&
+              !panel.querySelector('output') &&
+              Math.abs(panel.getBoundingClientRect().top - chat.getBoundingClientRect().bottom - gap) < 0.1;
+          })()`),
+          'telemetry uses plain div records in the grid row directly below chat',
+        );
+      }
+
+      if (mode === 0) {
+        assert(
+          await check(`(() => {
+            const modules = document.querySelector('.hud-modules');
+            const stores = document.querySelector('.hud-stores');
+            const map = document.querySelector('.hud-map');
+            const buttons = [...modules.children];
+            const bounds = element => {
+              const rect = element.getBoundingClientRect();
+              return JSON.stringify([rect.x, rect.y, rect.width, rect.height]);
+            };
+            const storesBounds = bounds(stores);
+            const mapBounds = bounds(map);
+            const gap = parseFloat(getComputedStyle(modules.parentElement).rowGap);
+            const stable = [0, 1, 6].every(count => {
+              modules.replaceChildren(...Array.from({length: count}, () => buttons[0].cloneNode(true)));
+              modules.hidden = count === 0;
+              return bounds(stores) === storesBounds && bounds(map) === mapBounds &&
+                (!count || Math.abs(stores.getBoundingClientRect().top - modules.getBoundingClientRect().bottom - gap) < 0.1);
+            });
+            modules.replaceChildren(...buttons);
+            modules.hidden = false;
+            return stable;
+          })()`),
+          'stores retain their size and position, module spacing, and minimap alignment as module counts change',
+        );
+      }
+
+      if (mode === 5) {
+        await hover('[data-store="fuel"] button');
+      } else {
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseMoved',
+          x: 0,
+          y: 0,
+        });
+      }
+
+      const filename = `hud-${width}-${name}`;
+
+      await capture(filename);
+
+      if (process.env.UI_CAPTURE_DIR) {
+        await writeFile(
+          `${process.env.UI_CAPTURE_DIR}/${filename}.json`,
+          JSON.stringify(await check('fixture.hudLayoutBounds()')),
+        );
+      }
+
+      await check('fixture.hideHudLayout()');
+    }
+
+    console.log(
+      'Production HUD: layout, text, controls, chat, telemetry, visibility, and tooltips passed.',
+    );
+    assert.equal(errors().length, 0, errors().join('\n'));
+    break checkUi;
   }
 
   for (const renderer of ['canvas', 'webgl']) {
@@ -3027,7 +3185,9 @@ checkUi: try {
 
   await focusDock('[data-tab="trade"]');
   await pressKey('Enter');
-  await focusDock('[data-stock-items] > section:last-child button:last-child');
+  await focusDock(
+    '[data-stock-items] > .dock-trade-table:last-child button:last-child',
+  );
   await pressKey('Tab');
   await expectFocus(
     '[data-launch]',
@@ -3035,7 +3195,7 @@ checkUi: try {
   );
   await pressKey('Tab', { shift: true });
   await expectFocus(
-    '[data-stock-items] > section:last-child button:last-child',
+    '[data-stock-items] > .dock-trade-table:last-child button:last-child',
     'Shift+Tab returns from Launch to the final stock row',
   );
 
@@ -3052,12 +3212,14 @@ checkUi: try {
     ),
     'selling the last cargo closes its detail navigation state',
   );
-  await focusDock('[data-stock-items] > section:last-child button:last-child');
+  await focusDock(
+    '[data-stock-items] > .dock-trade-table:last-child button:last-child',
+  );
   await pressKey('Tab');
   await expectFocus('[data-launch]', 'Trade cards have no extra focus stops');
   await pressKey('Tab', { shift: true });
   await expectFocus(
-    '[data-stock-items] > section:last-child button:last-child',
+    '[data-stock-items] > .dock-trade-table:last-child button:last-child',
     'returning from the footer preserves the current stock row',
   );
   await focusDock('[data-stock-items] [data-key="shop:item-0"]');
@@ -3435,13 +3597,15 @@ checkUi: try {
   await check('fixture.setFuel(120, 0)');
   await focusDock('[data-tab="trade"]');
   await pressKey('Enter');
-  await focusDock('[data-stock-items] > section:last-child button:last-child');
+  await focusDock(
+    '[data-stock-items] > .dock-trade-table:last-child button:last-child',
+  );
   const unavailableTrade = await committedDockState();
 
   await pressKey('Enter');
   await pressKey(' ');
   await expectFocus(
-    '[data-stock-items] > section:last-child button:last-child',
+    '[data-stock-items] > .dock-trade-table:last-child button:last-child',
     'unaffordable item activation keeps its row focused',
   );
   assert.deepEqual(

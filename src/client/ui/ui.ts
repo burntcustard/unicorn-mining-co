@@ -13,10 +13,10 @@ export const renderUI = (
     shipStranded,
   }: { shipDestroyed: boolean; shipStranded: boolean },
 ) => {
-  if (!shipDestroyed && !shipStranded && !game.uiAlpha) return;
+  if (!shipDestroyed && !shipStranded && !game.uiVisible) return;
 
   game.ctx.save();
-  game.ctx.globalAlpha = shipDestroyed || shipStranded ? 1 : game.uiAlpha;
+  game.ctx.globalAlpha = 1;
 
   if (shipDestroyed || shipStranded) {
     const message = shipDestroyed
@@ -34,13 +34,12 @@ export const renderUI = (
       align: 0,
     });
 
-    if (shipDestroyed || !game.uiAlpha) {
+    if (shipDestroyed || !game.uiVisible) {
       game.ctx.restore();
       return;
     }
   }
 
-  game.ctx.globalAlpha = game.uiAlpha;
   renderIndicators(game, stations, colors.green[2], 10000);
 
   renderFps({ game, x: game.uiWidth / 2 - 40, y: game.uiHeight - 65 });

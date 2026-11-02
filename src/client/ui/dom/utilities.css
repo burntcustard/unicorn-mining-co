@@ -107,6 +107,10 @@ kbd {
   border-radius: 50%;
 }
 
+.p-3 {
+  padding: 12px;
+}
+
 .p-12 {
   padding: 48px;
 }

@@ -129,6 +129,10 @@ export const checkChat = () => {
   const tabs = panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
 
   chat.update(undefined, true);
+  const gridPlacement =
+    panel.parentElement === ui.element &&
+    getComputedStyle(ui.element).display === 'grid' &&
+    getComputedStyle(panel).getPropertyValue(' position '.trim()) === 'static';
   const release = panel.querySelector<HTMLButtonElement>('.cargo-release')!;
   const releaseRequiresCargo = release.disabled;
 
@@ -653,60 +657,61 @@ export const checkChat = () => {
   panel.parentNode!.removeChild(panel);
   restoreDialog.forEach((restore) => restore());
 
-  return {
-    ...checkGateBeams(),
-    releaseRequiresCargo,
-    releaseRequiresDemand,
-    publicDemandIsNotPersonal,
-    releaseEndsWithDemand,
-    releaseAction,
-    releaseKeepsModulesAndOpenedAmmo,
-    releaseAllowsUnopenedAmmo,
-    reboundReleaseKey,
-    onlyHoldModeVisible,
-    releaseStopsOnKeyup,
-    gateName,
-    distantGateSilent,
-    greetingPersonalized,
-    sharedScroll,
-    chronological,
-    sectorGreeting,
-    contactKeepsPosition,
-    preservesScroll,
-    separateGreetings,
-    sharedGreeting,
-    accessGrantedVariant,
-    noDuplicateGreeting,
-    freshRequestAfterRejection,
-    freshRequestAfterClosing,
-    noRepeatedClosingPrompt,
-    freshRequestOnReturn,
-    historicalRequestsStayDisabled,
-    freshRequestAfterCancellation,
-    targetOnlyAccess,
-    warningsKeepAccessPending,
-    sectorHistoryCleared,
-    staleGateIgnored,
-    greetingScrolls,
-    moduleStyle,
-    reboundAccessKey,
-    accessAction,
-    accessPending,
-    accessRejected,
-    accessDisabled,
-    noTargetAccess,
-    hiddenAccess,
-    messageFormat,
-    roleColors,
-    selfColors,
-    escaped,
-    unchanged,
-    global,
-    updated,
-    actions,
-    hidden,
-    typing: typing.join() === 'true,false,true,false',
-  };
+  return Object.fromEntries([
+    ...Object.entries(checkGateBeams()),
+    ['gridPlacement', gridPlacement],
+    ['releaseRequiresCargo', releaseRequiresCargo],
+    ['releaseRequiresDemand', releaseRequiresDemand],
+    ['publicDemandIsNotPersonal', publicDemandIsNotPersonal],
+    ['releaseEndsWithDemand', releaseEndsWithDemand],
+    ['releaseAction', releaseAction],
+    ['releaseKeepsModulesAndOpenedAmmo', releaseKeepsModulesAndOpenedAmmo],
+    ['releaseAllowsUnopenedAmmo', releaseAllowsUnopenedAmmo],
+    ['reboundReleaseKey', reboundReleaseKey],
+    ['onlyHoldModeVisible', onlyHoldModeVisible],
+    ['releaseStopsOnKeyup', releaseStopsOnKeyup],
+    ['gateName', gateName],
+    ['distantGateSilent', distantGateSilent],
+    ['greetingPersonalized', greetingPersonalized],
+    ['sharedScroll', sharedScroll],
+    ['chronological', chronological],
+    ['sectorGreeting', sectorGreeting],
+    ['contactKeepsPosition', contactKeepsPosition],
+    ['preservesScroll', preservesScroll],
+    ['separateGreetings', separateGreetings],
+    ['sharedGreeting', sharedGreeting],
+    ['accessGrantedVariant', accessGrantedVariant],
+    ['noDuplicateGreeting', noDuplicateGreeting],
+    ['freshRequestAfterRejection', freshRequestAfterRejection],
+    ['freshRequestAfterClosing', freshRequestAfterClosing],
+    ['noRepeatedClosingPrompt', noRepeatedClosingPrompt],
+    ['freshRequestOnReturn', freshRequestOnReturn],
+    ['historicalRequestsStayDisabled', historicalRequestsStayDisabled],
+    ['freshRequestAfterCancellation', freshRequestAfterCancellation],
+    ['targetOnlyAccess', targetOnlyAccess],
+    ['warningsKeepAccessPending', warningsKeepAccessPending],
+    ['sectorHistoryCleared', sectorHistoryCleared],
+    ['staleGateIgnored', staleGateIgnored],
+    ['greetingScrolls', greetingScrolls],
+    ['moduleStyle', moduleStyle],
+    ['reboundAccessKey', reboundAccessKey],
+    ['accessAction', accessAction],
+    ['accessPending', accessPending],
+    ['accessRejected', accessRejected],
+    ['accessDisabled', accessDisabled],
+    ['noTargetAccess', noTargetAccess],
+    ['hiddenAccess', hiddenAccess],
+    ['messageFormat', messageFormat],
+    ['roleColors', roleColors],
+    ['selfColors', selfColors],
+    ['escaped', escaped],
+    ['unchanged', unchanged],
+    ['global', global],
+    ['updated', updated],
+    ['actions', actions],
+    ['hidden', hidden],
+    ['typing', typing.join() === 'true,false,true,false'],
+  ]);
 };
 
 const { canvas, context } = init();
@@ -1300,7 +1305,9 @@ export const checkHud = () => {
 
   const element = ui.element;
   const panels = Array.from(
-    element.querySelectorAll<HTMLElement>(':scope > .hud-widget'),
+    element.querySelectorAll<HTMLElement>(
+      ':scope > :is(.hud-modules, .hud-stores, .hud-sector, .hud-credits, .hud-target, .hud-map)',
+    ),
   );
   const ship = createPlayerShip(createWorld());
   const target = new Item(diamond, { position: { x: 300, y: 400 } });
@@ -1314,7 +1321,6 @@ export const checkHud = () => {
     objects: [ship, target],
     poses: new Map(),
     shown: true,
-    alpha: 1,
   };
 
   const text = (selector: string) =>
@@ -1325,9 +1331,67 @@ export const checkHud = () => {
     text('[data-credits]') === '1,998$' &&
     text('[data-pilot]') === 'Pilot' &&
     text('[data-sector]') === 'Patroclus' &&
-    text('[data-coordinate-x]') === '0' &&
-    text('[data-coordinate-y]') === '0' &&
-    text('[data-coordinates] .text-muted') === '\u2009/\u2009';
+    text('[data-coordinates]') === '     0\u2009/\u20090     ';
+
+  const alignedHudHeadings = [
+    ['.hud-sector', '.hud-credits'],
+    ['.hud-sector > .text-sm', '.hud-credits > .text-sm'],
+    ['[data-coordinates]', '.hud-credits > .text-lg'],
+  ].every(([sector, credits]) => {
+    const left = element.querySelector(sector)!.getBoundingClientRect();
+    const right = element.querySelector(credits)!.getBoundingClientRect();
+
+    return (
+      Math.abs(left.top - right.top) < 0.1 &&
+      Math.abs(left.height - right.height) < 0.1
+    );
+  });
+
+  const coordinates = element.querySelector('[data-coordinates]')!;
+  const previousPosition = Vec.clone(ship.position);
+
+  const coordinateBounds = [
+    [0, 0],
+    [-1, 9],
+    [1161, -45760],
+    [-99999, 999999],
+    [-100000, 0],
+    [0, 1000000],
+    [-12345678, 123],
+  ].map(([x, y]) => {
+    Vec.setXY(ship.position, x, y);
+    hud.update(options);
+    const node = coordinates.firstChild!;
+    const slash = node.textContent!.indexOf('/');
+    const range = document.createRange();
+
+    range.setStart(node, slash);
+    range.setEnd(node, slash + 1);
+    const bounds = coordinates.getBoundingClientRect();
+    const separator = range.getBoundingClientRect();
+
+    return {
+      width: bounds.width,
+      centered:
+        Math.abs(
+          separator.x + separator.width / 2 - bounds.x - bounds.width / 2,
+        ) < 0.1,
+    };
+  });
+
+  const stableCoordinates = coordinateBounds
+    .slice(0, 4)
+    .every(({ width }) => Math.abs(width - coordinateBounds[0].width) < 0.1);
+  const expandingCoordinates =
+    coordinateBounds[4].width > coordinateBounds[0].width &&
+    coordinateBounds[5].width === coordinateBounds[4].width &&
+    coordinateBounds[6].width > coordinateBounds[5].width;
+  const centeredCoordinates = coordinateBounds.every(
+    ({ centered }) => centered,
+  );
+
+  Vec.set(ship.position, previousPosition);
+  hud.update(options);
 
   const details = {
     ['target name: ' + text('[data-name]')]: text('[data-name]') === 'Diamond',
@@ -1365,7 +1429,7 @@ export const checkHud = () => {
       },
     );
 
-  const card = document.createElement('aside');
+  const card = document.createElement('div');
 
   card.className = 'ui-card';
   element.append(card);
@@ -1376,7 +1440,7 @@ export const checkHud = () => {
       const style = getComputedStyle(panel);
       const padding = panel.classList.contains('hud-map')
         ? [0, 0, 0, 0]
-        : panel.classList.contains('hud-credits')
+        : panel.matches('.hud-credits, .hud-sector')
           ? [8, 18, 6, 18]
           : [16, 16, 16, 16];
 
@@ -1634,10 +1698,15 @@ export const checkHud = () => {
   hud.update(options);
   const fuelRecovered = !fuelBar.classList.contains('hud-fuel-low');
   const sharedRoot =
-    panels.length === 4 &&
+    panels.length === 6 &&
     panels.every((panel) => panel.parentElement === element) &&
     document.querySelectorAll('.hud').length === 1 &&
-    !document.querySelector('#ui-root, .hud-instruments');
+    !document.querySelector(
+      '#ui-root, .hud-instruments, .hud-left, .hud-right',
+    );
+  const uniformHudContainers =
+    panels.every((panel) => panel.tagName === 'DIV') &&
+    panels.every((panel) => !panel.querySelector('section, aside'));
   const naturalCase = getComputedStyle(element).textTransform === 'none';
 
   ship.fly(1, 0);
@@ -1821,14 +1890,30 @@ export const checkHud = () => {
     panels.every((panel) => !panel.getClientRects().length) &&
     element.getClientRects().length > 0;
 
+  const noHiddenOpacity = panels.every((panel) => !panel.style.opacity);
+
   hud.update({ ...options, target: undefined });
   const cleared = element.querySelector<HTMLElement>('.hud-target')!.hidden;
+
+  hud.update(options);
+  const visibleWithoutOverrides = panels.every(
+    (panel) =>
+      !panel.hidden &&
+      panel.getClientRects().length > 0 &&
+      !panel.style.opacity &&
+      getComputedStyle(panel).opacity === '1',
+  );
 
   hud.destroy();
 
   return Object.fromEntries([
     ['readouts', readouts],
+    ['alignedHudHeadings', alignedHudHeadings],
+    ['stableCoordinates', stableCoordinates],
+    ['expandingCoordinates', expandingCoordinates],
+    ['centeredCoordinates', centeredCoordinates],
     ['sharedRoot', sharedRoot],
+    ['uniformHudContainers', uniformHudContainers],
     ['naturalCase', naturalCase],
     ['storeDisplay', storeDisplay],
     ['labeledFuel', labeledFuel],
@@ -1876,6 +1961,8 @@ export const checkHud = () => {
     ['gateRoute', gateRoute],
     ['targetArtwork', targetArtwork],
     ['hidden', hidden],
+    ['noHiddenOpacity', noHiddenOpacity],
+    ['visibleWithoutOverrides', visibleWithoutOverrides],
     ['cleared', cleared],
     ...Object.entries(details),
   ]);

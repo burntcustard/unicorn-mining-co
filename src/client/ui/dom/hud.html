@@ -1,146 +1,141 @@
-<div class="hud-left hud-widget grid gap-3" hidden>
-  <section
-    class="hud-modules ui-controls grid gap-2 uppercase text-outline text-secondary"
-  ></section>
-  <div class="hud-stores grid">
-    <div class="hud-stores-panel ui-card" aria-hidden="true"></div>
-    <section class="hud-cargo grid" data-store="cargo">
-      <output class="flex items-baseline text-outline">
-        <span class="text-lg mr-1" data-cargo-current></span>
-        <span class="text-xs text-secondary">/&#8201;</span>
-        <span class="text-xs text-secondary" data-cargo-capacity></span>
-      </output>
-      <button
-        class="ui-tooltip text-xs uppercase"
-        aria-label="Cargo"
-        aria-describedby="hud-cargo-tooltip"
-      >
-        Cargo
-        <span data-cargo-full hidden>&nbsp;Full</span>
-        <span
-          class="ui-tooltip-content ui-card"
-          id="hud-cargo-tooltip"
-          role="tooltip"
-        ></span>
-      </button>
-    </section>
-    <section class="hud-fuel grid" data-store="fuel">
-      <span class="text-xs" aria-hidden="true">E</span>
+<div
+  class="hud-modules ui-controls grid gap-2 uppercase text-outline text-secondary"
+  hidden
+></div>
+<div class="hud-stores grid" hidden>
+  <div class="hud-stores-panel ui-card" aria-hidden="true"></div>
+  <div class="hud-cargo grid" data-store="cargo">
+    <output class="flex items-baseline text-outline">
+      <span class="text-lg mr-1" data-cargo-current></span>
+      <span class="text-xs text-secondary">/&#8201;</span>
+      <span class="text-xs text-secondary" data-cargo-capacity></span>
+    </output>
+    <button
+      class="ui-tooltip text-xs uppercase"
+      aria-label="Cargo"
+      aria-describedby="hud-cargo-tooltip"
+    >
+      Cargo
+      <span data-cargo-full hidden>&nbsp;Full</span>
+      <span
+        class="ui-tooltip-content ui-card"
+        id="hud-cargo-tooltip"
+        role="tooltip"
+      ></span>
+    </button>
+  </div>
+  <div class="hud-fuel grid" data-store="fuel">
+    <span class="text-xs" aria-hidden="true">E</span>
+    <div
+      class="hud-fuel-track ui-power-track ui-power-track-xs grid"
+      role="meter"
+      aria-label="Fuel"
+      aria-valuemin="0"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <span class="text-xs" aria-hidden="true">F</span>
+    <button
+      class="ui-tooltip text-xs uppercase"
+      aria-label="Fuel"
+      aria-describedby="hud-fuel-tooltip"
+    >
+      Fuel
+      <span
+        class="ui-tooltip-content ui-card"
+        id="hud-fuel-tooltip"
+        role="tooltip"
+      ></span>
+    </button>
+  </div>
+  <div class="grid items-center" data-store="power">
+    <button
+      class="ui-tooltip gap-1"
+      aria-label="Power"
+      aria-describedby="hud-power-tooltip"
+    >
+      <span class="text-xs text-color" aria-hidden="true">🗲</span>
+      <output class="text-xs" data-power-label></output>
+      <span
+        class="ui-tooltip-content ui-card text-xs"
+        id="hud-power-tooltip"
+        role="tooltip"
+      ></span>
+    </button>
+    <div class="grid gap-1">
       <div
-        class="hud-fuel-track ui-power-track ui-power-track-xs grid"
+        class="ui-power-track ui-power-track-sm"
+        data-power-storage
         role="meter"
-        aria-label="Fuel"
+        aria-label="Stored power"
         aria-valuemin="0"
       >
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
+        <span class="ui-power-part"></span>
       </div>
-      <span class="text-xs" aria-hidden="true">F</span>
-      <button
-        class="ui-tooltip text-xs uppercase"
-        aria-label="Fuel"
-        aria-describedby="hud-fuel-tooltip"
-      >
-        Fuel
-        <span
-          class="ui-tooltip-content ui-card"
-          id="hud-fuel-tooltip"
-          role="tooltip"
-        ></span>
-      </button>
-    </section>
-    <section class="grid items-center" data-store="power">
-      <button
-        class="ui-tooltip gap-1"
-        aria-label="Power"
-        aria-describedby="hud-power-tooltip"
-      >
-        <span class="text-xs text-color" aria-hidden="true">🗲</span>
-        <output class="text-xs" data-power-label></output>
-        <span
-          class="ui-tooltip-content ui-card text-xs"
-          id="hud-power-tooltip"
-          role="tooltip"
-        ></span>
-      </button>
-      <div class="grid gap-1">
-        <div
-          class="ui-power-track ui-power-track-sm"
-          data-power-storage
-          role="meter"
-          aria-label="Stored power"
-          aria-valuemin="0"
-        >
-          <span class="ui-power-part"></span>
-        </div>
-        <div
-          class="ui-power-track ui-power-track-xxs ui-power-marked"
-          data-power-usage-bar
-          role="meter"
-          aria-label="Power consumption"
-          aria-valuemin="0"
-        ></div>
-      </div>
-      <output class="grid text-outline leading-tight text-right">
-        <span class="text-xs text-color" data-power-generation></span>
-        <span class="text-xs text-color" data-power-usage></span>
-      </output>
-      <output class="flex items-baseline gap-1 text-outline text-color">
-        <span class="text-lg" data-power-net></span>
-        <span class="text-xs">MW</span>
-      </output>
-    </section>
+      <div
+        class="ui-power-track ui-power-track-xxs ui-power-marked"
+        data-power-usage-bar
+        role="meter"
+        aria-label="Power consumption"
+        aria-valuemin="0"
+      ></div>
+    </div>
+    <output class="grid text-outline leading-tight text-right">
+      <span class="text-xs text-color" data-power-generation></span>
+      <span class="text-xs text-color" data-power-usage></span>
+    </output>
+    <output class="flex items-baseline gap-1 text-outline text-color">
+      <span class="text-lg" data-power-net></span>
+      <span class="text-xs">MW</span>
+    </output>
   </div>
 </div>
-<section class="hud-sector hud-widget ui-card flex items-center gap-2" hidden>
-  <strong class="text-sm text-color" data-sector></strong>
-  <span class="text-sm text-muted uppercase">Sector</span>
-  <output class="flex items-center" data-coordinates>
-    <span class="text-sm" data-coordinate-x></span>
-    <span class="text-sm text-muted">&#8201;/&#8201;</span>
-    <span class="text-sm" data-coordinate-y></span>
-  </output>
-</section>
-<div class="hud-right hud-widget grid gap-3" hidden>
-  <div
-    class="hud-credits ui-credits ui-card text-right text-outline flex items-center"
-  >
-    <div class="ui-heading-pair grid">
-      <span class="text-color text-sm" data-pilot></span>
-      <div class="text-lg">
-        <output data-credits aria-label="Unicredits"></output>
-      </div>
+<div
+  class="hud-sector ui-card ui-heading-pair grid text-center text-outline"
+  hidden
+>
+  <div class="text-sm">
+    <span class="text-muted uppercase">Sector:</span>
+    <div class="text-color" data-sector></div>
+  </div>
+  <div class="text-lg" data-coordinates></div>
+</div>
+<div
+  class="hud-credits ui-credits ui-card ui-heading-pair grid text-right text-outline"
+  hidden
+>
+  <span class="text-color text-sm" data-pilot></span>
+  <output class="text-lg" data-credits aria-label="Unicredits"></output>
+</div>
+<div class="hud-target ui-card" hidden>
+  <div class="flex items-center justify-between text-muted gap-3">
+    <span class="text-sm uppercase text-secondary">Target</span>
+    <output class="text-sm" data-distance></output>
+  </div>
+  <div class="flex items-center gap-3 mt-4">
+    <div class="hud-target-icon ui-icon flex-none" aria-hidden="true"></div>
+    <div>
+      <h2 class="text-md" data-name></h2>
+      <span class="block text-sm text-muted" data-kind></span>
     </div>
   </div>
-  <aside class="hud-target ui-card" hidden>
-    <div class="flex items-center justify-between text-muted gap-3">
-      <span class="text-sm uppercase text-secondary">Target</span>
-      <output class="text-sm" data-distance></output>
-    </div>
-    <div class="flex items-center gap-3 mt-4">
-      <div class="hud-target-icon ui-icon flex-none" aria-hidden="true"></div>
-      <div>
-        <h2 class="text-md" data-name></h2>
-        <span class="block text-sm text-muted" data-kind></span>
-      </div>
-    </div>
-    <p class="text-sm mt-4" data-description></p>
-    <div class="flex items-center justify-between gap-3 mt-4" data-value-row>
-      <span class="text-muted text-sm">Est. value</span>
-      <output class="text-sm" data-value></output>
-    </div>
-  </aside>
+  <p class="text-sm mt-4" data-description></p>
+  <div class="flex items-center justify-between gap-3 mt-4" data-value-row>
+    <span class="text-muted text-sm">Est. value</span>
+    <output class="text-sm" data-value></output>
+  </div>
 </div>
-<section class="hud-map hud-widget ui-card border-full" hidden>
+<div class="hud-map ui-card border-full" hidden>
   <canvas
     height="300"
     role="img"
     aria-label="Nearby objects, north up"
   ></canvas>
-</section>
+</div>

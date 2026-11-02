@@ -1,13 +1,14 @@
-<section
+<div
   class="ui-screen ui-surface ui-backdrop h-full grid"
   aria-labelledby="saves-heading"
+  role="region"
 >
   <div class="ui-panel ui-card grid gap-6">
     <header class="flex items-center justify-between gap-6 flex-wrap">
       <h2 class="uppercase text-xl" id="saves-heading">Saves</h2>
       <button class="uppercase ui-button" data-back>Back</button>
     </header>
-    <section class="grid gap-4" aria-labelledby="export-heading">
+    <div class="grid gap-4" aria-labelledby="export-heading" role="region">
       <h3 class="uppercase text-lg" id="export-heading">Your private ID</h3>
       <p>
         This ID grants access to your pilot and ship. Keep a copy somewhere
@@ -35,7 +36,7 @@
         stays on the server; keep your private ID to return to it. Keybindings
         and settings are kept.
       </p>
-    </section>
+    </div>
     <form class="grid gap-4" data-import>
       <h3 class="uppercase text-lg">Import a pilot</h3>
       <label class="uppercase grid gap-2">
@@ -68,4 +69,4 @@
       </form>
     </dialog>
   </div>
-</section>
+</div>

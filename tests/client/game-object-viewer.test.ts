@@ -59,7 +59,7 @@ assert(ship instanceof Ship);
 const moduleShades = ship.mounts.map(mount => mount.module?.shades);
 const paint = elements.get('#hull-paint');
 paint.value = 'cyan';
-elements.get('aside').onchange({ target: paint });
+elements.get('.viewer-controls').onchange({ target: paint });
 assert.deepEqual(ship.shades, colors.cyan, 'the hull color control repaints the ship');
 assert(ship.segments.filter(segment => segment.hull).every(segment => segment.shades === colors.cyan));
 assert.deepEqual(ship.mounts.map(mount => mount.module?.shades), moduleShades, 'hull paint preserves fitted module colors');
@@ -121,7 +121,7 @@ assert.equal(shots().length, 2, 'an accessible click fires once');
 assert(!ship.moduleFiring(first.module));
 
 // Replace the two cannons with identical lasers using the actual dropdown handlers.
-elements.get('aside').onchange({ target: elements.get('#spec') });
+elements.get('.viewer-controls').onchange({ target: elements.get('#spec') });
 const laserShip = viewer.previewObject;
 assert.deepEqual(laserShip.shades, colors.cyan, 'hull color survives preview rebuilding');
 const laserMounts = laserShip.mounts.filter(mount => mount.module instanceof CannonSm);

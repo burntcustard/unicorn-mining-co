@@ -194,6 +194,19 @@ assert.equal(fpsToggles, 3, 'menu keys do not toggle FPS');
 input.setMenuInput(false);
 input.defaultKeybindings.fpsCounter.keys = ['f'];
 
+let telemetryToggles = 0;
+
+input.bindAction(input.defaultKeybindings.telemetry, () => telemetryToggles++);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'V' }));
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', repeat: true }));
+assert.equal(telemetryToggles, 1, 'telemetry toggles once per press');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'v' }));
+assert.equal(telemetryToggles, 1, 'release does not toggle telemetry again');
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v' }));
+assert.equal(telemetryToggles, 1, 'typing and menus suppress telemetry');
+input.setMenuInput(false);
+
 let targetRequests = 0;
 
 input.bindAction(input.defaultKeybindings.targetNext, () => targetRequests++);

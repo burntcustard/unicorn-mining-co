@@ -22,17 +22,17 @@ body {
   height: 100dvh;
 }
 
-aside,
+.viewer-controls,
 .content {
   padding: 1.5rem;
 }
 
-aside,
+.viewer-controls,
 main {
   overflow: auto;
 }
 
-aside {
+.viewer-controls {
   background: #213;
   border-right: 1px solid #435;
 }

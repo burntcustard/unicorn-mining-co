@@ -14,6 +14,6 @@ export const powerParts = ({
   entries
     .map(
       ({ module, value, highlighted = true }) =>
-        `<span class="ui-power-part transition-width" title="${module.name.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}: ${value.toFixed(1)} MW" style="--ui-color:${moduleCategories.get(module.category)?.color || '#eef'};width:${(value / Math.max(scale, 1)) * 100}%;opacity:${highlighted ? 1 : 0.25}"></span>`,
+        `<span class="ui-power-part transition-width" title="${module.name.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}: ${value.toFixed(1)} MW" style="--ui-color:${moduleCategories.get(module.category)?.color || '#eef'};width:${(value / Math.max(scale, 1)) * 100}%${highlighted ? '' : ';opacity:0.25'}"></span>`,
     )
     .join('');

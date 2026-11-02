@@ -61,7 +61,7 @@ export const state: ViewerState = {
   ...restored,
 };
 
-const controls = document.querySelector('aside')!;
+const controls = document.querySelector<HTMLDivElement>('.viewer-controls')!;
 const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
 const ctx = canvas.getContext('2d')!;
 const typeSelect = document.querySelector<HTMLSelectElement>('#object-type')!;

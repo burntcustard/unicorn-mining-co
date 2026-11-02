@@ -24,6 +24,14 @@ try {
   assert.equal(defaults.defaultKeybindings.fpsCounter.mode, 'toggle');
   assert.deepEqual(defaults.defaultKeybindings.requestGateAccess.keys, ['r']);
   assert.equal(defaults.defaultKeybindings.requestGateAccess.mode, 'press');
+  assert.deepEqual(defaults.defaultKeybindings.telemetry.keys, ['v']);
+  assert.equal(defaults.defaultKeybindings.telemetry.mode, 'press');
+  assert.equal(
+    defaults.bindingEntries.filter(([, binding]) => binding.keys.includes('v'))
+      .length,
+    1,
+    'telemetry uses an otherwise unused default key',
+  );
   const legacy = defaults.bindingEntries
     .slice(0, -3)
     .map(([, binding]) => [...binding.keys]);
@@ -103,6 +111,13 @@ try {
   );
   assert.equal(withModes.defaultKeybindings.searchLight.mode, 'hold');
   assert.deepEqual(withModes.defaultKeybindings.cargoRelease.keys, ['j']);
+  withModes.defaultKeybindings.telemetry.keys = ['z'];
+  withModes.saveBindings();
+  const withTelemetry = await loadBindings('with-telemetry');
+
+  assert.deepEqual(withTelemetry.defaultKeybindings.telemetry.keys, ['z']);
+  withTelemetry.resetBindings();
+  assert.deepEqual(withTelemetry.defaultKeybindings.telemetry.keys, ['v']);
   withModes.resetBindings();
   assert.equal(withModes.defaultKeybindings.cargoRelease.mode, 'hold');
   assert.equal(withModes.defaultKeybindings.searchLight.mode, 'toggle');

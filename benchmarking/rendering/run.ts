@@ -913,10 +913,13 @@ Reflect.set(window, 'perf-capture', async action => {
     Object.assign(
       result,
       JSON.parse(
-        await evaluate(`JSON.stringify({
-          'hud-panels': document.querySelectorAll('.hud-widget').length,
-          'hud-visible': [...document.querySelectorAll('.hud-widget')].filter(element => !element.hidden && getComputedStyle(element).position === 'absolute').length
-        })`),
+        await evaluate(`JSON.stringify((() => {
+          const panels = [...document.querySelectorAll('.hud > :is(.hud-modules, .hud-stores, .hud-sector, .hud-credits, .hud-target, .hud-map)')];
+          return {
+            'hud-panels': panels.length,
+            'hud-visible': panels.filter(element => element.getClientRects().length > 0).length
+          };
+        })())`),
       ),
     );
 

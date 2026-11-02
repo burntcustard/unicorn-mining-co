@@ -293,7 +293,7 @@ export class NetworkClient {
   }
 
   shipId?: number;
-  private snapshotReceivedAt = performance.now();
+  snapshotReceivedAt = 0;
   private socket!: WebSocket;
   spawnPosition = Vec.create();
   private welcomed = false;
@@ -591,6 +591,7 @@ export class NetworkClient {
     }
 
     if (message.type === 'welcome') {
+      this.snapshotReceivedAt = 0;
       this.asteroidPositions = [];
       this.chatMessages = this.chatMessages.filter(
         ({ channel }) => channel === 1,

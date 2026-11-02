@@ -10,10 +10,9 @@ export type GameState = {
   height: number;
   scale: number;
   size: number;
-  uiAlpha: number;
   uiHeight: number;
   uiScale: number;
-  uiVisible: number;
+  uiVisible: boolean;
   uiWidth: number;
   physicsOn?: boolean;
   sprites: GameObject[];
@@ -30,7 +29,6 @@ export const game = {
   // @endif
   size: 1.5,
   sprites: [],
-  uiAlpha: 0,
-  uiVisible: 0,
+  uiVisible: false,
   // Canvas and context are set by main; sizing is set by setSizing().
 } as GameState;

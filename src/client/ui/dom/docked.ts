@@ -487,12 +487,12 @@ const createDocked = () => {
         .filter(([, entries]) => entries.length)
         .map(
           ([name, entries]) =>
-            `<section class="dock-trade-table grid uppercase text-sm" data-trade-group="${name.toLowerCase()}">
+            `<div class="dock-trade-table grid uppercase text-sm" data-trade-group="${name.toLowerCase()}">
               <div class="dock-trade-heading text-muted">
                 <h3 class="px-3">${name}</h3><span class="px-3 text-right">Supply</span><span class="px-3 text-right">${kind === 'cargo' ? 'Sell' : 'Buy'}</span>
               </div>
               <div class="dock-group">${tradeRows(entries, kind)}</div>
-            </section>`,
+            </div>`,
         )
         .join('');
 

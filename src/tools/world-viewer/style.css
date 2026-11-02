@@ -91,7 +91,7 @@ fieldset label {
     grid-template-columns: 14rem minmax(0, 1fr);
   }
 
-  aside {
+  .viewer-controls {
     padding: 1rem;
   }
 }

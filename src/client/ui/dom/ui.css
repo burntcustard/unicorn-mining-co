@@ -95,7 +95,9 @@
     }
   }
 
-  .hud > :not(.hud-widget, .ui-notification) {
+  .hud > :is(.ui-main, .ui-backdrop) {
+    position: absolute;
+    inset: 0;
     pointer-events: auto;
   }
 
@@ -325,12 +327,6 @@
 
     & > button:enabled:is(:hover, :focus-visible) {
       color: #fff;
-
-      /* outline: none; */
-    }
-
-    & > button:enabled:is(:hover, :focus-visible) kbd {
-      /* border-color: #ddd; */
     }
 
     &
@@ -554,7 +550,7 @@
       grid-column: 1 / -1;
     }
 
-    & > section {
+    & > :is([data-controls-panel], [data-graphics-panel]) {
       grid-area: 3 / 1;
       width: 100%;
       max-width: 600px;

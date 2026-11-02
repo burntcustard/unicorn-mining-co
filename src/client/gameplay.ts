@@ -1,4 +1,5 @@
 import { createHud } from './ui/dom/hud';
+import { createTelemetry } from './ui/dom/telemetry';
 import { portalSpec } from '../specs/portal';
 import { createChat } from './ui/dom/chat';
 import { Portal } from './objects/portal';
@@ -77,6 +78,17 @@ type Background = {
 
 let gameStarted = false;
 const targeting = new Targeting();
+
+const telemetry = createTelemetry({
+  element: ui.element,
+  readSample: () => ({
+    world: network.world,
+    shipId: network.shipId,
+    targetId: targeting.target?.id,
+    connected: network.connected,
+    snapshotReceivedAt: network.snapshotReceivedAt,
+  }),
+});
 
 const updateTargetInput = () => {
   const targetId = targeting.target?.id;
@@ -343,6 +355,12 @@ bindAction(defaultKeybindings.fpsCounter, (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
   event.preventDefault();
   toggleFps();
+});
+
+bindAction(defaultKeybindings.telemetry, (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  event.preventDefault();
+  telemetry.toggle();
 });
 
 // @ifdef DEBUG
@@ -612,8 +630,7 @@ const gameLoop = GameLoop({
           !ui.current &&
           network.connected &&
           !network.shipDestroyed &&
-          game.uiAlpha > 0,
-        alpha: game.uiAlpha,
+          game.uiVisible,
       });
 
       renderUI(view, stationMarkers, {
@@ -624,6 +641,8 @@ const gameLoop = GameLoop({
       game.ctx = ctx;
       Vec.set(camera, baseCamera);
     }
+
+    telemetry.update({ now: performance.now() });
   },
   update: ({ dt, now }) => {
     updateEffects(dt * 1000);
@@ -735,8 +754,7 @@ const start = async () => {
     centerCamera(game, { position: network.spawnPosition });
   }
 
-  game.uiVisible = 1;
-  game.uiAlpha = 1;
+  game.uiVisible = true;
 
   gameStarted = true;
   gameLoop.start();

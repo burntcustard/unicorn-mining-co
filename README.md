@@ -278,6 +278,34 @@ Use `UI_MENU_ONLY=1 npm run test:ui` to check startup and menu loading without
 the docking fixture, or `UI_DOCK_ONLY=1 npm run test:ui` for the docking fixture.
 Set `CHROME_BIN` when the browser executable is not named `chromium`.
 
+Use `UI_HUD_ONLY=1 npm run test:ui` for static HUD
+desktop scenes, with `UI_CAPTURE_DIR` to retain screenshots and geometry.
+
+Movement telemetry toggles with **V** (rebindable in Settings → Controls) and
+starts off on every page load. While enabled, `.hud-telemetry` refreshes at about
+10 Hz. It reads the fixed-tick client simulation, before display smoothing or
+fractional frame prediction. Existing HUD text and meters provide names, types,
+fuel, cargo, power, and module activation.
+
+Read `.hud-telemetry`'s visible text, or its `.telemetry-player`,
+`.telemetry-target`, and `.telemetry-parent` rows. Values are displayed only in
+text, without duplicate data attributes. Movement values use three decimal
+places. Positions are world units, rotations are radians, native velocities
+are world units per second, and native spin is radians per second.
+
+Native motion excludes station-carried motion. When active, the visible
+`localMovementRate` is a dimensionless blend rate and `Carrier #` identifies
+another record in the same panel. Shared parents appear once; a selected parent
+uses the target record.
+
+The visible simulation tick identifies the simulation sample, and simulation
+time is shown in whole seconds. Refreshing the DOM does not advance either
+value. Snapshot age measures elapsed time since the latest accepted server
+snapshot, or says unavailable before any snapshot. Missing or disconnected
+entities have explanatory text instead of movement values. While the panel is
+hidden, sampling and DOM updates stop, so tools should check `hidden` before
+reading retained text.
+
 ## Source layout
 
 - `src/specs`: typed authored items, modules, ships, stations, and tuning.

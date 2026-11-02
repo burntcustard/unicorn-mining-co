@@ -93,7 +93,7 @@
 [ ] Add wormhole-scanning sensor
 [ ] Add missile/torpedo module
 [-] Add turret modules
-[ ] Add holding cargo hatch key to drop all cargo
+[x] Add holding cargo hatch key to drop all cargo
 [ ] In outfitting, have current ammo listed somewhere
 [ ] Figure out dual/split thrusters
 [ ] Courser MKII ship
@@ -104,6 +104,7 @@
 [ ] Map
 [ ] "Random" NPC spaceship name generator
 [ ] Shield generator should have health and UI so can be disrupted
+[ ] Add nav beacons and scanning using the search light
 
 ## Big future things
 

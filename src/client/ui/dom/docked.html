@@ -1,4 +1,4 @@
-<section class="dock-screen pt-7 px-10 pb-4 ui-surface ui-backdrop h-full grid">
+<div class="dock-screen pt-7 px-10 pb-4 ui-surface ui-backdrop h-full grid">
   <header class="dock-header flex items-center justify-between gap-6">
     <div class="flex items-center gap-6">
       <span class="dock-station-icon"></span>
@@ -25,7 +25,7 @@
       class="dock-summary flex items-center text-xl uppercase"
       data-ship-name
     ></h2>
-    <aside class="ui-scroll" data-sidebar>
+    <div class="ui-scroll" data-sidebar role="complementary">
       <div data-overview>
         <dl class="dock-overview-stats gap-4 mb-8 grid">
           <dt class="uppercase">Hull</dt>
@@ -76,7 +76,7 @@
           <button class="ui-button" data-service="paint">Hull paint</button>
         </nav>
       </div>
-    </aside>
+    </div>
     <div class="ui-scroll" data-trade-stock hidden>
       <h2 class="uppercase">Buy from market</h2>
       <div data-stock-items role="group"></div>
@@ -86,7 +86,7 @@
         Fitting preview
       </span>
       <canvas class="dock-preview h-full" aria-hidden="true"></canvas>
-      <section class="dock-energy ui-card text-sm">
+      <div class="dock-energy ui-card text-sm">
         <div class="flex items-center justify-between gap-3">
           <h2 class="uppercase">Power consumption</h2>
           <span data-output></span>
@@ -95,10 +95,10 @@
         <div
           class="dock-energy-legend flex items-center justify-between gap-3 mt-4 uppercase"
         ></div>
-      </section>
+      </div>
     </div>
     <div class="dock-inspector gap-6 flex flex-col">
-      <section data-candidate-panel hidden>
+      <div data-candidate-panel hidden>
         <div class="flex items-center justify-between gap-3 mb-6 px-3">
           <h2 class="uppercase">Compatible modules</h2>
           <span class="uppercase text-muted text-sm">Price</span>
@@ -108,8 +108,12 @@
           tabindex="-1"
           data-candidates
         ></nav>
-      </section>
-      <aside class="dock-detail ui-card ui-scroll" tabindex="-1">
+      </div>
+      <div
+        class="dock-detail ui-card ui-scroll"
+        tabindex="-1"
+        role="complementary"
+      >
         <div
           class="flex items-center justify-between gap-3 text-muted text-sm mb-6 uppercase"
         >
@@ -173,7 +177,7 @@
             <span data-ammo-price></span>
           </button>
         </div>
-        <section class="mt-6" data-paint-panel>
+        <div class="mt-6" data-paint-panel>
           <h3 class="uppercase text-sm" data-paint-heading>Module paint</h3>
           <p class="text-muted text-sm mt-4" data-paint-unsupported hidden>
             Painting unsupported on this module
@@ -183,8 +187,8 @@
             data-action-group
             data-paints
           ></div>
-        </section>
-      </aside>
+        </div>
+      </div>
     </div>
   </div>
   <footer
@@ -214,4 +218,4 @@
       </span>
     </div>
   </footer>
-</section>
+</div>
