@@ -8,6 +8,7 @@ import { player } from '../../src/client/player.ts';
 import { init } from '../../src/client/core.ts';
 import { game } from '../../src/client/game.ts';
 import { ui, updateNotification } from '../../src/client/ui/dom/ui.ts';
+import { hideUi, saveHideUi } from '../../src/client/ui/dom/graphics';
 import { syncDockedUi } from '../../src/client/ui/dom/docked-loader.ts';
 import { setCraftActionDispatcher } from '../../src/client/network/craft-actions.ts';
 import { Station } from '../../src/client/objects/station.ts';
@@ -1151,6 +1152,49 @@ export const setFuel = (fuel: number, credits: number) => {
 export const fuelState = () => [player.ship.fuel, player.credits];
 
 export const notification = (message: string) => updateNotification(message);
+
+export const checkNotifications = () => {
+  const note = ui.element.querySelector<HTMLElement>('.ui-notification')!;
+  const previousMessage = note.hidden ? '' : note.textContent!;
+  const previousHideUi = hideUi;
+  const previousHudHidden = ui.hudElement.hidden;
+  const checks: Record<string, boolean> = {};
+
+  try {
+    ui.hudElement.hidden = true;
+    saveHideUi(false);
+    updateNotification('DIAMOND SOLD - CYAN UNLOCKED');
+    checks['visible while the docked screen hides the in-game HUD'] =
+      Boolean(ui.current?.element.getClientRects().length) &&
+      note.parentElement === ui.element &&
+      note.getClientRects().length > 0 &&
+      getComputedStyle(note).opacity === '1' &&
+      note.textContent === 'DIAMOND SOLD - CYAN UNLOCKED';
+    saveHideUi(true);
+    checks[
+      'Hide UI makes the notification transparent without removing its text'
+    ] =
+      getComputedStyle(note).opacity === '0' &&
+      !note.hidden &&
+      note.textContent === 'DIAMOND SOLD - CYAN UNLOCKED' &&
+      getComputedStyle(ui.current!.element).opacity === '1';
+    saveHideUi(false);
+    checks[
+      'turning Hide UI off restores the active notification while docked'
+    ] =
+      ui.hudElement.hidden &&
+      note.getClientRects().length > 0 &&
+      getComputedStyle(note).opacity === '1';
+    updateNotification('');
+    checks['expiration still hides the notification'] =
+      note.hidden && note.getClientRects().length === 0;
+    return checks;
+  } finally {
+    ui.hudElement.hidden = previousHudHidden;
+    saveHideUi(previousHideUi);
+    updateNotification(previousMessage);
+  }
+};
 
 export const previewStability = async () => {
   const { Ship } = await import('../../src/client/objects/ship');

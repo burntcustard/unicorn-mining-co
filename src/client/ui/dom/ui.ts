@@ -39,17 +39,6 @@ const hudElement = document.createElement('div');
 hudElement.className = 'hud-overlay';
 root.append(hudElement);
 
-const updateGraphics = () => {
-  hudElement.style.opacity = hideUi ? '0' : '';
-  root.style.setProperty(
-    '--ui-backdrop-filter',
-    backdropBlur ? 'blur(4px)' : 'none',
-  );
-};
-
-updateGraphics();
-window.addEventListener('ui-graphics', updateGraphics);
-
 if (!root.isConnected) document.body.append(root);
 
 const notification =
@@ -60,7 +49,18 @@ notification.className =
   'ui-notification ui-surface ui-card text-center uppercase';
 notification.setAttribute('role', 'status');
 notification.hidden = true;
-hudElement.append(notification);
+root.append(notification);
+
+const updateGraphics = () => {
+  hudElement.style.opacity = notification.style.opacity = hideUi ? '0' : '';
+  root.style.setProperty(
+    '--ui-backdrop-filter',
+    backdropBlur ? 'blur(4px)' : 'none',
+  );
+};
+
+updateGraphics();
+window.addEventListener('ui-graphics', updateGraphics);
 
 export const updateNotification = (message: string) => {
   if (notification.textContent !== message) notification.textContent = message;

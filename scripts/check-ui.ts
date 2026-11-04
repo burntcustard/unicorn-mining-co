@@ -1387,9 +1387,9 @@ checkUi: try {
           !document.querySelector('.hud-instruments') &&
           ['.hud-modules', '.hud-stores', '.hud-credits', '.hud-target', '.hud-sector', '.hud-map'].every(selector => document.querySelector(selector).parentElement === root) &&
           document.querySelector('.chat-panel').parentElement === root &&
-          document.querySelector('.ui-notification').parentElement === root;
+          document.querySelector('.ui-notification').parentElement === root.parentElement;
       })()`),
-      'instruments, chat, and notifications share one HUD parent',
+      'instruments and chat share a HUD container while notifications remain outside it',
     );
 
     await check(
@@ -2325,6 +2325,12 @@ checkUi: try {
     await check(`document.querySelector('.ui-notification').hidden`),
     'expired notifications leave no visible overlay',
   );
+  const notifications = await check('fixture.checkNotifications()');
+
+  for (const [behavior, passed] of Object.entries(notifications)) {
+    assert(passed, `notifications: ${behavior}`);
+  }
+
   assert.deepEqual(
     await check(`fixture.previewStability()`),
     [true, true, true, true, true, true, true, true],
