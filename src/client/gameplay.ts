@@ -80,7 +80,7 @@ let gameStarted = false;
 const targeting = new Targeting();
 
 const telemetry = createTelemetry({
-  element: ui.element,
+  element: ui.hudElement,
   readSample: () => ({
     world: network.world,
     shipId: network.shipId,
@@ -175,14 +175,18 @@ window.addEventListener('ui-graphics', () => {
   gameStarted || renderSky();
 });
 
-window.addEventListener('ui-navigation', () => {
+const syncNavigation = () => {
+  ui.hudElement.hidden = Boolean(ui.current);
   setMenuInput(Boolean(ui.current));
 
   if (ui.current) {
     pointerPosition = undefined;
     targeting.hover();
   }
-});
+};
+
+syncNavigation();
+window.addEventListener('ui-navigation', syncNavigation);
 
 const pointerView = {
   position: Vec.create(),
@@ -369,8 +373,14 @@ bindDebug(game);
 
 game.camera = camera;
 
+let previousFrameAt = 0;
+
 const gameLoop = GameLoop({
   render: ({ dt, now }) => {
+    const renderStartedAt = performance.now();
+    const frameTime = previousFrameAt ? now - previousFrameAt : 0;
+
+    previousFrameAt = now;
     const predicted = network.predictFrame({ now });
     const ownShots = network.predictedShots.filter(
       ({ projectile }) => projectile.playerId === network.playerId,
@@ -642,7 +652,26 @@ const gameLoop = GameLoop({
       Vec.set(camera, baseCamera);
     }
 
-    telemetry.update({ now: performance.now() });
+    telemetry.update({
+      now: performance.now(),
+      readPresentation: () => {
+        const transform = new DOMMatrix()
+          .scale(scale, scale)
+          .translate(focus.x - camera.x, focus.y - camera.y)
+          .scale(zoom, zoom)
+          .translate(-focus.x, -focus.y);
+        const target = targeting.target;
+
+        return {
+          frameTime,
+          renderTime: performance.now() - renderStartedAt,
+          canvas: game.canvas,
+          transform,
+          playerPose,
+          targetPose: target && (remotePoses.get(target.id) || target),
+        };
+      },
+    });
   },
   update: ({ dt, now }) => {
     updateEffects(dt * 1000);

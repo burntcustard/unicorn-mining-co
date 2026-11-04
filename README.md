@@ -283,15 +283,29 @@ desktop scenes, with `UI_CAPTURE_DIR` to retain screenshots and geometry.
 
 Movement telemetry toggles with **V** (rebindable in Settings → Controls) and
 starts off on every page load. While enabled, `.hud-telemetry` refreshes at about
-10 Hz. It reads the fixed-tick client simulation, before display smoothing or
-fractional frame prediction. Existing HUD text and meters provide names, types,
+10 Hz. Bold Simulation and Rendered headings separate fixed-tick world data
+from displayed poses. Simulation includes position, rotation, and native motion.
+Rendered includes world position, rotation, and screen position for the displayed
+player and selected target. The world-to-screen transform uses CSS viewport pixels:
+`screen X = world X * scale + offset X`, likewise for Y. It includes camera
+movement, zoom, canvas resolution, and the canvas's viewport offset. Frame time
+is the interval between rendered frames; render time measures CPU work in the
+render callback, excluding telemetry refresh and GPU completion.
+
+Settings → Graphics → Hide UI defaults to off and persists across reloads. It
+sets opacity to zero on the in-game HUD container, leaving panels, chat,
+telemetry, and controls readable and usable through the DOM. Main menus,
+settings, and docked UI stay visible.
+
+Existing HUD text and meters provide names, types,
 fuel, cargo, power, and module activation.
 
-Read `.hud-telemetry`'s visible text, or its `.telemetry-player`,
-`.telemetry-target`, and `.telemetry-parent` rows. Values are displayed only in
+Read `.hud-telemetry`'s visible text. Scope `.telemetry-player` and
+`.telemetry-target` rows to `.telemetry-simulation` or `.telemetry-rendered`;
+`.telemetry-parent` rows appear only under Simulation. Values are displayed only in
 text, without duplicate data attributes. Movement values use three decimal
-places. Positions are world units, rotations are radians, native velocities
-are world units per second, and native spin is radians per second.
+places. Positions are meters, rotations are radians, native velocities
+are meters per second, and native spin is radians per second.
 
 Native motion excludes station-carried motion. When active, the visible
 `localMovementRate` is a dimensionless blend rate and `Carrier #` identifies

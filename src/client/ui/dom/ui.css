@@ -95,6 +95,14 @@
     }
   }
 
+  .hud-overlay {
+    display: grid;
+    grid-area: 1 / 1 / -1 / -1;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+    gap: inherit;
+  }
+
   .hud > :is(.ui-main, .ui-backdrop) {
     position: absolute;
     inset: 0;

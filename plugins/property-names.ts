@@ -6,6 +6,12 @@
  */
 export const propertyNames = [
   'telemetry',
+  'hudElement',
+  'readPresentation',
+  'frameTime',
+  'renderTime',
+  'playerPose',
+  'targetPose',
   'turret',
   'turretTurnRate',
   'turretBase',

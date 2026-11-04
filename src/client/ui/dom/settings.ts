@@ -17,6 +17,8 @@ import {
   saveRenderer,
   nativeHud,
   saveNativeHud,
+  hideUi,
+  saveHideUi,
   backdropBlur,
   saveBackdropBlur,
 } from './graphics';
@@ -240,6 +242,14 @@ export const createSettings = () => {
         { signal: screen.signal },
       );
     });
+
+  const hide = query<HTMLInputElement>(screen.element, '[data-hide-ui]');
+
+  hide.checked = hideUi;
+
+  hide.addEventListener('change', () => saveHideUi(hide.checked), {
+    signal: screen.signal,
+  });
 
   const blur = query<HTMLInputElement>(screen.element, '[data-backdrop-blur]');
 

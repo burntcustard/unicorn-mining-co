@@ -899,6 +899,26 @@ checkUi: try {
   })()`),
       'selected tabs have an accent underline and text without the light-text stroke',
     );
+    assert.equal(
+      await check(`document.querySelector('[data-hide-ui]').checked`),
+      false,
+      'Hide UI defaults to off',
+    );
+    await check(`document.querySelector('[data-hide-ui]').click()`);
+    assert(
+      await check(
+        `getComputedStyle(document.querySelector('.hud-overlay')).opacity === '0' && getComputedStyle(document.querySelector('.hud')).opacity === '1' && getComputedStyle(document.querySelector('.ui-settings')).opacity === '1' && document.querySelector('[data-hide-ui]').checked && localStorage.getItem('unicorn-hide-ui') === 'true'`,
+      ),
+      'Hide UI makes only the in-game HUD transparent while settings stay visible',
+    );
+    await check(`document.querySelector('[data-hide-ui]').click()`);
+    assert.equal(
+      await check(
+        `getComputedStyle(document.querySelector('.hud-overlay')).opacity`,
+      ),
+      '1',
+      'settings can restore the in-game HUD',
+    );
     await capture('graphics');
     assert(
       (await check(
@@ -1174,10 +1194,41 @@ checkUi: try {
     );
     await pressKey('v');
     await waitFor(
-      `!document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry .telemetry-player')?.textContent.includes('Position ')`,
+      `!document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry .telemetry-player')?.textContent.includes('Pos ')`,
       'telemetry shortcut enables production simulation readouts',
     );
+    assert(
+      await check(`(() => {
+        const text = document.querySelector('.hud-telemetry').textContent;
+        return ['Frame time ', 'Render time (CPU) ', 'Scale ', 'Offset pos ', 'Screen pos '].every(label => text.includes(label)) && !text.includes('NaN');
+      })()`),
+      'production telemetry exposes timing, CSS viewport transform, and rendered player pose',
+    );
+    assert(
+      await check(`['simulation', 'rendered'].every(section => {
+        const root = document.querySelector('.telemetry-' + section);
+        return root.querySelector('strong') && ['Pos ', 'Rotation '].every(label => root.querySelector('.telemetry-player').textContent.includes(label));
+      })`),
+      'production telemetry groups simulation and rendered player poses under bold headings',
+    );
     await capture('telemetry');
+    await pressKey('Escape');
+    await waitFor(
+      `document.querySelector('.ui-main:not([hidden])') && document.querySelector('.hud-overlay').hidden`,
+      'opening the main menu hides the shared in-game HUD container',
+    );
+    assert(
+      await check(`(() => {
+        const panel = document.querySelector('.hud-telemetry');
+        return !panel.hidden && panel.parentElement === document.querySelector('.hud-overlay') && !panel.getClientRects().length;
+      })()`),
+      'menu visibility hides enabled telemetry together with the other HUD panels',
+    );
+    await pressKey('Escape');
+    await waitFor(
+      `!document.querySelector('.hud-overlay').hidden && !document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry').getClientRects().length > 0`,
+      'resuming restores enabled telemetry without toggling it again',
+    );
     await pressKey('v', { repeat: true });
     assert(
       !(await check(`document.querySelector('.hud-telemetry').hidden`)),
@@ -1331,14 +1382,14 @@ checkUi: try {
 
     assert(
       await check(`(() => {
-        const root = document.querySelector('.hud');
-        return document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root') &&
+        const root = document.querySelector('.hud-overlay');
+        return root.parentElement === document.querySelector('.hud') && document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root') &&
           !document.querySelector('.hud-instruments') &&
           ['.hud-modules', '.hud-stores', '.hud-credits', '.hud-target', '.hud-sector', '.hud-map'].every(selector => document.querySelector(selector).parentElement === root) &&
           document.querySelector('.chat-panel').parentElement === root &&
-          document.querySelector('.ui-notification').parentElement === root;
+          document.querySelector('.ui-notification').parentElement === root.parentElement;
       })()`),
-      'instruments, chat, and notifications share one HUD parent',
+      'instruments and chat share a HUD container while notifications remain outside it',
     );
 
     await check(
@@ -1944,7 +1995,11 @@ checkUi: try {
   const graphics = await check('fixture.checkGraphics()');
   const bays = await check('fixture.checkStationBay()');
   const chat = await check('fixture.checkChat()');
+
+  await check(`document.querySelector('.dock-screen').hidden = true`);
   const hud = await check('fixture.checkHud()');
+
+  await check(`document.querySelector('.dock-screen').hidden = false`);
   const telemetry = await check('fixture.checkTelemetry()');
 
   for (const [behavior, passed] of Object.entries(telemetry)) {
@@ -1995,6 +2050,27 @@ checkUi: try {
           })()`),
           'telemetry uses plain div records in the grid row directly below chat',
         );
+
+        const [x, y] = await check(`(() => {
+          const box = document.querySelector('.hud-telemetry').getBoundingClientRect();
+          return [box.x + box.width / 2, box.y + box.height / 2];
+        })()`);
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseWheel',
+          x,
+          y,
+          deltaX: 0,
+          deltaY: 200,
+        });
+
+        await pause(100);
+
+        assert(
+          await check(`document.querySelector('.hud-telemetry').scrollTop > 0`),
+          'telemetry receives pointer events and scrolls with the mouse wheel',
+        );
+        await check(`document.querySelector('.hud-telemetry').scrollTop = 0`);
       }
 
       if (mode === 0) {
@@ -2249,6 +2325,12 @@ checkUi: try {
     await check(`document.querySelector('.ui-notification').hidden`),
     'expired notifications leave no visible overlay',
   );
+  const notifications = await check('fixture.checkNotifications()');
+
+  for (const [behavior, passed] of Object.entries(notifications)) {
+    assert(passed, `notifications: ${behavior}`);
+  }
+
   assert.deepEqual(
     await check(`fixture.previewStability()`),
     [true, true, true, true, true, true, true, true],

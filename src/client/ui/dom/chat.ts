@@ -128,7 +128,7 @@ export const createChat = ({
     });
   });
 
-  ui.element.append(panel);
+  ui.hudElement.append(panel);
   input.addEventListener('focus', () => onTyping(true));
   input.addEventListener('blur', () => onTyping(false));
 
