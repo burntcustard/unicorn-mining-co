@@ -8,6 +8,25 @@ type powerRates struct {
 
 func (s *Ship) powerRates() powerRates {
 	var rates powerRates
+
+	if s.CrystalWeapon != nil && s.Firing && !s.Dead && (s.DockedTo == nil || *s.DockedTo == 0) && s.Launching == 0 {
+		for _, emitter := range s.CrystalWeapon.Emitters {
+			alive := false
+
+			for _, segment := range s.Segments {
+				if segment.Hull && segment.HullPlan == s.HullSegments[emitter.HullIndex] && !(segment.Health < 1) {
+					alive = true
+					break
+				}
+			}
+
+			if alive {
+				rates.systems = s.CrystalWeapon.PowerFiring
+				break
+			}
+		}
+	}
+
 	var mounts [16]*simulation.Mount
 
 	for _, mount := range s.AppendMounts(mounts[:0]) {

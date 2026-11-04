@@ -35,6 +35,7 @@ export type Segment = {
   mount?: Mount;
   middle?: Point;
   points?: ShapeOutline | ((segment: Segment) => ShapeOutline);
+  lineJoin?: CanvasLineJoin;
   shades: Shades;
   zIndex: RenderingLayer;
 };

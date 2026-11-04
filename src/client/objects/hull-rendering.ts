@@ -16,17 +16,22 @@ export const drawHullSegment = ({
   health: number;
   pose: Pose;
 }) => {
+  if (segment.ribbon && !segment.ribbonPath) return;
   const worn =
     health < (segment.module.health || segment.module.healthActivated) / 2
       ? 0
       : +!!segment.hull;
 
-  ctx.fillStyle = hullSegmentFill({
-    ctx,
-    segment,
-    worn,
-    rotation: pose.rotation,
-  });
+  ctx.fillStyle =
+    segment.color ||
+    hullSegmentFill({
+      ctx,
+      segment: segment.ribbonFill
+        ? { ...segment, ...segment.ribbonFill }
+        : segment,
+      worn,
+      rotation: pose.rotation,
+    });
 
   ctx.strokeStyle = segment.shades[2];
   drawSegment({ ctx, segment });

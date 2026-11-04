@@ -77,8 +77,23 @@ const activate = mount => {
 const press = button => button.onpointerdown({ button: 0, pointerId: 1 });
 const shots = () => [...world.entities.values()].filter(entity => entity.kind === 'projectile');
 const advance = () => { now += 50; frame(now); };
-// Rendering is exercised separately below; repeated fire still runs the real frame loop.
 ship.render = noop;
+const hitboxes = elements.get('#hitboxes');
+assert.equal(viewer.state.hitboxes, false, 'hitboxes start hidden');
+let hitboxReads = 0;
+const originalHitbox = ship.hitbox.bind(ship);
+ship.hitbox = () => { hitboxReads++; return originalHitbox(); };
+hitboxes.checked = true;
+elements.get('.viewer-controls').onchange({ target: hitboxes });
+advance();
+assert.equal(viewer.state.hitboxes, true);
+assert(hitboxReads > 0, 'the enabled overlay reads the actual collider geometry');
+hitboxes.checked = false;
+elements.get('.viewer-controls').onchange({ target: hitboxes });
+const previousReads = hitboxReads;
+advance();
+assert.equal(hitboxReads, previousReads, 'hiding the overlay stops drawing hitboxes');
+// Rendering is exercised separately below; repeated fire still runs the real frame loop.
 const [first, second] = gunMounts();
 activate(first);
 activate(second);

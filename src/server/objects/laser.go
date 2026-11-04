@@ -9,7 +9,13 @@ import (
 )
 
 func (s *Ship) ResolveLasers(dt float64, events *[]protocol.SimulationEvent) {
-	if s.World == nil || s.PlayerID == nil || !s.Firing || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
+	if s.World == nil || !s.Firing || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
+		return
+	}
+
+	s.resolveCrystalBeams(dt, events)
+
+	if s.PlayerID == nil {
 		return
 	}
 
@@ -41,15 +47,21 @@ func (s *Ship) ResolveLasers(dt float64, events *[]protocol.SimulationEvent) {
 
 func (s *Ship) resolveLaser(module simulation.Module, dt float64, events *[]protocol.SimulationEvent) {
 	m := module.ModuleBase()
-	spec, world := &m.Spec, s.World
+	spec := &m.Spec
 	start := s.weaponPosition(m, spec.BarrelLength)
 	end := Vec.Add(start, simulation.RotatePoint(Vec.Create(spec.Reach, 0), s.Rotation+m.AimRotation))
+	first, length := s.traceLaser(start, end)
+	s.laserHit(first, start, end, length, spec.Damage*30*dt, events)
+}
+
+func (s *Ship) traceLaser(start, end Vec.Vector) (*collision.Collider, float64) {
+	world := s.World
 	var first *collision.Collider
 	fraction := 1.0
 	shot := shape.NewCircle(Vec.Vector{}, 0.5)
 	sweepA := collision.NewSweep()
 	sweepA.C0, sweepA.C = start, end
-	travel := spec.Reach
+	travel := Vec.Distance(start, end)
 
 	world.Entities.ForEach(func(entity simulation.Entity, _ int64) {
 		o := entity.Base()
@@ -97,6 +109,17 @@ func (s *Ship) resolveLaser(module simulation.Module, dt float64, events *[]prot
 		}
 	})
 
+	return first, travel * fraction
+}
+
+func (s *Ship) laserHit(first *collision.Collider, start, end Vec.Vector, length, amount float64, events *[]protocol.SimulationEvent) {
+	world := s.World
+	by := int64(0)
+
+	if s.PlayerID != nil {
+		by = *s.PlayerID
+	}
+
 	if first == nil || first.Physics != nil && !*first.Physics {
 		return
 	}
@@ -110,7 +133,7 @@ func (s *Ship) resolveLaser(module simulation.Module, dt float64, events *[]prot
 		target = first.Segment
 	}
 
-	applied := Damage(target, spec.Damage*30*dt)
+	applied := Damage(target, amount)
 
 	if applied <= 0 {
 		return
@@ -118,13 +141,13 @@ func (s *Ship) resolveLaser(module simulation.Module, dt float64, events *[]prot
 
 	*events = append(*events, protocol.LaserDamage{
 		TargetID: first.Owner.(simulation.Entity).Base().ID,
-		By:       *s.PlayerID,
+		By:       by,
 		Damage:   applied,
 		Color:    collision.OutlineColorOf(first, s.Catalog.Colors),
-		Position: Vec.Add(start, Vec.Scale(Vec.Subtract(end, start), fraction)),
+		Position: Vec.Add(start, Vec.Scale(Vec.Subtract(end, start), length/Vec.Distance(start, end))),
 	})
 
 	if asteroid, ok := first.Owner.(*simulation.Asteroid); ok {
-		asteroid.Fracture(segment, *s.PlayerID, events, world)
+		asteroid.Fracture(segment, by, events, world)
 	}
 }

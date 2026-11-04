@@ -46,6 +46,9 @@ type Craft struct {
 	source                             *geometrySource
 	colliders                          []*collision.Collider
 	spareColliders                     []*collision.Collider
+	hullPoseTick                       uint64
+	hullPoseReady                      bool
+	hullAnimation                      bool
 }
 
 func (*Craft) IsCraft() {}
@@ -133,8 +136,16 @@ func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog specs.C
 				plan.Color = segment.Color
 			}
 
-			if outline := segment.Outline(); outline != nil {
+			outline := segment.Outline()
+
+			if segment.VisualOutline != nil {
+				outline = segment.VisualOutline
+				_, radius = simulation.ShapeOutlineExtent(outline.Points)
+			}
+
+			if outline != nil {
 				plan.Points = &simulation.ShapeOutline{Points: append([]simulation.Point{}, outline.Points...)}
+				plan.CollisionParts = simulation.ConvexParts(outline.Points)
 			}
 
 			c.HullSegments[i] = plan
@@ -295,6 +306,10 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 }
 
 func (c *Craft) FixHull() {
+	c.hullPoseReady = false
+
+	c.hullAnimation = slices.ContainsFunc(c.HullSegments, func(plan *simulation.SegmentPlan) bool { return plan.Animation != nil })
+
 	hulls := []*simulation.Segment{}
 
 	for _, s := range c.Segments {
@@ -968,7 +983,7 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 			groups = append(groups, []int{i})
 		}
 	} else {
-		groups = simulation.OuterEdges(outlinesOf(hulls))
+		groups = c.connectedHullGroups(hulls)
 	}
 
 	core := -1
@@ -1053,6 +1068,7 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 }
 
 func (c *Craft) Update(dt float64) {
+	c.animateHull()
 	c.UpdateModules(dt)
 	c.GameObject.Update(dt)
 
@@ -1069,7 +1085,7 @@ func (c *Craft) Update(dt float64) {
 
 	// Hydration removes broken cores before updating; owned ships must still
 	// resolve fatal damage even when no core leaves a cockpit behind.
-	if c.Cockpit == nil && c.PlayerID == nil {
+	if c.Cockpit == nil && c.PlayerID == nil && c.Kind != "ship" {
 		return
 	}
 
@@ -1089,7 +1105,13 @@ func (c *Craft) Update(dt float64) {
 		}
 	}
 
-	if !brokenMount && cores > 0 && !brokenHull {
+	missingEssential := slices.ContainsFunc(c.HullSegments, func(plan *simulation.SegmentPlan) bool {
+		return plan.Essential && !slices.ContainsFunc(c.Segments, func(segment *simulation.Segment) bool {
+			return segment.Hull && segment.HullPlan == plan && !(segment.Health < 1)
+		})
+	})
+
+	if !brokenMount && cores > 0 && !brokenHull && !missingEssential {
 		return
 	}
 
@@ -1118,7 +1140,7 @@ func (c *Craft) Update(dt float64) {
 		}
 	}
 
-	lost := cores == 0
+	lost := cores == 0 || missingEssential
 
 	if !lost && (c.Cockpit == nil || c.Cockpit.Health < 1) {
 		for _, segment := range hulls {
@@ -1151,6 +1173,8 @@ func (c *Craft) GeometrySource() any {
 func (c *Craft) Hitbox() []*collision.Collider { return c.hitbox(false) }
 
 func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
+	c.animateHull()
+
 	if c.TransitTime != 0 || c.DockedTo != nil && *c.DockedTo != 0 {
 		// Invalidate the geometry token so physics removes cached fixtures too.
 		c.source = nil
@@ -1306,7 +1330,11 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		collider.Position = position
 
 		if radius != 0 && !math.IsNaN(radius) {
-			colliders = append(colliders, collider)
+			if s.CollisionParts != nil {
+				colliders = append(colliders, hullColliders(collider, s)...)
+			} else {
+				colliders = append(colliders, collider)
+			}
 		}
 
 		if d.DrillTip.Radius != 0 {

@@ -72,6 +72,7 @@ export const controlShip = (
   input: PlayerInput,
   events: SimulationEvent[],
 ) => {
+  if (ship.npcOnly && ship.playerId !== undefined) return;
   ship.targetId = input.targetId;
 
   if (ship.transitTime) {

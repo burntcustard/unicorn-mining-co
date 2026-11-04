@@ -39,6 +39,7 @@ import {
 import type { ModuleSpec } from '../src/specs/modules/types';
 import { shipSpecs } from '../src/specs/ships/index';
 import type { ShipSpec } from '../src/specs/ships/types';
+import { prepareHull } from '../src/client/utilities/hull-spec';
 import type { StationSpec } from '../src/specs/stations/types';
 import { stationSpecs } from '../src/specs/stations/index';
 import {
@@ -125,7 +126,15 @@ const catalog = {
       },
     ]),
   ),
-  shipSpecs,
+  shipSpecs: Object.fromEntries(
+    Object.entries(shipSpecs).map(([id, ship]) => [
+      id,
+      {
+        ...ship,
+        hullSegments: ship.hullSegments.map(prepareHull),
+      },
+    ]),
+  ),
   stationSpecs,
   protocol: { binaryFieldIds, controlMessageIds, dockActionIds, entityKindIds },
   simulation,

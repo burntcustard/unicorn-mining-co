@@ -15,6 +15,8 @@ import (
 )
 
 type Ship struct {
+	NPCOnly           bool
+	CrystalWeapon     *specs.CrystalWeapon
 	cargoReleaseHeld  bool
 	releasingCargo    bool
 	cargoReleaseHatch int
@@ -135,6 +137,10 @@ func (s *Ship) RepairCost(mount *simulation.Mount) float64 {
 }
 
 func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (protocol.DockAction, bool) {
+	if s.NPCOnly {
+		return action, false
+	}
+
 	mounts := s.Mounts()
 	var mount *simulation.Mount
 
@@ -474,6 +480,21 @@ func (s *Ship) Stranded() bool {
 	})
 }
 
+func (s *Ship) Engines() []simulation.Module {
+	engines := []simulation.Module{}
+	var buffer [16]simulation.Module
+
+	for _, module := range s.AppendModules(buffer[:0]) {
+		data := module.ModuleBase()
+
+		if data.Spec.ForwardThrust != 0 && data.Mount != nil && !(data.Mount.Health < 1) {
+			engines = append(engines, module)
+		}
+	}
+
+	return engines
+}
+
 func (s *Ship) Engine() simulation.Module {
 	for _, segment := range s.Segments {
 		for _, m := range segment.Mounts {
@@ -504,6 +525,28 @@ func (s *Ship) Engine() simulation.Module {
 	return nil
 }
 
+func (s *Ship) engineOutput() (forward, rotational, fuel float64) {
+	for _, segment := range s.Segments {
+		for _, mount := range segment.Mounts {
+			if mount.Module == nil || mount.Health < 1 {
+				continue
+			}
+
+			data := mount.Module.ModuleBase()
+
+			if data.Spec.ForwardThrust == 0 || data.Mount == nil {
+				continue
+			}
+
+			forward += data.Spec.ForwardThrust
+			rotational += data.Spec.RotationalThrust
+			fuel += data.Spec.FuelUsage
+		}
+	}
+
+	return
+}
+
 func (s *Ship) LowFuel() bool { return s.Fuel < s.FuelCapacity*s.Rules.Flight.LowFuelThreshold }
 
 func (s *Ship) FuelThrottle() float64 {
@@ -527,13 +570,8 @@ func (s *Ship) ConsumeFuel(dt float64) {
 		return
 	}
 
-	engine := s.Engine()
-
-	if engine == nil {
-		return
-	}
-
-	usage := engine.ModuleBase().Spec.FuelUsage * s.ThrusterPower * math.Max(s.Forward, math.Abs(s.Turn)/2)
+	_, _, fuelUsage := s.engineOutput()
+	usage := fuelUsage * s.ThrusterPower * math.Max(s.Forward, math.Abs(s.Turn)/2)
 	reserve := s.FuelCapacity * s.Rules.Flight.LowFuelThreshold
 	normal := math.Min(math.Max(0, s.Fuel-reserve), usage*dt)
 	s.Fuel = math.Max(0, s.Fuel-normal-(usage*dt-normal)*s.Rules.Flight.LowFuelUsage)
@@ -550,25 +588,15 @@ func (s *Ship) LaunchThrottle() float64 {
 }
 
 func (s *Ship) ForwardThrust() float64 {
-	engine := s.Engine()
-
-	if engine == nil {
-		return 0
-	}
-
+	thrust, _, _ := s.engineOutput()
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Spec.ForwardThrust * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
+	return thrust * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
 }
 
 func (s *Ship) RotationalThrust() float64 {
-	engine := s.Engine()
-
-	if engine == nil {
-		return 0
-	}
-
+	_, thrust, _ := s.engineOutput()
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Spec.RotationalThrust * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
+	return thrust * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
 }
 
 func (s *Ship) MaxSpeed() float64 {
@@ -769,17 +797,21 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 			p[j] = simulation.Point(point)
 		}
 
-		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex}
+		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex, Shades: segment.Shades, Color: segment.Color, CollisionParts: segment.CollisionParts, Connections: segment.Connections, Essential: segment.Essential, Animation: segment.Animation}
 
 		for _, mount := range segment.Mounts {
 			plan.Mounts = append(plan.Mounts, simulation.NewMount(mount))
 		}
 
+		plan.Ribbon = segment.Ribbon
+		plan.Stroke = segment.Stroke
 		plans[i] = plan
 	}
 
 	ship := &Ship{Craft: NewCraft(props, plans, catalog), ThrusterPower: 1, SystemsPower: 1}
 	ship.Self = ship
+	ship.CrystalWeapon = d.CrystalWeapon
+	ship.NPCOnly = d.NPCOnly
 	ship.Kind = "ship"
 	ship.AngularInertiaScale = catalog.Simulation.Flight.AngularInertiaScale
 
@@ -828,7 +860,13 @@ func CreatePlayerShip(world *simulation.World, props Properties) *Ship {
 	}
 
 	for _, entry := range world.Specification.ShipSpecs[id].InitialLoadout {
-		ship.Fit(modules.Create(entry.Module, simulation.ObjectProperties{World: world}, world.Specification), ship.Mounts()[entry.Mount])
+		module := modules.Create(entry.Module, simulation.ObjectProperties{World: world}, world.Specification)
+
+		if entry.Shades != nil {
+			module.Base().Shades = entry.Shades
+		}
+
+		ship.Fit(module, ship.Mounts()[entry.Mount])
 	}
 
 	ship.StoredPower = ship.PowerCapacity()

@@ -8,6 +8,10 @@ import (
 )
 
 func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent) {
+	if s.NPCOnly && s.PlayerID != nil {
+		return
+	}
+
 	s.TargetID = input.TargetID
 
 	if s.cargoReleaseHeld && !input.CargoRelease {

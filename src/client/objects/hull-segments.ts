@@ -40,6 +40,22 @@ export const makeSegment = (
     lockedOutlines.add(fixedPoints);
   }
 
+  for (const outline of [
+    segmentPlan.curvePoints,
+    ...(segmentPlan.collisionParts || []),
+    ...(segmentPlan.shapeOutline || []),
+    ...(segmentPlan.decorations || []).map(
+      (decoration: { points: number[][] }) => decoration.points,
+    ),
+  ]) {
+    if (outline && !Object.isFrozen(outline)) {
+      outline.forEach(Object.freeze);
+      Object.freeze(outline);
+    }
+  }
+
+  if (segmentPlan.shapeOutline) Object.freeze(segmentPlan.shapeOutline);
+
   // A thruster's flare is up about as soon as the key is down, unless told
   // otherwise, either on the module itself or (as the shield's bubble does)
   // on just the one segment of it

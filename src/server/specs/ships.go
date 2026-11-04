@@ -9,6 +9,13 @@ type MountPoint struct {
 }
 
 type HullSegment struct {
+	Stroke         [][][]float64  `json:"stroke"`
+	Ribbon         bool           `json:"ribbon"`
+	CollisionParts [][][]float64  `json:"collisionParts"`
+	Connections    []int          `json:"connections"`
+	Essential      bool           `json:"essential"`
+	Animation      *HullAnimation `json:"animation"`
+	Color          string         `json:"color"`
 	Side           float64        `json:"side"`
 	DisablePhysics bool           `json:"disablePhysics"`
 	DockSegment    bool           `json:"dockSegment"`
@@ -20,12 +27,33 @@ type HullSegment struct {
 	Mounts         [][]MountPoint `json:"mounts"`
 }
 
+type HullAnimation struct {
+	Pivot     Point   `json:"pivot"`
+	Amplitude float64 `json:"amplitude"`
+	Phase     float64 `json:"phase"`
+	Parent    *int    `json:"parent"`
+}
+
+type CrystalWeapon struct {
+	PowerFiring float64 `json:"powerFiring"`
+	Emitters    []struct {
+		HullIndex int   `json:"hullIndex"`
+		Position  Point `json:"position"`
+	} `json:"emitters"`
+	Junction Point   `json:"junction"`
+	Damage   float64 `json:"damage"`
+	Reach    float64 `json:"reach"`
+}
+
 type InitialModule struct {
-	Mount  int    `json:"mount"`
-	Module string `json:"module"`
+	Shades []string `json:"shades"`
+	Mount  int      `json:"mount"`
+	Module string   `json:"module"`
 }
 
 type Ship struct {
+	NPCOnly        bool            `json:"npcOnly"`
+	CrystalWeapon  *CrystalWeapon  `json:"crystalWeapon"`
 	FuelCapacity   float64         `json:"fuelCapacity"`
 	InitialLoadout []InitialModule `json:"initialLoadout"`
 	Name           string          `json:"name"`

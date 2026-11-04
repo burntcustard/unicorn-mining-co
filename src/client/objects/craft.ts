@@ -41,6 +41,10 @@ import { applyForce } from '../physics/apply-force';
 import { outerEdges } from '../utilities/polygon';
 import { type Contact, type Collider } from '../collision/types';
 import { cargoContactAllowed } from './modules/cargo-hatch';
+import { hullColliders } from '../collision/hull-colliders';
+import { animateHull } from './animate-hull';
+import { convexParts } from '../utilities/triangulate';
+import { sampleOutline } from '../utilities/curves';
 import { Module } from './modules/module';
 import {
   type Pose,
@@ -118,6 +122,7 @@ const outlinesOf = (segments: Segment[]) =>
     .filter((points): points is ShapeOutline => Array.isArray(points));
 
 export class Craft extends GameObject {
+  hullAnimation = false;
   // Negative time counts down departure; positive time counts down arrival, in seconds.
   transitTime = 0;
   transitGate = 0;
@@ -200,13 +205,22 @@ export class Craft extends GameObject {
       // that no longer exist after the fragment is replicated or rewound.
       this.hullSegments = this.segments.map((segment) => {
         const points =
-          typeof segment.points === 'function'
-            ? segment.points(segment)
-            : segment.points;
-        const radius = segment.radius?.(segment) || 0;
+          segment.ribbon && segment.curvePoints
+            ? sampleOutline(segment.curvePoints)
+            : typeof segment.points === 'function'
+              ? segment.points(segment)
+              : segment.points;
+        const radius =
+          segment.ribbon && points
+            ? shapeOutlineExtent(points).reach
+            : segment.radius?.(segment) || 0;
 
         return {
           points: points?.map(([x, y]) => [x, y]),
+          collisionParts: points && convexParts(points),
+          curvePoints: segment.curvePoints,
+          decorations: segment.decorations,
+          shades: segment.shades,
           radius: () => radius,
           localPosition: Vec.clone(segment.localPosition),
           health: (segment.mount || segment).health,
@@ -379,6 +393,7 @@ export class Craft extends GameObject {
   // Restore the original hull data, including any pieces and mounting points
   // lost when a damaged ship fractured.
   fixHull() {
+    this.hullAnimation = this.hullSegments.some((plan) => plan.animation);
     const hulls = this.segments.filter(({ hull }) => hull);
 
     const orderedHulls = this.hullSegments.map((segmentPlan) => {
@@ -421,11 +436,54 @@ export class Craft extends GameObject {
     this.cockpit = hulls.find(({ core }) => core);
   }
 
+  connectedHullGroups(hulls: Segment[]) {
+    const groups = outerEdges(outlinesOf(hulls));
+
+    if (!this.hullSegments.some((plan) => plan.connections)) return groups;
+    const neighbors = hulls.map(
+      (segment, index) =>
+        new Set(groups.find((group) => group.includes(index)) || [index]),
+    );
+
+    hulls.forEach((segment, index) => {
+      for (const connection of segment.module.connections || []) {
+        const other = hulls.findIndex(
+          (hull) => hull.module === this.hullSegments[connection],
+        );
+
+        if (other >= 0) {
+          neighbors[index].add(other);
+          neighbors[other].add(index);
+        }
+      }
+    });
+
+    const left = new Set(hulls.map((_, index) => index));
+    const connected: number[][] = [];
+
+    for (let index = hulls.length - 1; index >= 0; index--) {
+      if (!left.delete(index)) continue;
+      const group = [index];
+
+      for (let at = 0; at < group.length; at++) {
+        [...neighbors[group[at]]]
+          .sort((a, b) => b - a)
+          .forEach((other) => {
+            if (left.delete(other)) group.push(other);
+          });
+      }
+
+      connected.push(group);
+    }
+
+    return connected;
+  }
+
   fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
     const center = hulls.length && centerOf(hulls);
     const groups = destroyed
       ? hulls.map((_, i) => [i])
-      : outerEdges(outlinesOf(hulls));
+      : this.connectedHullGroups(hulls);
     const core =
       !destroyed &&
       groups.find((group) => group.includes(hulls.indexOf(this.cockpit)));
@@ -510,6 +568,8 @@ export class Craft extends GameObject {
   }
 
   hitbox(collidingOnly = false) {
+    animateHull(this);
+
     if (
       this.transitTime ||
       (this.dockedTo !== undefined && this.dockedTo !== 0)
@@ -662,7 +722,13 @@ export class Craft extends GameObject {
       collider.position = position;
       const drillTip = segment.module.drillTip;
 
-      if (collider.radius) colliders.push(collider);
+      if (collider.radius) {
+        if (segment.collisionParts) {
+          colliders.push(...hullColliders(collider));
+        } else {
+          colliders.push(collider);
+        }
+      }
 
       if (drillTip?.radius) {
         let tip = drillColliders.get(segment);
@@ -943,6 +1009,7 @@ export class Craft extends GameObject {
     drawHull,
     pose = this,
   }: CraftRenderOptions = {}) {
+    animateHull(this);
     const { ctx } = game;
     const glow =
       zIndex === renderingLayers.glowBelowShips ||
@@ -1132,6 +1199,7 @@ export class Craft extends GameObject {
   }
 
   update(dt: number) {
+    animateHull(this);
     this.updateModules(dt);
 
     super.update(dt);
@@ -1153,7 +1221,7 @@ export class Craft extends GameObject {
     }
 
     // Hydrated player ships can have lost all cores already.
-    if (this.cockpit || this.playerId !== undefined) {
+    if (this.cockpit || this.playerId !== undefined || this.kind === 'ship') {
       // Count first; most ticks nothing is broken and nothing is allocated.
       const segments = this.segments;
       let brokenMount = false;
@@ -1176,14 +1244,23 @@ export class Craft extends GameObject {
         }
       }
 
-      if (!brokenMount && cores > 0 && !brokenHull) return;
+      const missingEssential = this.hullSegments.some(
+        (plan) =>
+          plan.essential &&
+          !segments.some(
+            (segment) =>
+              segment.hull && segment.module === plan && !(segment.health < 1),
+          ),
+      );
+
+      if (!brokenMount && cores > 0 && !brokenHull && !missingEssential) return;
       this.mounts
         .filter(({ health, module }) => module && health < 1)
         .forEach((mount) => this.detach(mount));
       const all = this.segments.filter(({ hull }) => hull);
       const hulls = all.filter(({ health }) => !(health < 1));
       // Keep a surviving core section alive when the engine section is lost.
-      const lost = !hulls.some(({ core }) => core);
+      const lost = missingEssential || !hulls.some(({ core }) => core);
 
       if (!lost && (!this.cockpit || this.cockpit.health < 1)) {
         this.cockpit = hulls.find(({ core }) => core);

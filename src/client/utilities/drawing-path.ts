@@ -1,4 +1,5 @@
 import { useWebGL } from '../ui/dom/graphics';
+import { sampleCurve } from './curves';
 
 const NativePath = (globalThis.Path2D || class {}) as typeof Path2D;
 
@@ -35,6 +36,44 @@ export class DrawingPath extends NativePath {
     if (this.native) super.closePath();
 
     if (this.contours.length) this.contours.at(-1)!.closed = true;
+    this.revision++;
+  }
+  quadraticCurveTo(cx: number, cy: number, x: number, y: number) {
+    this.curveTo([x, y, cx, cy]);
+  }
+  bezierCurveTo(
+    cx: number,
+    cy: number,
+    dx: number,
+    dy: number,
+    x: number,
+    y: number,
+  ) {
+    this.curveTo([x, y, cx, cy, dx, dy]);
+  }
+  private curveTo(point: number[]) {
+    this.circle = undefined;
+
+    if (!this.contours.length) this.moveTo(point[2], point[3]);
+    const points = this.contours.at(-1)!.points;
+
+    points.push(...sampleCurve(points.at(-1)!, point, 16));
+
+    if (this.native) {
+      if (point.length === 4) {
+        super.quadraticCurveTo(point[2], point[3], point[0], point[1]);
+      } else {
+        super.bezierCurveTo(
+          point[2],
+          point[3],
+          point[4],
+          point[5],
+          point[0],
+          point[1],
+        );
+      }
+    }
+
     this.revision++;
   }
   rect(x: number, y: number, w: number, h: number) {
