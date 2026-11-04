@@ -1,11 +1,11 @@
 import { type SimulationWorld } from '../../simulation/world';
 import { type GameObject } from '../../objects/game-object';
+import { type Pose } from '../../types';
 import { simulationStep } from '../../../specs/simulation';
 
 /**
- * Read only fixed-tick simulation objects. Render poses and fractional frame
- * prediction deliberately never enter this view. Tick/time identify the data,
- * even when the panel refreshes during a stalled or disconnected simulation.
+ * Keep fixed-tick simulation values separate from rendered poses. Tick/time
+ * identify world data; presentation describes the most recently drawn frame.
  */
 export const createTelemetry = ({
   element,
@@ -24,11 +24,29 @@ export const createTelemetry = ({
 
   panel.className = 'hud-telemetry ui-card grid gap-2 p-3';
   panel.hidden = true;
-  const header = document.createElement('div');
 
-  panel.append(header);
+  const section = (title: string, className: string) => {
+    const element = document.createElement('div');
+    const heading = document.createElement('strong');
+
+    element.className = `${className} grid gap-2`;
+    heading.textContent = title;
+    element.append(heading);
+    return element;
+  };
+
+  const simulation = section('Simulation', 'telemetry-simulation');
+  const rendered = section('Rendered', 'telemetry-rendered');
+  const header = document.createElement('div');
+  const frame = document.createElement('div');
+
+  header.className = 'telemetry-clock';
+  frame.className = 'telemetry-frame';
+  simulation.append(header);
+  rendered.append(frame);
+  rendered.hidden = true;
+  panel.append(simulation, rendered);
   element.append(panel);
-  let enabled = false;
   let nextUpdate = 0;
 
   const number = (value: number) => value.toFixed(3);
@@ -41,8 +59,21 @@ export const createTelemetry = ({
       return line;
     });
 
-  const update = ({ now }: { now: number }) => {
-    if (!enabled || now < nextUpdate) return;
+  const update = ({
+    now,
+    readPresentation,
+  }: {
+    now: number;
+    readPresentation?: () => {
+      frameTime: number;
+      renderTime: number;
+      canvas: HTMLCanvasElement;
+      transform: DOMMatrix;
+      playerPose?: Pose;
+      targetPose?: Pose;
+    };
+  }) => {
+    if (panel.hidden || now < nextUpdate) return;
     nextUpdate = now + 100;
     const { world, shipId, targetId, connected, snapshotReceivedAt } =
       readSample();
@@ -50,9 +81,11 @@ export const createTelemetry = ({
       ? Math.max(0, now - snapshotReceivedAt)
       : undefined;
 
+    const presentation = readPresentation?.();
+
     header.replaceChildren(
       ...lines(
-        `Simulation tick ${world.tick}\nSimulation time ${Math.round(world.tick * simulationStep)} s\nSnapshot age: ${age === undefined ? 'unavailable' : `${Math.round(age)} ms`}`,
+        `Simulation tick ${world.tick}\nSimulation time ${Math.round(world.tick * simulationStep)} s\nSnapshot age ${age === undefined ? 'unavailable' : `${Math.round(age)} ms`}`,
       ),
     );
 
@@ -67,20 +100,16 @@ export const createTelemetry = ({
     const target = entity(targetId);
     const parents = new Map<number, GameObject>();
     const rows: HTMLElement[] = [];
+    const renderedRows: HTMLElement[] = [];
 
     const record = (role: string, object?: GameObject) => {
       const row = document.createElement('div');
 
-      row.className = `telemetry-${role}`;
+      row.className = `telemetry-${role.toLowerCase()}`;
+      rows.push(row);
 
       if (!object) {
-        row.textContent =
-          role === 'player'
-            ? 'Player: unavailable'
-            : targetId === undefined
-              ? 'Target: none selected'
-              : 'Target: unavailable';
-        rows.push(row);
+        row.textContent = `${role}: unavailable`;
         return;
       }
 
@@ -88,18 +117,22 @@ export const createTelemetry = ({
         object;
       const parent =
         object.localMovementParent && entity(object.localMovementParent.id);
-      const carried = parent && (localMovementRate || 0) > 0;
 
       row.append(
         ...lines(
-          `${role === 'player' ? 'Player' : role === 'target' ? 'Target' : 'Parent'} #${id}\nPosition ${number(position.x)}\u2009/\u2009${number(position.y)} wu\nRotation ${number(rotation)} rad\nNative velocity ${number(velocity.x)}\u2009/\u2009${number(velocity.y)} wu/s\nNative spin ${number(spin)} rad/s`,
+          `${role} #${id}\nPos ${number(position.x)}/${number(position.y)}\nRotation ${number(rotation)} rad\nNative velocity ${number(velocity.x)}/${number(velocity.y)} m/s\nNative spin ${number(spin)} rad/s`,
         ),
       );
 
-      if (carried && role !== 'parent') {
+      if (
+        parent &&
+        localMovementRate !== undefined &&
+        localMovementRate > 0 &&
+        role !== 'Parent'
+      ) {
         row.append(
           ...lines(
-            `Carrier #${parent.id}\nlocalMovementRate ${number(localMovementRate!)}`,
+            `Carrier #${parent.id}\nlocalMovementRate ${number(localMovementRate)}`,
           ),
         );
 
@@ -107,20 +140,60 @@ export const createTelemetry = ({
           parents.set(parent.id, parent);
         }
       }
-
-      rows.push(row);
     };
 
-    record('player', player);
-    record('target', target);
-    parents.forEach((parent) => record('parent', parent));
-    panel.replaceChildren(header, ...rows);
+    record('Player', player);
+
+    if (targetId !== undefined) record('Target', target);
+    parents.forEach((parent) => record('Parent', parent));
+
+    if (presentation) {
+      const { canvas, transform } = presentation;
+      const bounds = canvas.getBoundingClientRect();
+      const pixelsX = bounds.width / canvas.width;
+      const pixelsY = bounds.height / canvas.height;
+      const scaleX = transform.a * pixelsX;
+      const scaleY = transform.d * pixelsY;
+      const offsetX = bounds.left + transform.e * pixelsX;
+      const offsetY = bounds.top + transform.f * pixelsY;
+
+      frame.replaceChildren(
+        ...lines(
+          `Frame time ${presentation.frameTime} ms\nRender time (CPU) ${presentation.renderTime} ms\nScale ${scaleX.toFixed(6)} px/m\nOffset pos ${number(offsetX)}/${number(offsetY)} px`,
+        ),
+      );
+
+      for (const [role, object, pose] of [
+        ['Player', player, presentation.playerPose],
+        ['Target', target, presentation.targetPose],
+      ] as const) {
+        if (!object || !pose) continue;
+        const row = document.createElement('div');
+
+        row.className = `telemetry-${role.toLowerCase()}`;
+        row.append(
+          ...lines(
+            `${role} #${object.id}\nPos ${number(pose.position.x)}/${number(pose.position.y)}\nRotation ${number(pose.rotation)} rad\nScreen pos ${number(pose.position.x * scaleX + offsetX)}/${number(pose.position.y * scaleY + offsetY)} px`,
+          ),
+        );
+        renderedRows.push(row);
+      }
+    } else {
+      frame.replaceChildren();
+    }
+
+    simulation.replaceChildren(simulation.firstElementChild!, header, ...rows);
+    rendered.replaceChildren(
+      rendered.firstElementChild!,
+      frame,
+      ...renderedRows,
+    );
+    rendered.hidden = !presentation;
   };
 
   return {
     toggle() {
-      enabled = !enabled;
-      panel.hidden = !enabled;
+      panel.hidden = !panel.hidden;
       nextUpdate = 0;
     },
     update,

@@ -21,7 +21,7 @@ import { renderTargetPreview } from '../target-preview';
 export const createHud = ({
   onToggle = () => {},
 }: { onToggle?: (Type: typeof Module) => void } = {}) => {
-  const element = ui.element;
+  const element = ui.hudElement;
   const template = document.createElement('template');
 
   template.innerHTML = html;

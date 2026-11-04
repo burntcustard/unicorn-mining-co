@@ -74,7 +74,7 @@ export const showHudLayout = (mode: number) => {
     ship.localMovementRate = target.localMovementRate = 0.5;
 
     const telemetry = createTelemetry({
-      element: ui.element,
+      element: ui.hudElement,
       readSample: () => ({
         world,
         shipId: ship.id,
@@ -85,12 +85,29 @@ export const showHudLayout = (mode: number) => {
     });
 
     telemetry.toggle();
-    telemetry.update({ now: 1000 });
+    const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
+
+    telemetry.update({
+      now: 1000,
+      readPresentation: () => ({
+        frameTime: 16.667,
+        renderTime: 1.25,
+        canvas,
+        transform: new DOMMatrix()
+          .scale(canvas.width / 1280, canvas.height / 900)
+          .translate(640 - ship.position.x, 450 - ship.position.y),
+        playerPose: { position: ship.position, rotation: ship.rotation + 0.1 },
+        targetPose: {
+          position: target.position,
+          rotation: target.rotation - 0.1,
+        },
+      }),
+    });
   }
 
   clear = () => {
     hud.destroy();
-    ui.element
+    ui.hudElement
       .querySelectorAll('.chat-panel, .hud-telemetry')
       .forEach((panel) => panel.parentNode!.removeChild(panel));
   };
@@ -141,7 +158,7 @@ export const hudLayoutBounds = () =>
     '.telemetry-target',
     '.telemetry-parent',
   ].map((selector) => {
-    const element = ui.element.querySelector(selector);
+    const element = ui.hudElement.querySelector(selector);
 
     if (!element) return [selector, null];
     const { x, y, width, height } = element.getBoundingClientRect();

@@ -136,3 +136,16 @@ assert.equal(
 );
 preferences.saveBackdropBlur(true);
 assert.equal(storage.get('unicorn-backdrop-blur'), 'true');
+
+assert.equal(preferences.hideUi, false, 'hide UI defaults to off');
+preferences.saveHideUi(true);
+assert.equal(preferences.hideUi, true);
+assert.equal(storage.get('unicorn-hide-ui'), 'true');
+const restoredHideUi = await import(
+  '../../src/client/ui/dom/graphics.ts' + '?hide-ui=restore'
+);
+
+assert.equal(restoredHideUi.hideUi, true, 'hide UI persists across reloads');
+preferences.saveHideUi(false);
+assert.equal(preferences.hideUi, false);
+assert.equal(storage.get('unicorn-hide-ui'), 'false');

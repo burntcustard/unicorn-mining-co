@@ -1,5 +1,5 @@
 import './ui.css';
-import { backdropBlur } from './graphics';
+import { backdropBlur, hideUi } from './graphics';
 
 export type Screen = {
   element: HTMLElement;
@@ -34,14 +34,21 @@ const root =
 
 root.className = 'hud ui-surface';
 
-const updateBackdropBlur = () =>
+const hudElement = document.createElement('div');
+
+hudElement.className = 'hud-overlay';
+root.append(hudElement);
+
+const updateGraphics = () => {
+  hudElement.style.opacity = hideUi ? '0' : '';
   root.style.setProperty(
     '--ui-backdrop-filter',
     backdropBlur ? 'blur(4px)' : 'none',
   );
+};
 
-updateBackdropBlur();
-window.addEventListener('ui-graphics', updateBackdropBlur);
+updateGraphics();
+window.addEventListener('ui-graphics', updateGraphics);
 
 if (!root.isConnected) document.body.append(root);
 
@@ -53,7 +60,7 @@ notification.className =
   'ui-notification ui-surface ui-card text-center uppercase';
 notification.setAttribute('role', 'status');
 notification.hidden = true;
-root.append(notification);
+hudElement.append(notification);
 
 export const updateNotification = (message: string) => {
   if (notification.textContent !== message) notification.textContent = message;
@@ -146,6 +153,7 @@ export const ui = (() => {
 
   return {
     element,
+    hudElement,
     push,
     back,
     clear,

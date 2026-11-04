@@ -130,8 +130,8 @@ export const checkChat = () => {
 
   chat.update(undefined, true);
   const gridPlacement =
-    panel.parentElement === ui.element &&
-    getComputedStyle(ui.element).display === 'grid' &&
+    panel.parentElement === ui.hudElement &&
+    getComputedStyle(ui.hudElement).display === 'grid' &&
     getComputedStyle(panel).getPropertyValue(' position '.trim()) === 'static';
   const release = panel.querySelector<HTMLButtonElement>('.cargo-release')!;
   const releaseRequiresCargo = release.disabled;
@@ -1303,7 +1303,7 @@ export const checkHud = () => {
     },
   });
 
-  const element = ui.element;
+  const element = ui.hudElement;
   const panels = Array.from(
     element.querySelectorAll<HTMLElement>(
       ':scope > :is(.hud-modules, .hud-stores, .hud-sector, .hud-credits, .hud-target, .hud-map)',
