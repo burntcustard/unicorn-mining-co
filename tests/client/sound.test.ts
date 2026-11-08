@@ -603,6 +603,9 @@ import chosen5 from './specs/sounds/main-menu-open';
 import chosen6 from './specs/sounds/chat-message';
 import chosen7 from './specs/sounds/autogun-fire';
 import chosen8 from './specs/sounds/autogun-ammo-explode';
+import chosen9 from './specs/sounds/plasma-accelerator-ready';
+import chosen10 from './specs/sounds/plasma-accelerator-fire';
+import chosen11 from './specs/sounds/plasma-accelerator-ammo-explode';
 import { renderEffectBuffer } from './client/audio/synthesis';
 import engineSettings from './specs/sounds/engine';
 import hornDrillSettings from './specs/sounds/horn-drill';
@@ -634,7 +637,7 @@ export async function check() {
       assert.deepEqual(selections[index].assignedSamples, renderEffectBuffer({context, layers}).getChannelData(0));
     }
     assert.equal(selections[1].buffer, selections[2].buffer, 'repeated unselects reuse the navigation buffer');
-    for (const [name, layers] of [['lose-target', chosen0], ['wormhole-in', chosen1], ['wormhole-out', chosen2], ['jump-gate-open', chosen3], ['main-menu-close', chosen4], ['main-menu-open', chosen5], ['chat-message', chosen6], ['autogun-fire', chosen7], ['autogun-ammo-explode', chosen8]]) {
+    for (const [name, layers] of [['lose-target', chosen0], ['wormhole-in', chosen1], ['wormhole-out', chosen2], ['jump-gate-open', chosen3], ['main-menu-close', chosen4], ['main-menu-open', chosen5], ['chat-message', chosen6], ['autogun-fire', chosen7], ['autogun-ammo-explode', chosen8], ['plasma-accelerator-ready', chosen9], ['plasma-accelerator-fire', chosen10], ['plasma-accelerator-ammo-explode', chosen11]]) {
       playSound(name);
       assert.deepEqual(context.sources.pop().assignedSamples, renderEffectBuffer({context, layers}).getChannelData(0), name);
     }

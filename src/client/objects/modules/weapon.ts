@@ -13,17 +13,29 @@ import { Module, type ModuleRenderOptions } from './module';
 import { type Segment, type ShapeOutline } from '../../types';
 
 // Presentation history survives snapshot-driven module reconstruction.
-// Entries retain the next firing deadline and last observed simulation tick.
-const shownShots = new WeakMap<Craft, Map<number, [number, number]>>();
+// Entries retain the firing deadline, last simulation tick, and ready-cue state.
+const shownShots = new WeakMap<Craft, Map<number, [number, number, boolean]>>();
 
 export class Weapon extends Module {
   declare definitionId: WeaponId;
   fireCooldown = 0;
   chargeCooldown = this.chargeDuration ?? 0;
 
-  updateVisual({ craft }: { dt: number; segments: Segment[]; craft: Craft }) {
+  updateVisual({
+    craft,
+    segments,
+  }: {
+    dt: number;
+    segments: Segment[];
+    craft: Craft;
+  }) {
     this.presentShot({
       craft,
+      ready:
+        Math.max(this.fireCooldown, this.chargeCooldown) <= 1e-9 &&
+        segments.some(
+          (segment) => segment.active === 1 && segment.activationProgress === 1,
+        ),
       deadline:
         this.fireCooldown > 0
           ? (craft.world?.tick ?? 0) * simulationStep + this.fireCooldown
@@ -31,7 +43,15 @@ export class Weapon extends Module {
     });
   }
 
-  presentShot({ craft, deadline }: { craft: Craft; deadline?: number }) {
+  presentShot({
+    craft,
+    deadline,
+    ready = false,
+  }: {
+    craft: Craft;
+    deadline?: number;
+    ready?: boolean;
+  }) {
     let shots = shownShots.get(craft);
 
     if (!shots) {
@@ -40,24 +60,41 @@ export class Weapon extends Module {
     }
 
     const tick = craft.world?.tick ?? 0;
-    const previous = shots.get(this.id) ?? [-Infinity, tick];
+    const previous = shots.get(this.id) ?? [-Infinity, tick, false];
 
     // Cooldown counts down against simulation time, leaving the deadline fixed
     // until another shot. This also observes server shots after prediction is
     // corrected, without depending on a local marker absent from snapshots.
-    if (tick < previous[1]) previous[0] = -Infinity;
+    if (tick < previous[1]) {
+      previous[0] = -Infinity;
+      previous[2] = false;
+    }
 
-    if (
+    const shot = !!(
       this.muzzleFlash &&
       this.mount?.health > 0 &&
       deadline !== undefined &&
       deadline - previous[0] > this.fireInterval / 2
-    ) {
+    );
+    const plasma =
+      this.definitionId === 'plasmaAccelerator' ||
+      this.definitionId === 'plasmaAcceleratorTurret';
+
+    // Held fire can complete charging and shoot between presented frames.
+    if (plasma && this.mount?.health > 0 && (ready || shot) && !previous[2]) {
+      playSound('plasma-accelerator-ready', { id: this.id });
+    }
+
+    previous[2] = ready && !shot;
+
+    if (shot) {
       if (
         this.definitionId === 'autogun' ||
         this.definitionId === 'autogunTurret'
       ) {
         playSound('autogun-fire', { id: this.id });
+      } else if (plasma) {
+        playSound('plasma-accelerator-fire', { id: this.id });
       }
 
       addEffect({
@@ -69,7 +106,7 @@ export class Weapon extends Module {
         rotation: this.aimRotation,
       });
 
-      previous[0] = deadline;
+      previous[0] = deadline!;
     }
 
     previous[1] = tick;

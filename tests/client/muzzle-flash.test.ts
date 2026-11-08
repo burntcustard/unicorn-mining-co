@@ -41,6 +41,7 @@ import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapsho
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { simulationStep } from '${root}/src/specs/simulation.ts';
 import { effects } from '${root}/src/client/effects/effect.ts';
+import { calls } from '${root}/src/client/audio/sound-loader.ts';
 globalThis.Path2D = class { moveTo() {} lineTo() {} closePath() {} };
 const fixtures = ${fixture};
 installExampleModules();
@@ -49,6 +50,7 @@ const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex
 const timings = [[0, -1], [1, -1], [3, 35], [8, 35]];
 for (const fixture of fixtures) for (const [delay, skipTick] of timings) {
   effects.length = 0;
+  calls.length = 0;
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {
     type: 'welcome', playerToken: 'test', playerId: 1, shipId: 1,
@@ -98,6 +100,7 @@ for (const fixture of fixtures) for (const [delay, skipTick] of timings) {
     ship.updateVisual(.2);
     assert.equal(effects.length, presented, 'display pauses and partial prediction do not invent flashes');
   }
+  assert.equal(calls.filter(c => c[0] === (fixture.weapon.startsWith('plasma') ? 'plasma-accelerator-fire' : 'autogun-fire')).length, effects.length, 'every shot plays exactly one firing sound');
   assert(shots > 0, 'the regression checks sustained firing after tap/hold transitions');
   assert.equal(
     effects.length, fixture.frames.reduce((sum, frame) => sum + frame.shots, 0),
@@ -130,7 +133,7 @@ for (const production of [false, true]) {
           }
 
           if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return 'export const unlockAudio=()=>{};export const playSound=()=>{};export const updateThrusterSound=()=>{};';
+            return 'export const calls=[];export const unlockAudio=()=>{};export const playSound=(...args)=>calls.push(args);export const updateThrusterSound=()=>{};';
           }
         },
       },

@@ -1,3 +1,6 @@
+import plasmaAcceleratorReady from '../../specs/sounds/plasma-accelerator-ready';
+import plasmaAcceleratorFire from '../../specs/sounds/plasma-accelerator-fire';
+import plasmaAcceleratorAmmoExplode from '../../specs/sounds/plasma-accelerator-ammo-explode';
 import loseTarget from '../../specs/sounds/lose-target';
 import wormholeIn from '../../specs/sounds/wormhole-in';
 import wormholeOut from '../../specs/sounds/wormhole-out';
@@ -63,6 +66,9 @@ const events = [
   chatMessage,
   autogunFire,
   autogunAmmoExplode,
+  plasmaAcceleratorReady,
+  plasmaAcceleratorFire,
+  plasmaAcceleratorAmmoExplode,
 ];
 
 interface Sound extends AudioBufferSourceNode {
@@ -192,15 +198,18 @@ export const playSound = (
     | 'main-menu-open'
     | 'chat-message'
     | 'autogun-fire'
-    | 'autogun-ammo-explode',
+    | 'autogun-ammo-explode'
+    | 'plasma-accelerator-ready'
+    | 'plasma-accelerator-fire'
+    | 'plasma-accelerator-ammo-explode',
   {
     volume = 1,
     id = 0,
     by = 0,
   }: { volume?: number; id?: number; by?: number } = {},
 ) => {
-  if (typeof effect === 'string')
-    {effect =
+  if (typeof effect === 'string') {
+    effect =
       [
         'acquire-target',
         'lose-target',
@@ -212,7 +221,11 @@ export const playSound = (
         'chat-message',
         'autogun-fire',
         'autogun-ammo-explode',
-      ].indexOf(effect) + 10;}
+        'plasma-accelerator-ready',
+        'plasma-accelerator-fire',
+        'plasma-accelerator-ammo-explode',
+      ].indexOf(effect) + 10;
+  }
 
   // A real key gesture unlocks audio. Drop effects before that first gesture.
   if (

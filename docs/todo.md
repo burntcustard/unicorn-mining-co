@@ -107,7 +107,7 @@
 [ ] Add nav beacons and scanning using the search light
 [ ] New mining triangles thing
 [ ] Add sound: Autogun fire + ammo explode
-[ ] Add sound: Plasma Accelerator fire + ammo explode
+[x] Add sound: Plasma Accelerator ready, fire + ammo explode
 [ ] Add sound: Laser Beam (initial sound event, continuous, hit)
 [ ] Add sound: Docking/undocking
 [ ] Add sound: Main menu open/close
