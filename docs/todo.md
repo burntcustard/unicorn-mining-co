@@ -105,6 +105,8 @@
 [ ] "Random" NPC spaceship name generator
 [ ] Shield generator should have health and UI so can be disrupted
 [ ] Add nav beacons and scanning using the search light
+[ ] Fix ships in stations rendering on map
+[ ] Player list (with tab and/or just near/on map?)
 
 ## Big future things
 
