@@ -1,3 +1,4 @@
+import { playSound } from '../../audio/sound-loader';
 import { withAlpha } from '../../utilities/color';
 import { game } from '../../game';
 import { rotatePoint, shapeOutlineExtent } from '../../utilities/geometry';
@@ -52,6 +53,13 @@ export class Weapon extends Module {
       deadline !== undefined &&
       deadline - previous[0] > this.fireInterval / 2
     ) {
+      if (
+        this.definitionId === 'autogun' ||
+        this.definitionId === 'autogunTurret'
+      ) {
+        playSound('autogun-fire', { id: this.id });
+      }
+
       addEffect({
         effect: this.muzzleFlash,
         parent: craft,

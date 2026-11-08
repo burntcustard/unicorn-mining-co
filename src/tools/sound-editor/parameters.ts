@@ -16,7 +16,7 @@ export type EffectNumberKey = {
 
 export type EffectChoiceKey = Exclude<
   keyof SoundEffect,
-  EffectNumberKey | 'gainPoints'
+  EffectNumberKey | 'gainPoints' | 'gainPositions'
 >;
 
 export type ChoiceParameter = {
@@ -341,6 +341,7 @@ export const compactOptional = (effect: SoundEffect): SoundEffect => {
     resonance,
     ring,
     gainPoints,
+    gainPositions,
     endResonance,
   } = resolveSoundEffect(effect);
   const compact: SoundEffect = { volume, attack, decay };
@@ -412,6 +413,8 @@ export const compactOptional = (effect: SoundEffect): SoundEffect => {
 
   if (gainPoints.length) compact.gainPoints = [...gainPoints];
 
+  if (gainPositions.length) compact.gainPositions = [...gainPositions];
+
   if (endResonance !== resonance) compact.endResonance = endResonance;
 
   if (resonance || endResonance) {
@@ -449,6 +452,7 @@ export function validateSound<N extends SoundName>(
     ...Object.keys(effectParameters),
     ...Object.keys(effectChoices),
     'gainPoints',
+    'gainPositions',
   ];
   const optional = keys.filter(
     (key) => !['volume', 'attack', 'decay'].includes(key),
@@ -477,6 +481,32 @@ export function validateSound<N extends SoundName>(
       ) {
         throw new Error(
           `${path}.gainPoints must be empty or contain 2–32 numbers between 0 and 1.`,
+        );
+      }
+    }
+
+    if ('gainPositions' in settings) {
+      const positions = settings.gainPositions;
+      const gains = settings.gainPoints;
+
+      if (
+        !Array.isArray(positions) ||
+        (positions.length &&
+          (!Array.isArray(gains) ||
+            positions.length !== gains.length ||
+            positions[0] !== 0 ||
+            positions.at(-1) !== 1 ||
+            positions.some(
+              (value, i) =>
+                typeof value !== 'number' ||
+                !Number.isFinite(value) ||
+                value < 0 ||
+                value > 1 ||
+                (i > 0 && value <= positions[i - 1]),
+            )))
+      ) {
+        throw new Error(
+          `${path}.gainPositions must match gainPoints, increase strictly, and run from 0 to 1.`,
         );
       }
     }

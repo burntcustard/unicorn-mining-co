@@ -31,6 +31,7 @@ export class Targeting {
   private hovered?: TargetView;
 
   clear() {
+    this.selectTarget();
     this.pointer = undefined;
     this.targetId = undefined;
     this.targetView = undefined;
@@ -68,6 +69,10 @@ export class Targeting {
 
     if (id !== undefined && id !== this.targetId) {
       playSound('acquire-target', { id });
+    }
+
+    if (id === undefined && this.targetId !== undefined) {
+      playSound('lose-target', { id: this.targetId });
     }
 
     this.targetView = view;
@@ -117,7 +122,7 @@ export class Targeting {
       ({ object }) => object.id === this.targetId,
     );
 
-    if (!this.targetView) this.targetId = undefined;
+    if (!this.targetView) this.selectTarget();
     this.updateHover();
   }
 

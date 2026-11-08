@@ -27,3 +27,9 @@ description: Create and revise procedural one-shot sounds, audition them in the 
 Use the [analysis workflow](references/workflow.md) for extraction, fitting,
 and before-and-after checks. Store recordings, decoded clips, and generated
 audio outside the repository.
+
+## Inspiration videos
+
+- [Elite Dangerous cockpit audio](https://www.youtube.com/watch?v=1d_76OqDvNU): Inspired the UI navigation sounds and Acquire Target, which grew from the cockpit panel-opening chirp.
+- [Plasma weapon reference](https://www.youtube.com/watch?v=LrjcvwJ6af8): Inspired Plasma Accelerator Ready, Fire, and Ammo Explode, including the brief projectile whoosh before impact.
+- [Star Wars seismic charge](https://www.youtube.com/watch?v=j9cQNaJtiec): Inspired the subtle pressure swell and resonant plasma character explored for Plasma Accelerator Ammo Explode.

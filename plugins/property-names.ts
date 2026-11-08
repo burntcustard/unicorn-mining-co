@@ -6,6 +6,7 @@
  */
 export const propertyNames = [
   'gainPoints',
+  'gainPositions',
   'endResonance',
   'telemetry',
   'hudElement',

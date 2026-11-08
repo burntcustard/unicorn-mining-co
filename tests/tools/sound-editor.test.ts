@@ -865,6 +865,7 @@ try {
     {
       ...basic,
       gainPoints: [0, 1, 0.25, 0],
+      gainPositions: [0, 0.1, 0.4, 1],
       resonance: 2100,
       endResonance: 3300,
       filterDuration: 42,
@@ -939,3 +940,24 @@ for (const gainPoints of [
 }
 
 validateSound('acquireTarget', [{ ...basic, gainPoints: [] }]);
+
+for (const gainPositions of [
+  [0, 0.5, 0.5, 1],
+  [0.1, 0.2, 0.5, 1],
+  [0, 1],
+  [0, 0.4, NaN, 1],
+]) {
+  assert.throws(
+    () =>
+      validateSound('sound', [
+        {
+          volume: 1,
+          attack: 0,
+          decay: 100,
+          gainPoints: [0, 1, 0.5, 0],
+          gainPositions,
+        },
+      ]),
+    /gainPositions/,
+  );
+}

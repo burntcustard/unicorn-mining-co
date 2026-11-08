@@ -1,3 +1,4 @@
+import { JumpGate } from './objects/jump-gate';
 import { createHud } from './ui/dom/hud';
 import { createTelemetry } from './ui/dom/telemetry';
 import { portalSpec } from '../specs/portal';
@@ -55,7 +56,7 @@ import { game } from './game';
 import { Item } from './objects/item';
 import { beginSurfaces, endSurfaces } from './utilities/composited-surface';
 
-import { preloadSound, unlockAudio } from './audio/sound-loader';
+import { playSound, preloadSound, unlockAudio } from './audio/sound-loader';
 import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
 import { remoteSoundVolume } from './audio/remote-sound-volume';
 import { presentWorldSounds } from './audio/present-world-sounds';
@@ -374,6 +375,8 @@ bindDebug(game);
 game.camera = camera;
 
 let previousFrameAt = 0;
+let previousTransit = 0;
+const gateOpening = new Map<number, number>();
 
 const gameLoop = GameLoop({
   render: ({ dt, now }) => {
@@ -398,6 +401,32 @@ const gameLoop = GameLoop({
     const renderedShip =
       predictedViewShip instanceof Ship ? predictedViewShip : viewShip;
     const playerPose = remotePoses.get(viewShip.id) || renderedShip;
+    const ownShip = predicted.entities.get(network.shipId);
+    const transit =
+      ownShip instanceof Ship ? Math.sign(ownShip.transitTime) : 0;
+
+    if (transit && transit !== previousTransit) {
+      playSound(transit < 0 ? 'wormhole-in' : 'wormhole-out');
+    }
+
+    previousTransit = transit;
+
+    for (const [id, entity] of predicted.entities) {
+      if (entity.kind !== 'jumpGate') continue;
+      const gate = entity as JumpGate;
+      const previous = gateOpening.get(id);
+
+      if (previous !== undefined && gate.openingTarget > previous) {
+        playSound('jump-gate-open', { id });
+      }
+
+      gateOpening.set(id, gate.openingTarget);
+    }
+
+    for (const id of gateOpening.keys()) {
+      if (!predicted.entities.has(id)) gateOpening.delete(id);
+    }
+
     const transitPortal = renderedShip.transitTime
       ? predicted.entities.get(renderedShip.transitGate)
       : undefined;

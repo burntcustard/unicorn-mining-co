@@ -177,3 +177,25 @@ const sweeping = render([{ ...resonating, endResonance: 4600 }]);
 
 assert.ok(sweeping.every(Number.isFinite));
 assert.notDeepEqual(sweeping, render([resonating]));
+
+// Nonuniform gain positions preserve a short transient inside a longer layer.
+const timed = {
+  volume: 0.2,
+  frequency: 1000,
+  attack: 0,
+  decay: 100,
+  sustain: 1,
+  gainPoints: [0, 1, 0, 0],
+  gainPositions: [0, 0.1, 0.2, 1],
+};
+
+const timedSamples = render([timed]);
+
+assert.ok(
+  timedSamples.slice(200, 600).some((sample) => Math.abs(sample) > 0.1),
+);
+assert.ok(timedSamples.slice(1000).every((sample) => Math.abs(sample) < 1e-7));
+assert.deepEqual(
+  render([{ ...timed, gainPositions: [] }]),
+  render([{ ...timed, gainPositions: undefined }]),
+);

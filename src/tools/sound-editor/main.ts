@@ -14,6 +14,7 @@ import {
   hornDrillParameters,
   maxLayers,
   compactOptional,
+  validateSound,
   soundId,
   type SoundDocument,
   type SoundName,
@@ -727,49 +728,48 @@ const layerParameters = ({
         : parameterControls[key as EffectNumberKey].element,
     ),
   );
-  const gainRow = document.createElement('label');
-  const gainLabel = document.createElement('span');
-  const gainInput = document.createElement('input');
 
-  gainRow.className = 'number-control';
-  gainLabel.textContent = 'Gain points';
-  gainInput.type = 'text';
-  gainInput.placeholder = '0, 1, 0.4, 0';
-  gainInput.title =
-    '2–32 gains from 0 to 1, evenly spaced across the layer. Empty uses the envelope alone.';
-  gainInput.value = settings.gainPoints.join(', ');
+  for (const key of ['gainPoints', 'gainPositions'] as const) {
+    const row = document.createElement('label');
+    const label = document.createElement('span');
+    const input = document.createElement('input');
 
-  gainInput.addEventListener('input', () => {
-    const text = gainInput.value.trim();
-    const points = text
-      ? text.split(',').map((part) => Number(part.trim()))
-      : [];
-    const valid =
-      !text ||
-      (points.length >= 2 &&
-        points.length <= 32 &&
-        text.split(',').every((part) => part.trim() !== '') &&
-        points.every(
-          (value) => Number.isFinite(value) && value >= 0 && value <= 1,
-        ));
+    row.className = 'number-control';
+    label.textContent = key === 'gainPoints' ? 'Gain points' : 'Gain positions';
+    input.type = 'text';
+    input.title =
+      key === 'gainPoints'
+        ? '2–32 gains from 0 to 1. Empty uses the envelope alone.'
+        : 'Optional positions for each gain: strictly increasing from 0 to 1 across the layer. Empty uses equal spacing.';
+    input.value = settings[key].join(', ');
 
-    gainInput.setAttribute('aria-invalid', String(!valid));
-    gainInput.setCustomValidity(
-      valid ? '' : 'Enter 2–32 gains between 0 and 1.',
-    );
+    input.addEventListener('input', () => {
+      const text = input.value.trim();
+      const points = text
+        ? text
+            .split(',')
+            .map((part) => (part.trim() ? Number(part.trim()) : NaN))
+        : [];
+      const candidate = { ...settings, [key]: points };
 
-    if (!valid) {
-      updateSave();
-      return;
-    }
+      try {
+        validateSound('sound', [candidate]);
+        input.setAttribute('aria-invalid', 'false');
+        input.setCustomValidity('');
+        settings[key] = points;
+        write(compactOptional(settings));
+        notify();
+      } catch (error) {
+        input.setAttribute('aria-invalid', 'true');
+        input.setCustomValidity((error as Error).message);
+        updateSave();
+      }
+    });
 
-    settings.gainPoints = points;
-    write(compactOptional(settings));
-    notify();
-  });
+    row.append(label, input);
+    controls.append(row);
+  }
 
-  gainRow.append(gainLabel, gainInput);
-  controls.append(gainRow);
   updateVisibility();
   return controls;
 };

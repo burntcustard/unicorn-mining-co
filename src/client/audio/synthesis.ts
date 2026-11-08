@@ -38,6 +38,7 @@ export type SoundEffect = {
   resonance?: number;
   ring?: number;
   gainPoints?: number[];
+  gainPositions?: number[];
   endResonance?: number;
 };
 
@@ -100,6 +101,7 @@ export const resolveSoundEffect = ({
   resonance = 0,
   ring = 50,
   gainPoints = [],
+  gainPositions = [],
   endResonance = resonance,
 }: SoundEffect): Required<SoundEffect> => ({
   volume,
@@ -127,6 +129,7 @@ export const resolveSoundEffect = ({
   resonance,
   ring,
   gainPoints,
+  gainPositions,
   endResonance,
 });
 
@@ -300,6 +303,7 @@ export const renderEffectBuffer = ({
       resonance,
       ring,
       gainPoints,
+      gainPositions,
       endResonance,
     } = settings;
     // Ring is the time for an undriven resonance to fall to 1 percent amplitude.
@@ -335,6 +339,7 @@ export const renderEffectBuffer = ({
     let input2 = 0;
     let output1 = 0;
     let output2 = 0;
+    let timedGainIndex = 0;
 
     for (let i = 0; i < length + tail; i++) {
       const elapsed = i / sampleRate;
@@ -426,12 +431,33 @@ export const renderEffectBuffer = ({
       const gainPosition =
         Math.min(1, i / Math.max(1, length - 1)) *
         Math.max(0, gainPoints.length - 1);
-      const gainIndex = Math.floor(gainPosition);
+      let gainIndex = Math.floor(gainPosition);
+      let gainFraction = gainPosition - gainIndex;
+
+      if (
+        gainPositions.length === gainPoints.length &&
+        gainPositions.length > 1
+      ) {
+        const progress = Math.min(1, i / Math.max(1, length - 1));
+
+        while (
+          timedGainIndex < gainPositions.length - 2 &&
+          progress > gainPositions[timedGainIndex + 1]
+        ) {
+          timedGainIndex++;
+        }
+
+        gainIndex = timedGainIndex;
+        gainFraction =
+          (progress - gainPositions[gainIndex]) /
+          (gainPositions[gainIndex + 1] - gainPositions[gainIndex]);
+      }
+
       const gain = gainPoints.length
         ? gainPoints[gainIndex] +
           ((gainPoints[gainIndex + 1] ?? gainPoints[gainIndex]) -
             gainPoints[gainIndex]) *
-            (gainPosition - gainIndex)
+            gainFraction
         : 1;
       const sample = i < length ? wave * envelope * volume * gain : 0;
 

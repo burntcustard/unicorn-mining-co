@@ -1,3 +1,4 @@
+import { playSound } from '../../audio/sound-loader';
 import './chat.css';
 import html from './chat.html?raw';
 import { createScreen, query, ui } from './ui';
@@ -184,6 +185,7 @@ export const createChat = ({
         }
 
         if (!message.text) return;
+        playSound('chat-message');
 
         if (
           pending &&

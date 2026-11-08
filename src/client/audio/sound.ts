@@ -1,3 +1,12 @@
+import loseTarget from '../../specs/sounds/lose-target';
+import wormholeIn from '../../specs/sounds/wormhole-in';
+import wormholeOut from '../../specs/sounds/wormhole-out';
+import jumpGateOpen from '../../specs/sounds/jump-gate-open';
+import mainMenuClose from '../../specs/sounds/main-menu-close';
+import mainMenuOpen from '../../specs/sounds/main-menu-open';
+import chatMessage from '../../specs/sounds/chat-message';
+import autogunFire from '../../specs/sounds/autogun-fire';
+import autogunAmmoExplode from '../../specs/sounds/autogun-ammo-explode';
 import hatchOpen from '../../specs/sounds/hatch-open';
 import hatchClose from '../../specs/sounds/hatch-close';
 import pickup from '../../specs/sounds/pickup';
@@ -45,6 +54,15 @@ const events = [
   searchLight,
   // Client-only cue, addressed by name rather than a protocol sound ID.
   acquireTarget,
+  loseTarget,
+  wormholeIn,
+  wormholeOut,
+  jumpGateOpen,
+  mainMenuClose,
+  mainMenuOpen,
+  chatMessage,
+  autogunFire,
+  autogunAmmoExplode,
 ];
 
 interface Sound extends AudioBufferSourceNode {
@@ -163,14 +181,38 @@ export const testTone = () => {
 // @endif
 
 export const playSound = (
-  effect: number | 'acquire-target',
+  effect:
+    | number
+    | 'acquire-target'
+    | 'lose-target'
+    | 'wormhole-in'
+    | 'wormhole-out'
+    | 'jump-gate-open'
+    | 'main-menu-close'
+    | 'main-menu-open'
+    | 'chat-message'
+    | 'autogun-fire'
+    | 'autogun-ammo-explode',
   {
     volume = 1,
     id = 0,
     by = 0,
   }: { volume?: number; id?: number; by?: number } = {},
 ) => {
-  if (effect === 'acquire-target') effect = 10;
+  if (typeof effect === 'string')
+    {effect =
+      [
+        'acquire-target',
+        'lose-target',
+        'wormhole-in',
+        'wormhole-out',
+        'jump-gate-open',
+        'main-menu-close',
+        'main-menu-open',
+        'chat-message',
+        'autogun-fire',
+        'autogun-ammo-explode',
+      ].indexOf(effect) + 10;}
 
   // A real key gesture unlocks audio. Drop effects before that first gesture.
   if (

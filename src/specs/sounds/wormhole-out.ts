@@ -1,0 +1,42 @@
+import type { SoundEffect } from '../../client/audio/synthesis';
+
+export default [
+  {
+    waveform: 'sine',
+    volume: 0.12,
+    frequency: 90,
+    endFrequency: 1249,
+    attack: 70,
+    decay: 480,
+    release: 180,
+    pitchDuration: 360,
+    pitchCurve: 'ease-out',
+    sustain: 0.15,
+    releaseCurve: 'linear',
+  },
+  {
+    waveform: 'sine',
+    volume: 0.06,
+    frequency: 180,
+    endFrequency: 2326,
+    attack: 60,
+    decay: 400,
+    release: 100,
+    pitchDuration: 330,
+    pitchCurve: 'ease-out',
+    delay: 40,
+  },
+  {
+    waveform: 'crackle',
+    frequency: 2200,
+    volume: 0.28,
+    attack: 30,
+    decay: 260,
+    release: 85,
+    cutoff: 13000,
+    highpass: 800,
+    resonance: 3413,
+    ring: 6,
+    delay: 135,
+  },
+] satisfies SoundEffect[];

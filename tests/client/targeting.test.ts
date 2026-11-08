@@ -206,18 +206,20 @@ assert.deepEqual(playedSounds.at(-1), ['acquire-target', {id: 30}], 'reverse cyc
 soundController.hover();
 soundController.targetHovered();
 soundController.clear();
-assert.equal(playedSounds.length, 3, 'clearing a target is silent');
+assert.equal(playedSounds.length, 4, 'deselecting plays once; clearing an empty target is silent');
+assert.deepEqual(playedSounds.at(-1), ['lose-target', {id: 30}]);
 soundController.cycleTarget();
 soundTargets[0].dead = true;
 updateSoundTargets();
-assert.equal(playedSounds.length, 4, 'losing a target is silent');
+assert.equal(playedSounds.length, 6, 'target destruction plays the loss cue');
+assert.deepEqual(playedSounds.at(-1), ['lose-target', {id: 30}]);
 soundController.cycleTarget();
 soundController.cycleTarget();
-assert.equal(playedSounds.length, 5, 'cycling the sole remaining target does not replay acquisition');
+assert.equal(playedSounds.length, 7, 'cycling the sole remaining target does not replay acquisition');
 soundTargets[1].dead = true;
 updateSoundTargets();
 soundController.cycleTarget();
-assert.equal(playedSounds.length, 5, 'cycling with no candidates is silent');
+assert.equal(playedSounds.length, 8, 'cycling with no candidates is silent');
 console.log('Target cycling, click targeting, acquisition audio, persistent targets, hover opacity, labels and rendered bounds passed');
 `;
 

@@ -1,3 +1,4 @@
+import { playSound } from './audio/sound-loader';
 import { ui } from './ui/dom/ui';
 import { createMainMenu } from './ui/dom/main-menu';
 import { graphics, restoreGraphics } from './ui/dom/graphics';
@@ -58,7 +59,9 @@ const navigate = async (destination: string) => {
   if (destination === 'saves') ui.push(screens.createSaves());
 };
 
-const showMainMenu = () =>
+const showMainMenu = () => {
+  if (gameplay?.running) playSound('main-menu-open');
+
   ui.push(
     createMainMenu({
       running: Boolean(gameplay?.running),
@@ -76,6 +79,7 @@ const showMainMenu = () =>
               onSave: async (displayName) => {
                 await gameplay.createProfile(displayName);
                 await gameplay.start();
+                playSound('main-menu-close');
                 ui.clear();
               },
             }),
@@ -85,10 +89,12 @@ const showMainMenu = () =>
         }
 
         await gameplay.start();
+        playSound('main-menu-close');
         ui.clear();
       },
     }),
   );
+};
 
 window.addEventListener('keydown', (event) => {
   // A held key repeats; only a fresh press should take another step.

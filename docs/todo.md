@@ -106,19 +106,22 @@
 [ ] Shield generator should have health and UI so can be disrupted
 [ ] Add nav beacons and scanning using the search light
 [ ] New mining triangles thing
-[ ] Add sound: Tab change
-[ ] Add sound: Autogun + ammo
-[ ] Add sound: Plasma Accelerator + ammo
-[ ] Add sound: Laser Beam
+[ ] Add sound: Autogun fire + ammo explode
+[ ] Add sound: Plasma Accelerator fire + ammo explode
+[ ] Add sound: Laser Beam (initial sound event, continuous, hit)
 [ ] Add sound: Docking/undocking
 [ ] Add sound: Main menu open/close
-[ ] Add sound: Tab left/right/neutral open
+[ ] Use sound: Use UI Nav Neutral for docked UI tab hover/focus
+[ ] Add sound: Docked UI change (select) tab
 [ ] Add sound: Ship explosion
 [ ] Add sound: Lose/deselect target
 [ ] Add sound: Chat message
-[ ] Add sound: Wormhole
+[ ] Add sound: Wormhole in and wormhole out
 [ ] Add sound: Jump Gate open/close
 [ ] Add sound: New asteroid split
+[ ] New sound: Asteroid split
+[ ] New sound: Asteroid segment destroyed (empty)
+[ ] New sound: Asteroid segment destroyed (with item)
 [ ] Sound volume slider in settings
 [ ] Fix ships in stations rendering on map
 [ ] Player list (with tab and/or just near/on map?)

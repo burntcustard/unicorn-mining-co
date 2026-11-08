@@ -253,7 +253,7 @@ assert.deepEqual(resolveSoundEffect(compactTone), {
   pitchDuration: compactTone.attack + compactTone.decay, pitchCurve: 'linear',
   endCutoff: 0, filterDuration: compactTone.attack + compactTone.decay,
   filterCurve: 'linear', endHighpass: 0, resonance: 0, ring: 50,
-  gainPoints: [], endResonance: 0,
+  gainPoints: [], gainPositions: [], endResonance: 0,
 }, 'all omitted properties resolve consistently, including dependent defaults');
 assert.deepEqual(
   renderEffectBuffer({context, layers: [compactTone]}).getChannelData(0),
@@ -594,6 +594,15 @@ import uiNavNeutral from './specs/sounds/ui-nav-neutral';
 import uiNavSelect from './specs/sounds/ui-nav-select';
 import uiNavUnselect from './specs/sounds/ui-nav-unselect';
 import acquireTarget from './specs/sounds/acquire-target';
+import chosen0 from './specs/sounds/lose-target';
+import chosen1 from './specs/sounds/wormhole-in';
+import chosen2 from './specs/sounds/wormhole-out';
+import chosen3 from './specs/sounds/jump-gate-open';
+import chosen4 from './specs/sounds/main-menu-close';
+import chosen5 from './specs/sounds/main-menu-open';
+import chosen6 from './specs/sounds/chat-message';
+import chosen7 from './specs/sounds/autogun-fire';
+import chosen8 from './specs/sounds/autogun-ammo-explode';
 import { renderEffectBuffer } from './client/audio/synthesis';
 import engineSettings from './specs/sounds/engine';
 import hornDrillSettings from './specs/sounds/horn-drill';
@@ -625,6 +634,10 @@ export async function check() {
       assert.deepEqual(selections[index].assignedSamples, renderEffectBuffer({context, layers}).getChannelData(0));
     }
     assert.equal(selections[1].buffer, selections[2].buffer, 'repeated unselects reuse the navigation buffer');
+    for (const [name, layers] of [['lose-target', chosen0], ['wormhole-in', chosen1], ['wormhole-out', chosen2], ['jump-gate-open', chosen3], ['main-menu-close', chosen4], ['main-menu-open', chosen5], ['chat-message', chosen6], ['autogun-fire', chosen7], ['autogun-ammo-explode', chosen8]]) {
+      playSound(name);
+      assert.deepEqual(context.sources.pop().assignedSamples, renderEffectBuffer({context, layers}).getChannelData(0), name);
+    }
   } finally {
     Math.random = previousRandom;
   }
