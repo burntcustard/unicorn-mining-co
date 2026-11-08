@@ -7,6 +7,7 @@ import { camera } from '../camera';
 import { colors } from '../../specs/colors';
 import { pathOutline } from './path-outline';
 import { renderText } from './text';
+import { playSound } from '../audio/sound-loader';
 
 type Bounds = { left: number; right: number; top: number; bottom: number };
 
@@ -42,8 +43,7 @@ export class Targeting {
   }
 
   targetHovered() {
-    this.targetView = this.hovered;
-    this.targetId = this.targetView?.object.id;
+    this.selectTarget(this.hovered);
   }
 
   cycleTarget(reverse = false) {
@@ -60,8 +60,18 @@ export class Targeting {
           : 0
         : (index + (reverse ? -1 : 1) + ordered.length) % ordered.length;
 
-    this.targetView = ordered[next];
-    this.targetId = this.targetView?.object.id;
+    this.selectTarget(ordered[next]);
+  }
+
+  private selectTarget(view?: TargetView) {
+    const id = view?.object.id;
+
+    if (id !== undefined && id !== this.targetId) {
+      playSound('acquire-target', { id });
+    }
+
+    this.targetView = view;
+    this.targetId = id;
   }
 
   update({

@@ -18,7 +18,7 @@ text uses native alignment to respect these widths.
 The thin space (`U+2009`, `&#8201;` in HTML) advances 6.5 units, exactly half
 the width of the regular space, and has no visible outline.
 
-- Preview: `npm run tool:font-viewer`, then open [localhost:3000](http://localhost:3000/)
+- Preview: `npm run tool:font-viewer`, then open the URL Vite prints (starting at port 3100)
   with the other frontend stopped. Saving glyphs updates the preview automatically.
 - Generate: `npm run font` writes `gemetric.woff2`. Production builds also do this.
 - Test: `npm run test font-generation font-viewer text-rendering`.

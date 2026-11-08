@@ -348,7 +348,7 @@ Reflect.set(window, 'perf-capture', async action => {
 });`;
 
   await Promise.all(
-    ['http://localhost:3000/', 'http://localhost:3001/healthz'].map(
+    ['http://localhost:3002/', 'http://localhost:3001/healthz'].map(
       async (url) => {
         assert(
           (await fetch(url, { signal: cancellation.signal })).ok,
@@ -443,7 +443,7 @@ Reflect.set(window, 'perf-capture', async action => {
     );
   }
 
-  const url = `http://localhost:3000/benchmarking/_local/production-gameplay-${process.pid}/`;
+  const url = `http://localhost:3002/benchmarking/_local/production-gameplay-${process.pid}/`;
 
   cancellation.signal.throwIfAborted();
   child = spawn(

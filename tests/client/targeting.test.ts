@@ -10,6 +10,7 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { Targeting, targetBounds } from '${root}/src/client/ui/targeting.ts';
 import { camera } from '${root}/src/client/camera.ts';
+import { playedSounds } from 'targeting-test-sound';
 const object = (id, x, y, extra = {}) => ({ id, position: {x, y}, rotation: 0, radius: 10, kind: 'asteroid', name: 'Asteroid', ...extra });
 const ship = object(1, 0, 0);
 const near = object(2, 20, 0, {kind: 'ship', name: 'aé🦄', playerId: 8});
@@ -186,7 +187,38 @@ for (const kind of ['ship', 'station', 'craft', 'asteroid', 'item']) {
   controller.render(game);
   assert.equal(calls.at(-1)[1], 'Named target', 'target names use one field for every targetable kind');
 }
-console.log('Target cycling, click targeting, persistent targets, hover opacity, labels and rendered bounds passed');
+playedSounds.length = 0;
+const soundController = new Targeting();
+const soundTargets = [object(30, 20, 0), object(31, 60, 0, {kind: 'item'})];
+const updateSoundTargets = () => soundController.update({game, objects: soundTargets, poses, ship});
+updateSoundTargets();
+soundController.hover(soundTargets[0].position);
+assert.equal(playedSounds.length, 0, 'hover does not play acquisition audio');
+soundController.targetHovered();
+assert.deepEqual(playedSounds, [['acquire-target', {id: 30}]], 'click acquisition plays the named cue for its target');
+soundController.targetHovered();
+updateSoundTargets();
+assert.equal(playedSounds.length, 1, 'repeated clicks and presentation updates do not replay the cue');
+soundController.cycleTarget();
+assert.deepEqual(playedSounds.at(-1), ['acquire-target', {id: 31}], 'keyboard acquisition plays the same cue');
+soundController.cycleTarget(true);
+assert.deepEqual(playedSounds.at(-1), ['acquire-target', {id: 30}], 'reverse cycling plays the cue for the new target');
+soundController.hover();
+soundController.targetHovered();
+soundController.clear();
+assert.equal(playedSounds.length, 3, 'clearing a target is silent');
+soundController.cycleTarget();
+soundTargets[0].dead = true;
+updateSoundTargets();
+assert.equal(playedSounds.length, 4, 'losing a target is silent');
+soundController.cycleTarget();
+soundController.cycleTarget();
+assert.equal(playedSounds.length, 5, 'cycling the sole remaining target does not replay acquisition');
+soundTargets[1].dead = true;
+updateSoundTargets();
+soundController.cycleTarget();
+assert.equal(playedSounds.length, 5, 'cycling with no candidates is silent');
+console.log('Target cycling, click targeting, acquisition audio, persistent targets, hover opacity, labels and rendered bounds passed');
 `;
 
 for (const production of [false, true]) {
@@ -198,14 +230,21 @@ for (const production of [false, true]) {
     plugins: [
       {
         name: 'targeting-test',
-        resolveId: (id) => (id === entry ? entry : undefined),
+        resolveId: (id) =>
+          id === entry
+            ? entry
+            : id === 'targeting-test-sound' || id === '../audio/sound-loader'
+              ? 'targeting-test-sound'
+              : undefined,
         load: (id) =>
           id === entry
             ? scenario.replace(
                 /assert\.(\w+)/g,
                 (_, method) => `Reflect.get(assert, '${method}')`,
               )
-            : undefined,
+            : id === 'targeting-test-sound'
+              ? 'export const playedSounds = []; export const playSound = (...args) => playedSounds.push(args);'
+              : undefined,
       },
       buildPrePlugin({ DEBUG: !production }),
       ...(production ? [testBuildPlugin()] : []),

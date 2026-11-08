@@ -51,7 +51,9 @@
           placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
         />
       </label>
-      <button class="uppercase ui-button" data-verify>Verify ID</button>
+      <button class="uppercase ui-button" type="button" data-verify>
+        Verify ID
+      </button>
     </form>
     <p class="ui-status" role="status"></p>
     <dialog class="ui-card" aria-labelledby="confirm-heading">
@@ -61,12 +63,12 @@
         Your current pilot will remain on the server. Save their private ID
         before switching. The game will reload with the imported identity.
       </p>
-      <form method="dialog" class="gap-2 mt-4 flex flex-wrap" data-action-group>
+      <div class="gap-2 mt-4 flex flex-wrap" data-action-group>
         <button class="uppercase ui-button" value="cancel">Cancel</button>
         <button class="uppercase ui-button" value="confirm">
           Switch pilot
         </button>
-      </form>
+      </div>
     </dialog>
   </div>
 </div>

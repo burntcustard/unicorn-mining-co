@@ -1,0 +1,43 @@
+import type { SoundEffect } from '../../client/audio/synthesis';
+
+export default [
+  {
+    waveform: 'noise',
+    volume: 0.25,
+    attack: 4,
+    decay: 16,
+    sustain: 0.1,
+    release: 5,
+    highpass: 2550,
+    cutoff: 16100,
+    resonance: 4900,
+    ring: 2.4,
+  },
+  {
+    waveform: 'triangle',
+    volume: 0.164,
+    delay: 20,
+    attack: 3,
+    decay: 20,
+    sustain: 0.18,
+    release: 9,
+    frequency: 1170,
+    endFrequency: 1650,
+    pitchDuration: 20,
+    pitchCurve: 'ease-out',
+    highpass: 840,
+  },
+  {
+    waveform: 'noise',
+    volume: 0.22,
+    delay: 25,
+    attack: 3,
+    decay: 17,
+    sustain: 0.11,
+    release: 8,
+    highpass: 3800,
+    cutoff: 20100,
+    resonance: 6800,
+    ring: 3.5,
+  },
+] satisfies SoundEffect[];

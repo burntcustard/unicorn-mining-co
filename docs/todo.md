@@ -105,6 +105,21 @@
 [ ] "Random" NPC spaceship name generator
 [ ] Shield generator should have health and UI so can be disrupted
 [ ] Add nav beacons and scanning using the search light
+[ ] New mining triangles thing
+[ ] Add sound: Tab change
+[ ] Add sound: Autogun + ammo
+[ ] Add sound: Plasma Accelerator + ammo
+[ ] Add sound: Laser Beam
+[ ] Add sound: Docking/undocking
+[ ] Add sound: Main menu open/close
+[ ] Add sound: Tab left/right/neutral open
+[ ] Add sound: Ship explosion
+[ ] Add sound: Lose/deselect target
+[ ] Add sound: Chat message
+[ ] Add sound: Wormhole
+[ ] Add sound: Jump Gate open/close
+[ ] Add sound: New asteroid split
+[ ] Sound volume slider in settings
 
 ## Big future things
 

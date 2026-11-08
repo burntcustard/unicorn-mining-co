@@ -23,7 +23,7 @@ export const createSaves = () => {
   }
 
   reveal.addEventListener(
-    'click',
+    'ui-press',
     () => {
       const visible = privateId.getAttribute('type') === 'password';
 
@@ -35,7 +35,7 @@ export const createSaves = () => {
   );
 
   copy.addEventListener(
-    'click',
+    'ui-press',
     async () => {
       try {
         await navigator.clipboard.writeText(privateId.value);
@@ -53,7 +53,7 @@ export const createSaves = () => {
   );
 
   clear.addEventListener(
-    'click',
+    'ui-press',
     () => {
       try {
         localStorage.removeItem('playerToken');
@@ -67,16 +67,21 @@ export const createSaves = () => {
     { signal: screen.signal },
   );
 
-  query(screen.element, '[data-back]').addEventListener('click', ui.back, {
+  query(screen.element, '[data-back]').addEventListener('ui-press', ui.back, {
     signal: screen.signal,
   });
 
   const input = query<HTMLInputElement>(screen.element, '[data-import-id]');
   const verify = query<HTMLButtonElement>(screen.element, '[data-verify]');
   const dialog = query<HTMLDialogElement>(screen.element, 'dialog');
+  const form = query<HTMLFormElement>(screen.element, '[data-import]');
   let verifiedId = '';
 
-  query(screen.element, '[data-import]').addEventListener(
+  verify.addEventListener('ui-press', () => form.requestSubmit(), {
+    signal: screen.signal,
+  });
+
+  form.addEventListener(
     'submit',
     async (event) => {
       event.preventDefault();
@@ -109,6 +114,12 @@ export const createSaves = () => {
     },
     { signal: screen.signal },
   );
+
+  dialog.querySelectorAll('button').forEach((button) => {
+    button.addEventListener('ui-press', () => dialog.close(button.value), {
+      signal: screen.signal,
+    });
+  });
 
   dialog.addEventListener(
     'close',

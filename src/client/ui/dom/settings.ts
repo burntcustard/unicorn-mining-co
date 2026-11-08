@@ -54,7 +54,7 @@ export const createSettings = () => {
     button.className = 'ui-button text-center';
 
     button.addEventListener(
-      'click',
+      'ui-press',
       () => {
         capture = i;
         prompt.textContent = `Press a new key for ${label}.`;
@@ -87,7 +87,7 @@ export const createSettings = () => {
             : 'Press to toggle on or off';
 
         choice.addEventListener(
-          'click',
+          'ui-press',
           () => {
             binding.mode = mode;
             saveBindings();
@@ -122,7 +122,7 @@ export const createSettings = () => {
   dialog.addEventListener(
     'keydown',
     (event) => {
-      if (capture < 0) return;
+      if (capture < 0 || event.key === 'Enter') return;
       event.stopPropagation();
 
       if (event.repeat) {
@@ -130,7 +130,7 @@ export const createSettings = () => {
         return;
       }
 
-      if (['Tab', 'Enter', 'Escape'].includes(event.key)) return;
+      if (['Tab', 'Escape'].includes(event.key)) return;
       event.preventDefault();
       const key = event.key.toLowerCase();
 
@@ -168,6 +168,10 @@ export const createSettings = () => {
     { signal: screen.signal },
   );
 
+  query(dialog, 'button').addEventListener('ui-press', () => dialog.close(), {
+    signal: screen.signal,
+  });
+
   dialog.addEventListener(
     'close',
     () => {
@@ -180,12 +184,12 @@ export const createSettings = () => {
     { signal: screen.signal },
   );
 
-  query(screen.element, '[data-back]').addEventListener('click', ui.back, {
+  query(screen.element, '[data-back]').addEventListener('ui-press', ui.back, {
     signal: screen.signal,
   });
 
   query(screen.element, '[data-reset]').addEventListener(
-    'click',
+    'ui-press',
     () => {
       capture = -1;
       resetBindings();
@@ -208,7 +212,7 @@ export const createSettings = () => {
 
   tabs.forEach(({ button }, index) => {
     button.addEventListener(
-      'click',
+      'ui-press',
       () => {
         status.textContent = '';
 

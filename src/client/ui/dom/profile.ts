@@ -9,6 +9,7 @@ export const createProfile = ({
   const screen = createScreen(html);
   const input = query<HTMLInputElement>(screen.element, 'input');
   const status = query(screen.element, '.ui-status');
+  const form = query<HTMLFormElement>(screen.element, 'form');
   const buttons = screen.element.querySelectorAll<HTMLButtonElement>('button');
   let saving = false;
 
@@ -27,12 +28,18 @@ export const createProfile = ({
   };
 
   query(screen.element, '[data-back]').addEventListener(
-    'click',
+    'ui-press',
     screen.escape,
     { signal: screen.signal },
   );
 
-  query(screen.element, 'form').addEventListener(
+  query(form, '[data-play]').addEventListener(
+    'ui-press',
+    () => form.requestSubmit(),
+    { signal: screen.signal },
+  );
+
+  form.addEventListener(
     'submit',
     async (event) => {
       event.preventDefault();

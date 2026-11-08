@@ -40,7 +40,7 @@
     "lint": "oxlint --type-aware --type-check . && npm run lint:css",
     "lint:css": "stylelint \"{src,font}/**/*.css\"",
     "lint:fix": "oxlint --type-aware --type-check --fix . && npm run lint:css -- --fix",
-    "preview": "vite preview --host --port 3000",
+    "preview": "vite preview --host --port 3002",
     "reset-world:live": "node scripts/reset-world-live.ts",
     "reset-world:local": "node scripts/reset-world-local.ts",
     "start:server": "./bin/server",
@@ -48,6 +48,7 @@
     "test:ui": "node --import tsx scripts/check-ui.ts",
     "tool:font-viewer": "vite --config src/tools/font-viewer/vite.config.ts",
     "tool:object-viewer": "vite --config src/tools/game-object-viewer/vite.config.ts",
+    "tool:sound-editor": "vite --config src/tools/sound-editor/vite.config.ts",
     "tool:world-viewer": "vite --config src/tools/world-viewer/vite.config.ts",
     "typecheck": "tsc --noEmit"
   },

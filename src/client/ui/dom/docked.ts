@@ -3,7 +3,7 @@ import html from './docked.html?raw';
 import './docked.css';
 import pentagon from '../icons/corral-5.svg?raw';
 import hexagon from '../icons/corral-6.svg?raw';
-import { createScreen, query, ui } from './ui';
+import { createScreen, focusMenuTarget, query, ui } from './ui';
 import { player, paintUnlocked, unlockPaint } from '../../player';
 import { paintColors } from '../../../specs/colors';
 import { type Craft } from '../../objects/craft';
@@ -28,6 +28,7 @@ import { icons } from '../icons';
 import { shipIcon } from './ship-icon';
 import { type Mount } from '../../types';
 import { reconcileRows } from '../../utilities/reconcile-rows';
+import { playNavigationSound } from '../../audio/sound-loader';
 
 const tabContent = new Map([
   [
@@ -848,8 +849,10 @@ const createDocked = () => {
     event,
   }: {
     element: HTMLElement;
-    event: MouseEvent;
+    event: PointerEvent | KeyboardEvent;
   }) => {
+    if (event.isTrusted) playNavigationSound('select');
+
     const key = element.getAttribute('data-key');
     const candidate = element.closest('[data-candidates]');
 
@@ -864,7 +867,7 @@ const createDocked = () => {
     inspect(element);
     inDetails = true;
 
-    if (!candidate || event.detail === 0) {
+    if (!candidate || event instanceof KeyboardEvent) {
       (key.startsWith('mount:') && !currentItem
         ? candidateList.getClientRects().length
           ? candidateList
@@ -885,6 +888,7 @@ const createDocked = () => {
 
   const back = () => {
     if (!inDetails && !selection.key) return launch();
+    playNavigationSound('unselect');
     inDetails = false;
     const row =
       detailOrigin?.() ||
@@ -935,7 +939,6 @@ const createDocked = () => {
       }
 
       const focused = root.querySelector<HTMLElement>(':focus');
-      const available = buttons();
       const horizontal =
         event.key === 'ArrowLeft' || event.key === 'ArrowRight';
       const vertical = event.key === 'ArrowUp' || event.key === 'ArrowDown';
@@ -946,6 +949,7 @@ const createDocked = () => {
 
       if (event.key === 'Tab') {
         ui.element.classList.remove('ui-arrow-navigation');
+        const available = buttons();
         const index = available.indexOf(focused as HTMLButtonElement);
 
         if (
@@ -977,7 +981,7 @@ const createDocked = () => {
       ui.element.classList.add('ui-arrow-navigation');
 
       if (!focused) {
-        activeTab().focus();
+        focusMenuTarget(activeTab(), event.key);
         return;
       }
 
@@ -988,7 +992,7 @@ const createDocked = () => {
       const inPaints = focused.closest('[data-paints]');
       const inInspector = focused.closest('.dock-inspector');
       const footer = firstButton('.dock-footer');
-      const firstContent =
+      const firstContent = () =>
         firstButton('[data-sidebar]') ||
         firstButton('[data-trade-stock]') ||
         footer;
@@ -1027,10 +1031,10 @@ const createDocked = () => {
         }
       } else if (inTabs) {
         if (direction > 0) {
-          target = firstButton('.dock-summary') || firstContent;
+          target = firstButton('.dock-summary') || firstContent();
         }
       } else if (inSummary) {
-        target = direction > 0 ? firstContent : activeTab();
+        target = direction > 0 ? firstContent() : activeTab();
       } else if (focused === footer) {
         if (direction < 0) {
           target =
@@ -1070,8 +1074,7 @@ const createDocked = () => {
       }
 
       if (target === footer) footerOrigin = focused;
-      target?.focus();
-      update();
+      focusMenuTarget(target, event.key);
     },
     { capture: true, signal: screen.signal },
   );
@@ -1127,17 +1130,16 @@ const createDocked = () => {
 
         const candidateSelector = '[data-candidates] [data-key]';
         const fromCandidate = target.closest(candidateSelector);
+        const toCandidate = related?.closest?.<HTMLElement>(candidateSelector);
 
-        if (
-          fromCandidate &&
-          fromCandidate !== related?.closest?.(candidateSelector)
-        ) {
+        if (fromCandidate && type === 'focusout' && toCandidate) return;
+
+        if (fromCandidate && fromCandidate !== toCandidate) {
           const active =
-            (type === 'focusout'
-              ? related?.closest?.<HTMLElement>(candidateSelector)
-              : candidateList.querySelector<HTMLElement>(
-                  '[data-key]:focus-visible',
-                )) ||
+            (type === 'pointerout' &&
+              candidateList.querySelector<HTMLElement>(
+                '[data-key]:focus-visible',
+              )) ||
             (ui.element.classList.contains('ui-arrow-navigation')
               ? null
               : candidateList.querySelector<HTMLElement>('[data-key]:hover'));
@@ -1154,7 +1156,8 @@ const createDocked = () => {
         const from = target.closest(rowSelector);
         const to = related?.closest?.(rowSelector);
 
-        if (!from || from === to) return;
+        // The destination row's focusin will inspect and render it directly.
+        if (!from || from === to || (type === 'focusout' && to)) return;
 
         if (selection.tab === 'trade' && related?.closest?.('.dock-detail')) {
           return;
@@ -1174,7 +1177,7 @@ const createDocked = () => {
   });
 
   root.addEventListener(
-    'click',
+    'ui-press',
     (event) => {
       const target = event.composedPath()[0] as HTMLElement;
       const element = target.closest<HTMLButtonElement>('button');
@@ -1201,7 +1204,7 @@ const createDocked = () => {
       }
 
       if (element.hasAttribute('data-key') && selection.tab !== 'trade') {
-        selectRow({ element, event });
+        selectRow({ element, event: event.detail });
         return;
       }
 

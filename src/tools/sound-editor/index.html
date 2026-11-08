@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sound Editor - Unicorn Mining Co.</title>
+  </head>
+  <body>
+    <aside class="viewer-controls flex flex-col">
+      <header class="flex flex-none justify-between items-center gap-3 mb-4">
+        <div>
+          <p class="text-muted text-xs">UNICORN MINING CO.</p>
+          <h1 class="text-lg">Sound Editor</h1>
+        </div>
+        <div
+          class="editor-navigation compact-controls grid flex-none gap-1"
+          role="tablist"
+          aria-orientation="vertical"
+        >
+          <button
+            id="events-tab"
+            class="text-xs"
+            type="button"
+            role="tab"
+            aria-controls="events"
+            aria-selected="true"
+          >
+            Sound events
+          </button>
+          <button
+            id="continuous-tab"
+            class="text-xs"
+            type="button"
+            role="tab"
+            aria-controls="continuous"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Continuous sounds
+          </button>
+        </div>
+      </header>
+      <figure class="sound-visualizer flex-none">
+        <canvas
+          id="sound-visualizer"
+          role="img"
+          aria-labelledby="visualizer-caption"
+        ></canvas>
+        <figcaption id="visualizer-caption" class="text-muted text-xs mt-1">
+          Waveform
+        </figcaption>
+      </figure>
+
+      <fieldset
+        id="continuous-kind"
+        class="sound-selector grid gap-2 mt-4"
+        disabled
+        hidden
+      ></fieldset>
+      <p id="pending-changes" class="text-muted text-xs mt-2"></p>
+      <p id="status" class="text-xs mt-4" role="status">Loading sounds…</p>
+      <div id="event-picker" class="flex flex-col mt-4">
+        <div class="sound-picker flex flex-col">
+          <input
+            id="event-search"
+            class="text-sm flex-none"
+            type="search"
+            placeholder="Search sound events"
+            aria-controls="event"
+            autocomplete="off"
+            disabled
+          />
+          <p
+            id="event-empty"
+            class="sound-option text-muted"
+            role="status"
+            hidden
+          >
+            No matching sounds
+          </p>
+          <fieldset id="event" class="sound-list" disabled></fieldset>
+        </div>
+        <button id="new-event" class="flex-none mt-2" type="button" disabled>
+          New sound event
+        </button>
+        <form
+          id="event-create"
+          class="sound-create-form compact-controls flex flex-none flex-wrap items-center text-sm mt-2"
+          hidden
+        >
+          <input
+            id="event-name"
+            type="text"
+            placeholder="Event name"
+            autocomplete="off"
+            required
+          />
+          <button id="event-create-submit" type="submit">Create</button>
+          <button id="event-create-cancel" type="button">Cancel</button>
+        </form>
+      </div>
+    </aside>
+    <main class="content">
+      <section
+        id="continuous"
+        role="tabpanel"
+        aria-labelledby="continuous-tab"
+        hidden
+      >
+        <h2 id="continuous-heading" class="text-lg">Continuous sounds</h2>
+        <div
+          id="continuous-actions"
+          class="sound-toolbar flex flex-wrap items-center gap-3 mt-4"
+        >
+          <button id="continuous-play" type="button" disabled>
+            Start continuous preview
+          </button>
+        </div>
+        <fieldset id="engine-preview" class="mt-4">
+          <legend>Engine preview</legend>
+          <div
+            id="engine-preview-controls"
+            class="sound-parameters flex flex-col"
+          ></div>
+        </fieldset>
+        <label id="drill-preview" class="mt-4" hidden>
+          <input id="biting" type="checkbox" />
+          Biting into an asteroid
+        </label>
+        <div
+          id="continuous-parameters"
+          class="sound-parameters flex flex-col mt-4"
+        ></div>
+      </section>
+      <section id="events" role="tabpanel" aria-labelledby="events-tab">
+        <h2 id="events-heading" class="text-lg"></h2>
+        <div
+          id="event-actions"
+          class="sound-toolbar flex flex-wrap items-center gap-3 mt-4"
+        >
+          <button id="event-play" type="button" title="Play event" disabled>
+            ▶︎
+          </button>
+          <button id="add-layer" type="button" disabled>Add layer</button>
+          <button id="load-layer" type="button" disabled>
+            Add saved layer
+          </button>
+          <button id="save" type="button" disabled>Save</button>
+          <button
+            id="event-reset"
+            type="button"
+            title="Discard all unsaved changes to this sound event"
+            disabled
+          >
+            Reset
+          </button>
+        </div>
+        <form
+          id="layer-create"
+          class="sound-create-form compact-controls flex flex-wrap items-center text-sm mt-4"
+          hidden
+        >
+          <input
+            id="layer-name"
+            type="text"
+            placeholder="Layer name"
+            autocomplete="off"
+            required
+          />
+          <button id="layer-create-submit" type="submit">Save layer</button>
+          <button id="layer-create-cancel" type="button">Cancel</button>
+        </form>
+        <div id="layer-picker" class="sound-picker mt-4" hidden>
+          <input
+            id="layer-search"
+            class="text-sm"
+            type="search"
+            placeholder="Search saved layers"
+            aria-controls="layer-options"
+            autocomplete="off"
+          />
+          <div id="layer-options" class="sound-list" role="list"></div>
+        </div>
+        <div id="layers" class="grid gap-4 mt-4"></div>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

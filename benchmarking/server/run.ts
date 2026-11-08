@@ -554,7 +554,7 @@ async function main() {
 
   assert(['local', 'live'].includes(target), '--target must be local or live');
   const local = target === 'local';
-  const url = local ? 'http://localhost:3000/' : 'https://unicorn-mining.co/';
+  const url = local ? 'http://localhost:3002/' : 'https://unicorn-mining.co/';
 
   const seconds = Number(parsed.seconds || 30);
   const warmup = Number(parsed.warmup ?? 15);

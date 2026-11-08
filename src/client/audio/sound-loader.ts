@@ -1,3 +1,7 @@
+import { audio, unlockAudio } from './audio-context';
+
+export { unlockAudio };
+
 // Prepare audio code in the menu; create its context only on a user gesture.
 type SoundModule = (typeof import('./sound'))['default'];
 
@@ -12,10 +16,23 @@ export const preloadSound = () =>
       throw error;
     }));
 
-export const unlockAudio = () =>
-  sound
-    ? sound.unlockAudio()
-    : preloadSound().then((module) => module.unlockAudio());
+export const playNavigationSound = (
+  cue: Parameters<SoundModule['playNavigationSound']>[0],
+) => {
+  if (!sound) {
+    void preloadSound()
+      .then((module) => module.playNavigationSound(cue))
+      .catch(() => {});
+  }
+
+  void unlockAudio()?.catch(() => {});
+
+  sound?.playNavigationSound(cue);
+};
+
+export const playHoverSound = () => {
+  if (audio && audio.state === 'running') sound?.playNavigationSound(0);
+};
 
 export const playSound = (
   ...settings: Parameters<SoundModule['playSound']>

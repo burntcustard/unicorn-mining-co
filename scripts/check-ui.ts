@@ -276,7 +276,7 @@ checkUi: try {
   });
 
   await c.send('Fetch.enable', {
-    patterns: [{ urlPattern: 'http://localhost:3000/*' }],
+    patterns: [{ urlPattern: 'http://localhost:3002/*' }],
   });
 
   await c.send('Runtime.enable');
@@ -288,6 +288,12 @@ checkUi: try {
     'Page.addScriptToEvaluateOnNewDocument',
     {
       source: `window.audioContexts = 0;
+      window.audioStarts = 0;
+      const start = AudioBufferSourceNode.prototype.start;
+      AudioBufferSourceNode.prototype.start = function(...args) {
+        window.audioStarts++;
+        return start.apply(this, args);
+      };
       const OriginalAudioContext = AudioContext;
       window.AudioContext = class extends OriginalAudioContext {
         constructor(...args) { super(...args); window.audioContexts++; }
@@ -319,7 +325,7 @@ checkUi: try {
     mobile: false,
   });
 
-  await c.send('Page.navigate', { url: 'http://localhost:3000' });
+  await c.send('Page.navigate', { url: 'http://localhost:3002' });
   await pause(700);
   const check = (expression: string) => evaluate(c, expression);
 
@@ -345,7 +351,11 @@ checkUi: try {
 
   const pressKey = async (
     key: string,
-    { shift = false, repeat = false } = {},
+    {
+      shift = false,
+      repeat = false,
+      onDown,
+    }: { shift?: boolean; repeat?: boolean; onDown?: () => Promise<void> } = {},
   ) => {
     for (const type of ['keyDown', 'keyUp']) {
       await c.send('Input.dispatchKeyEvent', {
@@ -362,6 +372,8 @@ checkUi: try {
           [' ', 32],
         ]).get(key),
       });
+
+      if (type === 'keyDown') await onDown?.();
     }
   };
 
@@ -377,7 +389,7 @@ checkUi: try {
     return [x, y];
   };
 
-  const click = async (selector: string) => {
+  const click = async (selector: string, onDown?: () => Promise<void>) => {
     const [x, y] = await hover(selector);
 
     await c.send('Input.dispatchMouseEvent', {
@@ -387,6 +399,8 @@ checkUi: try {
       button: 'left',
       clickCount: 1,
     });
+
+    await onDown?.();
 
     await c.send('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
@@ -398,10 +412,11 @@ checkUi: try {
   };
 
   const openMenuScreen = async (destination: string) => {
-    await click(`[data-action="${destination}"]`);
-    await waitFor(
-      `!!document.querySelector('#${destination}-heading')`,
-      `${destination} screen loads on navigation`,
+    await click(`[data-action="${destination}"]`, () =>
+      waitFor(
+        `!!document.querySelector('#${destination}-heading')`,
+        `${destination} screen loads before mouse release`,
+      ),
     );
   };
 
@@ -532,6 +547,24 @@ checkUi: try {
       await check(`document.activeElement === document.body`),
       'opening the menu does not assign focus',
     );
+    assert.equal(
+      await check('window.audioContexts'),
+      0,
+      'preparation does not initialize audio',
+    );
+    await hover('[data-action="credits"]');
+    assert.equal(
+      await check('window.audioContexts + window.audioStarts'),
+      0,
+      'hovering before a gesture does not open audio or queue a cue',
+    );
+
+    await c.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: 0,
+      y: 0,
+    });
+
     await pressKey('ArrowDown');
     assert(
       await check(
@@ -572,16 +605,30 @@ checkUi: try {
       ),
       'main-menu keyboard focus uses the highlight without an outline',
     );
-    const playBox = await check(`(() => {
-    const box = document.querySelector('[data-action="play"] span').getBoundingClientRect();
-    return [box.x + box.width / 2, box.y + box.height / 2];
-  })()`);
+    const audioStarts = await check('window.audioStarts');
+
+    await hover('[data-action="play"] span');
+    assert.equal(
+      await check('window.audioStarts'),
+      audioStarts + 1,
+      'entering a menu button plays one cue',
+    );
+    const [x, y] = await check(`(() => {
+      const box = document.querySelector('[data-action="play"]').getBoundingClientRect();
+      return [box.left + 5, box.top + box.height / 2];
+    })()`);
 
     await c.send('Input.dispatchMouseEvent', {
       type: 'mouseMoved',
-      x: playBox[0],
-      y: playBox[1],
+      x,
+      y,
     });
+
+    assert.equal(
+      await check('window.audioStarts'),
+      audioStarts + 1,
+      'moving from the label to its button does not replay the cue',
+    );
 
     await pause(180);
     assert(
@@ -628,8 +675,8 @@ checkUi: try {
     );
     assert.equal(
       await check('window.audioContexts'),
-      0,
-      'preparation does not initialize audio',
+      1,
+      'arrow navigation initializes the shared audio context',
     );
     assert(
       c.events
@@ -1159,7 +1206,7 @@ checkUi: try {
       input.dispatchEvent(new Event('input'));
     })()`);
     await capture('profile');
-    await check(`document.querySelector('.ui-profile').requestSubmit()`);
+    await pressKey('Enter');
     await pause(6500);
     assert.equal(
       c.events
@@ -1182,7 +1229,7 @@ checkUi: try {
     assert.equal(
       await check('window.audioContexts'),
       1,
-      'Play initializes audio before the first flight control',
+      'Play reuses the audio context before the first flight control',
     );
     await waitFor(
       `document.querySelector('#connection-status').hidden`,
@@ -1578,7 +1625,7 @@ checkUi: try {
 
     assert(savedToken);
 
-    const namedIdentity = await fetch('http://localhost:3000/api/identity', {
+    const namedIdentity = await fetch('http://localhost:3002/api/identity', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: savedToken,
@@ -1747,10 +1794,14 @@ checkUi: try {
     await checkShipPreview();
     await openMenuScreen('saves');
     await check(
-      `document.querySelector('[data-import-id]').value = localStorage.getItem('playerToken'); document.querySelector('[data-import]').requestSubmit()`,
+      `document.querySelector('[data-import-id]').value = localStorage.getItem('playerToken')`,
     );
-    await pause(250);
-    assert(await check(`document.querySelector('dialog').open`));
+    await click('[data-verify]', () =>
+      waitFor(
+        `document.querySelector('dialog').open`,
+        'pressing Verify submits the form before release',
+      ),
+    );
     await click('dialog button[value="cancel"]');
     assert.equal(
       await check(`localStorage.getItem('playerToken')`),
@@ -1796,7 +1847,7 @@ checkUi: try {
     );
 
     const preservedIdentity = await fetch(
-      'http://localhost:3000/api/identity',
+      'http://localhost:3002/api/identity',
       {
         method: 'POST',
         body: savedToken,
@@ -1820,6 +1871,16 @@ checkUi: try {
     );
     await capture('returning');
     await checkShipPreview();
+
+    await openMenuScreen('credits');
+    assert.equal(
+      await check('window.audioContexts'),
+      1,
+      'a mouse click enables audio without keyboard navigation',
+    );
+    await hover('[data-back]');
+    await waitFor('window.audioStarts === 1', 'submenu hover plays the cue');
+    await click('[data-back]');
 
     const { identifier: previewObserverScript } = await c.send(
       'Page.addScriptToEvaluateOnNewDocument',
@@ -1944,7 +2005,9 @@ checkUi: try {
           const play = document.querySelector('.ui-main [data-action="play"]');
           if (!play) return;
           observer.disconnect();
-          play.click();
+          play.dispatchEvent(new PointerEvent('pointerdown', {
+            bubbles: true, cancelable: true, isPrimary: true, pointerType: 'mouse',
+          }));
           window.playedBeforePreview = true;
         }).observe(document, { childList: true, subtree: true });`,
       },
@@ -1985,7 +2048,7 @@ checkUi: try {
   });
 
   await c.send('Page.navigate', {
-    url: `http://localhost:3000/${fixturePath}/index.html`,
+    url: `http://localhost:3002/${fixturePath}/index.html`,
   });
 
   await pause(250);
@@ -4164,7 +4227,36 @@ checkUi: try {
       wholeShip,
     'leaving an unselected hull restores the whole ship at full opacity',
   );
-  await click('[data-key="hull:0"]');
+  await check(`(() => {
+    window.cueBuffers = [];
+    Object.defineProperty(window, 'selectCueStarts', {
+      get: () => window.cueBuffers.filter(buffer => buffer === window.selectCueBuffer).length,
+    });
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      window.cueBuffers.push(this.buffer);
+      return start.apply(this, args);
+    };
+  })()`);
+  await hover('[data-key="hull:0"]');
+  await check(`window.hoverCueBuffers = window.cueBuffers.slice()`);
+  await click('[data-key="hull:0"]', () =>
+    waitFor(
+      `window.cueBuffers.length === window.hoverCueBuffers.length + 1 && document.activeElement.closest('.dock-detail')`,
+      'mouse press opens the hull details and plays the select cue before release',
+    ),
+  );
+  await check(`window.selectCueBuffer = window.cueBuffers.at(-1)`);
+  assert.equal(
+    await check('window.hoverCueBuffers.includes(window.selectCueBuffer)'),
+    false,
+    'hover does not select a hull',
+  );
+  assert.equal(
+    await check('window.selectCueStarts'),
+    1,
+    'mouse release does not repeat the select cue',
+  );
   await hover('[data-key="hull:1"]');
   await pause(100);
 
@@ -4192,7 +4284,21 @@ checkUi: try {
 
   for (const key of ['Enter', ' ']) {
     await check(`document.querySelector('[data-key="mount:2"]').focus()`);
-    await pressKey(key);
+    const selectStarts = await check('window.selectCueStarts');
+
+    await pressKey(key, {
+      onDown: () =>
+        waitFor(
+          `window.selectCueStarts === ${selectStarts + 1} && document.activeElement.matches('[data-candidates]')`,
+          'keydown opens compatible modules and plays the select cue before release',
+        ),
+    });
+
+    assert.equal(
+      await check('window.selectCueStarts'),
+      selectStarts + 1,
+      'key release does not repeat the select cue',
+    );
     assert(
       await check(
         `document.activeElement.matches('[data-candidates]') && document.querySelector('[data-fitting-preview]').hidden`,

@@ -87,7 +87,7 @@ test('production binding exposure preserves imports, exports, and deferred impor
 test('latency CLI defaults to four-client healthy-link production measurement', () => {
   const options = parseLatencyOptions([]);
 
-  assert.equal(options.url, 'http://localhost:3000/');
+  assert.equal(options.url, 'http://localhost:3002/');
   assert.equal(options.networkPermission, 'loopback-network');
   assert.equal(options.scenario, 'both');
   assert.equal(options.target, 'local');

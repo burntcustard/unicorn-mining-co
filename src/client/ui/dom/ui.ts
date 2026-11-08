@@ -1,5 +1,17 @@
 import './ui.css';
 import { backdropBlur, hideUi } from './graphics';
+import {
+  playHoverSound,
+  playNavigationSound,
+  preloadSound,
+  unlockAudio,
+} from '../../audio/sound-loader';
+
+declare global {
+  interface HTMLElementEventMap {
+    'ui-press': CustomEvent<PointerEvent | KeyboardEvent>;
+  }
+}
 
 export type Screen = {
   element: HTMLElement;
@@ -28,6 +40,22 @@ export const query = <T extends Element = HTMLElement>(
   element: ParentNode,
   selector: string,
 ) => element.querySelector<T>(selector)!;
+
+export const focusMenuTarget = (
+  target: HTMLElement | undefined,
+  key: string,
+) => {
+  if (!target || target === document.activeElement) return;
+
+  const play = () => {
+    playNavigationSound(key === 'ArrowUp' ? -1 : key === 'ArrowDown' ? 1 : 0);
+  };
+
+  // Focus confirms the move before the docked focusin handler renders details.
+  target.addEventListener('focus', play, { once: true });
+  target.focus();
+  target.removeEventListener('focus', play);
+};
 
 const root =
   document.querySelector<HTMLElement>('.hud') || document.createElement('div');
@@ -104,6 +132,86 @@ export const ui = (() => {
     while (stack.length) back();
   };
 
+  const press = (event: PointerEvent | KeyboardEvent) => {
+    const screen = stack.at(-1)?.element;
+    const path = event.composedPath();
+    const target = path[0];
+
+    if (
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      !screen ||
+      !path.includes(screen) ||
+      !(target instanceof Element)
+    ) {
+      return;
+    }
+
+    const button = target.closest<HTMLButtonElement>('button');
+
+    if (button?.matches(':disabled, [aria-disabled="true"]')) return;
+
+    if (event instanceof KeyboardEvent) {
+      if (!button || event.isComposing || !['Enter', ' '].includes(event.key)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (event.repeat) return;
+    } else {
+      if (!event.isPrimary || event.button !== 0) return;
+
+      if (button) {
+        event.preventDefault();
+        const pointerFocus = { preventScroll: true, focusVisible: false };
+
+        button.focus(pointerFocus);
+      }
+    }
+
+    if (event.isTrusted) {
+      void unlockAudio()?.catch(() => {});
+
+      void preloadSound().catch(() => {});
+    }
+
+    (button || target).dispatchEvent(
+      new CustomEvent('ui-press', { bubbles: true, detail: event }),
+    );
+  };
+
+  element.addEventListener('pointerdown', press);
+  element.addEventListener('keydown', press);
+
+  element.addEventListener('pointerover', (event) => {
+    const target = event.composedPath()[0];
+
+    if (
+      event.pointerType === 'touch' ||
+      event.buttons ||
+      !(target instanceof Element)
+    ) {
+      return;
+    }
+
+    const selector = 'button, a[href], input, select, textarea';
+    const control = target.closest(selector);
+    const related = event.relatedTarget;
+
+    if (
+      !control ||
+      control.matches(':disabled') ||
+      (related instanceof Element && related.closest(selector) === control)
+    ) {
+      return;
+    }
+
+    playHoverSound();
+  });
+
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Tab') element.classList.remove('ui-arrow-navigation');
 
@@ -148,7 +256,7 @@ export const ui = (() => {
           : -1
         : (index + direction) % buttons.length;
 
-    buttons.at(next)?.focus();
+    focusMenuTarget(buttons.at(next), event.key);
   });
 
   return {

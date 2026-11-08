@@ -3,6 +3,7 @@ import { createScreen, query } from './ui';
 import { verifyIdentity, type Identity } from './identity';
 import { version } from '../../../../package.json';
 import { fontText } from '../../utilities/font-text';
+import { preloadSound } from '../../audio/sound-loader';
 
 export const createMainMenu = ({
   running,
@@ -27,38 +28,45 @@ export const createMainMenu = ({
   query(screen.element, '[data-action="disconnect"]').hidden = !running;
 
   screen.element.classList.toggle('ui-backdrop', running);
-  screen.escape = () => running && play.click();
+
+  const activate = async (button: HTMLButtonElement) => {
+    if (button.disabled) return;
+    const destination = button.getAttribute('data-action');
+
+    if (destination === 'disconnect') {
+      location.reload();
+      return;
+    }
+
+    button.disabled = true;
+
+    if (destination === 'play') cancelPreview();
+
+    try {
+      if (destination === 'play') {
+        await onPlay();
+      } else {
+        await onNavigate(destination);
+      }
+    } catch {
+      /* Leave the menu available if a chunk cannot load. */
+    } finally {
+      button.disabled = false;
+
+      if (destination === 'play') schedulePreview();
+    }
+  };
+
+  screen.escape = () => {
+    if (running) void activate(play);
+  };
 
   screen.element.addEventListener(
-    'click',
-    async (event) => {
+    'ui-press',
+    (event) => {
       const button = (event.composedPath()[0] as Element).closest('button');
 
-      if (!button) return;
-      const destination = button.getAttribute('data-action');
-
-      if (destination === 'disconnect') {
-        location.reload();
-        return;
-      }
-
-      button.disabled = true;
-
-      if (destination === 'play') cancelPreview();
-
-      try {
-        if (destination === 'play') {
-          await onPlay();
-        } else {
-          await onNavigate(destination);
-        }
-      } catch {
-        /* Leave the menu available if a chunk cannot load. */
-      } finally {
-        button.disabled = false;
-
-        if (destination === 'play') schedulePreview();
-      }
+      if (button) void activate(button);
     },
     { signal: screen.signal },
   );
@@ -155,6 +163,8 @@ export const createMainMenu = ({
     previewFrame = requestAnimationFrame(() => {
       previewTimer = window.setTimeout(() => {
         previewRequested = true;
+
+        void preloadSound().catch(() => {});
 
         void loadPreview()
           .then(() => {

@@ -56,7 +56,7 @@ WHITE - Unlocked by default from the start of the game.
    `npm run dev:server`
 
 4. In another terminal, start hot-reloading [Vite](https://vitejs.dev/) at
-   [localhost:3000](http://localhost:3000/)
+   [localhost:3002](http://localhost:3002/)
    `npm run dev`
 
 5. Build the browser assets in `dist/` and Go executable in `bin/server`
@@ -66,14 +66,18 @@ WHITE - Unlocked by default from the start of the game.
    [localhost:3001](http://localhost:3001/). It serves the client and WebSocket
    on the same port. `npm run preview` also works with `start:server` running.
 
+Port 3001 is reserved for the Go server. The dev frontend starts at 3002 and
+tools start at 3100, advancing to the next available port when needed. Start
+these in any order and use the URL Vite prints. The frontend proxies game
+connections to the Go server on 3001.
+
 Use `dev` with `dev:server`, or the production build with `start:server`.
 New players start with 2,000 credits. Existing players keep their saved balance.
 The same Go server supports source and production clients through binary packets.
 Node is used only for frontend builds, generators, and development/test tooling.
 
 To preview object specs independently, run `npm run tool:object-viewer` and open
-[localhost:3000](http://localhost:3000/). Stop the regular frontend first because
-both use port 3000. The development-only GameObject Viewer needs no Go server.
+the URL printed by Vite (starting at port 3100). The development-only GameObject Viewer needs no Go server.
 It uses the actual client renderers for ships, stations, items and procedural
 asteroids, including spiky amethyst. Each mount lists its position and a dropdown
 of compatible modules; its checkbox activates all segments of the fitted instance.
@@ -89,11 +93,30 @@ survive updates and page refreshes. Viewer source lives under `src/tools/game-ob
 excluded from the game production entry.
 
 To preview Gemetric, run `npm run tool:font-viewer` and open
-[localhost:3000](http://localhost:3000/) with the other frontend stopped.
+the URL printed by Vite (starting at port 3100).
 See [font/README.md](font/README.md) for glyph editing, generation, and reuse.
 
+To preview and edit game audio, run `npm run tool:sound-editor` and open
+the URL printed by Vite (starting at port 3100).
+The Sound Editor uses the game's synth and runs without a Go server.
+Choose an event from the searchable list, then play the event or solo a layer.
+Edit the layer controls and use the waveform to inspect their timing.
+Selecting an event or making a valid edit previews the sound. Save writes
+only the selected event or layer. External file edits replace its pending
+draft, so save any edits you want to keep before changing the file.
+
+Use **New sound event** to create a spec. **Save layer** copies a layer into
+the Unassigned library, and **Add to event** copies a saved layer into an event.
+Switch to Continuous sounds to preview engine power and load or horn drill
+biting. Spec files live under `src/specs/sounds/`.
+
+The offline tools can measure a change, compare spectrograms, export rapid
+repeats, and fit a procedural event to a recording. See the
+[sound analysis workflow](.agents/skills/sound-design/references/workflow.md)
+for commands.
+
 To inspect procedural sectors, run `npm run tool:world-viewer` and open
-[localhost:3000](http://localhost:3000/) with the other frontend stopped.
+the URL printed by Vite (starting at port 3100).
 The World Viewer needs no Go server. Choose a seed and sector, pan by dragging,
 and scroll to zoom. The world map shows the connected initial 20 sectors;
 enable future sectors to see all 68. Click a map sector to inspect its fields,

@@ -2,7 +2,7 @@
 
 Run one suite at a time. The NPC collection command builds and starts its own
 services; other suites require `npm run build` first. Local benchmarks use the
-normal frontend and Go server on ports 3000/3001. Captures are saved in
+normal frontend and Go server on ports 3002/3001. Captures are saved in
 `benchmarking/_local/`, including partial results when a run fails.
 
 | Suite                | Command                                       |
@@ -144,7 +144,7 @@ restore the normal budget-matched watcher afterward. This fixture is local only.
 Stop the existing watcher itself before starting its replacement, including a
 watcher running in another terminal or in the background. A second server cannot
 open the same world database. Wait for the fixture server's listening message on
-port 3001 before running the suite, and keep Vite running on port 3000.
+port 3001 before running the suite, and keep Vite running on port 3002.
 The runner checks the server's memory settings, overlay, and frontend before
 opening Chrome. Failures print the cause and report path in the terminal.
 Reset the local world once before the complete comparison session as required

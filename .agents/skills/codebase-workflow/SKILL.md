@@ -60,7 +60,7 @@ individual effect specs; those are visual design choices edited in data.
   concrete reason before acting. Preserve the user's running services,
   including any replacement needed for a necessary restart.
 - When starting a missing service, use `npm run dev:server` (port 3001) and
-  `npm run dev -- --strictPort` (port 3000). Use `npm run preview -- --strictPort`
+  `npm run dev -- --strictPort` (port 3002). Use `npm run preview -- --strictPort`
   only when production testing requires it and no suitable preview is running.
   Preserve the normal WebSocket proxy; do not add `PORT`, `GAME_SERVER_URL`,
   or alternate-port overrides to testing commands. If a required port is

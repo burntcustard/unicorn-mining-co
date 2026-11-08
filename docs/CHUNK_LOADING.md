@@ -7,15 +7,15 @@ chunk transforms.
 
 ## Loading triggers
 
-| Resource                          | Trigger                                                                                                                                             |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Inline background renderer        | HTML parsing. Built separately from `src/client/background/background-boot.ts`.                                                                     |
-| `index` and shared CSS            | HTML parsing. Mounts the main menu without gameplay or ship rendering.                                                                              |
-| `menu-screens`                    | First navigation to Settings, Saves, or Credits, or Play when the authenticated account needs a profile name.                                       |
-| `ship-preview`                    | After the main menu's first paint. Play cancels a pending preview.                                                                                  |
-| `gameplay`                        | After the ship preview paints, or immediately on Play. Authenticates the connection; Play enters the world and starts the game loop.                |
-| `sound`                           | Gameplay preparation loads the code. Play initializes audio alongside world entry; gameplay keyboard input also unlocks it if suspended.            |
-| `docked`, its CSS, and SVG assets | Gameplay preparation loads the assets. The screen opens when the predicted ship is docked, launch is not pending, and no other HTML screen is open. |
+| Resource                          | Trigger                                                                                                                                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inline background renderer        | HTML parsing. Built separately from `src/client/background/background-boot.ts`.                                                                                                         |
+| `index` and shared CSS            | HTML parsing. Mounts the main menu without gameplay or ship rendering.                                                                                                                  |
+| `menu-screens`                    | First navigation to Settings, Saves, or Credits, or Play when the authenticated account needs a profile name.                                                                           |
+| `ship-preview`                    | After the main menu's first paint. Play cancels a pending preview.                                                                                                                      |
+| `gameplay`                        | After the ship preview paints, or immediately on Play. Authenticates the connection; Play enters the world and starts the game loop.                                                    |
+| `sound`                           | Loads after the first main menu paint, on an earlier menu press or arrow-key move, or during gameplay preparation. A menu press, a successful arrow-key move, or Play can enable audio. |
+| `docked`, its CSS, and SVG assets | Gameplay preparation loads the assets. The screen opens when the predicted ship is docked, launch is not pending, and no other HTML screen is open.                                     |
 
 Shared dependency chunks, including `ship`, `shield`, and `keybindings`, load
 with their importers. They have no independent loading trigger. Keep the runtime

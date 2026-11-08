@@ -1,8 +1,51 @@
+import hatchOpen from '../../specs/sounds/hatch-open';
+import hatchClose from '../../specs/sounds/hatch-close';
+import pickup from '../../specs/sounds/pickup';
+import crash from '../../specs/sounds/crash';
+import asteroidBreak from '../../specs/sounds/asteroid-break';
+import shieldBounce from '../../specs/sounds/shield-bounce';
+import shieldOn from '../../specs/sounds/shield-on';
+import shieldOff from '../../specs/sounds/shield-off';
+import ui from '../../specs/sounds/ui';
+import uiNavUp from '../../specs/sounds/ui-nav-up';
+import uiNavNeutral from '../../specs/sounds/ui-nav-neutral';
+import uiNavDown from '../../specs/sounds/ui-nav-down';
+import uiNavSelect from '../../specs/sounds/ui-nav-select';
+import uiNavUnselect from '../../specs/sounds/ui-nav-unselect';
+import searchLight from '../../specs/sounds/search-light';
+import acquireTarget from '../../specs/sounds/acquire-target';
+import engineSettings from '../../specs/sounds/engine';
+import hornDrillSettings from '../../specs/sounds/horn-drill';
+import { renderContinuousBuffer, renderEffectBuffer } from './synthesis';
+import { audio, unlockAudio } from './audio-context';
+
 // The drill and engine use looped audio buffers with smooth parameter ramps.
-let audio: AudioContext | 0 = 0;
 const loopBuffers: (AudioBuffer | undefined)[] = [];
 const effectBuffers: (AudioBuffer | undefined)[] = [];
+const navigationBuffers: (AudioBuffer | undefined)[] = [];
+const navigationSounds = [
+  uiNavUp,
+  uiNavNeutral,
+  uiNavDown,
+  uiNavUnselect,
+  uiNavSelect,
+];
 const effectNextPlay = new Map<string, [number, number]>();
+// Numeric IDs belong to the protocol; keep their event mapping explicit.
+const events = [
+  hatchOpen,
+  hatchClose,
+  pickup,
+  crash,
+  asteroidBreak,
+  shieldBounce,
+  shieldOn,
+  shieldOff,
+  ui,
+  searchLight,
+  // Client-only cue, addressed by name rather than a protocol sound ID.
+  acquireTarget,
+];
 
 interface Sound extends AudioBufferSourceNode {
   gain: AudioParam;
@@ -10,30 +53,69 @@ interface Sound extends AudioBufferSourceNode {
   pitch?: number;
 }
 
-// Must run synchronously inside a real user gesture (keydown/click) to count
-// as one for autoplay purposes - a rAF-driven call a frame later is too late
-// for some browsers (Firefox in particular), which then leave the context
-// suspended forever with no error, so start() silently does nothing.
-export const unlockAudio = () => {
-  audio ||= new AudioContext();
-  audio.resume();
+const navigationBuffer = (
+  index: number,
+  context: Pick<BaseAudioContext, 'createBuffer'>,
+) =>
+  (navigationBuffers[index] ||= renderEffectBuffer({
+    context,
+    layers: navigationSounds[index],
+  }));
+
+// Prepare the cues without opening an audio device before a user gesture.
+if (
+  typeof requestIdleCallback === 'function' &&
+  typeof AudioBuffer === 'function'
+) {
+  const buffers: Pick<BaseAudioContext, 'createBuffer'> = {
+    createBuffer: (numberOfChannels, length, sampleRate) =>
+      new AudioBuffer({ numberOfChannels, length, sampleRate }),
+  };
+
+  const prepareNavigationSounds = (deadline: IdleDeadline) => {
+    // Select is the longest cue, so give it the first idle window.
+    for (let index = navigationSounds.length - 1; index >= 0; index--) {
+      if (navigationBuffers[index]) continue;
+
+      if (deadline.timeRemaining() < 5) {
+        requestIdleCallback(prepareNavigationSounds);
+        return;
+      }
+
+      navigationBuffer(index, buffers);
+    }
+  };
+
+  requestIdleCallback(prepareNavigationSounds);
+}
+
+const playNavigationSound = (cue: -1 | 0 | 1 | 'select' | 'unselect') => {
+  if (!audio || audio.state === 'closed') return;
+
+  const index = cue === 'select' ? 4 : cue === 'unselect' ? 3 : cue + 1;
+  const source = audio.createBufferSource();
+
+  source.buffer = navigationBuffer(index, audio);
+  source.connect(audio.destination);
+  // Queue the cue while the context resumes so it can start on the audio clock.
+  source.start();
 };
 
 /**
- * Slide an AudioParam smoothly to a target value using setTargetAtTime.
+ * Slide an AudioParam smoothly over a duration in milliseconds using setTargetAtTime.
  *
  * Returns the audio-clock time when the fade is effectively complete.
  */
 export const ramp = (
   param: AudioParam,
   value: number,
-  duration = 1.2,
+  duration = 1200,
 ): number => {
   const time = (audio as AudioContext).currentTime + 0.01;
 
-  param.setTargetAtTime(value, time, duration / 5);
+  param.setTargetAtTime(value, time, duration / 5000);
 
-  return time + duration;
+  return time + duration / 1000;
 };
 
 /**
@@ -47,30 +129,13 @@ export const tone = (engine = 0) => {
   const source = context.createBufferSource() as Sound;
   const gain = context.createGain();
 
-  let air = 0;
-  let filtered = 0;
+  const kind = engine ? 'engine' : 'hornDrill';
+  const settings = engine ? engineSettings : hornDrillSettings;
 
-  const length = engine ? 44100 : 1470;
-
-  source.buffer = loopBuffers[length] ||= soundBuffer(length, (i: number) => {
-    const phase = i / length;
-
-    if (engine) {
-      air += (Math.random() * 2 - 1 - air) * 0.02;
-      filtered += (air - filtered) * 0.02;
-      const p = phase * Math.PI * 44;
-      const fundamental = Math.sin(p);
-      const stroke =
-        fundamental * 0.5 + Math.sin(p * 2) * 0.3 + Math.sin(p * 3) * 0.2;
-
-      return stroke * 0.4 + filtered * (0.6 + 0.4 * fundamental);
-    }
-
-    const t = (phase * 35) / 30;
-    const wave = 1 - 4 * Math.abs(Math.round(t) - t);
-    const env = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
-
-    return wave * env * 0.3;
+  source.buffer = loopBuffers[engine] ||= renderContinuousBuffer({
+    context,
+    kind,
+    settings,
   });
 
   source.loop = true;
@@ -79,7 +144,7 @@ export const tone = (engine = 0) => {
 
   source.gain = gain.gain;
   source.gain.value = 0;
-  source.playbackRate.value = engine ? 0.7 : 0.4;
+  source.playbackRate.value = settings.basePitch;
   source.start();
 
   return source;
@@ -97,41 +162,26 @@ export const testTone = () => {
 };
 // @endif
 
-// Finish writing every sample before a source receives the buffer (Firefox).
-const soundBuffer = (length: number, sample: (index: number) => number) => {
-  const buffer = (audio as AudioContext).createBuffer(1, length, 44100);
-
-  buffer.getChannelData(0).forEach((_, i, samples) => (samples[i] = sample(i)));
-  return buffer;
-};
-
-// Volume, frequency, attack, decay, optional noise cutoff, end frequency.
-// Tonal effects are sine waves; a cutoff selects filtered noise instead.
-const effectData = (
-  '2,0,0.01,0.1,1000,0,' + // hatchOpen
-  '4,0,0.01,0.1,200,0,' + // hatchClose
-  '0.1,660,0.01,0.1,0,1000,' + // pickup
-  '9,0,0.05,0.5,70,0,' + // crash
-  '2,75,0.01,0.2,0,18,' + // asteroidBreak
-  '1,190,0.01,0.3,0,200,' + // shieldBounce
-  '1,120,0.02,0.3,0,480,' + // shieldOn
-  '0.2,480,0.01,0.5,0,100,' + // shieldOff
-  '0.2,800,0.01,0.1,0,800,' + // ui
-  '0.1,1200,0.01,0.05,0,1200'
-) // search light toggle
-  .split(',')
-  .map(Number);
-
 export const playSound = (
-  effect: number,
+  effect: number | 'acquire-target',
   {
     volume = 1,
     id = 0,
     by = 0,
   }: { volume?: number; id?: number; by?: number } = {},
 ) => {
+  if (effect === 'acquire-target') effect = 10;
+
   // A real key gesture unlocks audio. Drop effects before that first gesture.
-  if (!audio || audio.state !== 'running' || volume <= 0) return;
+  if (
+    !audio ||
+    audio.state !== 'running' ||
+    volume <= 0 ||
+    !events[effect]?.length
+  ) {
+    return;
+  }
+
   const time = audio.currentTime;
 
   const key = `${effect}:${id}:${by}`;
@@ -145,36 +195,11 @@ export const playSound = (
 
   effectNextPlay.set(key, [time + 0.1, volume]);
 
-  // Render each complete effect once. Rapid playback then reuses one buffer.
-  if (!effectBuffers[effect]) {
-    const [volume, frequency, attack, decay, cutoff, endFrequency = frequency] =
-      effectData.slice(effect * 6, effect * 6 + 6);
-    const sampleRate = 44100;
-    const length = ((attack + decay) * sampleRate) | 0;
-
-    let filtered = 0;
-    let bass = 0;
-    let t = 0;
-
-    effectBuffers[effect] = soundBuffer(length, (i: number) => {
-      t += (frequency + ((endFrequency - frequency) * i) / length) / sampleRate;
-      const wave = cutoff ? Math.random() * 2 - 1 : Math.sin(t * Math.PI * 2);
-      const elapsed = i / sampleRate;
-      const envelope = Math.min(
-        elapsed / attack,
-        0.01 ** ((elapsed - attack) / decay),
-      );
-      const sample = wave * envelope * volume;
-
-      filtered +=
-        (sample - filtered) * (cutoff ? cutoff / (cutoff + sampleRate) : 1);
-      // Subtract a gentle 30 Hz low-pass to soften asteroid-break sub-bass.
-      bass +=
-        (filtered - bass) *
-        (effect === 4 ? (2 * Math.PI * 30) / sampleRate : 0);
-      return filtered - bass;
-    });
-  }
+  // All layers begin together; repeated events reuse the complete mix.
+  effectBuffers[effect] ||= renderEffectBuffer({
+    context: audio,
+    layers: events[effect],
+  });
 
   const source = (audio as AudioContext).createBufferSource();
   const gain = (audio as AudioContext).createGain();
@@ -196,14 +221,15 @@ export const continuousSound = (
 
   if (!sound && !level) return;
   sound ||= tone(engine);
+  const duration = (engine ? engineSettings : hornDrillSettings).ramp;
 
   if (sound.pitch !== playbackRate) {
-    ramp(sound.playbackRate, (sound.pitch = playbackRate));
+    ramp(sound.playbackRate, (sound.pitch = playbackRate), duration);
   }
 
   if (level === sound.level) return sound;
 
-  const time = ramp(sound.gain, level);
+  const time = ramp(sound.gain, level, duration);
 
   sound.level = level;
 
@@ -221,18 +247,20 @@ export const updateThrusterSound = (
     volume = 1,
   }: { power: number; load?: number; volume?: number },
 ) => {
-  const revs = load * 1.2;
+  const settings = engineSettings;
+  const revs = load * settings.revRange;
 
   return continuousSound(
     sound,
-    (power * (0.24 + revs) * volume) / 2,
-    0.7 + revs,
+    power * (settings.idleVolume + revs) * volume * settings.volume,
+    settings.basePitch + revs,
     1,
   );
 };
 
 export default {
   unlockAudio,
+  playNavigationSound,
   playSound,
   continuousSound,
   updateThrusterSound,

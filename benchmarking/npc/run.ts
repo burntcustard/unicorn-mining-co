@@ -51,7 +51,7 @@ const displayNames: Record<string, string> = {
   'collection-finch': 'Gather Finch',
 };
 
-const url = 'http://localhost:3000/';
+const url = 'http://localhost:3002/';
 const output = resolve(options.output);
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-npc-protocol-'));
 const cancellation = new AbortController();
@@ -191,7 +191,7 @@ try {
     assert(response.ok);
   } catch {
     throw new Error(
-      'The game frontend is unavailable on port 3000. Start npm run dev -- --strictPort in another terminal, keeping the NPC fixture watcher running.',
+      'The game frontend is unavailable on port 3002. Start npm run dev -- --strictPort in another terminal, keeping the NPC fixture watcher running.',
     );
   }
 
