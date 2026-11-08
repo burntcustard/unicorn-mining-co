@@ -120,6 +120,8 @@
 [ ] Add sound: Jump Gate open/close
 [ ] Add sound: New asteroid split
 [ ] Sound volume slider in settings
+[ ] Fix ships in stations rendering on map
+[ ] Player list (with tab and/or just near/on map?)
 
 ## Big future things
 
