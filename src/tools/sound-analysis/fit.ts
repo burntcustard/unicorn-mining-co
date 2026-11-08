@@ -50,14 +50,17 @@ if (values.help || !reference || !base || !output) {
     ambience: analyzeSpectrum(ambience).grid,
   });
 
-  const round = (number: number) => Math.round(number * 1000) / 1000;
+  const round = (number: number, key: EffectNumberKey) =>
+    effectParameters[key].integer
+      ? Math.round(number)
+      : Math.round(number * 1000) / 1000;
   const keys = Object.keys(effectParameters) as EffectNumberKey[];
 
   const layers = (await readLayers(base)).map((layer) => {
     const compact = compactOptional(layer);
 
     for (const key of keys) {
-      if (compact[key] !== undefined) compact[key] = round(compact[key]);
+      if (compact[key] !== undefined) compact[key] = round(compact[key], key);
     }
 
     return { ...compact, waveform: resolveSoundEffect(layer).waveform };
@@ -93,6 +96,7 @@ if (values.help || !reference || !base || !output) {
         for (const direction of [-1, 1]) {
           const next = round(
             Math.min(max, Math.max(min, start + direction * delta)),
+            key,
           );
           const previous = layer[key];
 

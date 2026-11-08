@@ -22,6 +22,9 @@ import {
 } from '../../src/client/audio/synthesis.ts';
 import {
   compactOptional,
+  effectParameters,
+  engineParameters,
+  hornDrillParameters,
   maxLayers,
   normalizeSoundName,
   soundEvents,
@@ -62,7 +65,49 @@ const exactTiming = { ...fractionalTiming };
 
 validateSound('ui', [fractionalTiming]);
 
-assert.deepEqual(fractionalTiming, exactTiming);
+assert.deepEqual(fractionalTiming, {
+  ...exactTiming,
+  decay: 101,
+  delay: 4,
+  pitchDuration: 19,
+  filterDuration: 20,
+});
+
+for (const parameters of [
+  effectParameters,
+  engineParameters,
+  hornDrillParameters,
+]) {
+  for (const parameter of Object.values(parameters)) {
+    if (parameter.max > 500) assert.equal(parameter.integer, true);
+  }
+}
+
+const fractionalFrequencies = [
+  {
+    ...basic,
+    frequency: 198.4,
+    endFrequency: 194.8,
+    cutoff: 1999.6,
+    highpass: 75.7,
+    resonance: 852.7,
+    endResonance: 866.4,
+    ring: 5.018,
+  },
+];
+
+validateSound('ui', fractionalFrequencies);
+
+assert.deepEqual(fractionalFrequencies[0], {
+  ...basic,
+  frequency: 198,
+  endFrequency: 195,
+  cutoff: 2000,
+  highpass: 76,
+  resonance: 853,
+  endResonance: 866,
+  ring: 5.018,
+});
 
 validateSound('ui', []);
 validateSound('ui', [{ ...basic, attack: 0, decay: 0 }]);

@@ -136,6 +136,7 @@ const frequency = {
   step: 1,
   scale: 'log',
   unit: 'Hz',
+  integer: true,
 } as const;
 
 const volume = { min: 0, max: 16, step: 0.01, inputStep: 0.01 };
@@ -149,7 +150,7 @@ const duration = {
   integer: true,
 } as const;
 
-const effectDuration = { ...duration, min: 0, integer: false };
+const effectDuration = { ...duration, min: 0 };
 const attackLimit = 250;
 const decayLimit = 2500;
 const holdLimit = 500;
@@ -175,11 +176,21 @@ export const effectParameters: Record<EffectNumberKey, Parameter> = {
     ...effectDuration,
     max: 1000,
   },
-  attack: { label: 'Attack', ...effectDuration, max: attackLimit },
+  attack: {
+    label: 'Attack',
+    ...effectDuration,
+    max: attackLimit,
+    integer: false,
+  },
   decay: { label: 'Decay', ...effectDuration, max: decayLimit },
-  hold: { label: 'Hold', ...effectDuration, max: holdLimit },
+  hold: { label: 'Hold', ...effectDuration, max: holdLimit, integer: false },
   sustain: { label: 'Sustain level', ...weight },
-  release: { label: 'Release', ...effectDuration, max: releaseLimit },
+  release: {
+    label: 'Release',
+    ...effectDuration,
+    max: releaseLimit,
+    integer: false,
+  },
   cutoff: { label: 'Low-pass', ...frequency },
   endCutoff: { label: 'End low-pass', ...frequency },
   highpass: { label: 'High-pass', ...highpass },
@@ -191,7 +202,7 @@ export const effectParameters: Record<EffectNumberKey, Parameter> = {
   },
   resonance: { label: 'Resonance', ...frequency },
   endResonance: { label: 'End resonance', ...frequency },
-  ring: { label: 'Ring', ...effectDuration, min: 1, max: 500 },
+  ring: { label: 'Ring', ...effectDuration, min: 1, max: 500, integer: false },
 };
 
 const curves = ['linear', 'exponential', 'ease-in', 'ease-out'] as const;

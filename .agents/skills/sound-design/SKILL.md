@@ -9,7 +9,9 @@ description: Create and revise procedural one-shot sounds, audition them in the 
   inspired by Star Wars, Elite Dangerous, and arcade games. Share motifs
   across related actions. Use the fewest layers
   that give the intended sound, up to eight for UI, and at most three decimal
-  places per property.
+  places per property. Sound parameters whose editor range exceeds 500 must
+  use integers, including frequencies, filters, delay, decay, and sweep durations;
+  omit explicitly stored defaults such as `hold: 0`.
 - For a new sound, normally offer three distinct, descriptively named
   `SoundEffect[]` specs. Once the user chooses one, focus edits on that spec.
   Connect sounds to gameplay only when requested.

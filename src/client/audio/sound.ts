@@ -1,4 +1,5 @@
 import plasmaAcceleratorReady from '../../specs/sounds/plasma-accelerator-ready';
+import plasmaAcceleratorCharge from '../../specs/sounds/plasma-accelerator-charge';
 import plasmaAcceleratorFire from '../../specs/sounds/plasma-accelerator-fire';
 import plasmaAcceleratorAmmoExplode from '../../specs/sounds/plasma-accelerator-ammo-explode';
 import loseTarget from '../../specs/sounds/lose-target';
@@ -69,6 +70,7 @@ const events = [
   plasmaAcceleratorReady,
   plasmaAcceleratorFire,
   plasmaAcceleratorAmmoExplode,
+  plasmaAcceleratorCharge,
 ];
 
 interface Sound extends AudioBufferSourceNode {
@@ -200,6 +202,7 @@ export const playSound = (
     | 'autogun-fire'
     | 'autogun-ammo-explode'
     | 'plasma-accelerator-ready'
+    | 'plasma-accelerator-charge'
     | 'plasma-accelerator-fire'
     | 'plasma-accelerator-ammo-explode',
   {
@@ -224,6 +227,7 @@ export const playSound = (
         'plasma-accelerator-ready',
         'plasma-accelerator-fire',
         'plasma-accelerator-ammo-explode',
+        'plasma-accelerator-charge',
       ].indexOf(effect) + 10;
   }
 

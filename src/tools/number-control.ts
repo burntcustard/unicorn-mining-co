@@ -49,6 +49,7 @@ export const numberControl = ({
   number.min = String(min);
   number.max = String(max);
   number.step = String(parameter.inputStep ?? (integer ? step : 'any'));
+  value = integer ? Math.round(value) : value;
   number.value = String(value);
   slider.type = 'range';
   slider.min = '0';
@@ -61,6 +62,7 @@ export const numberControl = ({
   bounds.className = 'text-muted';
 
   const setValue = (value: number) => {
+    value = integer ? Math.round(value) : value;
     number.value = String(value);
     number.setCustomValidity('');
     number.setAttribute('aria-invalid', 'false');

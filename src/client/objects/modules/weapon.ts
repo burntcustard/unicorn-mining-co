@@ -13,8 +13,11 @@ import { Module, type ModuleRenderOptions } from './module';
 import { type Segment, type ShapeOutline } from '../../types';
 
 // Presentation history survives snapshot-driven module reconstruction.
-// Entries retain the firing deadline, last simulation tick, and ready-cue state.
-const shownShots = new WeakMap<Craft, Map<number, [number, number, boolean]>>();
+// Entries retain the firing deadline, tick, ready cue, and charged indicator count.
+const shownShots = new WeakMap<
+  Craft,
+  Map<number, [number, number, boolean, number]>
+>();
 
 export class Weapon extends Module {
   declare definitionId: WeaponId;
@@ -31,6 +34,7 @@ export class Weapon extends Module {
   }) {
     this.presentShot({
       craft,
+      segments,
       ready:
         Math.max(this.fireCooldown, this.chargeCooldown) <= 1e-9 &&
         segments.some(
@@ -47,10 +51,12 @@ export class Weapon extends Module {
     craft,
     deadline,
     ready = false,
+    segments,
   }: {
     craft: Craft;
     deadline?: number;
     ready?: boolean;
+    segments?: Segment[];
   }) {
     let shots = shownShots.get(craft);
 
@@ -60,12 +66,13 @@ export class Weapon extends Module {
     }
 
     const tick = craft.world?.tick ?? 0;
-    const previous = shots.get(this.id) ?? [-Infinity, tick, false];
+    const previous = shots.get(this.id) ?? [-Infinity, tick, false, 0];
+    const rewound = tick < previous[1];
 
     // Cooldown counts down against simulation time, leaving the deadline fixed
     // until another shot. This also observes server shots after prediction is
     // corrected, without depending on a local marker absent from snapshots.
-    if (tick < previous[1]) {
+    if (rewound) {
       previous[0] = -Infinity;
       previous[2] = false;
     }
@@ -80,6 +87,31 @@ export class Weapon extends Module {
       this.definitionId === 'plasmaAccelerator' ||
       this.definitionId === 'plasmaAcceleratorTurret';
 
+    if (plasma && segments) {
+      const charged = new Set(
+        segments
+          .filter(
+            (segment) =>
+              segment.rechargeDelay !== undefined &&
+              segment.rechargeDelay < this.fireInterval &&
+              this.charged(segment),
+          )
+          .map((segment) => segment.rechargeDelay),
+      ).size;
+
+      if (
+        this.mount?.health > 0 &&
+        charged > previous[3] &&
+        !rewound &&
+        !ready &&
+        !shot
+      ) {
+        playSound('plasma-accelerator-charge', { id: this.id });
+      }
+
+      previous[3] = charged;
+    }
+
     // Held fire can complete charging and shoot between presented frames.
     if (plasma && this.mount?.health > 0 && (ready || shot) && !previous[2]) {
       playSound('plasma-accelerator-ready', { id: this.id });
@@ -88,6 +120,8 @@ export class Weapon extends Module {
     previous[2] = ready && !shot;
 
     if (shot) {
+      previous[3] = 0;
+
       if (
         this.definitionId === 'autogun' ||
         this.definitionId === 'autogunTurret'

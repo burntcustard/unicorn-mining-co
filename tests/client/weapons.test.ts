@@ -34,6 +34,7 @@ import {
 } from '${root}/src/client/objects/modules/index.ts';
 import { Craft } from '${root}/src/client/objects/craft.ts';
 import { Weapon } from '${root}/src/client/objects/modules/weapon.ts';
+import { soundCalls } from '${root}/src/client/audio/sound-loader.ts';
 import { contactBetween } from '${root}/src/client/collision/contact-between.ts';
 import { GameObject } from '${root}/src/client/objects/game-object.ts';
 import { Projectile } from '${root}/src/client/objects/projectile.ts';
@@ -1594,6 +1595,50 @@ for (const Type of [Autogun, PlasmaAccelerator]) {
   assert.equal(effects.length, 4, 'a delayed display frame cannot repeat a remote flash');
 }
 effects.length = 0;
+// Charging cues follow indicator transitions, not rendered-frame count.
+for (const definitionId of ['plasmaAccelerator', 'plasmaAcceleratorTurret']) {
+  soundCalls.length = 0;
+  const craft = { world: { tick: 1 } };
+  let weapon = Object.assign(Object.create(Weapon.prototype), {
+    definitionId, id: 900, fireInterval: 2, chargeCooldown: 2,
+    fireCooldown: 0, mount: { health: 1 }, muzzleFlash: undefined,
+  });
+  const segments = [.5, 1, 1.5, 2].map(rechargeDelay => ({
+    rechargeDelay, active: 1, activationProgress: 1,
+  }));
+  const present = () => weapon.updateVisual({ craft, segments, dt: 0 });
+  present();
+  assert.equal(soundCalls.length, 0);
+  for (let stage = 1; stage <= 3; stage++) {
+    craft.world.tick++;
+    weapon.chargeCooldown = 2 - stage * .5;
+    present();
+    weapon = Object.assign(Object.create(Weapon.prototype), weapon);
+    present();
+    assert.equal(soundCalls.length, stage, 'snapshot reconstruction does not replay a charge step');
+  }
+  weapon.chargeCooldown = 0;
+  present(); present();
+  assert.deepEqual(soundCalls.map(call => call[0]), [
+    'plasma-accelerator-charge', 'plasma-accelerator-charge',
+    'plasma-accelerator-charge', 'plasma-accelerator-ready',
+  ], 'three indicators sound before the barrel becomes ready');
+  weapon.chargeCooldown = 2;
+  present();
+  weapon.chargeCooldown = 1.5;
+  present();
+  assert.equal(soundCalls.length, 5, 'a new charging cycle sounds again');
+  segments.forEach(segment => { segment.active = 0; });
+  present();
+  weapon.chargeCooldown = 0;
+  present();
+  assert.equal(soundCalls.length, 5, 'inactive indicators are silent');
+  segments.forEach(segment => { segment.active = 1; });
+  weapon.mount.health = 0;
+  weapon.chargeCooldown = .5;
+  present();
+  assert.equal(soundCalls.length, 5, 'destroyed mounts are silent');
+}
 const rechargeWorld = createWorld();
 const chargingShip = addEntity(
   rechargeWorld,
@@ -2198,7 +2243,7 @@ for (const production of [false, true]) {
           }
 
           if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return 'export const unlockAudio=()=>{};export const playSound=()=>{};export const updateThrusterSound=()=>{};';
+            return 'export const soundCalls=[];export const unlockAudio=()=>{};export const playSound=(...args)=>soundCalls.push(args);export const updateThrusterSound=()=>{};';
           }
         },
       },

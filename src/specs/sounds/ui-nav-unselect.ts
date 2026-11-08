@@ -3,7 +3,6 @@ import type { SoundEffect } from '../../client/audio/synthesis';
 export default [
   {
     volume: 0.312,
-    waveform: 'noise',
     attack: 0,
     decay: 0,
     hold: 3,
@@ -14,10 +13,9 @@ export default [
   },
   {
     volume: 0.234,
-    waveform: 'noise',
-    delay: 64,
     attack: 2,
     decay: 15,
+    delay: 64,
     cutoff: 12500,
     highpass: 1791,
   },

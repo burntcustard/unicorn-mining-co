@@ -3,13 +3,13 @@ import type { SoundEffect } from '../../client/audio/synthesis';
 export default [
   {
     volume: 0.42,
-    waveform: 'sawtooth',
     attack: 62,
     decay: 0,
     release: 7,
     sustain: 1,
     attackCurve: 'ease-in',
     releaseCurve: 'linear',
+    waveform: 'sawtooth',
     frequency: 213,
     cutoff: 18000,
     highpass: 6500,
@@ -18,10 +18,9 @@ export default [
   },
   {
     volume: 0.336,
-    waveform: 'noise',
-    delay: 70,
     attack: 0,
     decay: 0,
+    delay: 70,
     hold: 3,
     release: 14,
     sustain: 1,
@@ -30,9 +29,9 @@ export default [
   },
   {
     volume: 0.053,
-    delay: 20,
     attack: 47,
     decay: 0,
+    delay: 20,
     release: 10,
     sustain: 1,
     attackCurve: 'ease-in',
