@@ -2,6 +2,7 @@ import type { ShipSpec } from './types';
 
 export const courser = {
   name: 'Courser',
+  price: 2800,
   fuelCapacity: 120,
   cargoSpace: 8,
   drag: 0.56,

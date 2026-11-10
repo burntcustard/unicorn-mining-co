@@ -148,6 +148,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if !production {
+		catalog.StartingCredits = 99999
+	}
+
 	if value := os.Getenv("PORT"); value != "" {
 		port, err = strconv.Atoi(value)
 

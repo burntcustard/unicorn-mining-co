@@ -2,7 +2,7 @@ import type { SoundEffect } from '../../client/audio/synthesis';
 
 export default [
   {
-    volume: 0.1,
+    volume: 0.05,
     attack: 1,
     decay: 45,
     release: 10,
@@ -21,10 +21,10 @@ export default [
     highpass: 170,
   },
   {
-    volume: 0.05,
+    volume: 0.03,
     attack: 1,
     decay: 53,
-    delay: 20,
+    delay: 11,
     release: 12,
     waveform: 'crackle',
     frequency: 5800,

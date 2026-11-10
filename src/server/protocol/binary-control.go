@@ -30,6 +30,8 @@ type DockAction struct {
 }
 
 type Control struct {
+	HangarCommand  string
+	ShipID         int64
 	GateID         uint64
 	Channel        byte
 	Text           string
@@ -44,6 +46,9 @@ type Control struct {
 }
 
 type ServerControl struct {
+	ShipsForSale                 []specs.ShipOffer
+	HangarShips                  *Snapshot
+	HangarError                  string
 	CargoDemand                  *int64
 	Channel                      byte
 	Sender, SenderRole, Text     string
@@ -231,6 +236,26 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 	r := reader{data: data, offset: 4}
 
 	switch int(data[3]) {
+	case ids.ControlMessageIDs["hangar"]:
+		message.Type = "hangar"
+		var err error
+		message.HangarCommand, err = r.name()
+
+		if err != nil {
+			return Control{}, err
+		}
+
+		message.ShipID, err = r.signed()
+
+		if err != nil {
+			return Control{}, err
+		}
+
+		message.Text, err = r.name()
+
+		if err != nil {
+			return Control{}, err
+		}
 	case ids.ControlMessageIDs["profile"]:
 		var err error
 		message.Type = "profile"
@@ -507,6 +532,28 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 }
 
 func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, error) {
+	if message.Type == "hangar" && message.HangarShips != nil && message.Credits != nil {
+		w := controlWriter(ids.ControlMessageIDs["hangar"])
+		w.unsigned(message.ShipID)
+		w.number(*message.Credits)
+
+		if err := w.text(message.HangarError); err != nil {
+			return nil, err
+		}
+
+		w.unsigned(uint64(len(message.ShipsForSale)))
+
+		for _, offer := range message.ShipsForSale {
+			if err := w.name(offer.Ship); err != nil {
+				return nil, err
+			}
+
+			w.number(offer.Price)
+		}
+
+		return AppendSnapshot(w.data, *message.HangarShips, ids)
+	}
+
 	if message.Type == "chat" {
 		if message.Channel > 1 {
 			return nil, ErrControl

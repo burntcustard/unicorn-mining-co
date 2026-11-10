@@ -5,9 +5,42 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	"path/filepath"
 	"testing"
 )
+
+func TestConfiguredStartingCredits(t *testing.T) {
+	t.Parallel()
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if catalog.StartingCredits != 2000 {
+		t.Fatal("production starting credits changed")
+	}
+
+	catalog.StartingCredits = 99999
+	s := NewGameSession(25, catalog)
+	socket := &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "hello"}, socket)
+	p := s.playersBySocket[socket]
+
+	if p.profile.Credits != 99999 {
+		t.Fatal("new player did not receive configured starting credits")
+	}
+
+	token := p.profile.ID
+	p.profile.Credits = 123
+	s.Disconnect(socket)
+	s.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
+
+	if s.playersBySocket[socket].profile.Credits != 123 {
+		t.Fatal("reconnecting reset the player's balance")
+	}
+}
 
 func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 	t.Parallel()

@@ -82,6 +82,7 @@ export const createSoundVisualizer = ({
 
   let selectedPeak = 0;
   let layered = false;
+  let hoveredLayer: number | undefined;
   let selectedColumns = 0;
   let duration = 0;
   let disposed = false;
@@ -117,6 +118,7 @@ export const createSoundVisualizer = ({
     width,
     color,
     peak = Math.max(1, wave.peak),
+    opacity = 0.7,
   }: {
     wave: Waveform;
     top: number;
@@ -124,13 +126,14 @@ export const createSoundVisualizer = ({
     width: number;
     color: string;
     peak?: number;
+    opacity?: number;
   }) => {
     const center = top + height / 2;
     const left = 4;
 
     ctx.strokeStyle = color;
     ctx.lineWidth = 1 / Math.min(scaleX, scaleY);
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = opacity;
     ctx.beginPath();
     const scale = (height * 0.45) / (peak || 1);
     const count = wave.columns.length / 2;
@@ -208,6 +211,13 @@ export const createSoundVisualizer = ({
         width: plotWidth * (wave.duration / duration || 0),
         color: layerColor(index),
         peak: selectedPeak,
+        opacity:
+          layered &&
+          hoveredLayer !== undefined &&
+          hoveredLayer < layers.length &&
+          index !== hoveredLayer
+            ? 0.14
+            : 0.7,
       }),
     );
   };
@@ -268,6 +278,12 @@ export const createSoundVisualizer = ({
     },
     setBuffers(buffers: AudioBuffer[]) {
       setSelection({ buffers, showLayers: true });
+    },
+    setHoveredLayer(index?: number) {
+      if (disposed || hoveredLayer === index) return;
+
+      hoveredLayer = index;
+      draw();
     },
     dispose() {
       disposed = true;

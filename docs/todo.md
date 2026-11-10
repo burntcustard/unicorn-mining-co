@@ -36,7 +36,7 @@
 [x] Laser beam not seen by other players? Ensure effects are always seen
 [ ] Gun comes with ammo? Or make more clear
 [x] New world gen with jump gates and wormholes
-[ ] New sounds
+[-] New sounds
 [x] Fix unnecessary scroll on right card thing
 [?] Can't buy search light
 [ ] Map UI (tab or M?)

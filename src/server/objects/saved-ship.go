@@ -15,6 +15,9 @@ import (
 // Specs provide geometry and physics;
 // this record contains only identity, condition, equipment and possessions.
 type SavedShip struct {
+	Name        string            `json:"name,omitempty"`
+	StoredShips []SavedShip       `json:"storedShips,omitempty"`
+	NoShip      bool              `json:"noShip,omitempty"`
 	StoredPower *float64          `json:"storedPower,omitempty"`
 	TransitTime float64           `json:"transitTime,omitempty"`
 	TransitGate int64             `json:"transitGate,omitempty"`
@@ -80,6 +83,10 @@ func CaptureShip(ship *Ship) SavedShip {
 
 	if s.Type == "" {
 		s.Type = "mustang"
+	}
+
+	if ship.Name != ship.Catalog.ShipSpecs[s.Type].Name {
+		s.Name = ship.Name
 	}
 
 	if !slices.Equal(ship.Shades, ship.Catalog.Colors["white"]) {
@@ -178,6 +185,10 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 	shades := restorePaint(s.Paint, catalog)
 
 	ship := NewShip(s.Type, Properties{ObjectProperties: simulation.ObjectProperties{ID: &s.ID, World: world, PlayerID: &playerID, Position: Vec.Create(float64(s.Position[0]), float64(s.Position[1])), Rotation: s.Rotation}, Shades: shades}, catalog)
+
+	if s.Name != "" {
+		ship.Name = s.Name
+	}
 
 	if len(s.Hull) != len(ship.HullSegments) {
 		return nil, fmt.Errorf("saved hull does not match %q", s.Type)

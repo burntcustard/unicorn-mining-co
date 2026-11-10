@@ -18,9 +18,12 @@ export type SoundEffect = {
   attack: number;
   decay: number;
   cutoff?: number;
+  lowpassOrder?: number;
   endFrequency?: number;
   highpass?: number;
   waveform?: SoundWaveform;
+  noiseSeed?: number;
+  phaseOffset?: number;
   pulseWidth?: number;
   delay?: number;
   hold?: number;
@@ -31,6 +34,13 @@ export type SoundEffect = {
   releaseCurve?: SoundCurve;
   pitchDuration?: number;
   pitchCurve?: SoundCurve;
+  pitchPoints?: number[];
+  modulationRate?: number;
+  modulationDepth?: number;
+  fmRatio?: number;
+  fmDepth?: number;
+  partials?: number[];
+  partialRatio?: number;
   endCutoff?: number;
   filterDuration?: number;
   filterCurve?: SoundCurve;
@@ -40,6 +50,7 @@ export type SoundEffect = {
   gainPoints?: number[];
   gainPositions?: number[];
   endResonance?: number;
+  resonancePoints?: number[];
 };
 
 export type EngineSoundSettings = {
@@ -81,9 +92,12 @@ export const resolveSoundEffect = ({
   decay,
   frequency = 0,
   cutoff = 0,
+  lowpassOrder = 1,
   endFrequency = frequency,
   highpass = 0,
   waveform = cutoff ? 'noise' : 'sine',
+  noiseSeed = 0,
+  phaseOffset = 0,
   pulseWidth = 0.5,
   delay = 0,
   hold = 0,
@@ -94,24 +108,35 @@ export const resolveSoundEffect = ({
   releaseCurve = 'exponential',
   pitchDuration = attack + decay + hold + release,
   pitchCurve = 'linear',
+  pitchPoints = [],
+  modulationRate = 0,
+  modulationDepth = 0,
+  fmRatio = 0,
+  fmDepth = 0,
+  partials = [],
+  partialRatio = 1,
   endCutoff = cutoff,
   filterDuration = attack + decay + hold + release,
   filterCurve = 'linear',
   endHighpass = highpass,
-  resonance = 0,
+  resonancePoints = [],
+  resonance = resonancePoints[0] ?? 0,
   ring = 50,
   gainPoints = [],
   gainPositions = [],
-  endResonance = resonance,
+  endResonance = resonancePoints.at(-1) ?? resonance,
 }: SoundEffect): Required<SoundEffect> => ({
   volume,
   attack,
   decay,
-  frequency,
+  frequency: pitchPoints[0] ?? frequency,
   cutoff,
-  endFrequency,
+  lowpassOrder,
+  endFrequency: pitchPoints.at(-1) ?? endFrequency,
   highpass,
   waveform,
+  noiseSeed,
+  phaseOffset,
   pulseWidth,
   delay,
   hold,
@@ -122,15 +147,23 @@ export const resolveSoundEffect = ({
   releaseCurve,
   pitchDuration,
   pitchCurve,
+  pitchPoints,
+  modulationRate,
+  modulationDepth,
+  fmRatio,
+  fmDepth,
+  partials,
+  partialRatio,
   endCutoff,
   filterDuration,
   filterCurve,
   endHighpass,
-  resonance,
+  resonance: resonancePoints[0] ?? resonance,
   ring,
   gainPoints,
   gainPositions,
-  endResonance,
+  endResonance: resonancePoints.at(-1) ?? endResonance,
+  resonancePoints,
 });
 
 const sampleRate = 44100;
@@ -203,16 +236,18 @@ const oscillator = ({
   phase,
   increment,
   pulseWidth,
+  random,
 }: {
   waveform: SoundWaveform;
   phase: number;
   increment: number;
   pulseWidth: number;
+  random: () => number;
 }) => {
-  if (waveform === 'noise') return Math.random() * 2 - 1;
+  if (waveform === 'noise') return random() * 2 - 1;
 
   if (waveform === 'crackle') {
-    return Math.random() < increment ? Math.random() * 2 - 1 : 0;
+    return random() < increment ? random() * 2 - 1 : 0;
   }
 
   if (waveform === 'sine') return Math.sin(phase * Math.PI * 2);
@@ -284,9 +319,12 @@ export const renderEffectBuffer = ({
       attack,
       decay,
       cutoff,
+      lowpassOrder,
       endFrequency,
       highpass,
       waveform,
+      noiseSeed,
+      phaseOffset,
       pulseWidth,
       hold,
       sustain,
@@ -296,6 +334,13 @@ export const renderEffectBuffer = ({
       releaseCurve,
       pitchDuration,
       pitchCurve,
+      pitchPoints,
+      modulationRate,
+      modulationDepth,
+      fmRatio,
+      fmDepth,
+      partials,
+      partialRatio,
       endCutoff,
       filterDuration,
       filterCurve,
@@ -305,6 +350,7 @@ export const renderEffectBuffer = ({
       gainPoints,
       gainPositions,
       endResonance,
+      resonancePoints,
     } = settings;
     // Ring is the time for an undriven resonance to fall to 1 percent amplitude.
     const pole =
@@ -332,23 +378,48 @@ export const renderEffectBuffer = ({
     const maxHighpassRate = Math.max(highpassRate, endHighpassRate);
     const decayEnd = attack + decay;
     const holdEnd = decayEnd + hold;
+    const partialScale =
+      Math.sqrt(partials.reduce((sum, level) => sum + level * level, 0)) || 1;
+    const centerPartial = Math.floor(partials.length / 2);
     let filtered = 0;
+    const lowpassStages = new Float64Array(Math.max(0, lowpassOrder - 1));
     let bass = 0;
-    let phase = 0;
+    let phase = phaseOffset;
     let input1 = 0;
     let input2 = 0;
     let output1 = 0;
     let output2 = 0;
     let timedGainIndex = 0;
+    let noiseState = noiseSeed >>> 0;
+
+    const random = noiseSeed
+      ? () => {
+          noiseState = (Math.imul(noiseState, 1664525) + 1013904223) >>> 0;
+          return noiseState / 4294967296;
+        }
+      : Math.random;
 
     for (let i = 0; i < length + tail; i++) {
       const elapsed = i / sampleRate;
+      const modulation =
+        modulationRate && modulationDepth
+          ? 2 **
+            ((modulationDepth / 1200) *
+              Math.sin(2 * Math.PI * modulationRate * elapsed))
+          : 1;
       const pitchProgress = pitchDuration
         ? Math.min(1, fullPitchDuration ? i / length : elapsed / pitchDuration)
         : 1;
 
-      const pitch =
-        pitchCurve === 'linear' && fullPitchDuration
+      const pitchPosition = pitchProgress * Math.max(0, pitchPoints.length - 1);
+      const pitchIndex = Math.floor(pitchPosition);
+
+      const pitch = pitchPoints.length
+        ? pitchPoints[pitchIndex] +
+          ((pitchPoints[pitchIndex + 1] ?? pitchPoints[pitchIndex]) -
+            pitchPoints[pitchIndex]) *
+            (pitchPosition - pitchIndex)
+        : pitchCurve === 'linear' && fullPitchDuration
           ? frequency + ((endFrequency - frequency) * i) / length
           : interpolate({
               curve: pitchCurve,
@@ -357,10 +428,40 @@ export const renderEffectBuffer = ({
               progress: pitchProgress,
             });
 
-      const increment = pitch / sampleRate;
+      const increment =
+        Math.min(sampleRate / 2, pitch * modulation) / sampleRate;
 
       phase += increment;
-      const wave = oscillator({ waveform, phase, increment, pulseWidth });
+      // Sine FM adds inharmonic sidebands, rather than just slow vibrato.
+      // Reduce the index near Nyquist to limit reflected high-frequency energy.
+      const fmIndex =
+        waveform === 'sine' && fmRatio && increment
+          ? Math.min(fmDepth, Math.max(0, (0.45 / increment - 1) / fmRatio - 1))
+          : 0;
+      let wave = fmIndex
+        ? Math.sin(
+            phase * Math.PI * 2 +
+              fmIndex * Math.sin(phase * Math.PI * 2 * fmRatio),
+          )
+        : oscillator({ waveform, phase, increment, pulseWidth, random });
+
+      if (waveform === 'sine' && partials.length) {
+        wave = 0;
+
+        for (let partial = 0; partial < partials.length; partial++) {
+          const ratio = 1 + (partial - centerPartial) * partialRatio;
+
+          if (ratio <= 0 || ratio * increment >= 0.45) continue;
+
+          // Spread the phases so a resonant cluster does not become a pulse train.
+          wave +=
+            (partials[partial] / partialScale) *
+            Math.sin(
+              phase * Math.PI * 2 * ratio + partial * partial * 2.39996323,
+            );
+        }
+      }
+
       let envelope = 0;
 
       if (i) {
@@ -462,25 +563,44 @@ export const renderEffectBuffer = ({
       const sample = i < length ? wave * envelope * volume * gain : 0;
 
       filtered += (sample - filtered) * lowpassRate;
-      bass += (filtered - bass) * bassRate;
-      let output = release && i === length - 1 ? 0 : filtered - bass * bassMix;
+      let lowpassed = filtered;
+
+      for (let stage = 0; stage < lowpassStages.length; stage++) {
+        lowpassStages[stage] +=
+          (lowpassed - lowpassStages[stage]) * lowpassRate;
+        lowpassed = lowpassStages[stage];
+      }
+
+      bass += (lowpassed - bass) * bassRate;
+      let output = release && i === length - 1 ? 0 : lowpassed - bass * bassMix;
 
       if (pole) {
+        const position =
+          filterProgress * Math.max(0, resonancePoints.length - 1);
+        const index = Math.floor(position);
+
+        const center = resonancePoints.length
+          ? resonancePoints[index] +
+            ((resonancePoints[index + 1] ?? resonancePoints[index]) -
+              resonancePoints[index]) *
+              (position - index)
+          : interpolate({
+              curve: filterCurve,
+              from: resonance,
+              to: endResonance,
+              progress: filterProgress,
+            });
+
         const ringing =
           resonanceGain * (output - input2) +
-          (resonance === endResonance
+          (!resonancePoints.length &&
+          resonance === endResonance &&
+          modulation === 1
             ? feedback
             : 2 *
               pole *
               Math.cos(
-                (2 *
-                  Math.PI *
-                  interpolate({
-                    curve: filterCurve,
-                    from: resonance,
-                    to: endResonance,
-                    progress: filterProgress,
-                  })) /
+                (2 * Math.PI * Math.min(sampleRate / 2, modulation * center)) /
                   sampleRate,
               )) *
             output1 -
@@ -495,6 +615,48 @@ export const renderEffectBuffer = ({
 
       samples[offset + i] += output;
     }
+  }
+
+  return buffer;
+};
+
+/**
+ * Sustain an effect's texture, discard filter startup, and blend the loop seam.
+ * Its authored envelope remains the one-shot preview in the Sound Editor.
+ */
+export const renderLoopBuffer = ({
+  context,
+  layers,
+}: {
+  context: Pick<BaseAudioContext, 'createBuffer'>;
+  layers: SoundEffect[];
+}) => {
+  const samples = renderEffectBuffer({
+    context,
+    layers: layers.map((layer): SoundEffect => ({
+      ...layer,
+      attack: 0,
+      decay: 1200,
+      hold: 0,
+      release: 0,
+      sustain: 1,
+      gainPoints: [],
+      gainPositions: [],
+    })),
+  }).getChannelData(0);
+
+  const overlap = Math.floor(sampleRate / 10);
+  const length = sampleRate - overlap;
+  const buffer = context.createBuffer(1, length, sampleRate);
+  const output = buffer.getChannelData(0);
+
+  output.set(samples.subarray(overlap, overlap + length));
+
+  for (let i = 0; i < overlap; i++) {
+    const angle = ((i / overlap) * Math.PI) / 2;
+
+    output[i] =
+      samples[sampleRate + i] * Math.cos(angle) + output[i] * Math.sin(angle);
   }
 
   return buffer;

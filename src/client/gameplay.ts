@@ -61,6 +61,7 @@ import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
 import { remoteSoundVolume } from './audio/remote-sound-volume';
 import { presentWorldSounds } from './audio/present-world-sounds';
 import { updateThrusterSounds } from './audio/update-thruster-sounds';
+import { updateAutogunSounds } from './audio/update-autogun-sounds';
 import { renderUI } from './ui/ui';
 import { toggleFps } from './ui/fps';
 import { Targeting } from './ui/targeting';
@@ -277,15 +278,21 @@ const refreshReplication = () => {
   });
 };
 
+let ownedShips: Ship[] | undefined;
+
 const syncPlayerShip = () => {
   const ship = network.world.entities.get(network.shipId!);
 
   if (!(ship instanceof Ship)) return;
 
-  if (player.ship !== ship) {
-    refreshReplication();
-    adoptPlayerShip({ ship });
-    centerCamera(game, ship);
+  const changed = player.ship !== ship;
+
+  if (changed || ownedShips !== network.ownedShips) {
+    if (changed) refreshReplication();
+    adoptPlayerShip({ ship, ownedShips: network.ownedShips });
+    ownedShips = network.ownedShips;
+
+    if (changed) centerCamera(game, ship);
   }
 };
 
@@ -527,7 +534,7 @@ const gameLoop = GameLoop({
         .filter((object) => object.scenery && object.zIndex === zIndex)
         .forEach((object) => {
           object.render({ pose: remotePoses.get(object.id) });
-          // A loose leaf cannot be split any smaller, so its cargo stays in view.
+          // A detached segment keeps its contents in view until it breaks apart.
           object.segments ||
             object.renderContents?.forEach((item: SimulationObject) =>
               item.render(),
@@ -780,6 +787,7 @@ const gameLoop = GameLoop({
     player.ship.updateVisual(dt);
     updateHornDrillSounds({ crafts: game.crafts, volume: craftSoundVolume });
     updateThrusterSounds({ crafts: game.crafts, volume: craftSoundVolume });
+    updateAutogunSounds({ crafts: game.crafts, dt, volume: craftSoundVolume });
 
     activeSprites.forEach(
       (sprite) => !sprite.dead && !sprite.networked && sprite.update(dt),

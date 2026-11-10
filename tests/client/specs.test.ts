@@ -342,7 +342,7 @@ console.log(
 
 const arrowShip = createPlayerShip(createWorld(), { shipType: 'arrow' });
 
-assert.equal(arrowShip.modules.length, 4);
+assert.equal(arrowShip.modules.length, 6);
 assert.deepEqual(
   arrowShip.mounts.flatMap((mount) =>
     mount.module instanceof CargoHatch ? [mount.localPosition] : [],
@@ -351,6 +351,10 @@ assert.deepEqual(
 );
 assert(arrowShip.mounts[2].module);
 assert.equal(arrowShip.mounts[2].module.definitionId, 'thrusterSingleMd');
+assert(arrowShip.mounts[6].module);
+assert.equal(arrowShip.mounts[6].module.definitionId, 'hornDrill');
+assert(arrowShip.mounts[7].module);
+assert.equal(arrowShip.mounts[7].module.definitionId, 'searchLight');
 assert.equal(
   createShip(createWorld(), { shipType: 'arrow' }).modules.length,
   0,

@@ -19,6 +19,9 @@ import { itemTypes } from '../../specs/items';
 import { type SimulationEvent } from '../protocol/events';
 import { round } from '../utilities/round';
 import { regionGeneration } from '../../specs/region-generation';
+import { asteroidDebris } from '../../specs/asteroid';
+import { itemDefaults } from '../../specs/items/defaults';
+import type { ItemSpec } from '../../specs/items/types';
 
 // Enough of a wander that no two asteroids come out the same shape
 export const asteroidVariance = regionGeneration.asteroidVariance;
@@ -169,6 +172,38 @@ const buriedItemRotation = (shapeOutline: number[][], index: number) =>
     shapeOutline[1][0] - shapeOutline[0][0],
   ) + index;
 
+const itemFits = (
+  shapeOutline: number[][],
+  resource: number,
+  index: number,
+) => {
+  const spec: ItemSpec = itemTypes[resource];
+  const center = centerOf(shapeOutline);
+  const rotation = buriedItemRotation(shapeOutline, index);
+  const points = spec.points?.length
+    ? spec.points.map(([x, y]) =>
+        Vec.add(center, rotatePoint(Vec.create(x, y), rotation)),
+      )
+    : undefined;
+  const radius = spec.radius ?? itemDefaults.radius;
+
+  return shapeOutline.every(([x, y], edge) => {
+    const [toX, toY] = shapeOutline[(edge + 1) % shapeOutline.length];
+    const dx = toX - x;
+    const dy = toY - y;
+    const side = Math.sign(dx * (center.y - y) - dy * (center.x - x));
+    const distance = (point: Vec.Value) =>
+      side * (dx * (point.y - y) - dy * (point.x - x));
+
+    if (!side) return false;
+    const clearance = asteroidDebris.itemClearance * Math.hypot(dx, dy);
+
+    return points
+      ? points.every((point) => distance(point) >= clearance)
+      : distance(center) >= radius * Math.hypot(dx, dy) + clearance;
+  });
+};
+
 const groupsOf = (segments: AsteroidSegment[]) =>
   outerEdges(
     segments.map(({ shapeOutline }) => shapeOutline as ShapeOutline),
@@ -303,7 +338,6 @@ const detachSegment = ({
 
     const child = createAsteroid(world, {
       contents,
-      decay: group.length === 1 && !contents.length ? 6 : undefined,
       health: radius,
       mass,
       maxHealth: radius,
@@ -526,6 +560,10 @@ export class Asteroid extends GameObject {
   private uncutLocked = false;
   private uncutMass = 0;
 
+  get decaying() {
+    return !!this.decay && !this.contents.length;
+  }
+
   addToScene() {
     this.fill =
       this.resource === 1
@@ -644,26 +682,53 @@ export class Asteroid extends GameObject {
     if (this.health < 1) {
       this.remove();
       const random = createRandom(this.id);
+      const subdivide =
+        !this.decay && !this.segments && shapeOutlineOf(this).length === 3;
+      const retained = new Set<number>();
 
-      this.buriedContents.forEach(({ resource, localPosition, rotation }) => {
-        const offset = rotatePoint(localPosition, this.rotation);
-
-        addEntity(
-          world,
-          new Item(itemTypes[resource], {
-            world,
-            id: entityId(world),
-            position: Vec.add(this.position, offset),
-            rotation: this.rotation + rotation,
-            spin: this.spin + (random.next() - 0.5) * 0.5,
-            velocity: Vec.addScaled(
-              this.velocity,
-              Vec.create(-offset.y, offset.x),
-              this.spin,
-            ),
-          }),
+      if (subdivide) {
+        const central = splitTriangle(shapeOutlineOf(this))[2];
+        const center = centerOf(central);
+        const triangle = central.map(([x, y]) =>
+          roundPoint([x - center.x, y - center.y]),
         );
-      });
+
+        this.contents.forEach((resource, index) => {
+          if (itemFits(triangle, resource, retained.size)) retained.add(index);
+        });
+
+        if (retained.size !== this.contents.length) retained.clear();
+      }
+
+      this.buriedContents.forEach(
+        ({ resource, localPosition, rotation }, index) => {
+          if (retained.has(index)) return;
+          const offset = rotatePoint(localPosition, this.rotation);
+
+          addEntity(
+            world,
+            new Item(itemTypes[resource], {
+              world,
+              id: entityId(world),
+              position: Vec.add(this.position, offset),
+              rotation: this.rotation + rotation,
+              spin: this.spin + (random.next() - 0.5) * 0.5,
+              velocity: Vec.addScaled(
+                this.velocity,
+                Vec.create(-offset.y, offset.x),
+                this.spin,
+              ),
+            }),
+          );
+        },
+      );
+
+      if (subdivide) {
+        this.breakApart(
+          world,
+          this.contents.filter((_, index) => retained.has(index)),
+        );
+      }
 
       events.push({
         type: 'asteroidDestroyed',
@@ -684,6 +749,50 @@ export class Asteroid extends GameObject {
     }
 
     return true;
+  }
+
+  private breakApart(world: SimulationWorld, contents: number[]) {
+    const random = createRandom(this.id + 1);
+    const { minLifetime, maxLifetime, decay, separationSpeed } = asteroidDebris;
+
+    splitTriangle(shapeOutlineOf(this)).forEach((triangle, index) => {
+      if (index === 2 && this.contents.length && !contents.length) return;
+      const center = centerOf(triangle);
+      const offset = rotatePoint(center, this.rotation);
+      const shapeOutline = triangle.map(([x, y]) =>
+        roundPoint([x - center.x, y - center.y]),
+      );
+      const radius = radiusOf(shapeOutline);
+      const health =
+        decay * (minLifetime + random.next() * (maxLifetime - minLifetime));
+      const velocity = Vec.addScaled(
+        this.velocity,
+        Vec.create(-offset.y, offset.x),
+        this.spin,
+      );
+
+      addEntity(
+        world,
+        createAsteroid(world, {
+          contents: index === 2 ? contents : [],
+          decay,
+          health,
+          maxHealth: health,
+          mass: this.mass / 8,
+          position: Vec.add(this.position, offset),
+          radius,
+          resource: this.resource,
+          rotation: this.rotation,
+          shapeOutline,
+          spin: this.spin,
+          velocity: Vec.addScaled(
+            velocity,
+            Vec.normalize(offset),
+            separationSpeed,
+          ),
+        }).lockGeometry(),
+      );
+    });
   }
 
   get geometrySource() {

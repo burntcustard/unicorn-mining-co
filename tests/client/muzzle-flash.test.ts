@@ -34,6 +34,7 @@ Object.assign(globalThis, {
 });
 
 const scenario = `
+import { Weapon } from '${root}/src/client/objects/modules/weapon.ts';
 import { installExampleModules } from '${root}/tests/support/example-modules.ts';
 import assert from 'node:assert/strict';
 import { NetworkClient } from '${root}/src/client/network/network.ts';
@@ -46,6 +47,21 @@ globalThis.Path2D = class { moveTo() {} lineTo() {} closePath() {} };
 const fixtures = ${fixture};
 installExampleModules();
 const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex')));
+// Deployment adds no one-shot sound; the audio updater owns motor and clicks.
+{
+  const craft = { world: { tick: 0 } };
+  const gun = { id: 999, definitionId: 'autogun', mount: { health: 1 }, fireCooldown: 0, chargeCooldown: 0, presentShot() {} };
+  const segment = { active: 0, activationProgress: 0 };
+  const update = () => Weapon.prototype.updateVisual.call(gun, { craft, segments: [segment], dt: simulationStep });
+  calls.length = 0;
+  update(); segment.active = 1; update(); update();
+  segment.activationProgress = 1; craft.world.tick = 26; update();
+  assert.equal(calls.length, 0);
+  segment.active = 0; update(); segment.active = 1; update();
+  assert.equal(calls.length, 0);
+  gun.mount.health = 0; update();
+  assert.equal(calls.length, 0);
+}
 // Exercise immediate firing, delayed firing, and a pause under delayed snapshots.
 const timings = [[0, -1], [1, -1], [3, 35], [8, 35]];
 for (const fixture of fixtures) for (const [delay, skipTick] of timings) {

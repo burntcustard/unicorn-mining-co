@@ -258,6 +258,8 @@ const renderEventLayers = (context: Pick<BaseAudioContext, 'createBuffer'>) =>
     renderEffectBuffer({ context, layers: [effect] }),
   );
 
+const detailedLayerLimit = 32;
+
 const updateWaveform = () => {
   if (!documentData) return;
 
@@ -286,7 +288,13 @@ const updateWaveform = () => {
         select('#visualizer-caption').textContent = 'Unassigned';
       }
     } else if (activeTab === 'events') {
-      showLayerBuffers(renderEventLayers(sampleContext));
+      if (eventLayers().length > detailedLayerLimit) {
+        showBuffer(
+          renderEffectBuffer({ context: sampleContext, layers: eventLayers() }),
+        );
+      } else {
+        showLayerBuffers(renderEventLayers(sampleContext));
+      }
     } else {
       showBuffer(
         renderContinuousBuffer({
@@ -343,18 +351,25 @@ const previewEffect = ({
   try {
     const ctx = context();
 
-    const buffers = libraryLayer
+    const singleBuffer =
+      !!libraryLayer || eventLayers().length > detailedLayerLimit;
+
+    const buffers = singleBuffer
       ? [
           renderEffectBuffer({
             context: ctx,
-            layers: [documentData.unassigned[libraryLayer]],
+            layers: libraryLayer
+              ? [documentData.unassigned[libraryLayer]]
+              : layerIndex === undefined
+                ? eventLayers()
+                : [eventLayers()[layerIndex]],
           }),
         ]
       : renderEventLayers(ctx);
 
-    let buffer = buffers[layerIndex ?? 0];
+    let buffer = buffers[singleBuffer ? 0 : (layerIndex ?? 0)];
 
-    if (layerIndex === undefined && !libraryLayer) {
+    if (layerIndex === undefined && !singleBuffer) {
       const length = Math.max(
         1,
         ...buffers.map((buffer) => buffer.getChannelData(0).length),
@@ -377,6 +392,13 @@ const previewEffect = ({
     if (libraryLayer) {
       selectedLibrary = libraryLayer;
       showBuffer(buffer, libraryLayer);
+    } else if (singleBuffer) {
+      showBuffer(
+        buffer,
+        layerIndex === undefined
+          ? currentName()
+          : `${currentName()} layer ${layerIndex + 1}`,
+      );
     } else {
       showLayerBuffers(buffers);
     }
@@ -619,6 +641,23 @@ const layerParameters = ({
     };
 
     hidden('pulseWidth', settings.waveform !== 'pulse');
+    hidden(
+      'phaseOffset',
+      settings.waveform === 'noise' || settings.waveform === 'crackle',
+    );
+    hidden(
+      'noiseSeed',
+      settings.waveform !== 'noise' && settings.waveform !== 'crackle',
+    );
+    hidden(
+      'fmRatio',
+      settings.waveform !== 'sine' || !!settings.partials.length,
+    );
+    hidden(
+      'fmDepth',
+      settings.waveform !== 'sine' || !!settings.partials.length,
+    );
+    hidden('partialRatio', settings.waveform !== 'sine');
 
     for (const key of ['frequency', 'endFrequency', 'pitchDuration'] as const) {
       hidden(key, settings.waveform === 'noise');
@@ -695,6 +734,8 @@ const layerParameters = ({
 
   const order: (EffectNumberKey | EffectChoiceKey)[] = [
     'waveform',
+    'noiseSeed',
+    'phaseOffset',
     'volume',
     'delay',
     'pulseWidth',
@@ -702,6 +743,11 @@ const layerParameters = ({
     'endFrequency',
     'pitchDuration',
     'pitchCurve',
+    'modulationRate',
+    'modulationDepth',
+    'fmRatio',
+    'fmDepth',
+    'partialRatio',
     'attack',
     'attackCurve',
     'decay',
@@ -711,6 +757,7 @@ const layerParameters = ({
     'release',
     'releaseCurve',
     'cutoff',
+    'lowpassOrder',
     'endCutoff',
     'highpass',
     'endHighpass',
@@ -729,18 +776,39 @@ const layerParameters = ({
     ),
   );
 
-  for (const key of ['gainPoints', 'gainPositions'] as const) {
+  for (const key of [
+    'gainPoints',
+    'gainPositions',
+    'resonancePoints',
+    'pitchPoints',
+    'partials',
+  ] as const) {
     const row = document.createElement('label');
     const label = document.createElement('span');
     const input = document.createElement('input');
 
     row.className = 'number-control';
-    label.textContent = key === 'gainPoints' ? 'Gain points' : 'Gain positions';
+    label.textContent =
+      key === 'gainPoints'
+        ? 'Gain points'
+        : key === 'gainPositions'
+          ? 'Gain positions'
+          : key === 'pitchPoints'
+            ? 'Pitch points (Hz)'
+            : key === 'partials'
+              ? 'Partial levels (sine)'
+              : 'Resonance points (Hz)';
     input.type = 'text';
     input.title =
       key === 'gainPoints'
         ? '2–32 gains from 0 to 1. Empty uses the envelope alone.'
-        : 'Optional positions for each gain: strictly increasing from 0 to 1 across the layer. Empty uses equal spacing.';
+        : key === 'resonancePoints'
+          ? '2–32 integer frequencies, equally spaced across Filter duration. Overrides Resonance and End resonance. Empty uses the normal filter sweep.'
+          : key === 'pitchPoints'
+            ? '2–32 integer frequencies, equally spaced across Pitch duration. Overrides Frequency and End frequency. Empty uses the normal pitch sweep.'
+            : key === 'partials'
+              ? '1–32 relative levels from 0 to 1. The middle partial uses Frequency; neighbors are separated by Frequency × Partial spacing ratio. Replaces sine FM. Empty uses the normal waveform.'
+              : 'Optional positions for each gain: strictly increasing from 0 to 1 across the layer. Empty uses equal spacing.';
     input.value = settings[key].join(', ');
 
     input.addEventListener('input', () => {
@@ -758,6 +826,7 @@ const layerParameters = ({
         input.setCustomValidity('');
         settings[key] = points;
         write(compactOptional(settings));
+        updateVisibility();
         notify();
       } catch (error) {
         input.setAttribute('aria-invalid', 'true');
@@ -775,6 +844,7 @@ const layerParameters = ({
 };
 
 const renderLayers = () => {
+  visualizer.setHoveredLayer();
   layers.replaceChildren();
   libraryCards.clear();
   const effects = eventLayers();
@@ -805,14 +875,42 @@ const renderLayers = () => {
         notify: () => changed(true),
       });
 
-    let controls = createControls();
+    let controls =
+      effects.length > detailedLayerLimit ? undefined : createControls();
 
     card.className = 'sound-layer';
+    card.addEventListener('mouseenter', () =>
+      visualizer.setHoveredLayer(index),
+    );
+    card.addEventListener('mouseleave', () => visualizer.setHoveredLayer());
     header.className =
       'layer-header compact-controls flex flex-wrap items-center';
     title.className = 'text-sm mr-auto leading-tight';
     title.textContent = `Layer ${index + 1}`;
     header.append(title);
+
+    if (effects.length > detailedLayerLimit) {
+      const edit = document.createElement('button');
+
+      edit.type = 'button';
+      edit.textContent = 'Edit';
+      edit.title = `Edit layer ${index + 1}`;
+      edit.setAttribute('aria-expanded', 'false');
+
+      edit.addEventListener('click', () => {
+        if (!controls) {
+          controls = createControls();
+          card.append(controls);
+        } else {
+          controls.hidden = !controls.hidden;
+        }
+
+        edit.textContent = controls.hidden ? 'Edit' : 'Hide';
+        edit.setAttribute('aria-expanded', String(!controls.hidden));
+      });
+
+      header.append(edit);
+    }
 
     for (const [text, action] of [
       ['Play layer', () => previewEffect({ layerIndex: index })],
@@ -835,10 +933,14 @@ const renderLayers = () => {
 
             layerStates.set(restored, state);
             effects[index] = restored;
-            const replacement = createControls();
 
-            controls.replaceWith(replacement);
-            controls = replacement;
+            if (controls) {
+              const replacement = createControls();
+
+              replacement.hidden = controls.hidden;
+              controls.replaceWith(replacement);
+              controls = replacement;
+            }
           }
 
           changed();
@@ -877,7 +979,9 @@ const renderLayers = () => {
       header.append(button);
     }
 
-    card.append(header, controls);
+    card.append(header);
+
+    if (controls) card.append(controls);
     layers.append(card);
   });
 

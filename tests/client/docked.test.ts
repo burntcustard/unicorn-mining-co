@@ -505,6 +505,13 @@ adoptPlayerShip({ship:replacement});
 assert(!replacement.dead && game.sprites.includes(replacement), 'adopting the current ship does not remove it');
 assert(player.ships.length === 2 && player.ships[1] === spareShip,
   'adopting the current ship does not duplicate it or remove other owned ships');
+adoptPlayerShip({ship:replacement,ownedShips:[]});
+assert.equal(player.ships, ownedShips, 'fleet reconciliation preserves the owned array');
+assert.equal(player.ships.length, 0, 'a sold last ship is not retained as owned');
+assert.equal(player.ship, replacement, 'an empty hangar retains its docked berth');
+adoptPlayerShip({ship:replacement,ownedShips:[spareShip,replacement]});
+assert.deepEqual(player.ships,[replacement,spareShip], 'fleet reconciliation puts the piloted ship first');
+assert.equal(player.berth,undefined, 'owning a ship clears the empty berth');
 console.log('Cargo contents, dock actions, damage, repairs, cargo hatch physics and flight tests passed');
 `;
 

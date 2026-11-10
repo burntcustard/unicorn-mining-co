@@ -3,10 +3,21 @@ import { simulationStep } from '../../specs/simulation';
 import { packPlayerInput, unpackPlayerInput } from './input';
 import type { ClientMessage, ServerMessage } from './network';
 import { controlMessageIds, dockActionIds } from '../../specs/protocol';
+import { decodeBinarySnapshot } from './binary-snapshot';
+import { type ShipId } from '../../specs/ships';
 
 type ServerControl = Extract<
   ServerMessage,
-  { type: 'welcome' | 'respawn' | 'progress' | 'profile' | 'sounds' | 'chat' }
+  {
+    type:
+      | 'welcome'
+      | 'respawn'
+      | 'progress'
+      | 'profile'
+      | 'sounds'
+      | 'chat'
+      | 'hangar';
+  }
 >;
 
 const {
@@ -24,6 +35,7 @@ const {
   sounds,
   gateAccess,
   chat,
+  hangar,
 } = controlMessageIds;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,6 +137,12 @@ class ControlReader {
   readonly type: number;
   get remaining() {
     return this.bytes.length - this.offset;
+  }
+  rest() {
+    const bytes = this.bytes.subarray(this.offset);
+
+    this.offset = this.bytes.length;
+    return bytes;
   }
   private view: DataView;
 
@@ -282,6 +300,15 @@ export function encodeClientMessage(
   message: ClientMessage,
 ): Uint8Array<ArrayBuffer> {
   switch (message.type) {
+    case 'hangar': {
+      const writer = new ControlWriter(hangar);
+
+      writer.string(message.command);
+      writer.signed(message.shipId);
+      writer.string(message.value);
+      return writer.finish();
+    }
+
     case 'profile': {
       if (!message.displayName) throw new Error('Enter a name');
       const writer = new ControlWriter(profile);
@@ -458,6 +485,35 @@ export function decodeClientMessage(
   let message: ClientMessage;
 
   switch (reader.type) {
+    case hangar: {
+      const command = reader.string();
+
+      if (
+        ![
+          'LIST',
+          'BUY',
+          'SPECIAL',
+          'SELL',
+          'PILOT',
+          'RENAME',
+          'REPAIR',
+          'REFUEL',
+          'PAINT',
+        ].includes(command)
+      ) {
+        throw new Error('Invalid hangar command');
+      }
+
+      message = {
+        type: 'hangar',
+        command: command as import('./network').HangarAction['command'],
+        shipId: reader.signed(),
+        value: reader.string(),
+      };
+
+      break;
+    }
+
     case profile:
       message = { type: 'profile', displayName: reader.string() };
 
@@ -668,7 +724,7 @@ export function decodeClientMessage(
  * Encode server controls; snapshots use the separate binary schema.
  */
 export function encodeServerControl(
-  message: ServerControl,
+  message: Exclude<ServerControl, { type: 'hangar' }>,
 ): Uint8Array<ArrayBuffer> {
   if (message.type === 'chat') {
     const writer = new ControlWriter(chat);
@@ -790,6 +846,41 @@ export function decodeServerControl(
   let message: ServerControl;
 
   switch (reader.type) {
+    case hangar: {
+      const shipId = reader.unsigned();
+      const credits = reader.number();
+      const error = reader.text();
+      const count = reader.unsigned();
+
+      if (count > reader.remaining / 10) {
+        throw new Error('Invalid hangar inventory');
+      }
+
+      const shipsForSale = Array.from({ length: count }, () => {
+        const ship = reader.string();
+        const price = reader.number();
+
+        if (!ship || !Number.isSafeInteger(price) || price < 0) {
+          throw new Error('Invalid hangar offer');
+        }
+
+        return { ship: ship as ShipId, price };
+      });
+
+      const snapshot = decodeBinarySnapshot(reader.rest());
+
+      message = {
+        type: 'hangar',
+        shipId,
+        credits,
+        error,
+        ships: snapshot.fullEntities,
+        shipsForSale,
+      };
+
+      break;
+    }
+
     case chat: {
       const channel = reader.byte();
 

@@ -3,6 +3,14 @@ package specs
 
 type UpdateTier struct{ Substeps, UpdateEvery, ReplicateEvery int }
 
+type AsteroidDebris struct {
+	MinLifetime     float64 `json:"minLifetime"`
+	MaxLifetime     float64 `json:"maxLifetime"`
+	Decay           float64 `json:"decay"`
+	SeparationSpeed float64 `json:"separationSpeed"`
+	ItemClearance   float64 `json:"itemClearance"`
+}
+
 type Motion struct {
 	DefaultDrag         float64 `json:"defaultDrag"`
 	DefaultMaxSpeed     float64 `json:"defaultMaxSpeed"`
@@ -50,6 +58,7 @@ type Physics struct {
 }
 
 type Simulation struct {
+	AsteroidDebris          AsteroidDebris        `json:"asteroidDebris"`
 	LinearSlop              float64               `json:"linearSlop"`
 	ContactSpeedThreshold   float64               `json:"contactSpeedThreshold"`
 	Physics                 Physics               `json:"physics"`

@@ -106,8 +106,9 @@ func main() {
 		}
 
 		if scenario.repeated {
-			// Five fractures include repeated hits after the reload at tick 241.
-			rockID, radius, position, ticks = 3324057349, 70, Vec.Create(160, -25), 400
+			// Retain repeated fractures with the stock three-second firing interval,
+			// including hits after the reload at tick 241.
+			rockID, radius, position, ticks = 3324057349, 70, Vec.Create(160, -25), 600
 		}
 
 		if scenario.triangle {
@@ -139,6 +140,12 @@ func main() {
 		if moving {
 			rock.Velocity = Vec.Create(0, 1)
 			rock.Spin = .01
+		}
+
+		if scenario.repeated {
+			// Persistent chips must clear the remainder so this case isolates
+			// repeated projectile impulses rather than sustained chip contacts.
+			rock.Spin = .1
 		}
 
 		if scenario.drifting {

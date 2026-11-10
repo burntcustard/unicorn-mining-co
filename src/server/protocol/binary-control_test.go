@@ -13,6 +13,9 @@ import (
 type controlFixture struct {
 	Client []struct {
 		Message struct {
+			Command                                   string
+			ShipID                                    int64
+			Value                                     string
 			GateID                                    uint64
 			Channel                                   byte
 			Sender, Text                              string
@@ -84,6 +87,10 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		}
 
 		switch got.Type {
+		case "hangar":
+			if got.HangarCommand != fixture.Message.Command || got.ShipID != fixture.Message.ShipID || got.Text != fixture.Message.Value {
+				t.Fatal("hangar request differs")
+			}
 		case "gateAccess":
 			if got.GateID != fixture.Message.GateID {
 				t.Fatal("gate ID differs")

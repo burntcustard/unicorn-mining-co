@@ -106,7 +106,7 @@ export class Weapon extends Module {
         !ready &&
         !shot
       ) {
-        playSound('plasma-accelerator-charge', { id: this.id });
+        playSound('railgun-charge', { id: this.id });
       }
 
       previous[3] = charged;
@@ -114,7 +114,7 @@ export class Weapon extends Module {
 
     // Held fire can complete charging and shoot between presented frames.
     if (plasma && this.mount?.health > 0 && (ready || shot) && !previous[2]) {
-      playSound('plasma-accelerator-ready', { id: this.id });
+      playSound('railgun-ready', { id: this.id });
     }
 
     previous[2] = ready && !shot;

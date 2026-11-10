@@ -1,9 +1,11 @@
 import type { MountPointSpec } from '../mounts';
 import type { RenderingLayer } from '../rendering-layers';
 import type { ItemId } from '../items';
+import type { ShipId } from '../ships';
 
 export type StationSpec = {
   name: string;
+  shipsForSale: { ship: ShipId; price: number }[];
   initialCargoContents: { item: ItemId; count: number }[];
   dockingBays: number[];
   hullSegments: {

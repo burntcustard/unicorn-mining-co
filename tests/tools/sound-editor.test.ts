@@ -50,6 +50,14 @@ for (const name of ['Laser ping', 'laserPing', 'laser-ping']) {
 
 validateSound('pickup', [basic]);
 
+validateSound(
+  'sequence',
+  Array.from({ length: maxLayers }, (_, index) => ({
+    ...basic,
+    delay: Math.round((index / (maxLayers - 1)) * 10000),
+  })),
+);
+
 const fractionalTiming = {
   ...basic,
   attack: 10.4,
@@ -123,7 +131,7 @@ for (const invalid of [
   [{ volume: 1, decay: 100 }],
   [{ ...basic, unexpected: 1 }],
   [{ ...basic, cutoff: undefined }],
-  Array(33).fill(basic),
+  Array(maxLayers + 1).fill(basic),
   basic,
   null,
 ]) {
@@ -141,7 +149,7 @@ for (const [key, invalid] of [
   ['pulseWidth', 0],
   ['pulseWidth', 1],
   ['delay', -1],
-  ['delay', 1001],
+  ['delay', 10001],
   ['attack', 251],
   ['decay', 2501],
   ['hold', 501],
@@ -157,6 +165,8 @@ for (const [key, invalid] of [
   ['highpass', 7001],
   ['endHighpass', 7001],
   ['endHighpass', '100'],
+  ['ring', 0],
+  ['ring', 0.099],
   ['ring', 501],
 ] as const) {
   assert.throws(
@@ -165,6 +175,8 @@ for (const [key, invalid] of [
   );
 }
 
+validateSound('ui', [{ ...basic, resonance: 4000, ring: 0.1 }]);
+
 validateSound('ui', [
   {
     ...basic,
@@ -172,7 +184,7 @@ validateSound('ui', [
     decay: 2500,
     hold: 500,
     release: 500,
-    delay: 1000,
+    delay: 10000,
     pitchDuration: 3750,
     filterDuration: 3750,
     highpass: 7000,
@@ -236,6 +248,47 @@ assert.deepEqual(
   compactOptional({ ...basic, waveform: 'pulse', pulseWidth: 0.25 }),
   { ...basic, waveform: 'pulse', pulseWidth: 0.25 },
 );
+
+assert.equal(
+  compactOptional({ ...basic, waveform: 'noise', noiseSeed: 12345 }).noiseSeed,
+  12345,
+);
+assert.equal(
+  compactOptional({ ...basic, noiseSeed: 12345 }).noiseSeed,
+  undefined,
+);
+assert.equal(
+  compactOptional({ ...basic, waveform: 'noise', noiseSeed: 0 }).noiseSeed,
+  undefined,
+);
+
+for (const noiseSeed of [-1, 4294967296, NaN, Infinity]) {
+  assert.throws(
+    () => validateSound('sound', [{ ...basic, noiseSeed }]),
+    /noiseSeed/,
+  );
+}
+
+assert.equal(
+  compactOptional({ ...basic, phaseOffset: 0.25 }).phaseOffset,
+  0.25,
+);
+assert.equal(
+  compactOptional({ ...basic, phaseOffset: 0 }).phaseOffset,
+  undefined,
+);
+assert.equal(
+  compactOptional({ ...basic, waveform: 'noise', phaseOffset: 0.25 })
+    .phaseOffset,
+  undefined,
+);
+
+for (const phaseOffset of [-0.001, 1.001, NaN, Infinity]) {
+  assert.throws(
+    () => validateSound('sound', [{ ...basic, phaseOffset }]),
+    /phaseOffset/,
+  );
+}
 
 assert.deepEqual(
   compactOptional({ ...basic, resonance: 2200, ring: 50 }),
@@ -986,6 +1039,50 @@ for (const gainPoints of [
 
 validateSound('acquireTarget', [{ ...basic, gainPoints: [] }]);
 
+const clustered = {
+  ...basic,
+  frequency: 1000,
+  partials: [0.4, 1, 0.2],
+  partialRatio: 0.05,
+  fmRatio: 2,
+  fmDepth: 1,
+};
+
+validateSound('cluster', [clustered]);
+const compactCluster = compactOptional(clustered);
+
+assert.deepEqual(compactCluster.partials, clustered.partials);
+assert.notEqual(compactCluster.partials, clustered.partials);
+assert.equal(compactCluster.partialRatio, 0.05);
+assert.equal(compactCluster.fmRatio, undefined);
+assert.equal(compactCluster.fmDepth, undefined);
+assert.equal(
+  compactOptional({ ...basic, partialRatio: 0.1 }).partialRatio,
+  undefined,
+);
+assert.equal(
+  compactOptional({ ...clustered, waveform: 'noise' }).partials,
+  undefined,
+);
+assert.deepEqual(
+  compactOptional(resolveSoundEffect(compactCluster)),
+  compactCluster,
+);
+
+for (const partials of [[NaN], [-0.1], [1.1], Array(33).fill(1), '1,0.5']) {
+  assert.throws(
+    () => validateSound('cluster', [{ ...basic, partials }]),
+    /partials/,
+  );
+}
+
+for (const partialRatio of [0, -1, 3, Infinity]) {
+  assert.throws(
+    () => validateSound('cluster', [{ ...basic, partialRatio }]),
+    /partialRatio/,
+  );
+}
+
 for (const gainPositions of [
   [0, 0.5, 0.5, 1],
   [0.1, 0.2, 0.5, 1],
@@ -1004,5 +1101,87 @@ for (const gainPositions of [
         },
       ]),
     /gainPositions/,
+  );
+}
+
+const resonancePath = {
+  ...basic,
+  resonancePoints: [1000, 4000, 1000],
+  filterDuration: 42,
+};
+
+validateSound('sound', [resonancePath]);
+const compactPath = compactOptional(resonancePath);
+
+assert.deepEqual(compactPath.resonancePoints, resonancePath.resonancePoints);
+assert.notEqual(compactPath.resonancePoints, resonancePath.resonancePoints);
+assert.equal(compactPath.resonance, undefined);
+assert.equal(compactPath.endResonance, undefined);
+assert.equal(compactPath.filterDuration, 42);
+assert.deepEqual(compactOptional({ ...basic, resonancePoints: [] }), basic);
+
+for (const resonancePoints of [
+  [1],
+  [0, 1000],
+  [1000, 22051],
+  [1000, 1000.5],
+  [1000, NaN],
+  Array(33).fill(1000),
+  '1000,2000',
+]) {
+  assert.throws(
+    () => validateSound('sound', [{ ...basic, resonancePoints }]),
+    /resonancePoints/,
+  );
+}
+
+const pitchPath = {
+  ...basic,
+  pitchPoints: [800, 3200, 800],
+  pitchDuration: 42,
+};
+
+validateSound('sound', [pitchPath]);
+const compactPitch = compactOptional(pitchPath);
+
+assert.deepEqual(compactPitch.pitchPoints, pitchPath.pitchPoints);
+assert.notEqual(compactPitch.pitchPoints, pitchPath.pitchPoints);
+assert.equal(compactPitch.frequency, undefined);
+assert.equal(compactPitch.endFrequency, undefined);
+assert.equal(compactPitch.pitchDuration, 42);
+assert.deepEqual(compactOptional({ ...basic, pitchPoints: [] }), basic);
+
+for (const pitchPoints of [
+  [1],
+  [0, 800],
+  [800, 22051],
+  [800, 800.5],
+  [800, NaN],
+  Array(33).fill(800),
+  '800,3200',
+]) {
+  assert.throws(
+    () => validateSound('sound', [{ ...basic, pitchPoints }]),
+    /pitchPoints/,
+  );
+}
+
+assert.equal(
+  compactOptional({ ...basic, cutoff: 12000, lowpassOrder: 4 }).lowpassOrder,
+  4,
+);
+assert.equal(
+  compactOptional({ ...basic, lowpassOrder: 4 }).lowpassOrder,
+  undefined,
+);
+assert.equal(
+  compactOptional({ ...basic, cutoff: 12000, lowpassOrder: 1 }).lowpassOrder,
+  undefined,
+);
+
+for (const lowpassOrder of [0, 9, NaN, Infinity]) {
+  assert.throws(
+    () => validateSound('sound', [{ ...basic, lowpassOrder }]),
+    /lowpassOrder/,
   );
 }

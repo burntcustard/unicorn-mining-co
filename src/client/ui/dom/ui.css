@@ -136,6 +136,14 @@
     backdrop-filter: var(--ui-backdrop-filter, blur(4px));
   }
 
+  .ui-focus-panel:focus-visible {
+    outline: var(--ui-border-width) solid var(--ui-color);
+    outline-offset: calc(-1 * var(--ui-border-width));
+    box-shadow:
+      0 0 8px rgb(from var(--ui-color) r g b / 0.2),
+      inset 0 0 8px rgb(from var(--ui-color) r g b / 0.2);
+  }
+
   /* Fullscreen surfaces already blur the world behind their cards. */
   body:has(.hud > .ui-backdrop:not([hidden])) .ui-card {
     backdrop-filter: none;
@@ -295,6 +303,7 @@
     }
 
     &[aria-pressed='true'] {
+      z-index: 1;
       color: #fff;
 
       &:before {
@@ -305,7 +314,7 @@
 
     &:hover:not(:disabled),
     &:focus-visible {
-      z-index: 1;
+      z-index: 2;
       color: #fff;
       transition: color 0.05s;
 
@@ -322,10 +331,21 @@
     }
   }
 
-  .ui-controls {
+  .ui-control {
     user-select: none;
 
-    & > button[aria-pressed='true'] > kbd {
+    &:focus-visible {
+      outline: none;
+    }
+
+    & kbd {
+      transition:
+        color 0.1s,
+        border-color 0.1s,
+        box-shadow 0.1s;
+    }
+
+    &[aria-pressed='true'] > kbd {
       background: linear-gradient(var(--ui-color), var(--ui-color)) center /
         calc(100% - 6px) calc(100% - 6px) no-repeat var(--ui-panel);
       color: #000;
@@ -333,14 +353,20 @@
       -webkit-text-stroke-width: 0;
     }
 
-    & > button:enabled:is(:hover, :focus-visible) {
+    &:enabled:is(:hover, :focus-visible) {
       color: #fff;
     }
 
-    &
-      > button:enabled:not([aria-pressed='true']):is(:hover, :focus-visible)
-      kbd {
+    &:enabled:not([aria-pressed='true']):is(:hover, :focus-visible) kbd {
       color: #fff;
+      border-color: var(--ui-color);
+      box-shadow:
+        0 0 8px rgb(from var(--ui-color) r g b / 0.2),
+        inset 0 0 8px rgb(from var(--ui-color) r g b / 0.2);
+      transition:
+        color 0.05s,
+        border-color 0.05s,
+        box-shadow 0.05s;
     }
   }
 
@@ -539,11 +565,6 @@
       &[aria-pressed='true'] {
         background: unset;
         color: inherit;
-      }
-
-      &:is(:focus-visible, :hover) {
-        position: relative;
-        z-index: 1;
       }
     }
   }

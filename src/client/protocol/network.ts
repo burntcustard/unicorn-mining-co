@@ -4,9 +4,25 @@ import { type AsteroidSegment } from './entities';
 import { type ModuleState } from '../objects/craft';
 import { type WreckageSegment } from '../objects/wreckage-segment';
 import { type WorldSound } from './sounds';
+import { type StationSpec } from '../../specs/stations/types';
 
 export type NetworkVector = Vec.Value;
 export type ReplicatedModule = ModuleState;
+
+export type HangarAction = {
+  command:
+    | 'LIST'
+    | 'BUY'
+    | 'SPECIAL'
+    | 'SELL'
+    | 'PILOT'
+    | 'RENAME'
+    | 'REPAIR'
+    | 'REFUEL'
+    | 'PAINT';
+  shipId: number;
+  value: string;
+};
 
 export type CraftAction =
   | { action: 'buy'; module: number; moduleId: number; mount?: number }
@@ -88,6 +104,7 @@ export type PlayerInputMessage = {
 };
 
 export type ClientMessage =
+  | ({ type: 'hangar' } & HangarAction)
   | { type: 'gateAccess'; gateId: number }
   | { type: 'chat'; channel: number; text: string }
   | { type: 'profile'; displayName: string }
@@ -101,6 +118,14 @@ export type ClientMessage =
   | PlayerInputMessage;
 
 export type ServerMessage =
+  | {
+      type: 'hangar';
+      shipId: number;
+      credits: number;
+      error: string;
+      ships: ReplicatedEntity[];
+      shipsForSale: StationSpec['shipsForSale'];
+    }
   | {
       type: 'chat';
       cargoDemand?: number;

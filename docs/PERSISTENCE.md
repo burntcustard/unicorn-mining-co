@@ -41,6 +41,30 @@ mount, health, optional paint and firing cooldown, and active/activation-progres
 pairs. Cargo contains its identity, type and condition, plus message contents or
 remaining ammunition rounds where needed. Saves use the current item and module
 IDs and mount layout; renamed IDs and retired layouts are not translated.
+The active ship record also holds an optional custom `name` and `storedShips`
+array containing the other owned ships in the same format. Stored ships are
+available at every station but do not participate in world simulation. Older
+records without this array retain their one active ship. Ship names default to
+the hull model, independently of the player's display name.
+
+Selling the last ship saves `noShip` on an inert docked berth record, retaining
+the station and camera position without granting ownership of that hull.
+The server rejects launching, respawning, and craft actions from that berth;
+the client also suppresses flight controls so prediction cannot undock it.
+Reconnecting restores the berth's station location and opens the Hangar even
+without an owned ship; buying a ship replaces the berth.
+All docked tabs remain accessible without a ship. Ship services and outfitting
+are unavailable, and market stock remains visible with purchases disabled until
+the player buys a ship.
+Stations selling Mustangs offer a recovery purchase when credits plus the net
+sale value of the entire fleet (including cargo and fitted modules) cannot
+cover the station's regular Mustang price. This purchase consumes all remaining
+credits and owned ships/items and supplies a new standard Mustang, without a
+confirmation dialog. Eligibility is checked by the server.
+Hangar transactions, names, equipment, cargo, and
+credits are captured together by the ordinary player save path.
+Ship sale payouts include the hull, fitted modules, and cargo value minus the
+cost to fully repair the hull and fitted modules and refill the fuel tank.
 Credits are stored only in their SQL column. Shapes, physics constants, velocity,
 spin, movement parents, flight inputs and RNG state are not saved for player
 ships. Specs rebuild those defaults, and ships resume stationary. Partial
@@ -103,8 +127,13 @@ removed before any save was submitted needs no SQL deletion. Submitted records
 remain tracked before commit, so a later deletion cannot be lost behind an
 in-flight creation.
 
-World projectiles and objects with positive `Decay` are temporary and are not
-saved. This includes fading asteroid pieces and craft wreckage. They continue
+World projectiles and objects actively losing health through `Decay` are temporary
+and are not saved. This includes empty asteroid debris and craft wreckage.
+Asteroid debris containing an item is protected from decay and remains saved,
+including its terminal breakup state, until mined away. Detached asteroid
+segments, including empty ones, do not decay and remain saved; destroying a
+detached triangle replaces it with four debris triangles, or three corner triangles
+when items are released into a central hole. Temporary objects continue
 to simulate normally while the server runs; their damage to permanent objects
 still follows the ordinary save rules. Permanent items, ships, stations,
 asteroids, player state, and cargo contents remain saved. Old temporary world
@@ -153,6 +182,10 @@ even when no players are connected.
 `DATABASE_PATH` to use another file. Production requires an explicit path.
 The database has one owner: another game server using the same
 file fails with a lock error rather than overwriting live state.
+
+New players on non-production servers start with 99,999 credits for testing ships
+and equipment. Production players start with 2,000 credits. Existing saved
+balances are preserved in both environments.
 
 The seed and a digest of generation rules are checked on startup. Appending
 new items to the catalog accepts saves from any earlier prefix of that catalog;

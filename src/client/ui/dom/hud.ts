@@ -192,7 +192,7 @@ export const createHud = ({
           const kbd = document.createElement('kbd');
           const name = document.createElement('span');
 
-          row.className = 'flex items-center gap-3';
+          row.className = 'ui-control flex items-center gap-3';
           row.type = 'button';
 
           row.addEventListener('click', () => {
@@ -236,7 +236,6 @@ export const createHud = ({
 
       const scale = Math.max(output * 1.5, 1);
 
-      powerStore.style.setProperty('--hud-power-width', `${scale * 30}px`);
       power.style.setProperty(
         '--ui-power-generation',
         `${(output / scale) * 100}%`,

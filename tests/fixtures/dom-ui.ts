@@ -11,9 +11,21 @@ import { ui, updateNotification } from '../../src/client/ui/dom/ui.ts';
 import { hideUi, saveHideUi } from '../../src/client/ui/dom/graphics';
 import { syncDockedUi } from '../../src/client/ui/dom/docked-loader.ts';
 import { setCraftActionDispatcher } from '../../src/client/network/craft-actions.ts';
+import {
+  hangarState,
+  setHangarActionDispatcher,
+} from '../../src/client/network/hangar-actions';
+import { shipSpecsById, type ShipId } from '../../src/specs/ships';
+import { stationSpecsById } from '../../src/specs/stations';
 import { Station } from '../../src/client/objects/station.ts';
 import { Item } from '../../src/client/objects/item.ts';
-import { autogunAmmo, diamond } from '../../src/specs/items';
+import {
+  amethyst,
+  autogunAmmo,
+  diamond,
+  gold,
+  opal,
+} from '../../src/specs/items';
 import { pirateDialog } from '../../src/specs/dialog/pirate';
 import { cloneEntity } from '../../src/client/simulation/world-state';
 import {
@@ -446,7 +458,7 @@ export const checkChat = () => {
   const originalAccessKeys = defaultKeybindings.requestGateAccess.keys;
   const moduleStyle =
     retryAccess.classList.contains('flex') &&
-    retryAccess.parentElement!.classList.contains('ui-controls') &&
+    retryAccess.classList.contains('ui-control') &&
     retryAccess.querySelector('kbd')!.textContent ===
       originalAccessKeys.join(' / ');
 
@@ -741,7 +753,138 @@ setCraftActionDispatcher((ship, action) =>
   ship.applyDockAction(action, player),
 );
 
+setHangarActionDispatcher(({ command, shipId, value }) => {
+  const ship = player.ships.find((ship) => ship.id === shipId);
+
+  if (command === 'BUY' || command === 'SPECIAL') {
+    const offer = stationSpecsById
+      .get('corral-5')!
+      .shipsForSale.find((offer) => offer.ship === value)!;
+
+    const ship = createPlayerShip(player.ship.world!, {
+      shipType: value as ShipId,
+    });
+
+    const previous = player.ship;
+
+    ship.dockedTo = station.id;
+
+    if (command === 'SPECIAL') {
+      player.credits = 0;
+      player.ships.splice(0, player.ships.length, ship);
+    } else {
+      player.credits -= offer.price;
+      player.ships.unshift(ship);
+    }
+
+    player.berth = undefined;
+
+    if (!player.ships.includes(previous)) previous.remove();
+  } else if (ship) {
+    if (command === 'RENAME') ship.name = value;
+
+    if (command === 'PILOT') {
+      player.ships = [ship, ...player.ships.filter((owned) => owned !== ship)];
+    }
+
+    if (command === 'SELL') {
+      player.credits +=
+        shipSpecsById.get((ship.definitionId || 'mustang') as ShipId)!.price +
+        ship.mounts.reduce(
+          (sum, mount) => sum + (mount.module ? mount.module.price : 0),
+          0,
+        ) +
+        ship.cargoContents.reduce(
+          (sum, object) => sum + (object.price || 0),
+          0,
+        ) -
+        ship.repairCost() -
+        ship.mounts.reduce((sum, mount) => sum + ship.repairCost(mount), 0) -
+        ship.refuelCost;
+      player.ships = player.ships.filter((owned) => owned !== ship);
+
+      if (!player.ships.length) {
+        ship.mounts.forEach((mount) => {
+          if (mount.module) ship.fit(0, mount);
+        });
+
+        ship.cargoContents = [];
+        player.berth = ship;
+      }
+    }
+
+    if (command === 'REFUEL') {
+      ship.applyDockAction({ action: 'refuel' }, player);
+    }
+
+    if (command === 'PAINT') {
+      ship.applyDockAction({ action: 'paint', paint: Number(value) }, player);
+    }
+
+    if (command === 'REPAIR') {
+      ship.applyDockAction({ action: 'repair' }, player);
+
+      ship.mounts.forEach((mount, index) => {
+        if (mount.module) {
+          ship.applyDockAction(
+            { action: 'repair', mount: index, moduleId: mount.module.id },
+            player,
+          );
+        }
+      });
+    }
+  }
+
+  hangarState.busy = false;
+});
+
+export const hangarTestState = () => [
+  player.ships.map((ship) => [ship.id, ship.name]),
+  player.ships.length ? player.ship.id : 0,
+  player.credits,
+];
+
+export const fundHangar = () => {
+  player.credits = 100000;
+  ui.current.update();
+};
+
+export const impoverishHangar = () => {
+  player.credits = 123;
+  player.ship.fuel = 0;
+  ui.current.update();
+};
+
+export const hangarStatus = (busy: boolean, error = '') => {
+  hangarState.busy = busy;
+  hangarState.error = error;
+  ui.current.update();
+};
+
+export const damageHangarShip = () => {
+  const ship = player.ship;
+
+  ship.fuel = 1;
+  const health = ship.hullHealth;
+
+  health[0] = 2;
+  ship.hullHealth = health;
+  ship.mounts.find((mount) => mount.module)!.health = 1;
+  ui.current.update();
+  return (
+    ship.repairCost() +
+    ship.mounts.reduce((sum, mount) => sum + ship.repairCost(mount), 0) +
+    ship.refuelCost
+  );
+};
+
 export const dock = () => syncDockedUi({ ship: player.ship, available: true });
+
+export const reopenDock = () => {
+  ui.clear();
+  syncDockedUi({ ship: player.ship, available: true });
+};
+
 export const inspect = () => [
   player.credits,
   player.ship.cargoContents.length,
@@ -770,6 +913,28 @@ export const replaceTradeCargo = () => {
 export const tradeCargo = () => {
   player.ship.cargoContents.push(new Item(diamond));
   ui.current.update();
+};
+
+export const tradeNavigationLayout = () => {
+  const cargo = player.ship.cargoContents;
+  const stock = station.cargoContents;
+
+  player.ship.cargoContents = [
+    new Item(gold),
+    new Item(opal),
+    new Laser(),
+    new Item(autogunAmmo),
+  ];
+  station.cargoContents = [amethyst, diamond, gold, opal, autogunAmmo].map(
+    (spec) => new Item(spec),
+  );
+  ui.current.update();
+
+  return () => {
+    player.ship.cargoContents = cargo;
+    station.cargoContents = stock;
+    ui.current.update();
+  };
 };
 
 export const damage = () => {
@@ -896,6 +1061,102 @@ export const damageHull = () => {
 };
 
 export const hullHealth = () => player.ship.hullHealth;
+
+export const showroomActivation = async () => {
+  const { Ship } = await import('../../src/client/objects/ship');
+  // oxlint-disable-next-line typescript/unbound-method
+  const activate = Ship.prototype.setSegmentActive;
+  const states: [boolean, boolean, number][] = [];
+  const before = JSON.stringify(player.ship.moduleStates);
+
+  Ship.prototype.setSegmentActive = function (segment, active) {
+    states.push([
+      Boolean(segment.hull),
+      segment.module.definitionId === 'searchLight',
+      active,
+    ]);
+    activate.call(this, segment, active);
+  };
+
+  try {
+    document.querySelector('[data-key="offer:arrow"]').dispatchEvent(
+      new CustomEvent('ui-press', {
+        bubbles: true,
+        detail: new KeyboardEvent('keydown', { key: 'Enter' }),
+      }),
+    );
+
+    return [
+      states.some(([hull, light, active]) => !hull && !light && active === 1),
+      states.every(
+        ([hull, light, active]) => active === (hull || light ? 0 : 1),
+      ),
+      states.some(([, light]) => light),
+      before === JSON.stringify(player.ship.moduleStates),
+    ];
+  } finally {
+    Ship.prototype.setSegmentActive = activate;
+  }
+};
+
+export const shipThumbnailRendering = async () => {
+  const { renderingLayers } = await import('../../src/specs/rendering-layers');
+  const { Ship } = await import('../../src/client/objects/ship');
+  const { default: shipPreview } =
+    await import('../../src/client/ui/dom/ship-preview');
+  const target = document.createElement('canvas');
+  const source = player.ship;
+  const before = JSON.stringify([source.rotation, source.moduleStates]);
+  const context = game.ctx;
+  const scale = game.scale;
+  // oxlint-disable-next-line typescript/unbound-method
+  const render = Ship.prototype.render;
+  const rotations: number[] = [];
+  const flares: number[] = [];
+  const inactive: number[] = [];
+  let glow = false;
+
+  target.style.width = target.style.height = '48px';
+  document.body.append(target);
+
+  Ship.prototype.render = function (options) {
+    rotations.push(this.rotation);
+    glow ||=
+      options?.zIndex === renderingLayers.glowBelowShips ||
+      options?.zIndex === renderingLayers.glowAboveShips;
+
+    this.segments.forEach((segment) => {
+      (segment.flareSize ? flares : inactive).push(segment.activationProgress);
+    });
+
+    render.call(this, options);
+  };
+
+  try {
+    shipPreview.shipThumbnail(target, source);
+    const calls = rotations.length;
+    const image = target.toDataURL();
+
+    shipPreview.shipThumbnail(target, source);
+    const cached = calls === rotations.length;
+
+    target.style.width = target.style.height = '64px';
+    shipPreview.shipThumbnail(target, source);
+    return [
+      calls > 0 && rotations.every((rotation) => rotation === -Math.PI / 4),
+      cached,
+      image !== target.toDataURL(),
+      before === JSON.stringify([source.rotation, source.moduleStates]),
+      game.ctx === context && game.scale === scale,
+      flares.length > 0 && flares.every((progress) => progress === 1),
+      inactive.every((progress) => progress === 0),
+      !glow,
+    ];
+  } finally {
+    Ship.prototype.render = render;
+    target.parentElement.removeChild(target);
+  }
+};
 
 export const previewEquivalence = async () => {
   const { default: shipPreview } =
@@ -1819,14 +2080,16 @@ export const checkHud = () => {
       ) < 0.1,
   );
 
-  const wholePixelPower =
-    Math.abs(meter.getBoundingClientRect().width - Number(powerScale) * 30) <
-      0.1 &&
-    usageParts.every((part) => {
-      const width = part.getBoundingClientRect().width;
+  const stores = meter.closest<HTMLElement>('.hud-stores')!;
+  const storesWidth = stores.getBoundingClientRect().width;
+  const fullMeterWidth = meter.getBoundingClientRect().width;
+  const originalWidth = stores.style.width;
 
-      return Math.abs(width - Math.round(width)) < 0.02;
-    });
+  stores.style.width = `${storesWidth - 40}px`;
+  const responsivePower =
+    Math.abs(meter.getBoundingClientRect().width - fullMeterWidth + 40) < 0.1;
+
+  stores.style.width = originalWidth;
 
   const matchingDividers = usageParts.every(
     (part) =>
@@ -1859,7 +2122,9 @@ export const checkHud = () => {
   const clippedPower =
     Number(meter.getAttribute('aria-valuenow')) > Number(powerScale) &&
     meter.getAttribute('aria-valuemax') === powerScale &&
-    meterBox.width === meterWidth &&
+    meterBox.width > 0 &&
+    meterBox.width <= meterWidth &&
+    stores.getBoundingClientRect().width === storesWidth &&
     getComputedStyle(meter).overflowX === 'clip' &&
     getComputedStyle(meter).overflowY === ' visible '.trim() &&
     usageParts.some(
@@ -1999,7 +2264,7 @@ export const checkHud = () => {
     ['constantThrusterPower', constantThrusterPower],
     ['animatedUsage', animatedUsage],
     ['settledUsage', settledUsage],
-    ['wholePixelPower', wholePixelPower],
+    ['responsivePower', responsivePower],
     ['matchingDividers', matchingDividers],
     ['travel', travel],
     ['gateRoute', gateRoute],

@@ -16,7 +16,12 @@ export type EffectNumberKey = {
 
 export type EffectChoiceKey = Exclude<
   keyof SoundEffect,
-  EffectNumberKey | 'gainPoints' | 'gainPositions'
+  | EffectNumberKey
+  | 'gainPoints'
+  | 'gainPositions'
+  | 'resonancePoints'
+  | 'pitchPoints'
+  | 'partials'
 >;
 
 export type ChoiceParameter = {
@@ -24,7 +29,7 @@ export type ChoiceParameter = {
   options: readonly string[];
 };
 
-export const maxLayers = 32;
+export const maxLayers = 512;
 
 export const soundEvents = [
   'hatchOpen',
@@ -163,6 +168,14 @@ const pitch = { min: 0.01, max: 8, step: 0.01, scale: 'log' } as const;
 
 export const effectParameters: Record<EffectNumberKey, Parameter> = {
   volume: { label: 'Volume', ...volume },
+  noiseSeed: {
+    label: 'Noise seed (0 = random)',
+    min: 0,
+    max: 4294967295,
+    step: 1,
+    integer: true,
+  },
+  phaseOffset: { label: 'Phase offset (cycles)', ...weight },
   frequency: { label: 'Frequency', ...frequency },
   endFrequency: { label: 'End frequency', ...frequency },
   pitchDuration: {
@@ -171,10 +184,32 @@ export const effectParameters: Record<EffectNumberKey, Parameter> = {
     max: sweepLimit,
   },
   pulseWidth: { label: 'Pulse width', min: 0.01, max: 0.99, step: 0.01 },
+  modulationRate: {
+    label: 'Modulation rate',
+    min: 0,
+    max: 200,
+    step: 0.1,
+    unit: 'Hz',
+  },
+  modulationDepth: {
+    label: 'Modulation depth',
+    min: 0,
+    max: 2400,
+    step: 1,
+    integer: true,
+    unit: 'cents',
+  },
+  fmRatio: { label: 'FM ratio', min: 0, max: 16, step: 0.01 },
+  fmDepth: { label: 'FM depth', min: 0, max: 16, step: 0.01 },
+  partialRatio: {
+    label: 'Partial spacing ratio',
+    min: 0.001,
+    max: 2,
+    step: 0.001,
+  },
   delay: {
     label: 'Delay',
     ...effectDuration,
-    max: 1000,
   },
   attack: {
     label: 'Attack',
@@ -192,6 +227,13 @@ export const effectParameters: Record<EffectNumberKey, Parameter> = {
     integer: false,
   },
   cutoff: { label: 'Low-pass', ...frequency },
+  lowpassOrder: {
+    label: 'Low-pass stages',
+    min: 1,
+    max: 8,
+    step: 1,
+    integer: true,
+  },
   endCutoff: { label: 'End low-pass', ...frequency },
   highpass: { label: 'High-pass', ...highpass },
   endHighpass: { label: 'End high-pass', ...highpass },
@@ -202,7 +244,14 @@ export const effectParameters: Record<EffectNumberKey, Parameter> = {
   },
   resonance: { label: 'Resonance', ...frequency },
   endResonance: { label: 'End resonance', ...frequency },
-  ring: { label: 'Ring', ...effectDuration, min: 1, max: 500, integer: false },
+  ring: {
+    label: 'Ring',
+    ...effectDuration,
+    min: 0.1,
+    max: 500,
+    step: 0.01,
+    integer: false,
+  },
 };
 
 const curves = ['linear', 'exponential', 'ease-in', 'ease-out'] as const;
@@ -332,9 +381,12 @@ export const compactOptional = (effect: SoundEffect): SoundEffect => {
     decay,
     frequency,
     cutoff,
+    lowpassOrder,
     endFrequency,
     highpass,
     waveform,
+    noiseSeed,
+    phaseOffset,
     pulseWidth,
     delay,
     hold,
@@ -345,6 +397,13 @@ export const compactOptional = (effect: SoundEffect): SoundEffect => {
     releaseCurve,
     pitchDuration,
     pitchCurve,
+    pitchPoints,
+    modulationRate,
+    modulationDepth,
+    fmRatio,
+    fmDepth,
+    partials,
+    partialRatio,
     endCutoff,
     filterDuration,
     filterCurve,
@@ -354,6 +413,7 @@ export const compactOptional = (effect: SoundEffect): SoundEffect => {
     gainPoints,
     gainPositions,
     endResonance,
+    resonancePoints,
   } = resolveSoundEffect(effect);
   const compact: SoundEffect = { volume, attack, decay };
   const fullDuration = attack + decay + hold + release;
@@ -380,27 +440,61 @@ export const compactOptional = (effect: SoundEffect): SoundEffect => {
 
   if (waveform !== (cutoff ? 'noise' : 'sine')) compact.waveform = waveform;
 
+  if (noiseSeed && (waveform === 'noise' || waveform === 'crackle')) {
+    compact.noiseSeed = noiseSeed;
+  }
+
+  if (phaseOffset && waveform !== 'noise' && waveform !== 'crackle') {
+    compact.phaseOffset = phaseOffset;
+  }
+
+  if (
+    modulationRate &&
+    modulationDepth &&
+    (waveform !== 'noise' || resonance || endResonance)
+  ) {
+    compact.modulationRate = modulationRate;
+    compact.modulationDepth = modulationDepth;
+  }
+
   if (waveform === 'pulse' && pulseWidth !== 0.5) {
     compact.pulseWidth = pulseWidth;
   }
 
-  if (waveform !== 'noise') {
-    if (frequency) compact.frequency = frequency;
+  if (waveform === 'sine' && partials.length) {
+    compact.partials = [...partials];
 
-    if (endFrequency !== frequency) {
-      compact.endFrequency = endFrequency;
+    if (partialRatio !== 1) compact.partialRatio = partialRatio;
+  } else if (waveform === 'sine' && fmRatio && fmDepth) {
+    compact.fmRatio = fmRatio;
+    compact.fmDepth = fmDepth;
+  }
+
+  if (waveform !== 'noise') {
+    if (pitchPoints.length) {
+      compact.pitchPoints = [...pitchPoints];
+    } else if (frequency) {
+      compact.frequency = frequency;
+    }
+
+    if (endFrequency !== frequency || pitchPoints.length) {
+      if (!pitchPoints.length) compact.endFrequency = endFrequency;
 
       if (!matchesDuration(pitchDuration)) {
         compact.pitchDuration = pitchDuration;
       }
 
-      if (pitchDuration && pitchCurve !== 'linear') {
+      if (!pitchPoints.length && pitchDuration && pitchCurve !== 'linear') {
         compact.pitchCurve = pitchCurve;
       }
     }
   }
 
   if (cutoff) compact.cutoff = cutoff;
+
+  if ((cutoff || endCutoff) && lowpassOrder !== 1) {
+    compact.lowpassOrder = lowpassOrder;
+  }
 
   if (highpass) compact.highpass = highpass;
 
@@ -411,7 +505,8 @@ export const compactOptional = (effect: SoundEffect): SoundEffect => {
   if (
     endCutoff !== cutoff ||
     endHighpass !== highpass ||
-    endResonance !== resonance
+    endResonance !== resonance ||
+    resonancePoints.length
   ) {
     if (!matchesDuration(filterDuration)) {
       compact.filterDuration = filterDuration;
@@ -426,10 +521,14 @@ export const compactOptional = (effect: SoundEffect): SoundEffect => {
 
   if (gainPositions.length) compact.gainPositions = [...gainPositions];
 
-  if (endResonance !== resonance) compact.endResonance = endResonance;
+  if (resonancePoints.length) {
+    compact.resonancePoints = [...resonancePoints];
+  } else if (endResonance !== resonance) {
+    compact.endResonance = endResonance;
+  }
 
   if (resonance || endResonance) {
-    compact.resonance = resonance;
+    if (!resonancePoints.length) compact.resonance = resonance;
 
     if (ring !== 50) compact.ring = ring;
   }
@@ -464,6 +563,9 @@ export function validateSound<N extends SoundName>(
     ...Object.keys(effectChoices),
     'gainPoints',
     'gainPositions',
+    'resonancePoints',
+    'pitchPoints',
+    'partials',
   ];
   const optional = keys.filter(
     (key) => !['volume', 'attack', 'decay'].includes(key),
@@ -475,12 +577,13 @@ export function validateSound<N extends SoundName>(
 
     validateNumbers(settings, effectParameters, path, optional);
 
-    if ('gainPoints' in settings) {
-      const points = settings.gainPoints;
+    for (const key of ['gainPoints', 'partials'] as const) {
+      if (!(key in settings)) continue;
+      const points = settings[key];
 
       if (
         !Array.isArray(points) ||
-        points.length === 1 ||
+        (key === 'gainPoints' && points.length === 1) ||
         points.length > 32 ||
         Array.from(points).some(
           (value) =>
@@ -491,7 +594,25 @@ export function validateSound<N extends SoundName>(
         )
       ) {
         throw new Error(
-          `${path}.gainPoints must be empty or contain 2–32 numbers between 0 and 1.`,
+          `${path}.${key} must be empty or contain ${key === 'gainPoints' ? '2' : '1'}–32 numbers between 0 and 1.`,
+        );
+      }
+    }
+
+    for (const key of ['resonancePoints', 'pitchPoints'] as const) {
+      if (!(key in settings)) continue;
+      const points = settings[key];
+
+      if (
+        !Array.isArray(points) ||
+        points.length === 1 ||
+        points.length > 32 ||
+        Array.from(points).some(
+          (value) => !Number.isInteger(value) || value < 1 || value > 22050,
+        )
+      ) {
+        throw new Error(
+          `${path}.${key} must be empty or contain 2–32 integer frequencies from 1 to 22050 Hz.`,
         );
       }
     }

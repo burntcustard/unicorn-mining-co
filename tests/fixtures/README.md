@@ -63,6 +63,11 @@ updating these affected fields. All 983 actions, 757 packet types and counts,
 runtime IDs, server ticks, acknowledgments, and account data remain unchanged;
 the numeric comparison still uses its original tolerance.
 
+Hangar synchronization adds eight `hangar` messages after docking actions and
+respawn. The update retains all 983 actions and all 757 original messages
+unchanged; the fixed replay now checks 765 messages, including the added ship
+inventories, active ship IDs, and account balances.
+
 `rendering.json` captures representative replicated ship, station, mixed cargo,
 and drilling stages. Browser tests hydrate it under source and production
 transforms and check rendering, reconciliation and object identity.

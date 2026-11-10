@@ -14,6 +14,7 @@ export const controlMessageIds = {
   sounds: 11,
   gateAccess: 12,
   chat: 13,
+  hangar: 14,
 } as const satisfies Record<string, number>;
 
 export const dockActionIds = {

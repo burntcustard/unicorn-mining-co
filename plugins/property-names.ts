@@ -5,10 +5,22 @@
  * skips quoted paths, so a name can also occur inside shape-distance.
  */
 export const propertyNames = [
+  'decaying',
   'ready',
   'gainPoints',
   'gainPositions',
   'endResonance',
+  'resonancePoints',
+  'pitchPoints',
+  'lowpassOrder',
+  'noiseSeed',
+  'phaseOffset',
+  'modulationRate',
+  'modulationDepth',
+  'fmRatio',
+  'fmDepth',
+  'partials',
+  'partialRatio',
   'telemetry',
   'hudElement',
   'readPresentation',

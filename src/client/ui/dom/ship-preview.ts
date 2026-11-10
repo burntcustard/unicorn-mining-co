@@ -2,6 +2,7 @@ import { Item } from '../../objects/item';
 import { type ItemSpec } from '../../../specs/items/types';
 import { Ship } from '../../objects/ship';
 import { Module } from '../../objects/modules/module';
+import { SearchLight } from '../../objects/modules/search-light';
 import { game } from '../../game';
 import {
   renderingLayers,
@@ -17,6 +18,59 @@ import { rotatePoint, rotatePoints } from '../../utilities/geometry';
 
 const layers = Object.values(renderingLayers);
 
+const renderShip = ({
+  target,
+  ship,
+  segments = ship.segments,
+  scale,
+  x = target.width / 2,
+  y = target.height / 2,
+  zIndex,
+  glow = true,
+}: {
+  target: HTMLCanvasElement;
+  ship: Ship;
+  segments?: Segment[];
+  scale: number;
+  x?: number;
+  y?: number;
+  zIndex?: RenderingLayer;
+  glow?: boolean;
+}) => {
+  const ctx = target.getContext('2d')!;
+  const previousContext = game.ctx,
+    previousScale = game.scale;
+  const all = ship.segments;
+
+  ctx.clearRect(0, 0, target.width, target.height);
+  ctx.save();
+
+  try {
+    game.ctx = ctx;
+    game.scale = scale;
+    ship.segments = segments;
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+
+    (zIndex === undefined ? layers : [zIndex]).forEach((zIndex) => {
+      if (
+        !glow &&
+        (zIndex === renderingLayers.glowBelowShips ||
+          zIndex === renderingLayers.glowAboveShips)
+      ) {
+        return;
+      }
+
+      ship.render({ zIndex });
+    });
+  } finally {
+    ship.segments = all;
+    game.ctx = previousContext;
+    game.scale = previousScale;
+    ctx.restore();
+  }
+};
+
 const createShipPreview = (canvas: HTMLCanvasElement) => {
   let buffers: HTMLCanvasElement[];
   let ship: Ship;
@@ -31,7 +85,7 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
   let pendingFitting: {
     candidate?: Module | typeof Module;
     mount: number;
-    active: boolean;
+    active: boolean | 'all';
   } = { mount: -1, active: true };
 
   const thumbnails = new WeakMap<HTMLCanvasElement, string>();
@@ -77,8 +131,9 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
         segment,
         +(
           active &&
-          !!activeMount &&
-          segment.mount === activeMount &&
+          (active === 'all'
+            ? !segment.hull && !(segment.module instanceof SearchLight)
+            : !!activeMount && segment.mount === activeMount) &&
           (segment.module !== fitting || fittingKey === key)
         ),
       ),
@@ -89,47 +144,6 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
     ship.segments.find(
       (segment) => segment.hull && segment.module === ship.hullSegments[index],
     );
-
-  const render = (
-    target: HTMLCanvasElement,
-    {
-      segments = ship.segments,
-      scale,
-      x = target.width / 2,
-      y = target.height / 2,
-      zIndex,
-    }: {
-      segments?: Segment[];
-      scale: number;
-      x?: number;
-      y?: number;
-      zIndex?: RenderingLayer;
-    },
-  ) => {
-    const ctx = target.getContext('2d')!;
-    const previousContext = game.ctx,
-      previousScale = game.scale;
-    const all = ship.segments;
-
-    ctx.clearRect(0, 0, target.width, target.height);
-    ctx.save();
-
-    try {
-      game.ctx = ctx;
-      game.scale = scale;
-      ship.segments = segments;
-      ctx.translate(x, y);
-      ctx.scale(scale, scale);
-      (zIndex === undefined ? layers : [zIndex]).forEach((zIndex) =>
-        ship.render({ zIndex }),
-      );
-    } finally {
-      ship.segments = all;
-      game.ctx = previousContext;
-      game.scale = previousScale;
-      ctx.restore();
-    }
-  };
 
   const draw = (time: number) => {
     frame = 0;
@@ -162,10 +176,13 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
       canvas.height = height;
     }
 
-    const scale = Math.min(width / 115, height / 100);
+    const scale = Math.min(
+      width / Math.max(115, ship.radius * 2.6),
+      height / Math.max(100, ship.radius * 2.6),
+    );
 
     if (hullIndex < 0) {
-      render(canvas, { scale });
+      renderShip({ target: canvas, ship, scale });
       return;
     }
 
@@ -198,7 +215,7 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
     // covered selection pixels; selection is raised only within its own layer.
     layers.forEach((zIndex) => {
       groups.forEach((segments, focused) => {
-        render(layer, { segments, scale, zIndex });
+        renderShip({ target: layer, ship, segments, scale, zIndex });
         full.drawImage(layer, 0, 0);
         visible.globalCompositeOperation = focused
           ? 'source-over'
@@ -282,7 +299,9 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
       return;
     }
 
-    render(target, {
+    renderShip({
+      target,
+      ship,
       segments: [segment],
       scale,
       x,
@@ -310,7 +329,7 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
         hull?: number;
         mount?: number;
         candidate?: Module | typeof Module;
-        active?: boolean;
+        active?: boolean | 'all';
       } = {},
     ) {
       const live = source instanceof Ship ? source : undefined;
@@ -460,6 +479,39 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
   };
 };
 
+const shipThumbnails = new WeakMap<HTMLCanvasElement, string>();
+
+const shipThumbnail = (target: HTMLCanvasElement, source: Ship) => {
+  const size = Math.round(target.clientWidth * Math.min(devicePixelRatio, 2));
+  const states = source.moduleStates.filter((state) => state.mount >= 0);
+  const key = JSON.stringify([
+    size,
+    source.definitionId,
+    source.hullHealth,
+    source.shades,
+    states,
+  ]);
+
+  if (!size || shipThumbnails.get(target) === key) return;
+
+  const ship = new Ship({
+    shipType: source.definitionId,
+    shades: source.shades,
+    rotation: -Math.PI / 4,
+  });
+
+  ship.hullHealth = source.hullHealth;
+  ship.moduleStates = states;
+
+  ship.segments.forEach((segment) => {
+    segment.active = segment.activationProgress = segment.flareSize ? 1 : 0;
+  });
+
+  target.width = target.height = size;
+  renderShip({ target, ship, scale: size / (ship.radius * 2.6), glow: false });
+  shipThumbnails.set(target, key);
+};
+
 const itemThumbnails = new WeakMap<HTMLCanvasElement, string>();
 
 const itemThumbnail = (
@@ -590,4 +642,4 @@ const itemThumbnail = (
   }
 };
 
-export default { createShipPreview, itemThumbnail };
+export default { createShipPreview, itemThumbnail, shipThumbnail };

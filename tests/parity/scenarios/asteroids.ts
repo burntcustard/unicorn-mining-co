@@ -8,6 +8,7 @@ import {
   asteroidContact,
 } from '../../../src/client/objects/asteroid';
 import { type SimulationEvent } from '../../../src/client/protocol/events';
+import { Item } from '../../../src/client/objects/item';
 
 const record = (asteroid: Asteroid) =>
   structuredClone({
@@ -36,85 +37,117 @@ const record = (asteroid: Asteroid) =>
     })),
   });
 
-const samples = [1, 25, 9128, 4294967295].flatMap((id) =>
-  [25, 57, 150].map((radius, index) => {
-    const world = createWorld();
+const properties: Parameters<typeof createAsteroid>[1][] = [
+  1, 25, 9128, 4294967295,
+].flatMap((id) =>
+  [25, 57, 150].map((radius, index) => ({
+    id,
+    radius,
+    ...(index === 1 ? { radiusEven: 9, pointCount: 10 } : {}),
+    contents: [0, 1, 2, 3, 1, 0],
+    position: Vec.create(-32.375, 79.25),
+    velocity: Vec.create(2.125, -3.5),
+    rotation: 0.7125,
+    spin: -0.125,
+  })),
+);
 
-    const properties = {
-      id,
-      radius,
-      ...(index === 1 ? { radiusEven: 9, pointCount: 10 } : {}),
-      contents: [0, 1, 2, 3, 1, 0],
-      position: Vec.create(-32.375, 79.25),
-      velocity: Vec.create(2.125, -3.5),
-      rotation: 0.7125,
-      spin: -0.125,
+for (const size of [4, 12, 24, 80]) {
+  for (const height of [1, size]) {
+    for (const reverse of [false, true]) {
+      const shapeOutline = [
+        [-size, -height],
+        [size, -height],
+        [0, height * 2],
+      ];
+
+      properties.push({
+        id: 9128,
+        radius: size,
+        contents: [0, 1, 2, 3, 4, 5],
+        shapeOutline: reverse ? shapeOutline.reverse() : shapeOutline,
+        rotation: 0.7125,
+        spin: -0.125,
+        velocity: Vec.create(2.125, -3.5),
+        position: Vec.create(-32.375, 79.25),
+      });
+    }
+  }
+}
+
+const samples = properties.map((properties) => {
+  const world = createWorld();
+  const radius = properties.radius ?? 25;
+  const asteroid = addEntity(
+    world,
+    createAsteroid(world, properties).lockGeometry(),
+  );
+  const initial = record(asteroid);
+
+  const contacts = [
+    Vec.create(),
+    Vec.create(radius, 0),
+    Vec.create(0, radius),
+    Vec.create(radius * 2, radius),
+  ].map((offset) => {
+    const position = Vec.add(asteroid.position, offset);
+
+    return {
+      position,
+      radius: 3,
+      contact: asteroidContact({ asteroid, position, radius: 3 }) || null,
     };
+  });
 
-    const asteroid = addEntity(
-      world,
-      createAsteroid(world, properties).lockGeometry(),
+  const steps = [];
+
+  for (let step = 0; step < 12; step++) {
+    const target = [...world.entities.values()].find(
+      (entity): entity is Asteroid =>
+        entity instanceof Asteroid && !!entity.segments?.length,
     );
-    const initial = record(asteroid);
 
-    const contacts = [
-      Vec.create(),
-      Vec.create(radius, 0),
-      Vec.create(0, radius),
-      Vec.create(radius * 2, radius),
-    ].map((offset) => {
-      const position = Vec.add(asteroid.position, offset);
+    if (!target) break;
+    const segmentIndex = (step * 7) % target.segments!.length;
+    const segment = target.segments![segmentIndex];
 
-      return {
-        position,
-        radius: 3,
-        contact: asteroidContact({ asteroid, position, radius: 3 }) || null,
-      };
+    segment.health = 0;
+    const events: SimulationEvent[] = [];
+
+    const changed = target.fracture({
+      asteroidSegment: segment,
+      by: 1,
+      events,
+      world,
     });
 
-    const steps = [];
+    steps.push({
+      id: target.id,
+      segmentIndex,
+      changed,
+      events,
+      entities: [...world.entities.values()].map((entity) =>
+        record(entity as Asteroid),
+      ),
+    });
+  }
 
-    for (let step = 0; step < 12; step++) {
-      const target = [...world.entities.values()].find(
-        (entity): entity is Asteroid =>
-          entity instanceof Asteroid && !!entity.segments?.length,
-      );
+  const remaining = [...world.entities.values()];
 
-      if (!target) break;
-      const segmentIndex = (step * 7) % target.segments!.length;
-      const segment = target.segments![segmentIndex];
+  for (const entity of remaining) {
+    const asteroid = entity as Asteroid;
 
-      segment.health = 0;
-      const events: SimulationEvent[] = [];
+    asteroid.health = 0;
+    asteroid.fracture({ by: 1, events: [], world });
+  }
 
-      const changed = target.fracture({
-        asteroidSegment: segment,
-        by: 1,
-        events,
-        world,
-      });
+  const debris = [...world.entities.values()]
+    .filter((entity): entity is Asteroid => entity instanceof Asteroid)
+    .map(record);
 
-      steps.push({
-        id: target.id,
-        segmentIndex,
-        changed,
-        events,
-        entities: [...world.entities.values()].map((entity) =>
-          record(entity as Asteroid),
-        ),
-      });
-    }
-
-    const remaining = [...world.entities.values()];
-
-    for (const entity of remaining) {
-      const asteroid = entity as Asteroid;
-
-      asteroid.health = 0;
-      asteroid.fracture({ by: 1, events: [], world });
-    }
-
-    const drops = [...world.entities.values()].map((item) => ({
+  const drops = [...world.entities.values()]
+    .filter((entity): entity is Item => entity instanceof Item)
+    .map((item) => ({
       id: item.id,
       position: item.position,
       velocity: item.velocity,
@@ -123,8 +156,19 @@ const samples = [1, 25, 9128, 4294967295].flatMap((id) =>
       resource: item.resource,
     }));
 
-    return { properties, initial, contacts, steps, drops };
-  }),
-);
+  return {
+    properties: {
+      ...properties,
+      ...(properties.shapeOutline && {
+        shapeOutline: { points: properties.shapeOutline },
+      }),
+    },
+    initial,
+    contacts,
+    steps,
+    drops,
+    debris,
+  };
+});
 
 export default samples;

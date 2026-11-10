@@ -4,6 +4,7 @@ import type { ShipSpec } from './types';
 // Radius includes the large shield at its rearward mount: 73 + 1.5.
 export const moth = {
   name: 'Moth',
+  price: 5200,
   fuelCapacity: 180,
   cargoSpace: 20,
   drag: 0.36,
@@ -14,10 +15,6 @@ export const moth = {
     {
       mount: 0,
       module: 'powerPlant',
-    },
-    {
-      mount: 1,
-      module: 'shieldGeneratorLg',
     },
     {
       mount: 2,

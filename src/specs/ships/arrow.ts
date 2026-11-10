@@ -2,6 +2,7 @@ import type { ShipSpec } from './types';
 
 export const arrow = {
   name: 'Arrow',
+  price: 2600,
   fuelCapacity: 120,
   cargoSpace: 12,
   drag: 0.56,
@@ -12,6 +13,8 @@ export const arrow = {
     { mount: 2, module: 'thrusterSingleMd' },
     { mount: 0, module: 'cargoHatch' },
     { mount: 4, module: 'cargoHatch' },
+    { mount: 6, module: 'hornDrill' },
+    { mount: 7, module: 'searchLight' },
     { mount: 8, module: 'powerPlant' },
   ],
   hullSegments: [

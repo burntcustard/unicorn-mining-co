@@ -1620,8 +1620,8 @@ for (const definitionId of ['plasmaAccelerator', 'plasmaAcceleratorTurret']) {
   weapon.chargeCooldown = 0;
   present(); present();
   assert.deepEqual(soundCalls.map(call => call[0]), [
-    'plasma-accelerator-charge', 'plasma-accelerator-charge',
-    'plasma-accelerator-charge', 'plasma-accelerator-ready',
+    'railgun-charge', 'railgun-charge',
+    'railgun-charge', 'railgun-ready',
   ], 'three indicators sound before the barrel becomes ready');
   weapon.chargeCooldown = 2;
   present();
@@ -1683,9 +1683,10 @@ chargingShip.updateModules(chargingGun.activationDuration / 2);
 assert.equal(glowCount(), 0, 'fully deployed plasma starts uncharged');
 chargingShip.updateVisual(0);
 assert.equal(effects.length, 0, 'startup charge does not create a muzzle flash');
-chargingShip.updateModules(0.5);
+const firstRecharge = indicators[0].rechargeDelay;
+chargingShip.updateModules(firstRecharge);
 assert.equal(glowCount(), 1, 'plasma charges its first indicator only after deployment');
-chargingShip.updateModules(chargingGun.chargeDuration - 0.501);
+chargingShip.updateModules(chargingGun.chargeDuration - firstRecharge - 0.001);
 assert.equal(glowCount(), 3, 'the barrel stays dark just before startup charging completes');
 chargingShip.updateModules(0.001);
 assert.equal(glowCount(), 4, 'fully charged plasma adds a barrel glow without holding fire');
@@ -1732,7 +1733,7 @@ assert.deepEqual(
 );
 assert.equal(glowCount(), 0, 'discharged indicators have no glow');
 for (let index = 0; index < 3; index++) {
-  chargingShip.fireWeapons(0.499);
+  chargingShip.fireWeapons(indicators[index].rechargeDelay - (indicators[index - 1]?.rechargeDelay ?? 0) - 0.001);
   assert.equal(
     plasmaShots(),
     1,
@@ -1749,7 +1750,7 @@ for (let index = 0; index < 3; index++) {
   assert.deepEqual(
     indicatorColors(),
     indicators.map((_, i) => colors.cyan[i <= index ? 2 : 0]),
-    'one indicator recharges every half second',
+    'one indicator recharges at each configured boundary',
   );
   assert.equal(
     glowCount(),
@@ -1757,7 +1758,7 @@ for (let index = 0; index < 3; index++) {
     'each recharge restores only its indicator glow',
   );
 }
-chargingShip.fireWeapons(chargingGun.fireInterval - 1.5);
+chargingShip.fireWeapons(chargingGun.fireInterval - indicators.at(-1).rechargeDelay);
 assert.equal(glowCount(), 4, 'the barrel glow returns only when the full firing cooldown completes');
 controlShip(chargingShip, { ...playerInput, fire: true }, []);
 chargingShip.fireWeapons(0);

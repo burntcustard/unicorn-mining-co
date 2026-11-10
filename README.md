@@ -299,6 +299,8 @@ frontend's normal proxy. Stop only servers started for testing.
 
 Use `UI_MENU_ONLY=1 npm run test:ui` to check startup and menu loading without
 the docking fixture, or `UI_DOCK_ONLY=1 npm run test:ui` for the docking fixture.
+Use `UI_HANGAR_ONLY=1 npm run test:ui` to check Hangar transactions, names,
+sale confirmations, keyboard navigation, hull paint, and empty hangars alone.
 Set `CHROME_BIN` when the browser executable is not named `chromium`.
 
 Use `UI_HUD_ONLY=1 npm run test:ui` for static HUD

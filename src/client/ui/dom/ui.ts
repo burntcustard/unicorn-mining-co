@@ -41,6 +41,27 @@ export const query = <T extends Element = HTMLElement>(
   selector: string,
 ) => element.querySelector<T>(selector)!;
 
+export const nextMenuButton = ({
+  group,
+  direction,
+  filter,
+}: {
+  group: ParentNode;
+  direction: number;
+  filter?: (button: HTMLButtonElement) => boolean;
+}) => {
+  const buttons = [
+    ...group.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+  ].filter(
+    (button) => button.getClientRects().length && (!filter || filter(button)),
+  );
+  const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+
+  if (index < 0) return buttons.at(direction > 0 ? 0 : -1);
+
+  return buttons[index + direction] || buttons[index];
+};
+
 export const focusMenuTarget = (
   target: HTMLElement | undefined,
   key: string,
@@ -203,7 +224,7 @@ export const ui = (() => {
 
     if (
       !control ||
-      control.matches(':disabled') ||
+      control.matches(':disabled, .chat-panel input') ||
       (related instanceof Element && related.closest(selector) === control)
     ) {
       return;
@@ -236,27 +257,26 @@ export const ui = (() => {
 
     if (focused && !focused.matches('button')) return;
 
+    if (
+      focused?.closest('.ui-tabs') &&
+      ['ArrowUp', 'ArrowDown'].includes(event.key)
+    ) {
+      event.preventDefault();
+      return;
+    }
+
     const group =
-      focused?.closest('nav, [data-bindings], [data-action-group]') ||
+      focused?.closest('nav, [data-controls-panel], [data-action-group]') ||
       screen.querySelector('nav') ||
       screen;
 
-    const buttons = Array.from(
-      group.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
-    ).filter((button) => button.getClientRects().length);
-    const index = buttons.indexOf(focused);
+    const target = nextMenuButton({ group, direction });
 
-    if (!buttons.length) return;
+    if (!target) return;
     event.preventDefault();
     element.classList.add('ui-arrow-navigation');
-    const next =
-      index < 0
-        ? direction > 0
-          ? 0
-          : -1
-        : (index + direction) % buttons.length;
 
-    focusMenuTarget(buttons.at(next), event.key);
+    focusMenuTarget(target, event.key);
   });
 
   return {

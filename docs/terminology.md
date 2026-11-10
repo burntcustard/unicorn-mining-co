@@ -4,6 +4,8 @@
 
 **asteroid segment** - One destructible piece of an asteroid, with its own shape, health, and contents.
 
+**asteroid debris** - Small triangular fragments created when a detached asteroid segment is destroyed. They decay unless holding an item and do not subdivide further.
+
 **benchmark case** - One measured configuration in a benchmark suite, such as a rendering scenario in one browser or a server workload with one player count.
 
 **benchmark suite** - A group of benchmark cases run together with common measurement settings.
@@ -14,7 +16,7 @@
 
 **burst balance** - Accumulated CPU time available for temporary usage above a shared server's sustained quota. Benchmark settings restarts can discard this balance.
 
-**buy** - A docked action that pays credits for a new module or item. Trade puts purchases in cargo contents; Outfitting buys and equips a module on a compatible empty mount in one action. It is the opposite of selling.
+**buy** - A docked action that pays credits for a ship, module, or item. Hangar adds a fully fueled ship with its standard loadout and immediately pilots it. Trade puts purchases in cargo contents; Outfitting buys and equips a module on a compatible empty mount in one action. It is the opposite of selling.
 
 **cadence** - The timing of recurring snapshots or frames, including their rate and the gaps between them.
 
@@ -83,6 +85,8 @@
 **horn drill** - A pointed drill module fitted to a craft.
 
 **hull** - The structural body of a craft or jump gate, made from hull segments rather than fitted modules.
+
+**hangar** - The station tab for managing owned ships and buying ships. Owned ships are accessible at every station, including multiple instances of the same model. Each station instance has its own `shipsForSale` array of ship IDs and complete purchase prices, initialized from its spec and sent by the server when using the Hangar. A ship spec's `price` is the bare hull value; standard fitted modules are added to the station's purchase price. Selling returns the full hull, current fitted module, and cargo values, without depreciation for damage. Custom ship names contain 1 to 16 characters and do not change the player's profile name.
 
 **hull segment** - One structural piece of a craft's or jump gate's hull. It has its own shape and health and may carry a mount.
 

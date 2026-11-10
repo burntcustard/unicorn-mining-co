@@ -56,6 +56,7 @@ import {
 import { motion } from '../src/specs/local-movement';
 import { flight } from '../src/specs/control-ship';
 import { simulationStep } from '../src/specs/simulation';
+import { asteroidDebris } from '../src/specs/asteroid';
 import { startingCredits } from '../src/specs/player';
 import { updateTiers } from '../src/specs/update-tier';
 import { maxCatchUpTicks } from '../src/specs/game-session';
@@ -76,6 +77,7 @@ import {
 } from '../src/specs/region-generation';
 
 const simulation = {
+  asteroidDebris,
   physics,
   linearSlop,
   contactSpeedThreshold,

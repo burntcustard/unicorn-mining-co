@@ -492,7 +492,11 @@ checkUi: try {
           e.params.exceptionDetails.text,
       );
 
-  if (!process.env.UI_DOCK_ONLY && !process.env.UI_HUD_ONLY) {
+  if (
+    !process.env.UI_DOCK_ONLY &&
+    !process.env.UI_HUD_ONLY &&
+    !process.env.UI_HANGAR_ONLY
+  ) {
     assert(
       await check(
         `document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root')`,
@@ -521,12 +525,12 @@ checkUi: try {
     );
     await checkHiddenElements();
     await capture('menu');
-    assert.equal(
+    assert.deepEqual(
       await check(
-        `performance.getEntriesByType('resource').filter(entry => entry.name.endsWith('.js') && entry.startTime <= window.menuFrame).length`,
+        `performance.getEntriesByType('resource').filter(entry => entry.name.endsWith('.js') && entry.startTime <= window.menuFrame).map(entry => new URL(entry.name).pathname.match(/\\/(audio-context|index)-[\\w-]+\\.js$/)?.[1] || entry.name).sort()`,
       ),
-      1,
-      'only the JavaScript entry is requested before the first menu frame',
+      ['audio-context', 'index'],
+      'only the JavaScript entry and shared audio context are requested before the first menu frame',
     );
     assert(
       !c.events.some(
@@ -593,11 +597,10 @@ checkUi: try {
     await pressKey('ArrowUp');
     assert(
       await check(
-        `document.activeElement === document.querySelector('[data-action="credits"]')`,
+        `document.activeElement === document.querySelector('[data-action="play"]')`,
       ),
-      'Up wraps to the last menu item',
+      'Up stops at the first menu item',
     );
-    await pressKey('ArrowDown');
     await pressKey('Tab');
     assert(
       await check(
@@ -791,6 +794,87 @@ checkUi: try {
       'binding buttons display uppercase without changing their source text',
     );
     await checkHiddenElements();
+    await check(
+      `document.querySelector('[data-bindings] > :last-child button').focus()`,
+    );
+    await pressKey('ArrowDown');
+    assert(
+      await check(
+        `document.activeElement === document.querySelector('[data-module-bindings] button')`,
+      ),
+      'Down from the final ship control reaches Modules',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(
+        `document.activeElement === document.querySelector('[data-bindings] > :last-child button')`,
+      ),
+      'Up from the first module control returns to Ship controls',
+    );
+    const moduleControls = await check(
+      `document.querySelectorAll('[data-module-bindings] button').length`,
+    );
+
+    for (let step = 0; step <= moduleControls; step++) {
+      await pressKey('ArrowDown');
+      assert(
+        await check(
+          step < moduleControls
+            ? `document.activeElement === document.querySelectorAll('[data-module-bindings] button')[${step}]`
+            : `document.activeElement === document.querySelector('[data-reset]')`,
+        ),
+        'Down traverses every module control and reaches Reset',
+      );
+    }
+
+    await check(`(() => {
+      document.querySelector('[data-back]').focus();
+      document.querySelector('[data-module-bindings] > :last-child').scrollIntoView({ block: 'center' });
+    })()`);
+
+    await c.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: 0,
+      y: 0,
+    });
+
+    const topModeAtBorder = () =>
+      check(`(() => {
+      const group = document.querySelector('[data-module-bindings] > :last-child .ui-binding-modes');
+      const hold = group.querySelector('button');
+      const box = hold.getBoundingClientRect();
+      return document.elementFromPoint(box.right - 1, box.y + box.height / 2)?.textContent;
+    })()`);
+
+    assert.equal(
+      await topModeAtBorder(),
+      'Hold',
+      'the pressed Hold button paints above its unpressed neighbor at their shared border',
+    );
+    await check(
+      `document.querySelector('[data-module-bindings] > :last-child .ui-binding-modes button').focus()`,
+    );
+    await pressKey('Tab');
+    assert(
+      await check(
+        `document.activeElement.matches('[data-module-bindings] > :last-child .ui-binding-modes button:last-child:focus-visible')`,
+      ),
+    );
+    assert.equal(
+      await topModeAtBorder(),
+      'Toggle',
+      'keyboard focus paints the unpressed Toggle button above the pressed Hold button',
+    );
+    await check(`document.querySelector('[data-back]').focus()`);
+    await hover(
+      '[data-module-bindings] > :last-child .ui-binding-modes button:last-child',
+    );
+    assert.equal(
+      await topModeAtBorder(),
+      'Toggle',
+      'hover paints the unpressed Toggle button above the pressed Hold button',
+    );
+    await check('document.activeElement.blur()');
     await pressKey('ArrowDown');
     assert(
       await check(
@@ -837,12 +921,37 @@ checkUi: try {
       y: 0,
     });
 
+    for (const tab of ['controls', 'graphics']) {
+      await check(`document.querySelector('[data-${tab}]').focus()`);
+
+      for (const arrow of ['ArrowUp', 'ArrowDown']) {
+        await pressKey(arrow);
+        assert(
+          await check(
+            `document.activeElement === document.querySelector('[data-${tab}]')`,
+          ),
+          `${arrow} does not move sideways between Settings tabs`,
+        );
+      }
+    }
+
+    await check(`document.querySelector('[data-controls]').focus()`);
+    await pressKey('ArrowLeft');
+    assert(
+      await check(`document.activeElement.matches('[data-controls]')`),
+      'Left stops at Controls',
+    );
+    await pressKey('ArrowRight');
+    assert(
+      await check(`document.activeElement.matches('[data-graphics]')`),
+      'Right moves from Controls to Graphics',
+    );
     await pressKey('ArrowRight');
     assert(
       await check(
         `document.activeElement === document.querySelector('[data-graphics]') && document.activeElement.matches(':focus-visible')`,
       ),
-      'arrow navigation shows keyboard focus',
+      'Right stops at Graphics and retains visible keyboard focus',
     );
     assert.deepEqual(
       await readTabStyle(),
@@ -862,6 +971,7 @@ checkUi: try {
       'moving focus does not change selection',
     );
     await pressKey('Enter');
+
     assert(
       await check(
         `document.querySelector('[data-graphics]').getAttribute('aria-current') === 'page'`,
@@ -2055,6 +2165,24 @@ checkUi: try {
   await check(
     `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
   );
+  await waitFor(
+    `!!document.querySelector('.dock-screen')`,
+    'the deferred docking screen finishes loading',
+  );
+
+  if (process.env.UI_HANGAR_ONLY) {
+    await waitFor(
+      `!!document.querySelector('[data-tab="hangar"]')`,
+      'Hangar docking chunk loads',
+    );
+    await checkHangar();
+    assert.equal(errors().length, 0, errors().join('\n'));
+    console.log(
+      'Production Hangar: ship lists, purchases, piloting, names, confirmations, hull paint, keyboard navigation, and empty hangars passed.',
+    );
+    break checkUi;
+  }
+
   const graphics = await check('fixture.checkGraphics()');
   const bays = await check('fixture.checkStationBay()');
   const chat = await check('fixture.checkChat()');
@@ -2069,9 +2197,13 @@ checkUi: try {
     assert(passed, `telemetry: ${behavior}`);
   }
 
-  for (const [behavior, passed] of Object.entries(hud)) {
-    assert(passed, `HUD: ${behavior}`);
-  }
+  assert.deepEqual(
+    Object.entries(hud)
+      .filter(([, passed]) => !passed)
+      .map(([behavior]) => behavior),
+    [],
+    'HUD checks pass',
+  );
 
   for (const [behavior, passed] of Object.entries(chat)) {
     assert(passed, `chat: ${behavior}`);
@@ -2422,12 +2554,16 @@ checkUi: try {
     const icon = launch.querySelector('.dock-launch-icon');
     return document.activeElement === launch && launch.matches(':focus-visible')
       && !launch.disabled
-      && getComputedStyle(icon).opacity === '1' && !!icon.querySelector('svg path');
+      && getComputedStyle(launch).outlineStyle === 'none'
+      && getComputedStyle(icon).opacity === '1' && icon instanceof HTMLCanvasElement
+      && icon.getContext('2d').getImageData(0, 0, icon.width, icon.height).data.some(value => value);
   })()`),
-    'the Launch action receives keyboard focus and shows the ship outline',
+    'the Launch action receives keyboard focus and shows the rendered ship',
   );
 
-  for (const tab of ['overview', 'outfitting', 'trade', 'services']) {
+  const dockTabs = ['overview', 'outfitting', 'trade', 'hangar'];
+
+  for (const [index, tab] of dockTabs.entries()) {
     await click(`[data-tab="${tab}"]`);
     await pressKey('ArrowDown');
     assert(
@@ -2444,16 +2580,23 @@ checkUi: try {
       `${tab}: Up from the first content action returns to the active tab`,
     );
     await pressKey('ArrowRight');
+    assert(
+      await check(
+        `document.activeElement.getAttribute('data-tab') === '${dockTabs[Math.min(index + 1, dockTabs.length - 1)]}'`,
+      ),
+      'Right advances through station tabs and stops at the final tab',
+    );
+    await check(`document.querySelector('[data-tab="${tab}"]').focus()`);
     await pressKey('ArrowLeft');
     assert(
       await check(
-        `document.activeElement.getAttribute('data-tab') === '${tab}'`,
+        `document.activeElement.getAttribute('data-tab') === '${dockTabs[Math.max(index - 1, 0)]}'`,
       ),
-      'Left and Right still navigate between tabs',
+      'Left moves through station tabs and stops at the first tab',
     );
   }
 
-  const focusDock = async (selector: string) => {
+  async function focusDock(selector: string) {
     await c.send('Input.dispatchMouseEvent', {
       type: 'mouseMoved',
       x: 10,
@@ -2461,7 +2604,7 @@ checkUi: try {
     });
 
     await check(`document.querySelector(${JSON.stringify(selector)}).focus()`);
-  };
+  }
 
   const selectCandidate = async (selector: string, activation = 'Enter') => {
     const transaction = await check('fixture.transactionState()');
@@ -2501,14 +2644,14 @@ checkUi: try {
     );
   };
 
-  const expectFocus = async (selector: string, message: string) => {
+  async function expectFocus(selector: string, message: string) {
     assert(
       await check(
         `document.activeElement.matches(${JSON.stringify(selector)})`,
       ),
       message,
     );
-  };
+  }
 
   const committedDockState = () =>
     check(`[
@@ -2549,6 +2692,90 @@ checkUi: try {
         ))
       );
     }
+  };
+
+  const checkDetailArrowNavigation = async () => {
+    const committed = await committedDockState();
+    const [count, actions, paints] = await check(`(() => {
+      const buttons = [...document.querySelectorAll('.dock-detail button:not(:disabled)')]
+        .filter(button => button.getClientRects().length);
+      window.trappedActions = buttons.filter(button => !button.hasAttribute('data-paint'));
+      window.trappedPaints = buttons.filter(button => button.hasAttribute('data-paint'));
+      window.trappedButtons = [...trappedActions, ...trappedPaints.slice(0, 1)];
+      return [trappedButtons.length, trappedActions.length, trappedPaints.length];
+    })()`);
+
+    for (const arrow of ['ArrowDown', 'ArrowUp']) {
+      await focusDock('.dock-detail');
+
+      for (let step = 0; step <= count; step++) {
+        await pressKey(arrow);
+        const index =
+          arrow === 'ArrowDown'
+            ? Math.min(step, count - 1)
+            : Math.max(count - 1 - step, 0);
+
+        assert(
+          await check(
+            count
+              ? `document.activeElement === trappedButtons[${index}]`
+              : `document.activeElement.matches('.dock-detail')`,
+          ),
+          `${arrow} moves vertically through actions and treats paint colors as one row`,
+        );
+      }
+    }
+
+    for (let index = 0; index < actions; index++) {
+      await check(`trappedActions[${index}].focus()`);
+
+      for (const arrow of ['ArrowLeft', 'ArrowRight']) {
+        await pressKey(arrow);
+        assert(
+          await check(`document.activeElement === trappedActions[${index}]`),
+          `${arrow} does not move vertically through action buttons`,
+        );
+      }
+    }
+
+    for (const arrow of ['ArrowLeft', 'ArrowRight']) {
+      if (!paints) break;
+      const forward = arrow === 'ArrowRight';
+
+      await check(`trappedPaints[${forward ? 0 : paints - 1}].focus()`);
+
+      for (let step = 1; step <= paints; step++) {
+        await pressKey(arrow);
+        const index = forward
+          ? Math.min(step, paints - 1)
+          : Math.max(paints - 1 - step, 0);
+
+        assert(
+          await check(`document.activeElement === trappedPaints[${index}]`),
+          `${arrow} stays in the paint row and stops at its edge`,
+        );
+      }
+    }
+
+    for (let index = 0; index < paints; index++) {
+      await check(`trappedPaints[${index}].focus()`);
+      await pressKey('ArrowDown');
+      assert(
+        await check(`document.activeElement === trappedPaints[${index}]`),
+        'Down on a paint color does not move sideways to another color',
+      );
+      await pressKey('ArrowUp');
+      assert(
+        await check(
+          actions
+            ? `document.activeElement === trappedActions.at(-1)`
+            : `document.activeElement === trappedPaints[${index}]`,
+        ),
+        'Up from a paint color moves to the action above or stays in a paint-only panel',
+      );
+    }
+
+    assert.deepEqual(await committedDockState(), committed);
   };
 
   await click('[data-tab="outfitting"]');
@@ -2609,6 +2836,53 @@ checkUi: try {
   await check('fixture.tradeCargo()');
   await click('[data-tab="trade"]');
   const browsingTrade = await committedDockState();
+
+  await check('window.restoreTradeLayout = fixture.tradeNavigationLayout()');
+  assert(
+    await check(`(() => {
+      const rows = [...document.querySelectorAll('[data-trade-items] button, [data-stock-items] button')];
+      const origin = rows[0].getBoundingClientRect().top;
+      const step = parseFloat(getComputedStyle(rows[0]).getPropertyValue('--ui-row-height'));
+      return rows.every(row => {
+        const borderTop = row.getBoundingClientRect().top + parseFloat(getComputedStyle(row, '::before').top);
+        const offset = (borderTop - origin) / step;
+        return Math.abs(offset - Math.round(offset)) < 0.01;
+      });
+    })()`),
+    'trade row borders stay on the same grid across columns with different group headings',
+  );
+  assert(
+    await check(`(() => {
+      const rows = selector => [...document.querySelectorAll(selector + ' button')];
+      return rows('[data-trade-items]').findIndex(row => row.getAttribute('data-key') === 'cargo:item-5')
+        !== rows('[data-stock-items]').findIndex(row => row.getAttribute('data-key') === 'shop:item-5');
+    })()`),
+    'the trade navigation fixture places ammunition at different button indices',
+  );
+  await focusDock('[data-trade-items] [data-key="cargo:item-5"]');
+  await pressKey('ArrowRight');
+  await expectFocus(
+    '[data-stock-items] [data-key="shop:item-5"]',
+    'Right reaches the visually nearest Buy row across different group headings',
+  );
+  await pressKey('ArrowLeft');
+  await expectFocus(
+    '[data-trade-items] [data-key="cargo:item-5"]',
+    'Left reaches the visually nearest Sell row across different group headings',
+  );
+  await focusDock('[data-trade-items] [data-trade-group="modules"] button');
+  await pressKey('ArrowRight');
+  await expectFocus(
+    '[data-stock-items] [data-key="shop:item-3"]',
+    'Right from the module group reaches Opal at the closest visible height',
+  );
+  await pressKey('ArrowLeft');
+  await expectFocus(
+    '[data-trade-items] [data-trade-group="modules"] button',
+    'Left from Opal reaches the closer module row rather than its button index',
+  );
+  await check('restoreTradeLayout()');
+  await focusDock('[data-tab="trade"]');
 
   await pressKey('ArrowDown');
   await expectFocus('[data-trade-items] button', 'Down focuses the Sell list');
@@ -3155,7 +3429,7 @@ checkUi: try {
   await pause(250);
 
   for (const activation of ['Enter', ' ']) {
-    for (const tab of ['overview', 'outfitting', 'trade', 'services']) {
+    for (const tab of ['overview', 'outfitting', 'trade', 'hangar']) {
       await focusDock(`[data-tab="${tab}"]`);
       await pressKey(activation);
       assert(
@@ -3211,6 +3485,8 @@ checkUi: try {
           ),
           'opening an empty slot leaves all compatible modules unselected',
         );
+      } else {
+        await checkDetailArrowNavigation();
       }
 
       if (key !== 'hull:0') {
@@ -3219,7 +3495,7 @@ checkUi: try {
         await pressKey('ArrowLeft');
         assert(
           await check(`document.activeElement === detailControl`),
-          'horizontal arrows leave actions and compatible-module rows in place',
+          'opposite horizontal arrows restore focus within the same panel',
         );
         await checkDockTabOrder();
       } else {
@@ -3260,9 +3536,11 @@ checkUi: try {
     );
     await pressKey('Escape');
 
-    await focusDock('[data-tab="services"]');
+    await focusDock('[data-tab="hangar"]');
     await pressKey(activation);
-    await focusDock('[data-service="paint"]');
+    await focusDock('[data-owned-ships] button');
+    await pressKey(activation);
+    await focusDock('[data-hangar-command="PAINT"]');
     await pressKey(activation);
     await expectFocus(
       '[data-paint]',
@@ -3270,10 +3548,12 @@ checkUi: try {
     );
     assert(
       await check(
-        `document.querySelector('[data-tab="services"]').hasAttribute('aria-current')`,
+        `document.querySelector('[data-tab="hangar"]').hasAttribute('aria-current')`,
       ),
-      'Hull Paint preserves the Services tab',
+      'Hull Paint preserves the Hangar tab',
     );
+    await checkDetailArrowNavigation();
+    await focusDock('[data-paint]');
     await check(`window.firstPaint = document.activeElement`);
     await pressKey('ArrowRight');
     assert(
@@ -3297,8 +3577,8 @@ checkUi: try {
     await checkDockTabOrder();
     await pressKey('Escape');
     await expectFocus(
-      '[data-service="paint"]',
-      'Escape returns to the Services paint button',
+      '[data-owned-ships] button',
+      'Escape returns to the owned ship row',
     );
 
     await click('[data-tab="overview"]');
@@ -3312,12 +3592,13 @@ checkUi: try {
   }
 
   await check(`fixture.damageHull()`);
-  await click('[data-tab="services"]');
-  await focusDock('[data-service="repair"]');
+  await click('[data-tab="hangar"]');
+  await click('[data-owned-ships] button');
+  await focusDock('[data-hangar-command="REPAIR"]');
   await pressKey('Enter');
   await expectFocus(
-    '[data-service="paint"]',
-    'repairing from Services skips the newly disabled Repair All button',
+    '[data-hangar-command="SELL"]',
+    'repairing from Hangar skips the newly disabled Repair All button',
   );
   await check(`fixture.damageHull()`);
   await click('[data-tab="overview"]');
@@ -3408,12 +3689,12 @@ checkUi: try {
   );
   await pressKey('Enter');
   await expectFocus(
-    '[data-candidates]',
-    'Remove returns focus to the compatible-module list with no card selected',
+    '[data-candidates] button:first-child',
+    'Remove focuses the first compatible module with no card selected',
   );
   await expectEmptySlot();
   assert(
-    await check(`document.querySelector('[data-fitting-preview]').hidden`),
+    await check(`!document.querySelector('[data-fitting-preview]').hidden`),
   );
   const emptySlotState = await committedDockState();
   const candidateKeys = await check(`[
@@ -3449,6 +3730,28 @@ checkUi: try {
   const firstCandidate = `[data-candidates] [data-key="${candidateKeys[0]}"]`;
   const secondCandidate = `[data-candidates] [data-key="${candidateKeys[1]}"]`;
 
+  for (const direction of [1, -1]) {
+    const arrow = direction > 0 ? 'ArrowDown' : 'ArrowUp';
+
+    await focusDock('[data-candidates]');
+
+    for (let step = 0; step <= candidateKeys.length; step++) {
+      await pressKey(arrow);
+      const index =
+        direction > 0
+          ? Math.min(step, candidateKeys.length - 1)
+          : Math.max(candidateKeys.length - 1 - step, 0);
+
+      await expectFocus(
+        `[data-candidates] [data-key="${candidateKeys[index]}"]`,
+        `${arrow} enters the compatible-module list and stops at its end`,
+      );
+      assert.deepEqual(await committedDockState(), emptySlotState);
+      await expectEmptySlot();
+    }
+  }
+
+  await focusDock('[data-candidates]');
   await hover(firstCandidate);
   await waitForFitting('active && progress === 1');
   const firstFitting = await fittingState();
@@ -3619,8 +3922,21 @@ checkUi: try {
   await focusDock('[data-candidates] button:last-child');
   await pressKey('ArrowDown');
   await expectFocus(
+    '[data-candidates] button:last-child',
+    'Down stops at the last compatible module even with a card selected',
+  );
+  await focusDock(firstCandidate);
+  await pressKey('ArrowUp');
+  await expectFocus(
+    firstCandidate,
+    'Up stops at the first compatible module even with a card selected',
+  );
+  assert.deepEqual(await committedDockState(), activatedCandidate);
+  await focusDock('[data-candidates] button:last-child');
+  await pressKey('Tab');
+  await expectFocus(
     '[data-command="SELL"]',
-    'Down from the last compatible module reaches the selected card actions',
+    'Tab from the last compatible module reaches the selected card actions',
   );
   await waitForFitting('active && progress === 1');
   assert.equal(
@@ -3630,11 +3946,19 @@ checkUi: try {
   );
   assert.deepEqual(await committedDockState(), activatedCandidate);
   await pressKey('ArrowUp');
-  await expectFocus(
-    '[data-candidates] button:last-child',
-    'Up from the first card action returns to the compatible-module list',
+  assert(
+    await check(`document.activeElement === [...document.querySelectorAll('.dock-detail button:not(:disabled)')]
+      .filter(button => button.getClientRects().length)[0]`),
+    'Up stops at the first card action inside the selected detail panel',
   );
   assert.deepEqual(await committedDockState(), activatedCandidate);
+  await checkDetailArrowNavigation();
+  await focusDock('[data-command="SELL"]');
+  await pressKey('Tab', { shift: true });
+  await expectFocus(
+    '[data-candidates] button:last-child',
+    'Shift+Tab leaves the detail panel for the compatible-module list',
+  );
 
   assert(
     await check(`(() => {
@@ -3675,6 +3999,8 @@ checkUi: try {
   await focusDock('[data-key="hull:0"]');
   await pressKey('Enter');
   await expectFocus('[data-command="FIX"]', 'a damaged hull focuses Repair');
+  await checkDetailArrowNavigation();
+  await focusDock('[data-command="FIX"]');
   await pressKey('Enter');
   await expectFocus(
     '[data-key="hull:0"]',
@@ -3700,9 +4026,9 @@ checkUi: try {
   await expectFocus('[data-hull-paint]', 'Down returns to Hull Paint');
   await pressKey('Enter');
   await pressKey('ArrowDown');
-  await expectFocus('[data-launch]', 'Down from the paint row reaches Back');
+  await expectFocus('[data-paint]', 'Down stays within the paint controls');
   await pressKey('ArrowUp');
-  await expectFocus('[data-paint]', 'Up from Back returns to the paint row');
+  await expectFocus('[data-paint]', 'Up stays within the paint controls');
   await focusDock('[data-launch]');
   await pressKey(' ');
   await expectFocus(
@@ -3775,8 +4101,8 @@ checkUi: try {
     await focusDock('[data-command="REMOVE"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates]',
-      'Remove focuses the list without selecting the removed module',
+      '[data-candidates] button:first-child',
+      'Remove focuses the first compatible module without selecting it',
     );
     await expectEmptySlot();
     await selectCandidate(
@@ -3797,7 +4123,7 @@ checkUi: try {
     await focusDock('[data-command="SELL"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates]',
+      '[data-candidates] button:first-child',
       'selling a fitted module focuses replacements for its empty slot',
     );
     await expectEmptySlot();
@@ -3851,7 +4177,7 @@ checkUi: try {
     await focusDock('[data-command="SELL"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates]',
+      '[data-candidates] button:first-child',
       'selling the automatically fitted purchase focuses replacements for its empty slot',
     );
     await expectEmptySlot();
@@ -3974,8 +4300,8 @@ checkUi: try {
     );
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates]',
-      'removing an identical module focuses the list with both copies unselected',
+      '[data-candidates] button:first-child',
+      'removing an identical module focuses the first candidate with both copies unselected',
     );
     await expectEmptySlot();
     await selectCandidate(
@@ -3992,7 +4318,7 @@ checkUi: try {
       'selling the second fitting candidate preserves the first copy',
     );
     await expectFocus(
-      '[data-candidates]',
+      '[data-candidates] button:first-child',
       'selling from full cargo keeps replacements for the empty slot focused',
     );
     await expectEmptySlot();
@@ -4003,8 +4329,8 @@ checkUi: try {
 
     await check(`fixture.rejectPurchase(${rejectedId})`);
     await expectFocus(
-      '[data-candidates]',
-      'a rejected fitted purchase returns focus to the empty compatible list',
+      '[data-candidates] button:first-child',
+      'a rejected fitted purchase focuses the first compatible module',
     );
     await expectEmptySlot();
   }
@@ -4289,7 +4615,7 @@ checkUi: try {
     await pressKey(key, {
       onDown: () =>
         waitFor(
-          `window.selectCueStarts === ${selectStarts + 1} && document.activeElement.matches('[data-candidates]')`,
+          `window.selectCueStarts === ${selectStarts + 1} && document.activeElement.matches('[data-candidates] button:first-child')`,
           'keydown opens compatible modules and plays the select cue before release',
         ),
     });
@@ -4301,15 +4627,15 @@ checkUi: try {
     );
     assert(
       await check(
-        `document.activeElement.matches('[data-candidates]') && document.querySelector('[data-fitting-preview]').hidden`,
+        `document.activeElement.matches('[data-candidates] button:first-child') && !document.querySelector('[data-fitting-preview]').hidden`,
       ),
-      'confirming an empty slot focuses the list without previewing the first module',
+      'confirming an empty slot focuses and previews the first compatible module',
     );
     await expectEmptySlot();
     await pressKey('Tab');
     await expectFocus(
-      '[data-candidates] button:first-child',
-      'Tab from the list container reaches its first compatible module',
+      '[data-candidates] button:nth-child(2)',
+      'Tab advances from the first compatible module to the next',
     );
     await expectEmptySlot();
   }
@@ -4431,9 +4757,9 @@ checkUi: try {
   await click('[data-key="mount:2"]');
   assert(
     await check(
-      `document.activeElement.matches('[data-candidates]') && document.querySelector('[data-fitting-preview]').hidden`,
+      `document.activeElement.matches('[data-candidates] button:first-child') && !document.querySelector('[data-fitting-preview]').hidden`,
     ),
-    'clicking an empty slot focuses the list without inspecting a candidate',
+    'clicking an empty slot focuses and previews the first compatible module',
   );
   await expectEmptySlot();
   await click('[data-loadout] [data-key="mount:0"]');
@@ -4529,8 +4855,8 @@ checkUi: try {
   await expectEmptySlot();
   await capture('docked-empty-slot');
   assert(
-    await check(`document.querySelector('[data-fitting-preview]').hidden`),
-    'removing a module does not immediately preview a replacement',
+    await check(`!document.querySelector('[data-fitting-preview]').hidden`),
+    'removing a module previews the focused replacement without selecting it',
   );
   const autogun = await check(
     `Array.from(document.querySelectorAll('[data-candidates] button')).find(x=>x.textContent.includes('Autogun')).getAttribute('data-key')`,
@@ -4743,7 +5069,7 @@ checkUi: try {
     await check(
       `document.activeElement.closest('[data-stock-items]') && !document.querySelector('[data-stock-items] [aria-pressed="true"]')`,
     ),
-    'Right focuses a Buy row without selecting it, clamping to the shorter column',
+    'Right focuses the nearest Buy row without selecting it',
   );
   await pressKey('ArrowLeft');
   assert(
@@ -4829,7 +5155,7 @@ checkUi: try {
     );
     await click(background);
     assert(
-      await check(`document.querySelector('[data-title]').textContent === '${painting ? 'Ship overview' : 'Outfitting'}'
+      await check(`document.querySelector('[data-title]').textContent === '${painting ? 'Station overview' : 'Outfitting'}'
         && !document.querySelector('[data-loadout] [aria-pressed="true"]')
         && document.querySelector('[data-hull-paint]').getAttribute('aria-pressed') === 'false'
         && !document.querySelector('.dock-energy').classList.contains('dock-inspecting')
@@ -5100,7 +5426,7 @@ checkUi: try {
   );
   assert(!(await check(`!!document.querySelector('[data-loadout]')`)));
 
-  for (const tab of ['overview', 'outfitting', 'trade', 'services']) {
+  for (const tab of ['overview', 'outfitting', 'trade', 'hangar']) {
     for (const activation of ['Enter', ' ', 'Escape']) {
       await c.send('Page.reload');
       await pause(250);
@@ -5121,8 +5447,461 @@ checkUi: try {
     }
   }
 
+  await c.send('Page.reload');
+  await pause(250);
+  await check(
+    `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
+  );
+  await pause(250);
+  await checkHangar();
+
+  async function checkHangar() {
+    await pressKey('Tab');
+    await check(`document.querySelector('[data-launch]').focus()`);
+    assert(
+      await check(`(() => {
+        const launch = document.querySelector('[data-launch]');
+        const footer = launch.closest('footer');
+        return launch.matches(':focus-visible')
+          && getComputedStyle(launch).outlineStyle === 'none'
+          && getComputedStyle(launch).userSelect === 'none'
+          && getComputedStyle(launch.querySelector('kbd')).boxShadow !== 'none'
+          && getComputedStyle(footer).userSelect !== 'none'
+          && [...footer.querySelectorAll('.ui-control')].every(element => getComputedStyle(element).userSelect === 'none');
+      })()`),
+      'footer controls own their styles and Launch highlights its key without a focus outline',
+    );
+    assert(
+      await check(`(() => {
+        const canvas = document.querySelector('canvas.dock-launch-icon');
+        return canvas && canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value);
+      })()`),
+      'the Launch button uses a rendered ship thumbnail',
+    );
+    assert.deepEqual(
+      await check('fixture.shipThumbnailRendering()'),
+      [true, true, true, true, true, true, true, true],
+      'ship thumbnails point 45 degrees counterclockwise with thruster flares but no glow, cache unchanged images, resize, and leave the live ship and renderer unchanged',
+    );
+    await click('[data-tab="hangar"]');
+    assert.deepEqual(
+      await check('fixture.showroomActivation()'),
+      [true, true, true, true],
+      'for-sale previews activate all modules except search lights without changing the live ship',
+    );
+    await click('[data-tab="overview"]');
+    await click('[data-tab="hangar"]');
+    assert.equal(
+      await check(
+        `document.querySelectorAll('[data-owned-ships] button').length`,
+      ),
+      1,
+    );
+    assert.equal(
+      await check(
+        `document.querySelectorAll('[data-ships-for-sale] button').length`,
+      ),
+      7,
+    );
+    assert(
+      await check(`(() => {
+        const rows = [...document.querySelectorAll('[data-owned-ships] button, [data-ships-for-sale] button')];
+        return rows.every(row => {
+          const canvas = row.querySelector('canvas[data-ship-thumbnail]');
+          if (!canvas || row.querySelector('svg')) return false;
+          const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          return pixels.some((value, index) => index % 4 === 3 && value > 0);
+        });
+      })()`),
+      'every owned and for-sale ship has a rendered thumbnail instead of a wireframe',
+    );
+    await hover('[data-ships-for-sale] button');
+    assert.equal(
+      await check(`document.querySelector('[data-title]').textContent`),
+      'Hangar',
+      'Hangar details require selecting a ship',
+    );
+    await focusDock('[data-owned-ships] button');
+    await pressKey('ArrowDown');
+    await expectFocus(
+      '[data-ships-for-sale] button',
+      'Down moves between the two Hangar groups',
+    );
+    await pressKey('ArrowUp');
+    await expectFocus('[data-owned-ships] button', 'Up returns to owned ships');
+    await pressKey('Enter');
+
+    const fullSale = await check(
+      `Number(document.querySelector('[data-ship-sale]').textContent.replace(/\\D/g, ''))`,
+    );
+    const serviceCost = await check('fixture.damageHangarShip()');
+    const netSale = fullSale - serviceCost;
+
+    assert(serviceCost > 0);
+    assert.equal(
+      await check(
+        `Number(document.querySelector('[data-ship-sale]').textContent.replace(/\\D/g, ''))`,
+      ),
+      netSale,
+      'sale label deducts hull repair, module repair, and refueling',
+    );
+
+    if (process.env.UI_CAPTURE_DIR) await capture('hangar-owned');
+    await click('[data-hangar-command="RENAME"]');
+    assert(
+      await check(`document.querySelector('[data-ship-rename-dialog]').open`),
+    );
+    await check(
+      `document.querySelector('#ship-name').value = 'a'.repeat(17); document.querySelector('#ship-name').dispatchEvent(new Event('input'))`,
+    );
+    await click('[data-confirm-ship-name]');
+    assert(
+      await check(`document.querySelector('[data-ship-rename-dialog]').open`),
+      'invalid rename stays open',
+    );
+    await check(
+      `document.querySelector('#ship-name').value = '<b> & Ship'; document.querySelector('#ship-name').dispatchEvent(new Event('input'))`,
+    );
+    await click('[data-confirm-ship-name]');
+    assert.equal(
+      await check(
+        `document.querySelector('[data-owned-ships] button .dock-row-text').textContent`,
+      ),
+      '<b> & Ship',
+    );
+    assert.equal(
+      await check(`document.querySelector('[data-owned-ships] b')`),
+      null,
+      'ship names are rendered as text, not markup',
+    );
+    const beforeCancel = await check('fixture.hangarTestState()');
+
+    await click('[data-hangar-command="SELL"]');
+    assert(
+      await check(`document.querySelector('[data-ship-sale-dialog]').open`),
+    );
+    const breakdown = await check(`(() => {
+      const dialog = document.querySelector('[data-ship-sale-dialog]');
+      const values = dialog.querySelector('[data-ship-sale-values]');
+      return [
+        dialog.querySelector('[data-ship-sale-description]').textContent,
+        [...values.querySelectorAll('dt')].map(element => element.textContent),
+        [...values.querySelectorAll('dd')].map(element => Number(element.textContent.replace(/[^0-9-]/g, ''))),
+        [...values.children].every(element => getComputedStyle(element).fontFamily.includes('Gemetric')),
+        [...values.querySelectorAll('.dock-sale-total')].every(element => getComputedStyle(element).borderTopStyle === 'solid'),
+      ];
+    })()`);
+
+    assert.equal(
+      breakdown[0],
+      'Are you sure you want to sell <b> & Ship, including all cargo and fitted modules?',
+    );
+    assert.deepEqual(breakdown[1], [
+      'Ship',
+      'Cargo',
+      'Modules',
+      'Repairs',
+      'Refueling',
+      'Total',
+    ]);
+    assert.equal(
+      breakdown[2]
+        .slice(0, 5)
+        .reduce((sum: number, value: number) => sum + value, 0),
+      netSale,
+    );
+    assert.equal(breakdown[2][5], netSale);
+    assert(
+      breakdown[2][3] < 0 && breakdown[2][4] < 0,
+      'service costs are deductions',
+    );
+    assert(breakdown[3], 'all sale labels and values use Gemetric');
+    assert(breakdown[4], 'a rule separates the total from the calculation');
+    await click('[data-ship-sale-dialog] [data-dialog-cancel]');
+    assert.deepEqual(
+      await check('fixture.hangarTestState()'),
+      beforeCancel,
+      'Cancel preserves the ship and balance',
+    );
+    await click('[data-hangar-command="SELL"]');
+    await pressKey('Escape');
+    assert.deepEqual(
+      await check('fixture.hangarTestState()'),
+      beforeCancel,
+      'Escape cancels the sale',
+    );
+    await click('[data-hangar-command="SELL"]');
+    await click('[data-confirm-ship-sale]');
+    assert.equal((await check('fixture.hangarTestState()'))[0].length, 0);
+    assert.equal(
+      (await check('fixture.hangarTestState()'))[2],
+      beforeCancel[2] + netSale,
+      'confirmed sale pays the displayed condition-adjusted amount',
+    );
+    await check('fixture.reopenDock()');
+    assert(
+      await check(`(() => {
+        const message = document.querySelector('[data-owned-ships] p');
+        return message.textContent === 'You do not own any ships.'
+          && getComputedStyle(message).textTransform === 'none'
+          && !message.closest('.dock-group');
+      })()`),
+      'empty owned fleet uses a sentence-case message outside a dock-group',
+    );
+    assert(
+      await check(
+        `document.querySelector('[data-tab="hangar"]').getAttribute('aria-current') === 'page'`,
+      ),
+      'reopening a shipless berth restores the Hangar screen',
+    );
+    assert(
+      await check(`document.querySelector('[data-launch]').disabled`),
+      'Launch is disabled without an owned ship',
+    );
+    await hover('[data-launch]');
+    assert(
+      await check(`(() => {
+        const label = document.querySelector('[data-launch-unavailable]');
+        return document.querySelector('.dock-launch-icon').hidden
+          && label.getClientRects().length > 0
+          && label.textContent.trim() === 'Unavailable - no ship'
+          && getComputedStyle(label).fontFamily.includes('system-ui')
+          && getComputedStyle(label).textTransform === 'none'
+          && label.getBoundingClientRect().left >= document.querySelector('[data-launch]').getBoundingClientRect().right;
+      })()`),
+      'shipless Launch has no hovered icon and a permanent regular-font label beside it',
+    );
+    await pressKey('Escape');
+    assert(
+      await check(`(() => {
+        const dialog = document.querySelector('[data-launch-unavailable-dialog]');
+        const bounds = dialog.getBoundingClientRect();
+        return dialog.open
+          && dialog.querySelector('p').textContent.trim().replace(/\\s+/g, ' ') === 'Launch unavailable. Visit the hangar to purchase a new ship.'
+          && document.activeElement === dialog.querySelector('[data-dialog-cancel]')
+          && Math.abs(bounds.x + bounds.width / 2 - innerWidth / 2) < 2
+          && Math.abs(bounds.y + bounds.height / 2 - innerHeight / 2) < 2;
+      })()`),
+      'shipless Escape opens a centered launch-unavailable dialog focused on Cancel',
+    );
+    await click('[data-launch-unavailable-dialog] [data-dialog-cancel]');
+    assert(
+      await check(
+        `!document.querySelector('dialog[open]') && !!document.querySelector('.dock-screen')`,
+      ),
+      'Cancel stays docked without an open dialog',
+    );
+    await pressKey('Escape');
+    await pressKey('Escape');
+    assert(
+      await check(
+        `!document.querySelector('dialog[open]') && !!document.querySelector('.dock-screen')`,
+      ),
+      'Escape dismisses the popup without leaving the station',
+    );
+
+    for (const tab of ['overview', 'outfitting', 'trade']) {
+      await click(`[data-tab="${tab}"]`);
+      assert(
+        await check(
+          `document.querySelector('[data-tab="${tab}"]').getAttribute('aria-current') === 'page'`,
+        ),
+        `shipless players can open ${tab}`,
+      );
+    }
+
+    assert(
+      await check(`(() => {
+        const stock = [...document.querySelectorAll('[data-stock-items] button')];
+        const explanation = document.querySelector('[data-market-disabled]');
+        return stock.length > 0 && stock.every(button => button.disabled)
+          && !document.querySelector('[data-trade-stock]').hidden
+          && !explanation.hidden
+          && explanation.textContent.trim().replace(/\\s+/g, ' ') === 'Market disabled as you have no ship to store items in.';
+      })()`),
+      'shipless market stock stays visible but disabled with an explanation',
+    );
+    await hover('[data-stock-items] button');
+    assert(
+      await check(
+        `getComputedStyle(document.querySelector('[data-stock-items] button:hover .dock-trade-name'), '::after').content === 'none'`,
+      ),
+      'disabled market rows do not show a hovered Buy or Sell label',
+    );
+    await click('[data-tab="outfitting"]');
+    assert(
+      await check(`document.querySelector('.dock-detail [data-description]').textContent === 'No ship to outfit.'
+        && document.querySelector('[data-purchase-ship]').getClientRects().length > 0
+        && !document.querySelector('[data-outfitting]').textContent.includes('You do not own any ships to outfit.')`),
+      'shipless Outfitting shows its message and purchase shortcut in the right panel',
+    );
+    await click('[data-purchase-ship]');
+    assert(
+      await check(
+        `document.querySelector('[data-tab="hangar"]').getAttribute('aria-current') === 'page'`,
+      ),
+      'Purchase ship opens the Hangar tab',
+    );
+    await click('[data-tab="trade"]');
+    await pressKey('Escape');
+    await click('[data-visit-hangar]');
+    assert(
+      await check(`!document.querySelector('dialog[open]')
+        && document.querySelector('[data-tab="hangar"]').getAttribute('aria-current') === 'page'`),
+      'the launch-unavailable Hangar button closes the popup and opens Hangar',
+    );
+    await check('fixture.fundHangar()');
+    await click('[data-key="offer:finch"]');
+    await check('fixture.hangarStatus(true)');
+    assert(
+      await check(`document.querySelector('[data-hangar-status]').hidden
+        && document.querySelector('[data-hangar-command="BUY"]').disabled`),
+      'pending purchases lock the Buy button without flashing status text',
+    );
+    await check(`fixture.hangarStatus(false, 'Purchase rejected')`);
+    assert(
+      await check(`!document.querySelector('[data-hangar-status]').hidden
+        && document.querySelector('[data-hangar-status]').textContent === 'Purchase rejected'`),
+      'Hangar transaction errors remain visible',
+    );
+    await check('fixture.hangarStatus(false)');
+    await click('[data-hangar-command="BUY"]');
+    const firstOwned = await check('fixture.hangarTestState()');
+
+    assert(
+      await check(`document.querySelector('[data-key="owned:${firstOwned[1]}"]').getAttribute('aria-pressed') === 'true'
+        && document.querySelector('[data-description]').textContent === 'Currently piloting this ship.'
+        && document.querySelector('[data-hangar-command="BUY"]').hidden
+        && !document.querySelector('[data-hangar-command="SELL"]').hidden`),
+      'buying immediately selects the new owned ship and shows its management panel',
+    );
+    assert(
+      await check(`document.querySelector('[data-launch-unavailable]').hidden
+        && document.querySelector('[data-purchase-ship]').hidden`),
+      'buying a ship removes shipless notices and the purchase shortcut',
+    );
+    await click('[data-key="offer:finch"]');
+    await click('[data-hangar-command="BUY"]');
+    const twoOwned = await check('fixture.hangarTestState()');
+
+    assert(
+      await check(
+        `document.querySelector('[data-key="owned:${twoOwned[1]}"]').getAttribute('aria-pressed') === 'true'`,
+      ),
+      'buying a duplicate selects the newly purchased instance',
+    );
+    assert.equal(twoOwned[0].length, 2, 'duplicate ship models can be owned');
+    assert(
+      await check(`[...document.querySelectorAll('[data-owned-ships] canvas')].every(canvas =>
+        canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value))`),
+      'inactive owned ships keep their own rendered thumbnails',
+    );
+    assert.notEqual(
+      twoOwned[1],
+      firstOwned[1],
+      'buy automatically pilots the new ship',
+    );
+    await click(`[data-key="owned:${firstOwned[1]}"]`);
+    await click('[data-hangar-command="PILOT"]');
+    assert.equal((await check('fixture.hangarTestState()'))[1], firstOwned[1]);
+    await click('[data-hangar-command="PAINT"]');
+    await click('[data-paint="2"]');
+    assert(
+      await check(
+        `document.querySelector('[data-paint="2"]').getAttribute('aria-pressed') === 'true'`,
+      ),
+      'Hangar hull paint applies to the selected ship',
+    );
+    await click('[data-hangar-command="SELL"]');
+    assert(
+      await check(
+        `JSON.stringify([...document.querySelectorAll('[data-ship-sale-values] dt')].map(element => element.textContent)) === JSON.stringify(['Ship', 'Cargo', 'Modules', 'Total'])`,
+      ),
+      'undamaged and fully fueled sales omit service deductions',
+    );
+    await click('[data-confirm-ship-sale]');
+    assert.equal(
+      (await check('fixture.hangarTestState()'))[1],
+      twoOwned[1],
+      'selling the piloted ship selects another owned ship',
+    );
+    await click('[data-key="offer:mustang"]');
+    assert(
+      await check(
+        `document.querySelector('[data-hangar-command="SPECIAL"]').hidden`,
+      ),
+      'players who can afford a Mustang do not get the special offer',
+    );
+    await check('fixture.impoverishHangar()');
+    await click('[data-key="offer:mustang"]');
+    assert(
+      await check(`(() => {
+        const row = document.querySelector('[data-key="offer:mustang"]');
+        const special = document.querySelector('[data-hangar-command="SPECIAL"]');
+        const description = document.querySelector('[data-special-offer]');
+        return row.lastElementChild.tagName === 'SPAN'
+          && row.lastElementChild.textContent === 'SPECIAL OFFER!'
+          && row.lastElementChild.classList.contains('ml-auto')
+          && !row.querySelector('small')
+          && !/[0-9]/.test(row.textContent)
+          && !special.hidden && !special.disabled
+          && document.querySelector('[data-hangar-command="BUY"]').disabled
+          && !description.hidden && description.textContent.includes('(123)')
+          && getComputedStyle(description).textTransform === 'none';
+      })()`),
+      'unaffordable Mustang replaces its row price with full-size SPECIAL OFFER!, alongside disabled regular Buy and the offer explanation',
+    );
+    assert(
+      await check(`(() => {
+        const label = document.querySelector('[data-key="offer:mustang"] .dock-offer');
+        const style = getComputedStyle(label);
+        const animation = label.getAnimations()[0];
+        animation.pause();
+        animation.currentTime = 0;
+        const transparent = getComputedStyle(label).textDecorationColor;
+        animation.currentTime = 800;
+        const visible = getComputedStyle(label).textDecorationColor;
+        animation.play();
+        return style.animationDuration === '0.8s'
+          && style.animationTimingFunction === 'ease-in-out'
+          && style.animationDirection === 'alternate'
+          && style.animationIterationCount === 'infinite'
+          && style.textDecorationLine === 'underline'
+          && label.textContent === 'SPECIAL OFFER'
+          && label.nextSibling.textContent === '!'
+          && getComputedStyle(label.parentElement).textDecorationLine === 'none'
+          && parseFloat(style.textDecorationThickness) > 0
+          && parseFloat(style.textUnderlineOffset) > parseFloat(style.textDecorationThickness)
+          && transparent === 'rgba(0, 0, 0, 0)'
+          && visible === style.color
+          && style.opacity === '1';
+      })()`),
+      'only the special-offer underline flashes from transparent to current color with the cargo FULL timing',
+    );
+    await click('[data-hangar-command="SPECIAL"]');
+    const rescued = await check('fixture.hangarTestState()');
+
+    assert.equal(
+      rescued[0].length,
+      1,
+      'special offer replaces the existing fleet',
+    );
+    assert.equal(rescued[2], 0, 'special offer consumes all remaining credits');
+    assert.notEqual(
+      rescued[1],
+      twoOwned[1],
+      'special offer provides a new ship',
+    );
+    assert(
+      await check(`document.querySelector('[data-key="owned:${rescued[1]}"]').getAttribute('aria-pressed') === 'true'
+        && document.querySelector('[data-title]').textContent === 'Mustang'
+        && !document.querySelector('dialog[open]')`),
+      'special offer immediately selects the new Mustang without confirmation',
+    );
+  }
+
   console.log(
-    'Production UI: deferred startup, navigation, preferences, identity verification, preview, desktop layout, trading, repairs, paint, focus and launch passed.',
+    'Production UI: navigation, identity, previews, trading, repairs, paint, Hangar purchases, names, confirmations, empty hangars, focus and launch passed.',
   );
   assert.equal(errors().length, 0, errors().join('\n'));
 } finally {

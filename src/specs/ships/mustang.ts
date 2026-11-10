@@ -2,6 +2,7 @@ import type { ShipSpec } from './types';
 
 export const mustang = {
   name: 'Mustang',
+  price: 2400,
   fuelCapacity: 120,
   cargoSpace: 12,
   drag: 0.56,

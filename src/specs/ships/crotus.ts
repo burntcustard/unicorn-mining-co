@@ -2,6 +2,7 @@ import type { ShipSpec } from './types';
 
 export const crotus = {
   name: 'Crotus',
+  price: 3000,
   fuelCapacity: 120,
   cargoSpace: 12,
   drag: 0.56,

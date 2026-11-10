@@ -69,7 +69,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 		for _, e := range saved.Entities {
 			s.activateSector(e.SectorID)
 
-			if !e.Deleted && transientWorldObject(e.State.Object.Kind, e.State.Object.Decay) {
+			if !e.Deleted && (e.State.Object.Kind == "projectile" || e.State.Object.Decay > 0 && !(e.State.Object.Kind == "asteroid" && len(e.State.Contents) > 0)) {
 				discarded = append(discarded, persistence.Entity{SectorID: e.SectorID, ID: e.ID, Generated: e.Generated, Deleted: true})
 
 				if e.Generated {
@@ -137,8 +137,18 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 			ship.Fly(0, 0)
 
-			if profile.DisplayName != "" {
-				ship.Name = p.profile.DisplayName
+			p.noShip = profile.Ship.NoShip
+
+			for _, savedShip := range profile.Ship.StoredShips {
+				storedShip, err := objects.RestoreShip(savedShip, s.World, id)
+
+				if err != nil {
+					return fmt.Errorf("restore stored ship for %s: %w", profile.ID, err)
+				}
+
+				if storedShip != nil {
+					p.storedShips = append(p.storedShips, storedShip)
+				}
 			}
 
 			p.profile.Ship = objects.SavedShip{}
@@ -254,6 +264,12 @@ func (s *GameSession) capturePlayer(p *playerRecord) persistence.Player {
 	profile.SectorID = p.sectorID
 	profile.Visited = slices.Clone(profile.Visited)
 	profile.Ship = objects.CaptureShip(p.ship)
+	profile.Ship.NoShip = p.noShip
+
+	for _, ship := range p.storedShips {
+		profile.Ship.StoredShips = append(profile.Ship.StoredShips, objects.CaptureShip(ship))
+	}
+
 	return profile
 }
 
@@ -397,7 +413,7 @@ func (s *GameSession) checkpoint() {
 			continue
 		}
 
-		if transientWorldObject(e.Base().Kind, e.Base().Decay) {
+		if transientWorldObject(e) {
 			s.recordWorldChange(e, s.sectors[s.sectorForWorld(e.Base().World)].regions.Managed.Has(e.Base().ID), false)
 			continue
 		}
@@ -515,7 +531,7 @@ func (s *GameSession) attachSectorPersistence(runtime *sectorRuntime) {
 			return
 		}
 
-		if transientWorldObject(e.Base().Kind, e.Base().Decay) {
+		if transientWorldObject(e) {
 			s.recordWorldChange(e, runtime.regions.Managed.Has(e.Base().ID), deleted)
 			return
 		}
@@ -543,8 +559,8 @@ func (s *GameSession) attachSectorPersistence(runtime *sectorRuntime) {
 
 // Lifetime-limited world objects disappear at restart. Cargo and player state
 // remain durable; this filter applies only to independent world records.
-func transientWorldObject(kind string, decay float64) bool {
-	return kind == "projectile" || decay > 0
+func transientWorldObject(entity simulation.Entity) bool {
+	return entity.Base().Kind == "projectile" || entity.Base().Decay > 0 && entity.Decaying()
 }
 
 func (s *GameSession) recordWorldChange(entity simulation.Entity, generated, deleted bool) {
@@ -556,7 +572,7 @@ func (s *GameSession) recordWorldChange(entity simulation.Entity, generated, del
 
 	// A restart tombstone must not remove a still-living generated object from
 	// the active region. Its normal removal callback updates that live registry.
-	deleted = deleted || transientWorldObject(o.Kind, o.Decay)
+	deleted = deleted || transientWorldObject(entity)
 
 	if deleted && !generated && !s.persistence.storedEntities[o.ID] {
 		// A never-saved runtime object needs no SQL deletion. Drop any pending

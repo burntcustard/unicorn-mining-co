@@ -124,12 +124,12 @@ const applyEntity = ({
   entity.playerId = server.playerId;
   entity.pendingUpdateTime = server.pendingUpdateTime;
   entity.rounds = server.rounds;
+  entity.name = server.name;
 
   if (server.kind === 'jumpGate' || server.kind === 'wormhole') {
     entity.opening = server.opening;
     entity.openingTarget = server.openingTarget;
     entity.blockedBeams = server.blockedBeams;
-    entity.name = server.name;
     entity.targetLabel = server.targetLabel;
     entity.destinationName = server.destinationName;
   }

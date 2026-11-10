@@ -2,7 +2,7 @@ import type { SoundEffect } from '../../client/audio/synthesis';
 
 export default [
   {
-    volume: 0.1,
+    volume: 0.032,
     attack: 0,
     decay: 0,
     hold: 10,
@@ -13,14 +13,14 @@ export default [
     highpass: 3737,
   },
   {
-    volume: 0.4,
+    volume: 0.128,
     attack: 0,
     decay: 31,
     waveform: 'noise',
     highpass: 6500,
   },
   {
-    volume: 0.2,
+    volume: 0.064,
     attack: 0,
     decay: 18,
     delay: 20,
@@ -28,7 +28,7 @@ export default [
     highpass: 6455,
   },
   {
-    volume: 0.04,
+    volume: 0.013,
     attack: 5,
     decay: 90,
     release: 5,
@@ -37,7 +37,7 @@ export default [
     pitchDuration: 19,
   },
   {
-    volume: 0.05,
+    volume: 0.016,
     attack: 5,
     decay: 90,
     release: 5,
@@ -46,7 +46,7 @@ export default [
     pitchDuration: 82,
   },
   {
-    volume: 0.08,
+    volume: 0.026,
     attack: 5,
     decay: 80,
     release: 5,
@@ -55,7 +55,7 @@ export default [
     pitchDuration: 28,
   },
   {
-    volume: 0.07,
+    volume: 0.022,
     attack: 5,
     decay: 88,
     release: 5,

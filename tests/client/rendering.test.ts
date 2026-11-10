@@ -1535,6 +1535,64 @@ for (const [index, stage] of packet.drillingStages.entries()) {
     assert.equal(loot[0].velocity.y, 2);
   }
 }
+for (const contents of [[], [0]]) {
+  const world = createWorld();
+  const rock = addEntity(world, createAsteroid(world, {
+    contents,
+    resource: 1,
+    health: 0,
+    shapeOutline: [[-120, -80], [120, -80], [0, 160]],
+  }));
+  rock.fracture({ by: 1, events: [], world });
+  const debris = [...world.entities.values()];
+  assert.equal(debris.length, 4);
+
+  for (const part of debris) {
+    const record = {
+      kind: 'asteroid',
+      id: part.id,
+      position: part.position,
+      velocity: part.velocity,
+      rotation: part.rotation,
+      spin: part.spin,
+      mass: part.mass,
+      radius: part.radius,
+      health: part.health,
+      maxHealth: part.maxHealth,
+      contents: part.contents,
+      resource: part.resource,
+      shapeOutline: part.shapeOutline,
+      decay: part.decay,
+    };
+    const hydrated = makeEntity({ entity: record, world });
+    const predicted = cloneEntity({ entity: hydrated });
+    predicted.decay = undefined;
+    applyEntity({ entity: predicted, server: hydrated });
+
+    for (const copy of [hydrated, predicted]) {
+      assert.equal(copy.decay, part.decay, 'debris decay survives hydration and reconciliation');
+      assert.equal(copy.health, part.health);
+      assert.equal(copy.segments, undefined, 'replicated debris remains terminal');
+      assert.deepEqual(copy.contents, part.contents);
+      assert.equal(copy.decaying, !part.contents.length);
+
+      if (part.contents.length) {
+        copy.update(60);
+        assert.equal(copy.health, part.health, 'replicated retained items prevent decay');
+      }
+
+      copy.addToScene();
+      draws.length = 0;
+      copy.render();
+      assert.equal(draws[0].style, '#22113399', 'debris keeps the parent material');
+      copy.health = 0;
+      const count = [...world.entities.values()].filter((entity) => entity instanceof Asteroid).length;
+      copy.fracture({ by: 1, events: [], world });
+      assert([...world.entities.values()].filter((entity) => entity instanceof Asteroid).length <= count,
+        'replicated debris never subdivides again');
+    }
+  }
+}
 for (const direct of [false, true]) {
   const miningWorld = createWorld();
   const rock = addEntity(
@@ -1603,16 +1661,22 @@ for (const direct of [false, true]) {
       );
     };
     const drops = release();
-    assert.equal(drops.length, before.length);
+    const retained = [...miningWorld.entities.values()].filter(
+      (entity) => entity instanceof Asteroid && entity.decay && entity.contents.length,
+    );
+    const released = before.filter((item) =>
+      !retained.some((part) => part.contents.includes(item.resource)),
+    );
+    assert.equal(drops.length, released.length);
     drops.forEach((item, index) => {
-      assert.equal(item.resource, before[index].resource);
+      assert.equal(item.resource, released[index].resource);
       assert(
-        Vec.distance(item.position, before[index].position) < 1e-7,
+        Vec.distance(item.position, released[index].position) < 1e-7,
         'released items keep the rendered position',
       );
       assert.equal(
         item.rotation,
-        before[index].rotation,
+        released[index].rotation,
         'released items keep the rendered rotation',
       );
       assert(

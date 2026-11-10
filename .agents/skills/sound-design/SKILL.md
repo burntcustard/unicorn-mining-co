@@ -35,3 +35,5 @@ audio outside the repository.
 - [Elite Dangerous cockpit audio](https://www.youtube.com/watch?v=1d_76OqDvNU): Inspired the UI navigation sounds and Acquire Target, which grew from the cockpit panel-opening chirp.
 - [Plasma weapon reference](https://www.youtube.com/watch?v=LrjcvwJ6af8): Inspired Plasma Accelerator Ready, Fire, and Ammo Explode, including the brief projectile whoosh before impact.
 - [Star Wars seismic charge](https://www.youtube.com/watch?v=j9cQNaJtiec): Inspired the subtle pressure swell and resonant plasma character explored for Plasma Accelerator Ammo Explode.
+- [Laser Cannon Sound](https://www.youtube.com/watch?v=DVzOhqeBO-E&t=27s): Reference for the standalone Plasma Cannon Blast, focusing on the firing impact, falling bass pitch, and fading texture around 27 seconds.
+- [Space Marine plasma gun](https://www.youtube.com/watch?v=9M0_BarglqQ&t=526s): Reference for Plasma Gun, using the 34 repeated shots around 8:46–9:03 to study the electrical attack, falling bass tones, and decaying texture.

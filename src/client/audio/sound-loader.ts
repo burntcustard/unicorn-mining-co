@@ -51,6 +51,10 @@ export const updateThrusterSound = (
   ...settings: Parameters<SoundModule['updateThrusterSound']>
 ) => sound?.updateThrusterSound(...settings);
 
+export const updateAutogunSound = (
+  ...settings: Parameters<SoundModule['updateAutogunSound']>
+) => (sound ? sound.updateAutogunSound(...settings) : settings[0]);
+
 // @ifdef DEBUG
 export const testTone = () =>
   preloadSound().then((module) => module.testTone());

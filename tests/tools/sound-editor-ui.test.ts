@@ -419,6 +419,7 @@ let sourceUpdate: (event: {
 let disposeEditor: (() => void) | undefined;
 const visualized: AudioBuffer[] = [];
 const visualizedLayers: AudioBuffer[][] = [];
+const hoveredLayers: (number | undefined)[] = [];
 
 const assertDisplayedMix = () => {
   const traces = visualizedLayers.at(-1)!;
@@ -674,6 +675,9 @@ for (const [name, value] of Object.entries({
         setBuffers(buffers: AudioBuffer[]) {
           visualizedLayers.push([...buffers]);
         },
+        setHoveredLayer(index?: number) {
+          hoveredLayers.push(index);
+        },
         dispose() {},
       };
     },
@@ -739,7 +743,7 @@ try {
     get('layers')
       .descendants()
       .filter((element) => element.type === 'number').length,
-    19,
+    27,
   );
   assert.equal(get('engine-preview-controls').children.length, 2);
   assert.equal(elements.has('reload'), false);
@@ -790,6 +794,17 @@ try {
     'visualizer-caption',
   );
   assert.equal(get('sound-visualizer').attributes.has('aria-label'), false);
+  const waveformsBeforeHover = visualizedLayers.length;
+
+  await get('layers').children[0].emit('mouseenter');
+  assert.equal(hoveredLayers.at(-1), 0);
+  await get('layers').children[0].emit('mouseleave');
+  assert.equal(hoveredLayers.at(-1), undefined);
+  assert.equal(
+    visualizedLayers.length,
+    waveformsBeforeHover,
+    'hovering a card changes emphasis without generating new audio buffers',
+  );
   assert.equal(
     TestAudioContext.instances.length,
     0,
@@ -1243,7 +1258,14 @@ try {
   );
   const beforeStructuralChanges = audio.sources.length;
 
+  await get('layers').children[1].emit('mouseenter');
+  assert.equal(hoveredLayers.at(-1), 1);
   await button('Duplicate 2').emit('click');
+  assert.equal(
+    hoveredLayers.at(-1),
+    undefined,
+    'rebuilding layer cards clears the previous hover',
+  );
   assert.equal(get('layers').children.length, 3);
   assert.equal(visualizedLayers.at(-1)!.length, 3);
   assert.deepEqual(
@@ -2391,6 +2413,54 @@ try {
   assert.deepEqual(disk.effectData.hatchOpen[0].gainPoints, [0, 1, 0]);
   assert.equal(disk.effectData.hatchOpen[0].volume, 0.9);
 
+  const resonanceInput = propertyRow(
+    'Hatch Open layer 1: Resonance points (Hz)',
+  ).children.find((element) => element.type === 'text')!;
+
+  await resonanceInput.input('1000, 4000.5, 1000');
+  assert.equal(get('save').disabled, true);
+  await resonanceInput.input('1000, 4000, 1000');
+  await get('save').emit('click');
+  assert.deepEqual(
+    disk.effectData.hatchOpen[0].resonancePoints,
+    [1000, 4000, 1000],
+  );
+  await resonanceInput.input('');
+  await get('save').emit('click');
+  assert.equal(disk.effectData.hatchOpen[0].resonancePoints, undefined);
+
+  const pitchInput = propertyRow(
+    'Hatch Open layer 1: Pitch points (Hz)',
+  ).children.find((element) => element.type === 'text')!;
+
+  await pitchInput.input('800, 3200.5, 800');
+  assert.equal(get('save').disabled, true);
+  await pitchInput.input('800, 3200, 800');
+  await get('save').emit('click');
+  assert.deepEqual(disk.effectData.hatchOpen[0].pitchPoints, [800, 3200, 800]);
+  await pitchInput.input('');
+  await get('save').emit('click');
+  assert.equal(disk.effectData.hatchOpen[0].pitchPoints, undefined);
+
+  await chooseValue('Hatch Open layer 1: Waveform', 'sine');
+  const partialInput = propertyRow(
+    'Hatch Open layer 1: Partial levels (sine)',
+  ).children.find((element) => element.type === 'text')!;
+
+  await partialInput.input('0.5, invalid, 0.5');
+  assert.equal(get('save').disabled, true);
+  await partialInput.input('0.5, 1, 0.25');
+  await input('Hatch Open layer 1: Partial spacing ratio').input('0.05');
+  assert.equal(propertyRow('Hatch Open layer 1: FM ratio').hidden, true);
+  await get('save').emit('click');
+  assert.deepEqual(disk.effectData.hatchOpen[0].partials, [0.5, 1, 0.25]);
+  assert.equal(disk.effectData.hatchOpen[0].partialRatio, 0.05);
+  await partialInput.input('');
+  assert.equal(propertyRow('Hatch Open layer 1: FM ratio').hidden, false);
+  await get('save').emit('click');
+  assert.equal(disk.effectData.hatchOpen[0].partials, undefined);
+  assert.equal(disk.effectData.hatchOpen[0].partialRatio, undefined);
+
   await choose('sound-event', 'unassigned');
   await input('Saved layer Snare: Volume').input('0.41');
   const savedGainInput = propertyRow(
@@ -2408,6 +2478,67 @@ try {
   await button('Save saved layer Snare').emit('click');
   assert.equal(disk.unassigned.snare.gainPoints, undefined);
   assert.equal(disk.unassigned.snare.volume, 0.41);
+
+  disk.effectData.layerSequence = Array.from({ length: 40 }, (_, index) => ({
+    volume: 0.01,
+    frequency: 300 + index * 10,
+    delay: index * 200,
+    attack: 1,
+    decay: 29,
+  }));
+
+  disk.revisions.layerSequence = 's'.repeat(64);
+  await sourceUpdate({ name: 'layerSequence' });
+  const previousLayerViews = visualizedLayers.length;
+
+  await choose('sound-event', 'layerSequence');
+  assert.equal(get('layers').children.length, 40);
+  assert.equal(
+    get('layers')
+      .descendants()
+      .filter((element) => element.tagName === 'input').length,
+    0,
+    'large events defer property controls until a layer is expanded',
+  );
+  assert.equal(
+    visualizedLayers.length,
+    previousLayerViews,
+    'large events display their summed waveform without retaining padded layer buffers',
+  );
+  assert.deepEqual(
+    audio.sources.at(-1)!.assignedSamples,
+    visualized.at(-1)!.getChannelData(0),
+    'the large event preview plays the displayed mixed buffer',
+  );
+
+  await button('Edit layer 40').emit('click');
+  assert.equal(button('Edit layer 40').attributes.get('aria-expanded'), 'true');
+  assert.equal(
+    input('Layer Sequence layer 40: Delay (ms)').valueAsNumber,
+    7800,
+  );
+  await input('Layer Sequence layer 40: Volume').input('0.02');
+  await button('Edit layer 40').emit('click');
+  assert.equal(
+    button('Edit layer 40').attributes.get('aria-expanded'),
+    'false',
+  );
+  await button('Reset 40').emit('click');
+  assert.equal(input('Layer Sequence layer 40: Volume').valueAsNumber, 0.01);
+  assert.equal(get('save').disabled, true);
+  await button('Play layer 40').emit('click');
+
+  const expectedDelayedLayer = renderEffectBuffer({
+    context: audio as unknown as AudioContext,
+    layers: [disk.effectData.layerSequence[39]],
+  }).getChannelData(0);
+
+  assert.deepEqual(audio.sources.at(-1)!.assignedSamples, expectedDelayedLayer);
+  assert.equal(visualizedLayers.length, previousLayerViews);
+  assert.match(
+    get('visualizer-caption').textContent,
+    /^Layer Sequence layer 40, 7830 ms$/,
+  );
 } finally {
   disposeEditor?.();
 

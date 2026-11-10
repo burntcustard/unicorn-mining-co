@@ -209,12 +209,14 @@ func (o *GameObject) Face(rotation float64) {
 	o.Rotation = rotation
 }
 
+func (o *GameObject) Decaying() bool { return o.Decay != 0 }
+
 func (o *GameObject) Update(dt float64) {
 	if o.Dead || o.Buried {
 		return
 	}
 
-	if o.Decay != 0 {
+	if o.Decay != 0 && o.Self.Decaying() {
 		o.Health -= o.Decay * dt
 
 		if o.Health <= 0 {

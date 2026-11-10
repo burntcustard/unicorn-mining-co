@@ -21,6 +21,10 @@ func legacyCaptureShip(ship *Ship) SavedShip {
 		s.Type = "mustang"
 	}
 
+	if ship.Name != ship.Catalog.ShipSpecs[s.Type].Name {
+		s.Name = ship.Name
+	}
+
 	if !slices.Equal(ship.Shades, ship.Catalog.Colors["white"]) {
 		s.Paint = savedPaint(ship.Shades, ship.Catalog)
 	}

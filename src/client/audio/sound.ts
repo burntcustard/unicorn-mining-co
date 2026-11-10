@@ -1,5 +1,7 @@
-import plasmaAcceleratorReady from '../../specs/sounds/plasma-accelerator-ready';
-import plasmaAcceleratorCharge from '../../specs/sounds/plasma-accelerator-charge';
+import autogunClick from '../../specs/sounds/autogun-click';
+import autogunMotor from '../../specs/sounds/autogun-motor';
+import railgunReady from '../../specs/sounds/railgun-ready';
+import railgunCharge from '../../specs/sounds/railgun-charge';
 import plasmaAcceleratorFire from '../../specs/sounds/plasma-accelerator-fire';
 import plasmaAcceleratorAmmoExplode from '../../specs/sounds/plasma-accelerator-ammo-explode';
 import loseTarget from '../../specs/sounds/lose-target';
@@ -29,10 +31,14 @@ import searchLight from '../../specs/sounds/search-light';
 import acquireTarget from '../../specs/sounds/acquire-target';
 import engineSettings from '../../specs/sounds/engine';
 import hornDrillSettings from '../../specs/sounds/horn-drill';
-import { renderContinuousBuffer, renderEffectBuffer } from './synthesis';
+import {
+  renderContinuousBuffer,
+  renderEffectBuffer,
+  renderLoopBuffer,
+} from './synthesis';
 import { audio, unlockAudio } from './audio-context';
 
-// The drill and engine use looped audio buffers with smooth parameter ramps.
+// Continuous sounds reuse looped buffers with smooth parameter ramps.
 const loopBuffers: (AudioBuffer | undefined)[] = [];
 const effectBuffers: (AudioBuffer | undefined)[] = [];
 const navigationBuffers: (AudioBuffer | undefined)[] = [];
@@ -67,10 +73,12 @@ const events = [
   chatMessage,
   autogunFire,
   autogunAmmoExplode,
-  plasmaAcceleratorReady,
+  railgunReady,
   plasmaAcceleratorFire,
   plasmaAcceleratorAmmoExplode,
-  plasmaAcceleratorCharge,
+  railgunCharge,
+  autogunClick,
+  autogunMotor,
 ];
 
 interface Sound extends AudioBufferSourceNode {
@@ -155,14 +163,17 @@ export const tone = (engine = 0) => {
   const source = context.createBufferSource() as Sound;
   const gain = context.createGain();
 
-  const kind = engine ? 'engine' : 'hornDrill';
-  const settings = engine ? engineSettings : hornDrillSettings;
+  const kind = engine === 1 ? 'engine' : 'hornDrill';
+  const settings = engine === 1 ? engineSettings : hornDrillSettings;
 
-  source.buffer = loopBuffers[engine] ||= renderContinuousBuffer({
-    context,
-    kind,
-    settings,
-  });
+  source.buffer = loopBuffers[engine] ||=
+    engine === 2
+      ? renderLoopBuffer({ context, layers: autogunMotor })
+      : renderContinuousBuffer({
+          context,
+          kind,
+          settings,
+        });
 
   source.loop = true;
   source.connect(gain);
@@ -170,7 +181,7 @@ export const tone = (engine = 0) => {
 
   source.gain = gain.gain;
   source.gain.value = 0;
-  source.playbackRate.value = settings.basePitch;
+  source.playbackRate.value = engine === 2 ? 1 : settings.basePitch;
   source.start();
 
   return source;
@@ -201,15 +212,18 @@ export const playSound = (
     | 'chat-message'
     | 'autogun-fire'
     | 'autogun-ammo-explode'
-    | 'plasma-accelerator-ready'
-    | 'plasma-accelerator-charge'
+    | 'railgun-ready'
+    | 'railgun-charge'
     | 'plasma-accelerator-fire'
-    | 'plasma-accelerator-ammo-explode',
+    | 'plasma-accelerator-ammo-explode'
+    | 'autogun-click'
+    | 'autogun-motor',
   {
     volume = 1,
     id = 0,
     by = 0,
-  }: { volume?: number; id?: number; by?: number } = {},
+    time = audio ? audio.currentTime : 0,
+  }: { volume?: number; id?: number; by?: number; time?: number } = {},
 ) => {
   if (typeof effect === 'string') {
     effect =
@@ -224,10 +238,12 @@ export const playSound = (
         'chat-message',
         'autogun-fire',
         'autogun-ammo-explode',
-        'plasma-accelerator-ready',
+        'railgun-ready',
         'plasma-accelerator-fire',
         'plasma-accelerator-ammo-explode',
-        'plasma-accelerator-charge',
+        'railgun-charge',
+        'autogun-click',
+        'autogun-motor',
       ].indexOf(effect) + 10;
   }
 
@@ -241,15 +257,15 @@ export const playSound = (
     return;
   }
 
-  const time = audio.currentTime;
-
   const key = `${effect}:${id}:${by}`;
   const previous = effectNextPlay.get(key);
 
-  if (previous && time < previous[0] && volume <= previous[1]) return;
+  if (previous && time < previous[0] - 1e-9 && volume <= previous[1]) return;
 
   effectNextPlay.forEach(([deadline], key) => {
-    if (deadline <= time) effectNextPlay.delete(key);
+    if (deadline <= (audio as AudioContext).currentTime) {
+      effectNextPlay.delete(key);
+    }
   });
 
   effectNextPlay.set(key, [time + 0.1, volume]);
@@ -267,7 +283,8 @@ export const playSound = (
   gain.gain.value = volume;
   source.connect(gain);
   gain.connect((audio as AudioContext).destination);
-  source.start();
+  source.start(time);
+  return source;
 };
 
 export const continuousSound = (
@@ -280,7 +297,8 @@ export const continuousSound = (
 
   if (!sound && !level) return;
   sound ||= tone(engine);
-  const duration = (engine ? engineSettings : hornDrillSettings).ramp;
+  const duration =
+    engine === 2 ? 180 : (engine ? engineSettings : hornDrillSettings).ramp;
 
   if (sound.pitch !== playbackRate) {
     ramp(sound.playbackRate, (sound.pitch = playbackRate), duration);
@@ -295,6 +313,77 @@ export const continuousSound = (
   if (!level) return sound.stop(time);
 
   return sound;
+};
+
+/**
+ * Keep the motor running while scheduling independent clicks on the audio clock.
+ */
+export const updateAutogunSound = (
+  state:
+    | {
+        motor?: Sound;
+        clickSource?: AudioBufferSourceNode;
+        clickTime: number;
+        speed: number;
+      }
+    | undefined,
+  {
+    level,
+    speed = 0,
+    interval = 0.2,
+    id = 0,
+    by = 0,
+  }: {
+    level: number;
+    speed?: number;
+    interval?: number;
+    id?: number;
+    by?: number;
+  },
+) => {
+  if (!audio) return state;
+  const time = audio.currentTime;
+
+  if (!level) {
+    if (state) {
+      if (state.clickTime > time) state.clickSource?.stop();
+
+      if (audio.state === 'running') {
+        continuousSound(state.motor, 0, 1, 2);
+      } else {
+        state.motor?.stop();
+      }
+    }
+
+    return;
+  }
+
+  if (audio.state !== 'running') return state;
+
+  state ||= { clickTime: time, speed: 0 };
+  state.motor = continuousSound(state.motor, level, 1, 2) || undefined;
+  state.speed = speed;
+
+  if (!speed) {
+    if (state.clickTime > time) state.clickSource?.stop();
+    state.clickSource = undefined;
+    state.clickTime = time;
+  } else {
+    const next = state.clickTime + Math.max(0.1, interval / speed);
+
+    if (next <= time + 0.04 + 1e-9) {
+      state.clickTime = Math.max(time, next);
+
+      state.clickSource = playSound('autogun-click', {
+        volume: level,
+        id,
+        by,
+        time: state.clickTime,
+      });
+    }
+  }
+
+  return state;
 };
 
 // One engine voice for the whole ship, independent of its nozzle count.
@@ -323,6 +412,7 @@ export default {
   playSound,
   continuousSound,
   updateThrusterSound,
+  updateAutogunSound,
   // @ifdef DEBUG
   testTone,
   // @endif

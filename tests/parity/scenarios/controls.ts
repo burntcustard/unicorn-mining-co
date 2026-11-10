@@ -9,6 +9,14 @@ const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
 const token = '01234567-89ab-cdef-0123-456789abcdef';
 
 const client: ClientMessage[] = [
+  { type: 'hangar', command: 'LIST', shipId: 0, value: '' },
+  { type: 'hangar', command: 'BUY', shipId: 0, value: 'kestrel' },
+  { type: 'hangar', command: 'RENAME', shipId: 2 ** 48, value: '🦄 <&> ship' },
+  { type: 'hangar', command: 'SELL', shipId: 2 ** 48, value: '' },
+  { type: 'hangar', command: 'PILOT', shipId: 2 ** 48, value: '' },
+  { type: 'hangar', command: 'REPAIR', shipId: 2 ** 48, value: '' },
+  { type: 'hangar', command: 'REFUEL', shipId: 2 ** 48, value: '' },
+  { type: 'hangar', command: 'PAINT', shipId: 2 ** 48, value: '2' },
   { type: 'gateAccess', gateId: 2 ** 45 },
   { type: 'chat', channel: 0, text: 'Hello 🦄 <&>' },
   { type: 'chat', channel: 1, text: '🦄'.repeat(240) },

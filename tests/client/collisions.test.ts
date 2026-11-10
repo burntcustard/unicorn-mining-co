@@ -142,6 +142,405 @@ const entityMap = (
   entities: import('../../src/client/objects/game-object').GameObject[],
 ) => new Map(entities.map((entity) => [entity.id, entity]));
 
+// Detached segments persist; only empty second-generation debris decays.
+for (const contents of [[], [0]]) {
+  const world = createWorld();
+
+  const parent = addEntity(
+    world,
+    createAsteroid(world, {
+      id: 73,
+      radius: 57,
+      contents,
+      rotation: 0.71,
+      spin: 0.18,
+      position: Vec.create(17, -23),
+      velocity: Vec.create(2, -3),
+    }),
+  );
+
+  const segment = parent.segments!.find((part) =>
+    contents.length ? part.contents.length : !part.contents.length,
+  )!;
+  const children = parent.detach({ asteroidSegment: segment, world });
+  const detached = children[0];
+  const health = detached.health;
+
+  assert(!detached.decay, 'empty and item-bearing detached segments persist');
+  detached.update(10);
+  assert.equal(detached.health, health, 'detached health does not decay');
+  assert(!detached.dead);
+
+  const checkpoint = captureWorld({ world });
+  const events: import('../../src/client/protocol/events').SimulationEvent[] =
+    [];
+
+  const destroy = () => {
+    detached.health = 0;
+    detached.fracture({ by: 1, events, world });
+    return [...world.entities.values()].filter(
+      (entity) => entity.kind === 'asteroid' && entity.decay,
+    );
+  };
+
+  const debris = destroy();
+
+  const released = [...world.entities.values()].some(
+    (entity) => entity.kind === 'item',
+  );
+  const expected = released ? 3 : 4;
+
+  assert.equal(debris.length, expected);
+  assert.equal(new Set(debris.map((part) => part.health)).size, expected);
+  assert.equal(
+    debris.reduce((mass, part) => mass + part.mass, 0),
+    (detached.mass * expected) / 8,
+  );
+
+  const area = (points: number[][]) =>
+    Math.abs(
+      points.reduce((sum, [x, y], index) => {
+        const next = points[(index + 1) % points.length];
+
+        return sum + x * next[1] - next[0] * y;
+      }, 0),
+    ) / 2;
+
+  const parentArea = area(detached.shapeOutline!);
+  const originalVertices = detached.shapeOutline!.map(([x, y]) =>
+    Vec.add(
+      detached.position,
+      rotatePoint(Vec.create(x, y), detached.rotation),
+    ),
+  );
+
+  for (const part of debris) {
+    const outline = part.shapeOutline!;
+
+    assert.equal(outline.length, 3);
+    assert.equal(
+      part.segments,
+      undefined,
+      'debris has no mineable subsegments',
+    );
+    assert.equal(part.resource, detached.resource);
+    assert.equal(part.mass, detached.mass / 8);
+    assert(Math.abs(area(outline) - parentArea / 4) < 1e-6);
+    assert(part.health / part.decay! >= 1.5 && part.health / part.decay! <= 3);
+    assert.equal(part.health, part.maxHealth);
+
+    for (const [x, y] of outline) {
+      const vertex = Vec.add(
+        part.position,
+        rotatePoint(Vec.create(x, y), part.rotation),
+      );
+      const expected = originalVertices.some((from, index) =>
+        originalVertices.some(
+          (to, other) =>
+            index <= other &&
+            Vec.distance(vertex, Vec.scale(Vec.add(from, to), 0.5)) < 1e-6,
+        ),
+      );
+
+      assert(
+        expected,
+        'debris vertices are original corners or edge midpoints',
+      );
+    }
+
+    const offset = Vec.subtract(part.position, detached.position);
+    const inherited = Vec.addScaled(
+      detached.velocity,
+      Vec.create(-offset.y, offset.x),
+      detached.spin,
+    );
+
+    assert(
+      Math.abs(
+        Vec.length(Vec.subtract(part.velocity, inherited)) -
+          (Vec.length(offset) ? 6 : 0),
+      ) < 1e-7,
+    );
+  }
+
+  const record = () =>
+    debris.map((part) => ({
+      id: part.id,
+      health: part.health,
+      position: Vec.clone(part.position),
+      velocity: Vec.clone(part.velocity),
+      shapeOutline: part.shapeOutline,
+    }));
+
+  const before = record();
+
+  restoreWorld({ world, state: checkpoint });
+  const replay = destroy();
+
+  assert.deepEqual(
+    replay.map((part) => ({
+      id: part.id,
+      health: part.health,
+      position: Vec.clone(part.position),
+      velocity: Vec.clone(part.velocity),
+      shapeOutline: part.shapeOutline,
+    })),
+    before,
+    'rollback reproduces debris geometry, IDs, motion, and health',
+  );
+
+  const loot = [...world.entities.values()].filter(
+    (entity) => entity.kind === 'item',
+  );
+
+  assert.equal(
+    loot.length + replay.reduce((sum, part) => sum + part.contents.length, 0),
+    contents.length,
+    'each item is either retained or released exactly once',
+  );
+
+  if (loot.length) {
+    const item = loot[0];
+
+    assert.equal(replay.length, 3, 'released loot leaves a central hole');
+    assert(Vec.distance(item.position, detached.position) < 1e-6);
+  }
+
+  const count = world.entities.size;
+
+  assert.equal(detached.fracture({ by: 1, events, world }), false);
+  assert.equal(
+    world.entities.size,
+    count,
+    'repeated destruction creates nothing',
+  );
+  const terminal = replay[0];
+
+  terminal.health = 0;
+  terminal.fracture({ by: 1, events, world });
+  assert.equal(
+    world.entities.size,
+    count - 1,
+    'destroyed debris never subdivides',
+  );
+  const durations: number[] = [];
+
+  for (const part of replay.slice(1)) {
+    if (part.contents.length) {
+      const health = part.health;
+
+      part.update(60);
+      assert(!part.dead && !part.decaying);
+      assert.equal(
+        part.health,
+        health,
+        'retained loot prevents automatic health loss',
+      );
+      physics.damage(part, health);
+      part.fracture({ by: 1, events, world });
+      assert(part.dead, 'retained loot does not prevent mining');
+      continue;
+    }
+
+    let elapsed = 0;
+
+    while (!part.dead && elapsed < 4) {
+      part.update(simulationStep);
+      elapsed += simulationStep;
+    }
+
+    assert(part.dead && elapsed >= 1.5 && elapsed <= 3 + simulationStep);
+    durations.push(elapsed);
+  }
+
+  assert(
+    new Set(durations).size >= (contents.length ? 1 : 2),
+    'empty debris disappears at staggered times',
+  );
+}
+
+// The missing central triangle makes space without disabling item collisions.
+{
+  const world = createWorld();
+
+  const parent = addEntity(
+    world,
+    createAsteroid(world, {
+      contents: [0],
+      shapeOutline: [
+        [-18, -12],
+        [18, -12],
+        [0, 24],
+      ],
+      health: 0,
+      rotation: 0.71,
+    }),
+  );
+
+  parent.fracture({ by: 1, events: [], world });
+  const fragments = [...world.entities.values()].filter(
+    (part) => part.kind === 'asteroid',
+  );
+  const item = [...world.entities.values()].find(
+    (part) => part.kind === 'item',
+  )!;
+
+  assert.equal(fragments.length, 3);
+  assert(item, 'the item is released rather than retained');
+  assert(
+    fragments.every(
+      (part) => !contactBetween(part.hitbox()[0], item.hitbox()[0]),
+    ),
+    'the central hole is clear for released loot',
+  );
+  const collisions = new GameCollisions();
+
+  collisions.capturePoses(world.entities);
+  assert(
+    !collisions
+      .step({ entities: world.entities, dt: simulationStep })
+      .some(
+        ({ collider, other }) =>
+          collider.owner === item || other.owner === item,
+      ),
+  );
+  Vec.set(item.position, fragments[0].position);
+  Vec.set(item.velocity, fragments[0].velocity);
+  collisions.capturePoses(world.entities);
+  assert(
+    collisions
+      .step({ entities: world.entities, dt: simulationStep })
+      .some(
+        ({ collider, other }) =>
+          collider.owner === item || other.owner === item,
+      ),
+    'items collide normally when they touch corner debris',
+  );
+}
+
+// Actual outlines, not bounding radii, decide whether loot can remain embedded.
+for (const shapeOutline of [
+  [
+    [-120, -80],
+    [120, -80],
+    [0, 160],
+  ],
+  [
+    [-120, -1],
+    [120, -1],
+    [0, 2],
+  ],
+  [
+    [-3, -2],
+    [3, -2],
+    [0, 4],
+  ],
+  [
+    [-18, -12],
+    [18, -12],
+    [0, 24],
+  ],
+]) {
+  const world = createWorld();
+
+  const parent = addEntity(
+    world,
+    createAsteroid(world, {
+      contents: [0],
+      shapeOutline,
+      health: 0,
+      rotation: 0.71,
+    }),
+  );
+
+  parent.fracture({ by: 1, events: [], world });
+  const fragments = [...world.entities.values()].filter(
+    (part) => part.kind === 'asteroid',
+  );
+  const retained = fragments.filter((part) => part.contents.length);
+  const fits = shapeOutline[0][1] === -80;
+
+  assert.equal(retained.length, fits ? 1 : 0);
+  assert.equal(fragments.length, fits ? 4 : 3);
+
+  if (fits) {
+    const part = retained[0];
+    const health = part.health;
+    const outline: number[][] = part.shapeOutline;
+    const rotation = Math.atan2(
+      outline[1][1] - outline[0][1],
+      outline[1][0] - outline[0][0],
+    );
+
+    for (const [x, y] of diamondSpec.points) {
+      const point = rotatePoint(Vec.create(x, y), rotation);
+
+      assert(
+        outline.every(([x, y], index) => {
+          const next = outline[(index + 1) % outline.length];
+          const dx = next[0] - x;
+          const dy = next[1] - y;
+
+          return (
+            Math.sign(dy * x - dx * y) *
+              (dx * (point.y - y) - dy * (point.x - x)) >=
+            3 * Math.hypot(dx, dy) - 1e-6
+          );
+        }),
+        'the full item outline clears every triangle edge by three units',
+      );
+    }
+
+    assert.equal(
+      [...world.entities.values()].filter((item) => item.kind === 'item')
+        .length,
+      0,
+    );
+    part.update(60);
+    assert.equal(part.health, health);
+    assert(!part.dead);
+    const checkpoint = captureWorld({ world });
+
+    const release = () => {
+      physics.damage(part, part.health);
+      part.fracture({ by: 1, events: [], world });
+      return [...world.entities.values()].filter(
+        (entity) => entity.kind === 'item',
+      );
+    };
+
+    const drops = release();
+
+    assert.equal(drops.length, 1);
+    assert.equal(
+      [...world.entities.values()].filter(
+        (entity) => entity.kind === 'asteroid',
+      ).length,
+      3,
+      'mining an item-bearing debris triangle never subdivides it again',
+    );
+    restoreWorld({ world, state: checkpoint });
+    assert.deepEqual(
+      release().map((item) => item.id),
+      drops.map((item) => item.id),
+    );
+  } else {
+    const part = fragments[0];
+    const health = part.health;
+    const lifetime = health / part.decay!;
+
+    physics.damage(part, health / 2);
+    part.update(lifetime / 2 + simulationStep);
+    assert(part.dead, 'mining reduces the same health consumed by decay');
+    assert.equal(
+      [...world.entities.values()].filter((item) => item.kind === 'item')
+        .length,
+      1,
+      'loot too large for the small triangles is released immediately',
+    );
+  }
+}
+
 // Containment, compound jaws, and neighboring obstacles require a clear escape
 // for the whole body. Rotate and translate the scene to catch axis assumptions.
 for (const angle of [0, 0.71, Math.PI / 2]) {

@@ -55,8 +55,8 @@ func TestArrowInitialLoadout(t *testing.T) {
 	world := simulation.CreateWorld(25, catalog)
 	ship := CreatePlayerShip(world, Properties{DefinitionID: "arrow"})
 
-	if len(ship.Modules()) != 4 {
-		t.Fatal("Arrow must start with two cargo hatches, a medium thruster and a power plant")
+	if len(ship.Modules()) != 6 {
+		t.Fatal("Arrow must start with two cargo hatches, a medium thruster, a drill, a searchlight and a power plant")
 	}
 
 	thruster := ship.Mounts()[2].Module
@@ -70,6 +70,14 @@ func TestArrowInitialLoadout(t *testing.T) {
 
 		if mount.Module == nil || mount.Module.ModuleBase().Type != "cargoHatch" || mount.LocalPosition.X != -9 {
 			t.Fatal("Arrow must have a cargo hatch at each rear side mount")
+		}
+	}
+
+	for index, definition := range map[int]string{6: "hornDrill", 7: "searchLight"} {
+		module := ship.Mounts()[index].Module
+
+		if module == nil || module.ModuleBase().Type != definition {
+			t.Fatalf("Arrow must start with %s at mount %d", definition, index)
 		}
 	}
 

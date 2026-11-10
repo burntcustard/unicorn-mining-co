@@ -12,6 +12,7 @@ const junctionY = 16.5 + (33 - 16.5) * 0.34;
 
 export const kestrel = {
   name: 'Kestrel',
+  price: 6200,
   fuelCapacity: 155,
   cargoSpace: 18,
   drag: 0.42,
@@ -19,10 +20,6 @@ export const kestrel = {
   radius: 73,
   turnRate: 2.6,
   initialLoadout: [
-    {
-      mount: 0,
-      module: 'shieldGeneratorLg',
-    },
     {
       mount: 1,
       module: 'powerPlant',
@@ -42,10 +39,6 @@ export const kestrel = {
     {
       mount: 5,
       module: 'cargoHatch',
-    },
-    {
-      mount: 6,
-      module: 'autogunTurret',
     },
     {
       mount: 7,

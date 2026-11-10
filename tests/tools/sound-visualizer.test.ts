@@ -5,11 +5,17 @@ class Drawing {
   strokeStyle = '';
   fillStyle = '';
   fills: { color: string; rectangle: number[] }[] = [];
-  paths: { color: string; points: number[][]; lineWidth: number }[] = [];
+  paths: {
+    color: string;
+    points: number[][];
+    lineWidth: number;
+    alpha: number;
+  }[] = [];
   points: number[][] = [];
   labels: string[] = [];
   transform: number[] = [];
   lineWidth = 0;
+  globalAlpha = 1;
 
   setTransform(...values: number[]) {
     this.transform = values;
@@ -36,6 +42,7 @@ class Drawing {
       color: this.strokeStyle,
       points: this.points,
       lineWidth: this.lineWidth,
+      alpha: this.globalAlpha,
     });
   }
 
@@ -395,6 +402,46 @@ try {
       drawing.labels.includes('Layer 3'),
   );
 
+  const readsBeforeHover = selectedSampleReads;
+
+  visualizer.setHoveredLayer(1);
+  assert.deepEqual(
+    drawing.paths.slice(-3).map(({ alpha }) => alpha),
+    [0.14, 0.7, 0.14],
+    'hovering a layer dims only the other waveforms to 20% of normal opacity',
+  );
+  assert.equal(
+    selectedSampleReads,
+    readsBeforeHover,
+    'hover redraws reuse the existing waveform samples',
+  );
+  assert.equal(
+    drawing.globalAlpha,
+    1,
+    'hover does not dim later canvas drawing',
+  );
+
+  visualizer.setBuffers(layerBuffers);
+  assert.deepEqual(
+    drawing.paths.slice(-3).map(({ alpha }) => alpha),
+    [0.14, 0.7, 0.14],
+    'editing a hovered layer retains its emphasis when buffers refresh',
+  );
+  visualizer.setHoveredLayer();
+  assert.deepEqual(
+    drawing.paths.slice(-3).map(({ alpha }) => alpha),
+    [0.7, 0.7, 0.7],
+    'leaving the layer restores every waveform opacity',
+  );
+  visualizer.setHoveredLayer(2);
+  visualizer.setBuffer(layerBuffers[0]);
+  assert.equal(
+    drawing.paths.at(-1)!.alpha,
+    0.7,
+    'a single-buffer preview is never dimmed by a hovered event layer',
+  );
+  visualizer.setHoveredLayer();
+
   const beforeRemove = drawing.paths.length;
 
   visualizer.setBuffers(layerBuffers.slice(0, 1));
@@ -435,7 +482,7 @@ try {
   );
   assert.deepEqual(
     Object.keys(visualizer).sort(),
-    ['dispose', 'setBuffer', 'setBuffers'],
+    ['dispose', 'setBuffer', 'setBuffers', 'setHoveredLayer'],
     'the visualizer exposes only static rendering and cleanup',
   );
   visualizer.dispose();
@@ -448,6 +495,7 @@ try {
 
   visualizer.setBuffer();
   visualizer.setBuffers(layerBuffers);
+  visualizer.setHoveredLayer(0);
   resize();
   assert.equal(
     drawing.paths.length,

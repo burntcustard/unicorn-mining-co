@@ -57,6 +57,8 @@ type AsteroidProperties struct {
 	Segments   []*AsteroidSegment
 }
 
+func (a *Asteroid) Decaying() bool { return a.Decay != 0 && len(a.Contents) == 0 }
+
 func PointCountFor(radius, scale float64) int {
 	return int(utilities.RoundTiesUp(math.Sqrt(radius)*scale))*2 - 1
 }
@@ -604,11 +606,6 @@ func (a *Asteroid) Detach(segment *AsteroidSegment, world *World) []*Asteroid {
 			props.Resource = &a.Resource
 		}
 
-		if len(group) == 1 && len(contents) == 0 {
-			decay := 6.0
-			props.Decay = &decay
-		}
-
 		if len(group) > 1 {
 			props.Segments = childSegments
 		}
@@ -647,6 +644,30 @@ func (a *Asteroid) Fracture(segment *AsteroidSegment, by int64, events *[]protoc
 		a.Remove()
 		random := random.CreateRandom(float64(a.ID))
 		segments := a.Segments()
+		subdivide := a.Decay == 0 && segments == nil && len(ShapeOutlineOf(a).Points) == 3
+		retained := map[int]bool{}
+		contents := []int{}
+
+		if subdivide {
+			triangle := &ShapeOutline{Points: splitTriangle(ShapeOutlineOf(a).Points)[2]}
+			center := CenterOf(triangle)
+
+			for i, p := range triangle.Points {
+				triangle.Points[i] = roundPoint(Point{p[0] - center.X, p[1] - center.Y})
+			}
+
+			for index, resource := range a.Contents {
+				if a.itemFits(triangle, resource, len(contents)) {
+					retained[index] = true
+					contents = append(contents, resource)
+				}
+			}
+
+			if len(contents) != len(a.Contents) {
+				clear(retained)
+				contents = []int{}
+			}
+		}
 
 		if segments == nil {
 			segments = []*AsteroidSegment{{Contents: a.Contents, ShapeOutline: ShapeOutlineOf(a)}}
@@ -659,11 +680,19 @@ func (a *Asteroid) Fracture(segment *AsteroidSegment, by int64, events *[]protoc
 			rotation := math.Atan2(points[1][1]-points[0][1], points[1][0]-points[0][0])
 
 			for index, resource := range segment.Contents {
+				if retained[index] {
+					continue
+				}
+
 				id := EntityID(world)
 				item := world.ItemTypes[resource](ObjectProperties{World: world, ID: &id, Position: Vec.Add(a.Position, offset), Rotation: a.Rotation + rotation + float64(index), Spin: a.Spin + (random.Next()-0.5)*0.5, Velocity: Vec.AddScaled(a.Velocity, Vec.Create(-offset.Y, offset.X), a.Spin)})
 				item.Base().Mined = true
 				AddEntity(world, item)
 			}
+		}
+
+		if subdivide {
+			a.breakApart(world, contents)
 		}
 
 		*events = append(*events, protocol.AsteroidDestroyed{AsteroidID: a.ID, By: by, Contents: a.Contents})
@@ -681,6 +710,89 @@ func (a *Asteroid) Fracture(segment *AsteroidSegment, by int64, events *[]protoc
 	}
 
 	return true
+}
+
+func (a *Asteroid) itemFits(outline *ShapeOutline, resource, index int) bool {
+	catalog := a.specWorld.Specification
+	spec := catalog.ItemSpecs[catalog.ItemIDs[resource]]
+	center := CenterOf(outline)
+	points := outline.Points
+	rotation := math.Atan2(points[1][1]-points[0][1], points[1][0]-points[0][0]) + float64(index)
+	itemPoints := make([]Vec.Vector, len(spec.Points))
+
+	for i, p := range spec.Points {
+		itemPoints[i] = Vec.Add(center, RotatePoint(Vec.Create(p[0], p[1]), rotation))
+	}
+
+	radius := spec.Radius
+
+	if radius == 0 {
+		radius = catalog.ItemDefaults["radius"]
+	}
+
+	for edge, p := range points {
+		to := points[(edge+1)%len(points)]
+		dx, dy := to[0]-p[0], to[1]-p[1]
+		centerSide := dx*(center.Y-p[1]) - dy*(center.X-p[0])
+
+		if centerSide == 0 {
+			return false
+		}
+
+		side := math.Copysign(1, centerSide)
+		clearance := catalog.Simulation.AsteroidDebris.ItemClearance * math.Hypot(dx, dy)
+
+		distance := func(point Vec.Vector) float64 {
+			return side * (dx*(point.Y-p[1]) - dy*(point.X-p[0]))
+		}
+
+		if len(itemPoints) > 0 {
+			for _, point := range itemPoints {
+				if distance(point) < clearance {
+					return false
+				}
+			}
+		} else if distance(center) < radius*math.Hypot(dx, dy)+clearance {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (a *Asteroid) breakApart(world *World, contents []int) {
+	next := random.CreateRandom(float64(a.ID + 1)).Next
+	rules := world.Specification.Simulation.AsteroidDebris
+
+	for index, triangle := range splitTriangle(ShapeOutlineOf(a).Points) {
+		if index == 2 && len(a.Contents) > 0 && len(contents) == 0 {
+			continue
+		}
+
+		center := CenterOf(&ShapeOutline{Points: triangle})
+		offset := RotatePoint(center, a.Rotation)
+		outline := &ShapeOutline{Points: make([]Point, len(triangle))}
+
+		for i, p := range triangle {
+			outline.Points[i] = roundPoint(Point{p[0] - center.X, p[1] - center.Y})
+		}
+
+		radius := RadiusOf(outline.Points, Point{})
+		health := rules.Decay * (rules.MinLifetime + next()*(rules.MaxLifetime-rules.MinLifetime))
+		mass := a.Mass / 8
+		velocity := Vec.AddScaled(a.Velocity, Vec.Create(-offset.Y, offset.X), a.Spin)
+		props := AsteroidProperties{Contents: []int{}, Decay: &rules.Decay, Health: &health, MaxHealth: &health, Mass: &mass, Position: Vec.Add(a.Position, offset), Radius: &radius, Rotation: a.Rotation, ShapeOutline: outline, Spin: a.Spin, Velocity: Vec.AddScaled(velocity, Vec.Normalize(offset), rules.SeparationSpeed)}
+
+		if index == 2 {
+			props.Contents = contents
+		}
+
+		if a.HasResource {
+			props.Resource = &a.Resource
+		}
+
+		AddEntity(world, CreateAsteroid(world, props).LockGeometry())
+	}
 }
 
 func CreateAsteroid(world *World, props AsteroidProperties) *Asteroid {

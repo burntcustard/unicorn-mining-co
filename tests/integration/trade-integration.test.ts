@@ -42,7 +42,7 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { NetworkClient } from '${root}/src/client/network/network.ts';
 import { applyCraftAction, setCraftActionDispatcher } from '${root}/src/client/network/craft-actions.ts';
-import { decodeServerControl } from '${root}/src/client/protocol/binary-control.ts';
+import { decodeServerControl, encodeClientMessage } from '${root}/src/client/protocol/binary-control.ts';
 import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapshot.ts';
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { Module } from '${root}/src/client/objects/modules/module.ts';
@@ -53,12 +53,14 @@ export default async () => {
 const server = Reflect.get(globalThis, 'tradeServer');
 const outgoing = Reflect.get(globalThis, 'tradePackets');
 const client = new NetworkClient({ url: 'test' });
+let playerToken;
 setCraftActionDispatcher((ship, action) => client.applyCraftAction(ship, action));
 const render = () => client.updateFrame({ input: emptyPlayerInput(), now: performance.now() + 1, dt: 0 });
 const receive = packets => {
   for (const hex of packets) {
     const packet = Uint8Array.from(Buffer.from(hex, 'hex'));
     const message = packet[1] === 0x43 ? decodeServerControl(packet) : decodeBinarySnapshot(packet);
+    if (message.type === 'welcome') playerToken = message.playerToken;
     client.receive({ message });
     render();
   }
@@ -254,6 +256,71 @@ await flush();
 assert(!ship().mounts[0].module, 'rapid equipped sales stay sold after server confirmation');
 assert.equal(client.player.credits, beforeEquippedBuyback, 'rapid equipped buyback and resale are charged correctly');
 assert.equal(ship().cargoContents.length, ship().cargoSpace - 1, 'rapid equipped trades preserve cargo');
+
+const beforeHangar = client.player.credits;
+const starterId = ship().id;
+const hangar = async (command, shipId = 0, value = '') => {
+  client.sendHangarAction({ command, shipId, value });
+  await flush();
+};
+const dockedTo = client.entityRecords.get(starterId).dockedTo;
+for (const state of [{ dockedTo: undefined, launching: 0 }, { dockedTo, launching: 1 }]) {
+  const authoritativeShip = client.entityRecords.get(starterId);
+  const pendingPackets = outgoing();
+  Object.assign(authoritativeShip, state);
+  client.sendHangarAction({ command: 'LIST', shipId: 0, value: '' });
+  assert.equal(outgoing().length, 0, 'Hangar waits for authoritative docking before requesting its list');
+  Object.assign(authoritativeShip, { dockedTo, launching: 0 });
+  receive(await server('tick', pendingPackets));
+  assert.equal(client.hangarListPending, false, 'a docking snapshot releases the pending Hangar request');
+  await flush();
+  assert.equal(client.ownedShips.length, 1, 'deferred Hangar request succeeds after docking');
+}
+await hangar('LIST');
+assert.equal(client.ownedShips.length, 1, 'Hangar lists the starter ship');
+assert.equal(client.ownedShips[0].name, 'Mustang');
+await hangar('SPECIAL', 0, 'mustang');
+assert.equal(client.player.credits, beforeHangar, 'ineligible special offers preserve credits over the wire');
+assert.equal(client.ownedShips.length, 1, 'ineligible special offers preserve the existing fleet');
+assert.equal(ship().id, starterId, 'ineligible special offers do not replace the active ship');
+await hangar('BUY', 0, 'finch');
+const finchId = ship().id;
+assert.notEqual(finchId, starterId, 'buy automatically switches the replicated player ship');
+assert.equal(ship().name, 'Finch');
+assert.equal(client.ownedShips.length, 2);
+assert(ship().mounts.some(mount => mount.module), 'purchases include modules');
+assert.equal(ship().fuel, ship().fuelCapacity);
+await hangar('RENAME', finchId, '<b>🦄 & Finch');
+assert.equal(ship().name, '<b>🦄 & Finch', 'custom ship names survive server replication');
+await hangar('PILOT', starterId);
+assert.equal(ship().id, starterId, 'Pilot restores the original ship and its cargo');
+await hangar('SELL', finchId);
+assert.equal(client.player.credits, beforeHangar, 'new ships resell with no loss');
+assert.equal(client.ownedShips.length, 1);
+await hangar('SELL', starterId);
+assert.equal(client.ownedShips.length, 0, 'selling the last ship leaves an empty hangar');
+const berthId = ship().id;
+const soldBalance = client.player.credits;
+await hangar('SELL', starterId);
+assert.equal(client.player.credits, soldBalance, 'a repeated sale cannot credit twice');
+client.recordInput({ input: { ...emptyPlayerInput(), launch: true } });
+await flush();
+receive(await server('tick', outgoing()));
+assert.equal(ship().id, berthId);
+assert(ship().dockedTo, 'an empty hangar cannot launch over the wire');
+await server('disconnect', []);
+receive(await server('receive', [encodeClientMessage({ type: 'prepare', playerToken })]));
+receive(await server('receive', [encodeClientMessage({ type: 'play' })]));
+assert.equal(client.ownedShips.length, 0, 'shipless reconnect preserves the empty fleet');
+assert(ship()?.dockedTo, 'shipless reconnect retains the docked station location');
+assert(!client.shipDestroyed, 'shipless reconnect has a usable berth rather than a destroyed ship');
+assert(client.world.entities.has(ship().dockedTo), 'shipless reconnect includes the docked station');
+client.recordInput({ input: { ...emptyPlayerInput(), launch: true, thrust: 1 } });
+client.update({ input: { ...emptyPlayerInput(), launch: true, thrust: 1 }, now: performance.now() + 40 });
+assert(ship().dockedTo, 'a shipless berth cannot be launched by client prediction');
+await hangar('BUY', 0, 'mustang');
+assert.notEqual(ship().id, berthId);
+assert.equal(client.ownedShips.length, 1);
 
 const settled = state();
 client.connected = false;

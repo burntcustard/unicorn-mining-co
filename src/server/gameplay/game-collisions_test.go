@@ -284,3 +284,69 @@ func TestTypeScriptGameplay(t *testing.T) {
 		})
 	}
 }
+
+func TestAsteroidDebrisLootContacts(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(1, catalog)
+	world.ItemTypes = objects.ItemTypes(catalog)
+	outline := &simulation.ShapeOutline{Points: []simulation.Point{{-18, -12}, {18, -12}, {0, 24}}}
+	parent := simulation.CreateAsteroid(world, simulation.AsteroidProperties{Contents: []int{0}, ShapeOutline: outline, Health: new(0.0), Position: Vec.Create(4, 5), Velocity: Vec.Create(-2, 9), Rotation: 0.7, Spin: 0.2})
+	simulation.AddEntity(world, parent)
+	events := []protocol.SimulationEvent{}
+	parent.Fracture(nil, 7, &events, world)
+	var item *objects.Item
+	debris := []*simulation.Asteroid{}
+
+	for _, entity := range world.Entities.Values() {
+		if loot, ok := entity.(*objects.Item); ok {
+			item = loot
+		} else if asteroid, ok := entity.(*simulation.Asteroid); ok {
+			debris = append(debris, asteroid)
+		}
+	}
+
+	if item == nil || len(debris) != 3 {
+		t.Fatal("triangle destruction must release loot and leave three corner debris bodies")
+	}
+
+	controlWorld := simulation.CreateWorld(1, catalog)
+	control := objects.NewItem("diamond", simulation.ObjectProperties{World: controlWorld, Position: item.Position, Velocity: item.Velocity, Rotation: item.Rotation, Spin: item.Spin}, catalog)
+	simulation.AddEntity(controlWorld, control)
+	controlCollisions := NewGameCollisions(catalog)
+	controlCollisions.CapturePoses(controlWorld.Entities)
+	controlCollisions.Step(controlWorld.Entities, catalog.Simulation.SimulationStep, &[]protocol.SimulationEvent{})
+	collisions := NewGameCollisions(catalog)
+	collisions.CapturePoses(world.Entities)
+	contacts := collisions.Step(world.Entities, catalog.Simulation.SimulationStep, &events)
+
+	for _, contact := range contacts {
+		if contact.Collider.Owner == item || contact.Other.Owner == item {
+			t.Fatal("the central hole must leave room for the released item")
+		}
+	}
+
+	if item.Position != control.Position || item.Velocity != control.Velocity || item.Health != control.Health || item.Spin != control.Spin {
+		t.Fatal("loot released into the central hole must retain its motion and health")
+	}
+
+	item.Position = debris[0].Position
+	item.Velocity = debris[0].Velocity
+	collisions.CapturePoses(world.Entities)
+	contacts = collisions.Step(world.Entities, catalog.Simulation.SimulationStep, &events)
+	touched := false
+
+	for _, contact := range contacts {
+		if contact.Collider.Owner == item || contact.Other.Owner == item {
+			touched = true
+		}
+	}
+
+	if !touched {
+		t.Fatal("items must still collide normally with corner debris")
+	}
+}
