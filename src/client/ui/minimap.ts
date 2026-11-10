@@ -95,6 +95,7 @@ export const renderMinimap = ({
       object.id === ship.id ||
       object.dead ||
       object.buried ||
+      object.dockedTo ||
       !targetKinds.has(object.kind!)
     ) {
       return;
@@ -184,6 +185,11 @@ export const renderMinimap = ({
 
     ctx.restore();
   });
+
+  if (ship.dockedTo) {
+    ctx.restore();
+    return;
+  }
 
   ctx.rotate(center.rotation);
   ctx.fillStyle = ship.shades[2];
