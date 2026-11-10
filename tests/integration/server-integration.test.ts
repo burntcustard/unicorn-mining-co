@@ -37,6 +37,8 @@ const bundle = await rolldown({
           packet=>{const message=decodeBinarySnapshot(packet);return [message.type==='load',message.snapshotSequence,message.acknowledgedSequence,message.serverTick,message.fullEntities.length];},
           ()=>encodeClientMessage({type:'activity'}),
           packet=>{const message=decodeServerControl(packet);return message.type==='sounds' ? message.sounds.map(sound=>[sound.effect,sound.id,sound.by,sound.position.x,sound.position.y]) : undefined;},
+          position=>encodeClientMessage({type:'sectorMap',position}),
+          packet=>{const message=decodeServerControl(packet);return message.type==='sectorMap' ? message.mapMarkers.map(marker=>[marker.kind==='field',marker.kind==='ship',marker.id,marker.position.x,marker.position.y,marker.radius,marker.name,marker.definitionId,marker.color]) : undefined;},
         ];`
           : undefined,
     },
@@ -359,6 +361,60 @@ try {
 
   const actor = await join();
   const observer = await join();
+
+  const mapped = new Promise<any[]>((resolveMap, reject) => {
+    actor.socket.on('message', (data) => {
+      try {
+        const packet = new Uint8Array(data as Buffer);
+
+        if (packet[1] !== 0x43) return;
+        const message = decodeServerControl(packet);
+
+        if (message.type !== 'sectorMap') return;
+        const markers = message.mapMarkers.map((marker) => [
+          marker.kind === 'field',
+          marker.kind === 'ship',
+          marker.id,
+          marker.position.x,
+          marker.position.y,
+          marker.radius,
+          marker.name,
+          marker.definitionId,
+          marker.color,
+        ]);
+
+        assert.deepEqual(
+          production[8](packet),
+          markers,
+          'production map properties decode Go markers',
+        );
+        assert(
+          markers.every((marker) => !marker[0]),
+          'fields are generated locally rather than streamed',
+        );
+        assert(
+          markers.some((marker) => marker[1] && marker[2] === actor.shipId),
+          'map includes own player',
+        );
+        assert(
+          markers.some((marker) => marker[1] && marker[2] === observer.shipId),
+          'map includes other player',
+        );
+        resolveMap(markers);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+
+  const mapRequest = encodeClientMessage({
+    type: 'sectorMap',
+    position: { x: 0, y: 0 },
+  });
+
+  assert.deepEqual(production[7]({ x: 0, y: 0 }), mapRequest);
+  actor.socket.send(mapRequest);
+  await mapped;
 
   const heard = new Promise<void>((resolveSound, reject) => {
     observer.socket.on('message', (data) => {

@@ -359,10 +359,13 @@
 
     &:enabled:not([aria-pressed='true']):is(:hover, :focus-visible) kbd {
       color: #fff;
-      border-color: var(--ui-color);
+    }
+
+    &:enabled:is(:hover, :focus-visible) kbd {
+      border-color: #fff;
       box-shadow:
-        0 0 8px rgb(from var(--ui-color) r g b / 0.2),
-        inset 0 0 8px rgb(from var(--ui-color) r g b / 0.2);
+        0 0 8px rgb(from #fff r g b / 0.2),
+        inset 0 0 8px rgb(from #fff r g b / 0.2);
       transition:
         color 0.05s,
         border-color 0.05s,

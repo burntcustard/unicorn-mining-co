@@ -16,7 +16,8 @@ type ServerControl = Extract<
       | 'profile'
       | 'sounds'
       | 'chat'
-      | 'hangar';
+      | 'hangar'
+      | 'sectorMap';
   }
 >;
 
@@ -36,6 +37,7 @@ const {
   gateAccess,
   chat,
   hangar,
+  sectorMap,
 } = controlMessageIds;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -300,6 +302,14 @@ export function encodeClientMessage(
   message: ClientMessage,
 ): Uint8Array<ArrayBuffer> {
   switch (message.type) {
+    case 'sectorMap': {
+      const writer = new ControlWriter(sectorMap);
+
+      writer.number(message.position.x);
+      writer.number(message.position.y);
+      return writer.finish();
+    }
+
     case 'hangar': {
       const writer = new ControlWriter(hangar);
 
@@ -485,6 +495,14 @@ export function decodeClientMessage(
   let message: ClientMessage;
 
   switch (reader.type) {
+    case sectorMap:
+      message = {
+        type: 'sectorMap',
+        position: Vec.create(reader.number(), reader.number()),
+      };
+
+      break;
+
     case hangar: {
       const command = reader.string();
 
@@ -726,6 +744,29 @@ export function decodeClientMessage(
 export function encodeServerControl(
   message: Exclude<ServerControl, { type: 'hangar' }>,
 ): Uint8Array<ArrayBuffer> {
+  if (message.type === 'sectorMap') {
+    const writer = new ControlWriter(sectorMap);
+
+    writer.unsigned(message.mapMarkers.length);
+
+    message.mapMarkers.forEach((marker) => {
+      writer.byte(
+        ['field', 'station', 'ship', 'jumpGate', 'wormhole'].indexOf(
+          marker.kind,
+        ),
+      );
+      writer.signed(marker.id);
+      writer.number(marker.position.x);
+      writer.number(marker.position.y);
+      writer.number(marker.radius);
+      writer.text(marker.name);
+      writer.text(marker.definitionId);
+      writer.text(marker.color);
+    });
+
+    return writer.finish();
+  }
+
   if (message.type === 'chat') {
     const writer = new ControlWriter(chat);
 
@@ -846,6 +887,38 @@ export function decodeServerControl(
   let message: ServerControl;
 
   switch (reader.type) {
+    case sectorMap: {
+      const count = reader.unsigned();
+
+      if (count > reader.remaining / 29) throw new Error('Invalid map');
+
+      message = {
+        type: 'sectorMap',
+        mapMarkers: Array.from({ length: count }, () => {
+          const kind = (
+            ['field', 'station', 'ship', 'jumpGate', 'wormhole'] as const
+          )[reader.byte()];
+
+          if (!kind) throw new Error('Invalid map marker');
+
+          const marker = {
+            kind,
+            id: reader.signed(),
+            position: Vec.create(reader.number(), reader.number()),
+            radius: reader.number(),
+            name: reader.text(),
+            definitionId: reader.text(),
+            color: reader.text(),
+          };
+
+          if (marker.radius < 0) throw new Error('Invalid map radius');
+          return marker;
+        }),
+      };
+
+      break;
+    }
+
     case hangar: {
       const shipId = reader.unsigned();
       const credits = reader.number();
@@ -992,6 +1065,7 @@ export function decodeServerControl(
   reader.finish();
 
   if (
+    message.type !== 'sectorMap' &&
     message.type !== 'chat' &&
     message.type !== 'respawn' &&
     message.type !== 'profile' &&

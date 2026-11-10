@@ -237,6 +237,8 @@ const makeEntity = ({
 
 export class NetworkClient {
   displayName = '';
+  mapMarkers: import('../protocol/network').MapMarker[] = [];
+  mapReady = false;
   asteroidPositions: Vec.Value[] = [];
   readonly authenticated: Promise<void>;
   private resolveAuthenticated!: () => void;
@@ -290,6 +292,10 @@ export class NetworkClient {
 
   sendChat(channel: number, text: string) {
     this.send({ type: 'chat', channel, text });
+  }
+
+  sectorMap(position: Vec.Value) {
+    this.send({ type: 'sectorMap', position });
   }
 
   requestGateAccess(gateId: number) {
@@ -588,6 +594,12 @@ export class NetworkClient {
       return;
     }
 
+    if (message.type === 'sectorMap') {
+      this.mapMarkers = message.mapMarkers;
+      this.mapReady = true;
+      return;
+    }
+
     if (message.type === 'sounds') {
       if (this.connected) this.sounds.push(...message.sounds);
       return;
@@ -620,6 +632,8 @@ export class NetworkClient {
 
     if (message.type === 'welcome') {
       this.snapshotReceivedAt = 0;
+      this.mapMarkers = [];
+      this.mapReady = false;
       this.asteroidPositions = [];
       this.chatMessages = this.chatMessages.filter(
         ({ channel }) => channel === 1,
@@ -683,6 +697,8 @@ export class NetworkClient {
     }
 
     if (message.type === 'respawn') {
+      this.mapMarkers = [];
+      this.mapReady = false;
       this.asteroidPositions = [];
       this.shipId = message.shipId;
       this.pendingSnapshot = undefined;

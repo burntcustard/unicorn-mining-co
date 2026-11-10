@@ -7,10 +7,13 @@ import { type GameObject } from '../../objects/game-object';
 import { type Module } from '../../objects/modules/module';
 import { type Pose } from '../../types';
 import { moduleRowsOf } from '../controls';
-import { keyLabel } from '../../input/keybindings';
+import { defaultKeybindings, keyLabel } from '../../input/keybindings';
 import { moduleCategoryIds } from '../../../specs/modules/categories';
 import { powerParts } from './power';
 import { minimapRange, renderMinimap } from '../minimap';
+import { mapRange, renderSectorMap } from '../sector-map';
+import { createMapFields } from '../map-fields';
+import { type MapMarker } from '../../protocol/network';
 import { JumpGate } from '../../objects/jump-gate';
 import * as Vec from '../../utilities/vector';
 import { reconcileRows } from '../../utilities/reconcile-rows';
@@ -20,7 +23,11 @@ import { renderTargetPreview } from '../target-preview';
 
 export const createHud = ({
   onToggle = () => {},
-}: { onToggle?: (Type: typeof Module) => void } = {}) => {
+  onMapView = () => {},
+}: {
+  onToggle?: (Type: typeof Module) => void;
+  onMapView?: (position: Vec.Value) => void;
+} = {}) => {
   const element = ui.hudElement;
   const template = document.createElement('template');
 
@@ -47,15 +54,153 @@ export const createHud = ({
   );
   const mapCanvas = query<HTMLCanvasElement>(element, '.hud-map canvas');
   const map = mapCanvas.getContext('2d', { willReadFrequently: true })!;
+  const mapPanel = mapCanvas.parentElement!;
+  const mapButton = query<HTMLButtonElement>(mapPanel, '[data-map-toggle]');
+  const mapKey = query(mapButton, '[data-map-key]');
+  const controller = new AbortController();
+  const { signal } = controller;
+  let expanded = false;
+  let mapReady = true;
+  let pendingMap = false;
+  let mapCenter = Vec.create();
+  let mapMarkers: MapMarker[] = [];
+  let fields: ReturnType<typeof createMapFields> | undefined;
+  let mapSeed: number | undefined;
+  let displayName = '';
+  let sectorName = '';
+  let mapRequestedAt = -Infinity;
+
+  let drag: { id: number; position: Vec.Value } | undefined;
+
   let mapWidth = 0;
   let mapOptions: Parameters<typeof renderMinimap>[0] | undefined;
+
+  const drawMap = () => {
+    if (!mapOptions) return;
+    const displayScale = (expanded ? 600 : 300) / (mapWidth || 300);
+
+    if (expanded) {
+      renderSectorMap({
+        ...mapOptions,
+        mapCenter,
+        mapMarkers: fields
+          ? [...fields(mapCenter, mapRange), ...mapMarkers]
+          : mapMarkers,
+        displayName,
+        displayScale,
+      });
+    } else {
+      renderMinimap({ ...mapOptions, displayScale });
+    }
+  };
+
+  const toggleMap = () => {
+    if (!mapOptions || mapPanel.hidden) return;
+
+    if (!expanded && !mapReady) {
+      pendingMap = !pendingMap;
+      return;
+    }
+
+    pendingMap = false;
+    stopDrag();
+    expanded = !expanded;
+    mapCenter = Vec.clone(
+      (mapOptions.poses.get(mapOptions.ship.id) || mapOptions.ship).position,
+    );
+    mapRequestedAt = -Infinity;
+    mapPanel.classList.toggle('hud-map-expanded', expanded);
+    mapButton.setAttribute('aria-pressed', String(expanded));
+    mapButton.setAttribute('aria-expanded', String(expanded));
+    mapCanvas.width = mapCanvas.height = expanded ? 600 : 300;
+    mapCanvas.setAttribute(
+      'aria-label',
+      expanded
+        ? `Sector map, north up, range ${mapRange.toLocaleString('en-US')} meters.`
+        : `Nearby objects, north up, range ${minimapRange.toLocaleString('en-US')} meters`,
+    );
+    drawMap();
+  };
+
+  mapButton.addEventListener(
+    'click',
+    () => {
+      toggleMap();
+      mapButton.blur();
+    },
+    { signal },
+  );
+
+  mapCanvas.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (!expanded || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      mapCanvas.setPointerCapture(event.pointerId);
+
+      drag = {
+        id: event.pointerId,
+        position: Vec.create(event.clientX, event.clientY),
+      };
+
+      mapPanel.classList.add('hud-map-dragging');
+    },
+    { signal },
+  );
+
+  mapCanvas.addEventListener(
+    'pointermove',
+    (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const position = Vec.create(event.clientX, event.clientY);
+      const delta = Vec.scale(
+        Vec.subtract(position, drag.position),
+        (mapRange * 600) / (296 * (mapWidth || 600)),
+      );
+
+      Vec.subtract(mapCenter, delta, mapCenter);
+      mapCenter.x = Math.max(-1e9, Math.min(1e9, mapCenter.x));
+      mapCenter.y = Math.max(-1e9, Math.min(1e9, mapCenter.y));
+      drag.position = position;
+      drawMap();
+    },
+    { signal },
+  );
+
+  const stopDrag = () => {
+    const id = drag?.id;
+
+    drag = undefined;
+
+    if (id !== undefined && mapCanvas.hasPointerCapture(id)) {
+      mapCanvas.releasePointerCapture(id);
+    }
+
+    mapPanel.classList.remove('hud-map-dragging');
+  };
+
+  mapCanvas.addEventListener('lostpointercapture', stopDrag, { signal });
+
+  mapCanvas.addEventListener(
+    'pointerup',
+    (event) => {
+      if (mapCanvas.hasPointerCapture(event.pointerId)) {
+        mapCanvas.releasePointerCapture(event.pointerId);
+      }
+
+      stopDrag();
+    },
+    { signal },
+  );
+
+  mapCanvas.addEventListener('pointercancel', stopDrag, { signal });
 
   const mapResize = new ResizeObserver(([entry]) => {
     mapWidth = Math.round(entry.contentRect.width);
 
     if (mapWidth && mapOptions) {
-      mapOptions.displayScale = 300 / mapWidth;
-      renderMinimap(mapOptions);
+      drawMap();
     }
   });
 
@@ -93,7 +238,9 @@ export const createHud = ({
 
   return {
     setShown,
+    toggleMap,
     destroy() {
+      controller.abort();
       mapResize.disconnect();
       mapOptions = undefined;
       panels.forEach((panel) => element.removeChild(panel));
@@ -101,8 +248,11 @@ export const createHud = ({
     update({
       ship,
       credits,
-      displayName,
-      sectorName,
+      displayName: nextDisplayName,
+      sectorName: nextSectorName,
+      worldSeed,
+      mapReady: nextMapReady = true,
+      mapMarkers: nextMapMarkers = [],
       target,
       objects,
       asteroidPositions,
@@ -113,6 +263,9 @@ export const createHud = ({
       credits: number;
       displayName: string;
       sectorName: string;
+      worldSeed?: number;
+      mapReady?: boolean;
+      mapMarkers?: MapMarker[];
       target?: GameObject;
       objects: GameObject[];
       asteroidPositions?: Vec.Value[];
@@ -121,12 +274,53 @@ export const createHud = ({
     }) {
       setShown(shown);
 
-      if (!shown) return;
+      if (!shown) {
+        pendingMap = false;
+        stopDrag();
+        return;
+      }
+
+      const mapBinding =
+        defaultKeybindings.sectorMap.keys.map(keyLabel).join(' / ') || '—';
+
+      if (mapKey.textContent !== mapBinding) mapKey.textContent = mapBinding;
+      displayName = nextDisplayName;
+      mapMarkers = nextMapMarkers;
+      mapReady = nextMapReady;
+      mapPanel.hidden = expanded && !mapReady;
+
+      if (sectorName !== nextSectorName || mapSeed !== worldSeed) {
+        sectorName = nextSectorName;
+        mapSeed = worldSeed;
+        fields =
+          worldSeed === undefined
+            ? undefined
+            : createMapFields({ worldSeed, sectorName });
+        mapCenter = Vec.clone((poses.get(ship.id) || ship).position);
+        mapRequestedAt = -Infinity;
+      }
 
       // The first visible frame measures once; later resizes arrive after layout.
       // Avoid flushing pending instrument or world styles on every frame.
       if (!mapWidth) mapWidth = mapCanvas.clientWidth;
       const displayScale = 300 / (mapWidth || 300);
+
+      mapOptions = {
+        ctx: map,
+        ship,
+        objects,
+        poses,
+        target,
+        asteroidPositions,
+        displayScale,
+      };
+
+      if (pendingMap && mapReady) toggleMap();
+
+      if (performance.now() - mapRequestedAt >= (expanded ? 250 : 1000)) {
+        mapRequestedAt = performance.now();
+        onMapView(Vec.clone(mapCenter));
+      }
 
       text('[data-pilot]', displayName);
       text('[data-credits]', `${credits.toLocaleString('en-US')}$`);
@@ -318,17 +512,7 @@ export const createHud = ({
 
       previousTarget = target;
 
-      renderMinimap(
-        (mapOptions = {
-          ctx: map,
-          ship,
-          objects,
-          poses,
-          target,
-          asteroidPositions,
-          displayScale,
-        }),
-      );
+      drawMap();
     },
   };
 };

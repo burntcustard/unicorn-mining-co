@@ -103,7 +103,18 @@ export type PlayerInputMessage = {
   type: 'input';
 };
 
+export type MapMarker = {
+  kind: 'field' | 'station' | 'ship' | 'jumpGate' | 'wormhole';
+  id: number;
+  position: Vec.Value;
+  radius: number;
+  name: string;
+  definitionId: string;
+  color: string;
+};
+
 export type ClientMessage =
+  | { type: 'sectorMap'; position: Vec.Value }
   | ({ type: 'hangar' } & HangarAction)
   | { type: 'gateAccess'; gateId: number }
   | { type: 'chat'; channel: number; text: string }
@@ -118,6 +129,7 @@ export type ClientMessage =
   | PlayerInputMessage;
 
 export type ServerMessage =
+  | { type: 'sectorMap'; mapMarkers: MapMarker[] }
   | {
       type: 'hangar';
       shipId: number;

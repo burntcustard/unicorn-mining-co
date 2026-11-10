@@ -77,6 +77,7 @@ type playerRecord struct {
 	pirateAfter                                     uint64
 	sectorID                                        string
 	travelledTick                                   uint64
+	mapAt                                           time.Time
 	chatAt                                          time.Time
 	gateAccess                                      *gateAccessRequest
 	arrivalMessage                                  *protocol.ServerControl
@@ -326,6 +327,8 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 	}
 
 	switch message.Type {
+	case "sectorMap":
+		s.sectorMapView(player, message.Position)
 	case "hangar":
 		s.hangar(player, message)
 	case "gateAccess":

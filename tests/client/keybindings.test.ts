@@ -32,6 +32,12 @@ try {
     1,
     'telemetry uses an otherwise unused default key',
   );
+
+  assert.deepEqual(defaults.defaultKeybindings.sectorMap, {
+    keys: ['Tab'],
+    mode: 'press',
+  });
+
   const legacy = defaults.bindingEntries
     .slice(0, -3)
     .map(([, binding]) => [...binding.keys]);
@@ -116,6 +122,22 @@ try {
   const withTelemetry = await loadBindings('with-telemetry');
 
   assert.deepEqual(withTelemetry.defaultKeybindings.telemetry.keys, ['z']);
+  const previousBindings = withTelemetry.bindingEntries
+    .slice(0, -1)
+    .map(([, binding]) => [binding.keys, 0]);
+
+  localStorage.setItem('unicorn-controls', JSON.stringify(previousBindings));
+  const withMap = await loadBindings('with-map');
+
+  assert.deepEqual(withMap.defaultKeybindings.telemetry.keys, ['z']);
+  assert.deepEqual(withMap.defaultKeybindings.sectorMap.keys, ['Tab']);
+  withMap.defaultKeybindings.sectorMap.keys = ['m'];
+  withMap.saveBindings();
+  const customMap = await loadBindings('custom-map');
+
+  assert.deepEqual(customMap.defaultKeybindings.sectorMap.keys, ['m']);
+  customMap.resetBindings();
+  assert.deepEqual(customMap.defaultKeybindings.sectorMap.keys, ['Tab']);
   withTelemetry.resetBindings();
   assert.deepEqual(withTelemetry.defaultKeybindings.telemetry.keys, ['v']);
   withModes.resetBindings();

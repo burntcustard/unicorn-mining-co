@@ -26,6 +26,7 @@ for (const bytes of [
 }
 
 const controls: ClientMessage[] = [
+  { type: 'sectorMap', position: { x: -12500.25, y: 62000.5 } },
   { type: 'gateAccess', gateId: 2 ** 45 },
   { type: 'chat', channel: 0, text: 'Hello 🦄 <script> sector' },
   { type: 'chat', channel: 1, text: '🦄'.repeat(240) },
@@ -243,6 +244,46 @@ for (const message of [
   if (message.type !== 'profile') {
     assert.throws(() => decodeClientMessage(encoded), /Invalid binary control/);
   }
+}
+
+const mapMessage = {
+  type: 'sectorMap' as const,
+  mapMarkers: (
+    ['field', 'station', 'ship', 'jumpGate', 'wormhole'] as const
+  ).map((kind, id) => ({
+    kind,
+    id,
+    position: { x: -12000.25, y: 62000.5 },
+    radius: kind === 'field' ? 3500 : 0,
+    name: 'Pilot 🦄',
+    definitionId: kind === 'station' ? 'corral-6' : '',
+    color: '#4df',
+  })),
+};
+
+const mapPacket = encodeServerControl(mapMessage);
+
+assert.deepEqual(decodeServerControl(mapPacket), mapMessage);
+assert.deepEqual(
+  decodeServerControl(
+    encodeServerControl({ type: 'sectorMap', mapMarkers: [] }),
+  ),
+  { type: 'sectorMap', mapMarkers: [] },
+);
+
+for (const packet of [
+  mapPacket.slice(0, -1),
+  Uint8Array.from([...mapPacket, 0]),
+  changedMapKind(),
+]) {
+  assert.throws(() => decodeServerControl(packet));
+}
+
+function changedMapKind() {
+  const packet = mapPacket.slice();
+
+  packet[5] = 255;
+  return packet;
 }
 
 const hello = encodeClientMessage({ type: 'hello', playerToken: null });

@@ -81,10 +81,7 @@ export const initKeys = ({
 
     const key = event.key.toLowerCase();
 
-    if (key === 'tab') {
-      event.preventDefault();
-      return;
-    }
+    if (key === 'tab') event.preventDefault();
 
     if (key.startsWith('arrow') || key === ' ') event.preventDefault();
 

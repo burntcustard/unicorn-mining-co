@@ -11,6 +11,8 @@ import * as Vec from '../../src/client/utilities/vector';
 
 let clear = () => {};
 
+let completeMap = () => {};
+
 /**
  * Static HUD scenes for comparing layout and pixels across structural changes.
  * No game loop, server state, or elapsed animation time enters these captures.
@@ -55,19 +57,64 @@ export const showHudLayout = (mode: number) => {
 
   const selected = mode ? target : undefined;
 
-  hud.update({
-    ship,
-    target: selected,
-    credits: 1998,
-    displayName: 'Test Pilot',
-    sectorName: 'Patroclus',
-    objects: [ship, target],
-    asteroidPositions: [],
-    poses: new Map(),
-    shown: mode !== 4,
-  });
+  const updateHud = (mapReady: boolean) =>
+    hud.update({
+      ship,
+      target: selected,
+      credits: 1998,
+      displayName: 'Test Pilot',
+      sectorName: 'Patroclus',
+      worldSeed: 25,
+      mapReady,
+      objects: [ship, target],
+      asteroidPositions: [],
+      mapMarkers: [
+        {
+          kind: 'ship',
+          id: 2002,
+          position: Vec.create(5000, -47000),
+          radius: 0,
+          name: 'Other Pilot',
+          definitionId: '',
+          color: '#3f7',
+        },
+        {
+          kind: 'station',
+          id: 2003,
+          position: Vec.create(7000, -41000),
+          radius: 0,
+          name: '',
+          definitionId: 'corral-6',
+          color: '',
+        },
+        {
+          kind: 'jumpGate',
+          id: 2004,
+          position: Vec.create(-6000, -51000),
+          radius: 0,
+          name: '',
+          definitionId: '',
+          color: '',
+        },
+        {
+          kind: 'wormhole',
+          id: 2005,
+          position: Vec.create(8000, -53000),
+          radius: 0,
+          name: '',
+          definitionId: '',
+          color: '',
+        },
+      ],
+      poses: new Map(),
+      shown: mode !== 4,
+    });
 
+  updateHud(mode !== 7);
+  completeMap = () => updateHud(true);
   chat.update(selected, true);
+
+  if (mode === 6 || mode === 7) hud.toggleMap();
 
   if (mode === 3) {
     ship.localMovementParent = target.localMovementParent = station;
@@ -165,3 +212,5 @@ export const hudLayoutBounds = () =>
 
     return [selector, x, y, width, height];
   });
+
+export const completeHudMap = () => completeMap();

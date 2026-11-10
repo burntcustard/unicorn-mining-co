@@ -6,6 +6,7 @@ import {
 import {
   generateRegion,
   generateStations,
+  generateFields,
   fieldMessage,
 } from '../../../src/client/simulation/region-generation';
 
@@ -116,7 +117,27 @@ const sectors = [0, 25, 52, 4294967295].map((worldSeed) => {
     })),
   );
 
-  return { worldSeed, map, samples, densities };
+  const fieldSamples = sampledIds.flatMap((id) => {
+    const sector = map.sectors.find((entry) => entry.id === id)!;
+
+    return [
+      Vec.create(),
+      Vec.create(-95000, 120000),
+      Vec.create(1000000, -1000000),
+    ].map((center) => {
+      const from = Vec.create(center.x - 30000, center.y - 30000);
+      const to = Vec.create(center.x + 30000, center.y + 30000);
+
+      return {
+        sectorId: id,
+        from,
+        to,
+        fields: generateFields({ worldSeed, sector, from, to }),
+      };
+    });
+  });
+
+  return { worldSeed, map, samples, densities, fieldSamples };
 });
 
 export default { regions, stations, messages, sectors };

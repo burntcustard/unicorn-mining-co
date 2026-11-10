@@ -23,6 +23,7 @@ export type KeyAction =
   | 'shieldGenerator'
   | 'targetNext'
   | 'fpsCounter'
+  | 'sectorMap'
   | 'telemetry'
   | 'requestGateAccess';
 
@@ -59,6 +60,7 @@ export const defaultKeybindings: Keybindings = {
   fpsCounter: { keys: ['f'], mode: 'toggle' },
   requestGateAccess: { keys: ['r'], mode: 'press' },
   telemetry: { keys: ['v'], mode: 'press' },
+  sectorMap: { keys: ['Tab'], mode: 'press' },
 };
 
 // Module actions are one-byte protocol tags; binding fields are mangled
@@ -124,6 +126,7 @@ export const bindingEntries: [string, KeyBinding][] = [
   ['Request access', defaultKeybindings.requestGateAccess],
   ['Release cargo', defaultKeybindings.cargoRelease],
   ['Toggle movement telemetry', defaultKeybindings.telemetry],
+  ['Toggle map', defaultKeybindings.sectorMap],
 ];
 
 // Derive input property names from object keys so production property mangling
@@ -191,7 +194,7 @@ try {
 
   if (
     Array.isArray(saved) &&
-    saved.length >= bindingEntries.length - 5 &&
+    saved.length >= bindingEntries.length - 6 &&
     saved.length <= bindingEntries.length &&
     saved.every((entry) => {
       const keys = Array.isArray(entry?.[0]) ? entry[0] : entry;

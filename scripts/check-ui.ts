@@ -2220,6 +2220,30 @@ checkUi: try {
       mobile: false,
     });
 
+    await check(`fixture.showHudLayout(7)`);
+    assert(
+      await check(
+        `document.querySelector('[data-map-toggle]').getAttribute('aria-expanded') === 'false'`,
+      ),
+      'the minimap stays visible while sector markers load',
+    );
+    await check(`fixture.completeHudMap()`);
+    assert(
+      await check(
+        `document.querySelector('[data-map-toggle]').getAttribute('aria-expanded') === 'true'`,
+      ),
+      'the requested map opens as soon as its sector snapshot arrives',
+    );
+    await check(`fixture.showHudLayout(7)`);
+    await check(`document.querySelector('[data-map-toggle]').click()`);
+    await check(`fixture.completeHudMap()`);
+    assert(
+      await check(
+        `document.querySelector('[data-map-toggle]').getAttribute('aria-expanded') === 'false'`,
+      ),
+      'a second press cancels a pending map request',
+    );
+
     for (const [mode, name] of [
       'flight',
       'target',
@@ -2227,6 +2251,7 @@ checkUi: try {
       'telemetry',
       'hidden',
       'tooltip',
+      'map',
     ].entries()) {
       await check(`fixture.showHudLayout(${mode})`);
       await check('document.fonts.ready.then(() => true)');
@@ -2293,6 +2318,235 @@ checkUi: try {
             return stable;
           })()`),
           'stores retain their size and position, module spacing, and minimap alignment as module counts change',
+        );
+      }
+
+      if (mode === 0 || mode === 6) {
+        assert(
+          await check(`(() => {
+          const panel = document.querySelector('.hud-map');
+          const map = panel.getBoundingClientRect();
+          const overlay = document.querySelector('.hud-overlay').getBoundingClientRect();
+          const button = panel.querySelector('button').getBoundingClientRect();
+          const canvas = panel.querySelector('canvas');
+          const ctx = canvas.getContext('2d');
+          const radius = Math.min(canvas.width, canvas.height) / 2;
+          const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          const circular = getComputedStyle(panel).borderTopLeftRadius === '50%';
+          const cornerButton = Math.abs(map.right - overlay.right) < 0.1 &&
+            Math.abs(map.bottom - overlay.bottom) < 0.1 &&
+            button.right <= overlay.right && button.bottom <= overlay.bottom &&
+            button.right >= overlay.right - 4 && button.bottom >= overlay.bottom - 4;
+          for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+              if (Math.hypot(x + 0.5 - radius, y + 0.5 - radius) > radius + 1 &&
+                pixels[(y * canvas.width + x) * 4 + 3]) return false;
+            }
+          }
+          return circular && cornerButton;
+        })()`),
+          'both map sizes are circular and their map and button fit the HUD overlay corner',
+        );
+      }
+
+      if (mode === 0) {
+        assert(
+          await check(`(() => {
+            const button = document.querySelector('[data-map-toggle]');
+            return button.classList.contains('ui-control') &&
+              button.querySelector('kbd').textContent === 'Tab' &&
+              button.children.length === 1 && button.getAttribute('aria-label') === 'Toggle map' &&
+              button.getAttribute('aria-pressed') === 'false';
+          })()`),
+          'the map toggle uses the shared key control and displays its shortcut',
+        );
+
+        const originalPressed = await check(
+          `document.querySelector('.hud-modules button').getAttribute('aria-pressed')`,
+        );
+
+        for (const active of [false, true]) {
+          await check(
+            `document.querySelector('.hud-modules button').setAttribute('aria-pressed', '${active}')`,
+          );
+          await hover('.hud-modules button');
+          await pause(150);
+          assert(
+            await check(`(() => {
+              const key = getComputedStyle(document.querySelector('.hud-modules button kbd'));
+              return key.borderColor === 'rgb(255, 255, 255)' && key.boxShadow !== 'none' &&
+                key.color === '${active ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)'}';
+            })()`),
+            `hover highlights the ${active ? 'selected' : 'unselected'} key with a white border and glow`,
+          );
+
+          await c.send('Input.dispatchMouseEvent', {
+            type: 'mouseMoved',
+            x: 0,
+            y: 0,
+          });
+
+          await check(
+            `document.querySelector('.hud-modules button').focus({ focusVisible: true })`,
+          );
+          await pause(150);
+          assert(
+            await check(`(() => {
+              const button = document.querySelector('.hud-modules button');
+              const key = getComputedStyle(button.querySelector('kbd'));
+              return button.matches(':focus-visible') && key.borderColor === 'rgb(255, 255, 255)' && key.boxShadow !== 'none';
+            })()`),
+            `keyboard focus highlights the ${active ? 'selected' : 'unselected'} key`,
+          );
+          await check(`document.querySelector('.hud-modules button').blur()`);
+        }
+
+        await check(
+          `document.querySelector('.hud-modules button').setAttribute('aria-pressed', '${originalPressed}')`,
+        );
+        await click('[data-map-toggle]');
+        assert(
+          await check(
+            `document.querySelector('[data-map-toggle]').getAttribute('aria-pressed') === 'true' && document.querySelector('[data-map-key]').textContent === 'Tab'`,
+          ),
+          'the HUD-corner control is clickable and retains its shortcut while selected',
+        );
+        await click('[data-map-toggle]');
+        assert(
+          await check(
+            `document.querySelector('[data-map-toggle]').getAttribute('aria-pressed') === 'false'`,
+          ),
+        );
+        await pause(150);
+      }
+
+      if (mode === 6) {
+        assert(
+          await check(`(() => {
+            const panel = document.querySelector('.hud-map');
+            const button = panel.querySelector('button');
+            const expanded = panel.getBoundingClientRect();
+            const animate = () => {
+              button.click();
+              panel.getBoundingClientRect();
+              const transition = panel.getAnimations().find(animation => animation.transitionProperty === 'width');
+              if (!transition || transition.effect.getTiming().duration !== 100) return null;
+              transition.pause();
+              transition.currentTime = 50;
+              const middle = panel.getBoundingClientRect();
+              transition.finish();
+              const end = panel.getBoundingClientRect();
+              return { middle: [middle.width, middle.right, middle.bottom], end: [end.width, end.height, end.right, end.bottom] };
+            };
+            const shrink = animate();
+            const grow = animate();
+            if (!shrink || !grow) return false;
+            const compact = shrink.end;
+            const anchored = bounds => Math.abs(bounds[1] - expanded.right) < 0.1 && Math.abs(bounds[2] - expanded.bottom) < 0.1;
+            return Math.abs(expanded.width - compact[0] * 2) < 0.1 &&
+              Math.abs(expanded.height - compact[1] * 2) < 0.1 &&
+              Math.abs(expanded.right - compact[2]) < 0.1 &&
+              Math.abs(expanded.bottom - compact[3]) < 0.1 &&
+              [shrink.middle, grow.middle].every(bounds => bounds[0] > compact[0] && bounds[0] < expanded.width && anchored(bounds)) &&
+              Math.abs(grow.end[0] - expanded.width) < 0.1;
+          })()`),
+          'the map grows and shrinks over 0.1 seconds while retaining its bottom-right anchor',
+        );
+        await pause(100);
+        const before = await check(
+          `document.querySelector('.hud-map canvas').toDataURL()`,
+        );
+        const [x, y] = await check(`(() => {
+          const box = document.querySelector('.hud-map canvas').getBoundingClientRect();
+          return [box.x + box.width / 2, box.y + box.height / 2];
+        })()`);
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mousePressed',
+          x,
+          y,
+          button: 'left',
+          clickCount: 1,
+        });
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseMoved',
+          x: x + 80,
+          y: y + 50,
+          button: 'left',
+          buttons: 1,
+        });
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseReleased',
+          x: x + 80,
+          y: y + 50,
+          button: 'left',
+          clickCount: 1,
+        });
+
+        assert.notEqual(
+          await check(`document.querySelector('.hud-map canvas').toDataURL()`),
+          before,
+          'dragging moves the map viewport',
+        );
+        assert(
+          await check(
+            `!document.querySelector('.hud-map').classList.contains('hud-map-dragging')`,
+          ),
+          'releasing the pointer ends the map drag',
+        );
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mousePressed',
+          x,
+          y,
+          button: 'left',
+          clickCount: 1,
+        });
+
+        const frames = [];
+
+        for (const [moveX, moveY] of [
+          [100, 100],
+          [1270, 890],
+          [100, 890],
+          [1270, 100],
+          [x, y],
+        ]) {
+          await c.send('Input.dispatchMouseEvent', {
+            type: 'mouseMoved',
+            x: moveX,
+            y: moveY,
+            button: 'left',
+            buttons: 1,
+          });
+
+          frames.push(
+            await check(
+              `document.querySelector('.hud-map canvas').toDataURL()`,
+            ),
+          );
+        }
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseReleased',
+          x,
+          y,
+          button: 'left',
+          clickCount: 1,
+        });
+
+        await pause(300);
+        assert.equal(
+          new Set(frames).size,
+          frames.length,
+          'every rapid movement renders a new viewport immediately',
+        );
+        assert.equal(
+          await check(`document.querySelector('.hud-map canvas').toDataURL()`),
+          frames.at(-1),
+          'no markers pop in after rapid panning without a server response',
         );
       }
 

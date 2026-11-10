@@ -101,6 +101,7 @@ const updateTargetInput = () => {
 };
 
 const hud = createHud({
+  onMapView: (position) => network.sectorMap(position),
   onToggle: (Type) => {
     if (
       ui.current ||
@@ -367,6 +368,12 @@ bindAction(defaultKeybindings.fpsCounter, (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
   event.preventDefault();
   toggleFps();
+});
+
+bindAction(defaultKeybindings.sectorMap, (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  event.preventDefault();
+  hud.toggleMap();
 });
 
 bindAction(defaultKeybindings.telemetry, (event) => {
@@ -667,9 +674,12 @@ const gameLoop = GameLoop({
         credits: player.credits,
         displayName: network.displayName,
         sectorName: network.sectorName,
+        worldSeed: network.worldSeed,
+        mapReady: network.mapReady,
         target: targeting.target,
         objects: game.sprites,
         asteroidPositions: network.asteroidPositions,
+        mapMarkers: network.mapMarkers,
         poses: remotePoses,
         shown:
           gameStarted &&

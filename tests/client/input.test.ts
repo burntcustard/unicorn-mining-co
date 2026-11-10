@@ -207,6 +207,9 @@ window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v' }));
 assert.equal(telemetryToggles, 1, 'typing and menus suppress telemetry');
 input.setMenuInput(false);
 
+let mapToggles = 0;
+
+input.bindAction(input.defaultKeybindings.sectorMap, () => mapToggles++);
 let targetRequests = 0;
 
 input.bindAction(input.defaultKeybindings.targetNext, () => targetRequests++);
@@ -231,6 +234,24 @@ for (const options of [{ repeat: true }, { shiftKey: true }]) {
 }
 
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab' }));
+assert.equal(
+  mapToggles,
+  1,
+  'Tab toggles the map once, including held keys and release',
+);
+input.setMenuInput(true);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+assert.equal(
+  mapToggles,
+  1,
+  'menus preserve Tab navigation without toggling the map',
+);
+input.setMenuInput(false);
+input.defaultKeybindings.sectorMap.keys = ['m'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'm' }));
+assert.equal(mapToggles, 2, 'the map shortcut can be rebound');
+input.defaultKeybindings.sectorMap.keys = ['Tab'];
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 't' }));
 assert.equal(targetRequests, 2, 'targeting still works after Tab');

@@ -251,8 +251,37 @@
     grid-column: 3;
     grid-row: 3 / span 3;
     place-self: end;
-    width: clamp(160px, 21vw, 300px);
+    --map-size: clamp(160px, 21vw, 300px);
+    position: relative;
+    width: var(--map-size);
     padding: 0;
+    transition: width 0.1s ease;
+  }
+
+  .hud-map-expanded {
+    grid-column: 1 / -1;
+    width: calc(var(--map-size) * 2);
+    z-index: 1;
+    pointer-events: auto;
+  }
+
+  .hud-map-toolbar button {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    pointer-events: auto;
+  }
+
+  .hud-map-toolbar kbd {
+    background-color: var(--ui-panel);
+  }
+
+  .hud-map-expanded canvas {
+    touch-action: none;
+  }
+
+  .hud-map-dragging {
+    border-color: var(--ui-color);
   }
 
   .hud-map canvas {

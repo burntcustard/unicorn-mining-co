@@ -15,6 +15,7 @@ export const controlMessageIds = {
   gateAccess: 12,
   chat: 13,
   hangar: 14,
+  sectorMap: 15,
 } as const satisfies Record<string, number>;
 
 export const dockActionIds = {

@@ -13,6 +13,7 @@ import (
 type controlFixture struct {
 	Client []struct {
 		Message struct {
+			Position                                  specs.Vector
 			Command                                   string
 			ShipID                                    int64
 			Value                                     string
@@ -32,6 +33,7 @@ type controlFixture struct {
 	}
 	Server []struct {
 		Message struct {
+			MapMarkers                   []MapMarker
 			CargoDemand                  *int64
 			GateID                       uint64
 			Channel                      byte
@@ -87,6 +89,10 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		}
 
 		switch got.Type {
+		case "sectorMap":
+			if got.Position != fixture.Message.Position {
+				t.Fatal("map viewport differs")
+			}
 		case "hangar":
 			if got.HangarCommand != fixture.Message.Command || got.ShipID != fixture.Message.ShipID || got.Text != fixture.Message.Value {
 				t.Fatal("hangar request differs")
@@ -126,6 +132,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		message := fixture.Message
 
 		got, err := EncodeServerControl(ServerControl{
+			MapMarkers:  message.MapMarkers,
 			CargoDemand: message.CargoDemand, Channel: message.Channel, Sender: message.Sender, SenderRole: message.SenderRole, Text: message.Text,
 			Sounds: message.Sounds,
 			Type:   message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,

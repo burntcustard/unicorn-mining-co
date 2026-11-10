@@ -101,7 +101,7 @@
 [x] Fix not being able to sell Autocannon with inventory full
 [x] Fix "Heard reports of mining" on losing track of player
 [x] Make map icons for other ships just simple triangles with no rotation
-[ ] Map
+[-] Map
 [ ] "Random" NPC spaceship name generator
 [ ] Shield generator should have health and UI so can be disrupted
 [ ] Add nav beacons and scanning using the search light
@@ -123,7 +123,7 @@
 [ ] New sound: Asteroid segment destroyed (empty)
 [ ] New sound: Asteroid segment destroyed (with item)
 [ ] Sound volume slider in settings
-[ ] Fix ships in stations rendering on map
+[x] Fix ships in stations rendering on map
 [ ] Player list (with tab and/or just near/on map?)
 
 ## Big future things
