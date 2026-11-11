@@ -39,6 +39,12 @@ audio and the FPS display stay active. Measurement defaults to 30 seconds;
 `--seconds N` changes it.
 Armed fixtures use one ordinary 200-round ammo item per ship that needs it.
 
+For a diagnostic comparison on a simulated slower main thread, Chrome accepts
+`--cpu-throttle N` (for example, `--cpu-throttle 4`). The rate is recorded in
+the report; the default is 1, with no throttling. This uses Chrome's CPU
+throttling while retaining the real display cadence and unchanged scenarios.
+Compare runs with the same rate and report them separately from normal results.
+
 The pirate case uses a local compiler fixture. Prepare it, then start the Go
 watcher with the printed overlay setting on its normal port:
 

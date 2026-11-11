@@ -71,6 +71,7 @@ export const mustang = {
             fits: [
               'thrusterSingleMd',
               'thrusterSingleLg',
+              'thrusterDualSm',
               'thrusterDualMd',
               'thrusterDualLg',
               'thrusterTriple',

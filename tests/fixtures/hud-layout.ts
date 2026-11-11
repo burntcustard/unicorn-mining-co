@@ -13,6 +13,8 @@ let clear = () => {};
 
 let completeMap = () => {};
 
+let refresh = (_shown: boolean) => {};
+
 /**
  * Static HUD scenes for comparing layout and pixels across structural changes.
  * No game loop, server state, or elapsed animation time enters these captures.
@@ -57,7 +59,7 @@ export const showHudLayout = (mode: number) => {
 
   const selected = mode ? target : undefined;
 
-  const updateHud = (mapReady: boolean) =>
+  const updateHud = (mapReady: boolean, shown = mode !== 4) =>
     hud.update({
       ship,
       target: selected,
@@ -107,11 +109,12 @@ export const showHudLayout = (mode: number) => {
         },
       ],
       poses: new Map(),
-      shown: mode !== 4,
+      shown,
     });
 
   updateHud(mode !== 7);
   completeMap = () => updateHud(true);
+  refresh = (shown) => updateHud(true, shown);
   chat.update(selected, true);
 
   if (mode === 6 || mode === 7) hud.toggleMap();
@@ -214,3 +217,4 @@ export const hudLayoutBounds = () =>
   });
 
 export const completeHudMap = () => completeMap();
+export const refreshHudLayout = (shown: boolean) => refresh(shown);

@@ -39,7 +39,7 @@
 [-] New sounds
 [x] Fix unnecessary scroll on right card thing
 [?] Can't buy search light
-[ ] Map UI (tab or M?)
+[-] Map UI (tab or M?)
 [x] Move currency to somewhere on the right
 [x] Make FPS not on by default
 [x] Make laser use significantly more power while firing
@@ -48,6 +48,9 @@
 [x] "Move closer to request access" for jump gate targeted description
 [x] Add " Full" to "Cargo" when full & make " Full" flash like before
 [ ] Improve Create Profile styles, & add description of where name is used
+[ ] Fix big ships not having all mounts
+[ ] Fix big ships having odd thruster left/right flares when turning
+[ ] Custom cursors
 
 ## MVP
 
@@ -125,6 +128,9 @@
 [ ] Sound volume slider in settings
 [x] Fix ships in stations rendering on map
 [ ] Player list (with tab and/or just near/on map?)
+[ ] Circle plus and circle minus characters
+[ ] Zoom in and zoom out buttons in big map
+[ ] World map with sectors and lines between them (+ players?)
 
 ## Big future things
 

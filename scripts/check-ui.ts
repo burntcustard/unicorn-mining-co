@@ -2220,6 +2220,45 @@ checkUi: try {
       mobile: false,
     });
 
+    assert(
+      await check(`(() => {
+        let now = 0;
+        Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
+        let map;
+        try {
+          fixture.showHudLayout(0);
+          map = document.querySelector('.hud-map canvas').getContext('2d');
+          const clear = map.clearRect;
+          let draws = 0;
+          map.clearRect = function (...args) { draws++; return clear.apply(this, args); };
+          now = 33;
+          fixture.refreshHudLayout(true);
+          const beforeInterval = draws;
+          now = 34;
+          fixture.refreshHudLayout(true);
+          const afterInterval = draws;
+          now = 66;
+          fixture.refreshHudLayout(true);
+          const beforeSecondInterval = draws;
+          now = 67;
+          fixture.refreshHudLayout(true);
+          const afterSecondInterval = draws;
+          now = 101;
+          fixture.refreshHudLayout(false);
+          now = 102;
+          fixture.refreshHudLayout(true);
+          const afterShowing = draws;
+          document.querySelector('[data-map-toggle]').click();
+          return beforeInterval === 0 && afterInterval === 1 && beforeSecondInterval === 1 && afterSecondInterval === 2 && afterShowing === 3 && draws === 4;
+        } finally {
+          if (map) delete map.clearRect;
+          delete performance.now;
+          fixture.hideHudLayout();
+        }
+      })()`),
+      'the map refreshes at 30 Hz, immediately when shown or toggled',
+    );
+
     await check(`fixture.showHudLayout(7)`);
     assert(
       await check(

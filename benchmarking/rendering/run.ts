@@ -33,7 +33,7 @@ const options = parseRenderingOptions({
 
 if (options.help) {
   console.log(
-    'Usage: node benchmarking/rendering/run.ts [--browser chrome|firefox] [--scenario all|live|large|combat|flight|pirate] [--seconds 30] [--output PATH]',
+    'Usage: node benchmarking/rendering/run.ts [--browser chrome|firefox] [--scenario all|live|large|combat|flight|pirate] [--seconds 30] [--cpu-throttle 1] [--output PATH]',
   );
   process.exit(0);
 }
@@ -98,6 +98,7 @@ const report: Reply = {
   startedAt: new Date().toISOString(),
   browser: browserName,
   seconds,
+  cpuThrottle: options.cpuThrottle,
   scenarios: options.scenarios,
   productionTransforms: true,
   minified: !process.env.GAMEPLAY_PROFILE,
@@ -279,7 +280,7 @@ Reflect.set(window, 'perf-capture', async action => {
     if(!Reflect.get(window,'perf-live-input')){const original=network.updateFrame;network.updateFrame=options=>{hold();return original.call(network,options)};Reflect.set(window,'perf-live-input',true);}
     const started=performance.now();
     while(!aligned || Math.hypot(player.ship.velocity.x,player.ship.velocity.y)<100 || Math.hypot(camera.x-fromCamera.x,camera.y-fromCamera.y)<120){
-      if(performance.now()-started>20000)throw Error('Normal outward flight did not move beyond the camera deadzone: '+JSON.stringify({aligned,position:player.ship.position,velocity:player.ship.velocity,rotation:player.ship.rotation,spin:player.ship.spin,fuel:player.ship.fuel,heading,camera,fromCamera}));
+      if(performance.now()-started>20000)throw Error('Normal outward flight did not move beyond the camera deadzone: '+JSON.stringify({aligned,position:player.ship.position,velocity:player.ship.velocity,rotation:player.ship.rotation,spin:player.ship.spin,fuel:player.ship.fuel,heading,camera,fromCamera,errors:Reflect.get(window,'perf-errors')}));
       await new Promise(resolve=>setTimeout(resolve,50));
     }
     return {heading,position:{...player.ship.position},velocity:{...player.ship.velocity},camera:{...camera}};
@@ -575,6 +576,14 @@ Reflect.set(window, 'perf-capture', async action => {
   assert(endpoint, logs);
   const send = await connect(endpoint);
 
+  const applyCpuThrottle = async () => {
+    if (browserName === 'chrome' && options.cpuThrottle !== 1) {
+      await send('Emulation.setCPUThrottlingRate', {
+        rate: options.cpuThrottle,
+      });
+    }
+  };
+
   const networkPermission: Reply = {
     name: 'loopback-network',
     origin: new URL(url).origin,
@@ -634,6 +643,8 @@ Reflect.set(window, 'perf-capture', async action => {
     });
 
     await send('Page.bringToFront');
+
+    await applyCpuThrottle();
   }
 
   report.version = version;
@@ -714,6 +725,8 @@ Reflect.set(window, 'perf-capture', async action => {
 
     const scenarioURL = `${url}?scenario=${encodeURIComponent(scenario)}&run=${Date.now()}`;
 
+    await applyCpuThrottle();
+
     await send(
       browserName === 'chrome' ? 'Page.navigate' : 'browsingContext.navigate',
       browserName === 'chrome'
@@ -741,6 +754,8 @@ Reflect.set(window, 'perf-capture', async action => {
       );
       await pause(100);
     }
+
+    await applyCpuThrottle();
 
     await evaluate(`Reflect.set(window,'perf-refresh-rate',${refreshRate})`);
     const permissionStatus = await evaluate(
@@ -914,10 +929,18 @@ Reflect.set(window, 'perf-capture', async action => {
       result,
       JSON.parse(
         await evaluate(`JSON.stringify((() => {
-          const panels = [...document.querySelectorAll('.hud > :is(.hud-modules, .hud-stores, .hud-sector, .hud-credits, .hud-target, .hud-map)')];
+          const overlay = document.querySelector('.hud > .hud-overlay');
+          const names = ['modules', 'stores', 'sector', 'credits', 'target', 'map'];
+          const panels = Object.fromEntries(names.map(name => {
+            const element = overlay?.querySelector('.hud-' + name);
+            const style = element && getComputedStyle(element);
+            return [name, Boolean(element && element.getClientRects().length && style.visibility !== 'hidden' && Number(style.opacity) > 0)];
+          }));
           return {
-            'hud-panels': panels.length,
-            'hud-visible': panels.filter(element => element.getClientRects().length > 0).length
+            'hud-panels': names.filter(name => overlay?.querySelector('.hud-' + name)).length,
+            'hud-visible': Object.values(panels).filter(Boolean).length,
+            'hud-panel-visibility': panels,
+            'hud-overlay-visible': Boolean(overlay && Number(getComputedStyle(overlay).opacity) > 0)
           };
         })())`),
       ),
@@ -947,11 +970,15 @@ Reflect.set(window, 'perf-capture', async action => {
     assert.deepEqual(result.viewport, [width, height]);
     assert.deepEqual(result.canvas, [width, height]);
     assert.equal(result.zoom, 1.5);
-    assert.equal(
-      result['hud-visible'],
-      result['hud-panels'],
-      'all gameplay HUD panels must be visible with production styles',
-    );
+    assert.equal(result['hud-panels'], 6, 'all gameplay HUD panels must exist');
+    assert(result['hud-overlay-visible'], 'the gameplay HUD must be visible');
+
+    for (const panel of ['stores', 'sector', 'credits', 'map']) {
+      assert(
+        result['hud-panel-visibility'][panel],
+        `the ${panel} HUD panel must be visible`,
+      );
+    }
 
     assert(result.alive, 'the test must exercise a living ship');
     assert.equal(

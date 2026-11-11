@@ -142,6 +142,46 @@ export const checkChat = () => {
   const tabs = panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
 
   chat.update(undefined, true);
+
+  const observer = new MutationObserver(() => {});
+
+  observer.observe(panel, {
+    attributes: true,
+    characterData: true,
+    childList: true,
+    subtree: true,
+  });
+
+  let layoutReads = 0;
+
+  for (const property of ['scrollTop', 'scrollHeight', 'clientHeight']) {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      property,
+    )!;
+
+    Object.defineProperty(log, property, {
+      configurable: true,
+      get() {
+        layoutReads++;
+        return descriptor.get!.call(log);
+      },
+      set: descriptor.set
+        ? (value) => descriptor.set!.call(log, value)
+        : undefined,
+    });
+  }
+
+  chat.update(undefined, true);
+  const idleWithoutLayoutOrMutations =
+    layoutReads === 0 && !observer.takeRecords().length;
+
+  observer.disconnect();
+
+  for (const property of ['scrollTop', 'scrollHeight', 'clientHeight']) {
+    delete (log as unknown as Record<string, unknown>)[property];
+  }
+
   const gridPlacement =
     panel.parentElement === ui.hudElement &&
     getComputedStyle(ui.hudElement).display === 'grid' &&
@@ -673,6 +713,7 @@ export const checkChat = () => {
   return Object.fromEntries([
     ...Object.entries(checkGateBeams()),
     ['gridPlacement', gridPlacement],
+    ['idleWithoutLayoutOrMutations', idleWithoutLayoutOrMutations],
     ['releaseRequiresCargo', releaseRequiresCargo],
     ['releaseRequiresDemand', releaseRequiresDemand],
     ['publicDemandIsNotPersonal', publicDemandIsNotPersonal],
@@ -1601,8 +1642,10 @@ export const previewStability = async () => {
 
 export const checkHud = () => {
   let toggled: unknown;
+  let now = 0;
 
   const hud = createHud({
+    now: () => now,
     onToggle: (Type) => {
       toggled = Type;
     },
@@ -1631,12 +1674,86 @@ export const checkHud = () => {
   const text = (selector: string) =>
     element.querySelector(selector)?.textContent;
 
-  hud.update(options);
+  const update = (value: Parameters<typeof hud.update>[0]) => {
+    now += 50;
+    hud.update(value);
+  };
+
+  update(options);
   const readouts =
     text('[data-credits]') === '1,998$' &&
     text('[data-pilot]') === 'Pilot' &&
     text('[data-sector]') === 'Patroclus' &&
     text('[data-coordinates]') === '     0\u2009/\u20090     ';
+
+  hud.update({ ...options, credits: 1 });
+  const coalescedStart = text('[data-credits]') === '1,998$';
+
+  now += 33;
+  hud.update({ ...options, credits: 2 });
+  const coalescedBeforeDeadline = text('[data-credits]') === '1,998$';
+
+  now++;
+  hud.update({ ...options, credits: 42 });
+  const coalescedInstruments =
+    coalescedStart &&
+    coalescedBeforeDeadline &&
+    text('[data-credits]') === '42$';
+
+  now += 32;
+  hud.update({ ...options, credits: 46 });
+  const phaseBeforeDeadline = text('[data-credits]') === '42$';
+
+  now++;
+  hud.update({ ...options, credits: 47 });
+  const phasePreserved =
+    phaseBeforeDeadline && text('[data-credits]') === '47$';
+
+  const mutations = new MutationObserver(() => {});
+
+  mutations.observe(element, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
+
+  now += 100;
+  hud.update({ ...options, credits: 47 });
+  const unchangedDom = mutations.takeRecords().length === 0;
+
+  mutations.disconnect();
+
+  hud.update({ ...options, shown: false });
+  hud.update({ ...options, credits: 43 });
+  const refreshedOnShow = text('[data-credits]') === '43$';
+
+  hud.update({ ...options, credits: 44, sectorName: 'Acamas' });
+  const refreshedOnSectorChange =
+    text('[data-credits]') === '44$' && text('[data-sector]') === 'Acamas';
+
+  const replacementShip = createPlayerShip(createWorld(), { id: ship.id + 1 });
+
+  hud.update({
+    ...options,
+    ship: replacementShip,
+    credits: 45,
+    sectorName: 'Acamas',
+  });
+
+  const refreshedOnShipChange = text('[data-credits]') === '45$';
+
+  hud.update({
+    ...options,
+    ship: replacementShip,
+    target: undefined,
+    sectorName: 'Acamas',
+  });
+
+  const immediateTargetClear =
+    element.querySelector<HTMLElement>('.hud-target')!.hidden;
+
+  update(options);
 
   const alignedHudHeadings = [
     ['.hud-sector', '.hud-credits'],
@@ -1665,7 +1782,7 @@ export const checkHud = () => {
     [-12345678, 123],
   ].map(([x, y]) => {
     Vec.setXY(ship.position, x, y);
-    hud.update(options);
+    update(options);
     const node = coordinates.firstChild!;
     const slash = node.textContent!.indexOf('/');
     const range = document.createRange();
@@ -1696,7 +1813,7 @@ export const checkHud = () => {
   );
 
   Vec.set(ship.position, previousPosition);
-  hud.update(options);
+  update(options);
 
   const details = {
     ['target name: ' + text('[data-name]')]: text('[data-name]') === 'Diamond',
@@ -1782,7 +1899,7 @@ export const checkHud = () => {
   const solidStorage = getComputedStyle(storageFill).boxShadow === 'none';
 
   ship.storedPower = ship.powerCapacity / 2;
-  hud.update(options);
+  update(options);
   const streamingPower =
     storageFill.style.width === '50%' &&
     text('[data-power-label]') ===
@@ -1827,7 +1944,7 @@ export const checkHud = () => {
     getComputedStyle(netReadout).getPropertyValue('--ui-color');
 
   ship.storedPower = 0;
-  hud.update(options);
+  update(options);
   const emptyStorage =
     storageFill.style.width === '0%' &&
     text('[data-power-label]') === `0/${Math.round(ship.powerCapacity)}` &&
@@ -1839,7 +1956,7 @@ export const checkHud = () => {
       getComputedStyle(usageReadout).getPropertyValue('--ui-color');
 
   ship.storedPower = storedPower;
-  hud.update(options);
+  update(options);
   const consumption = Number(meter.getAttribute('aria-valuenow'));
   const powerScale = meter.getAttribute('aria-valuemax');
   const generated = ship.mounts.reduce(
@@ -1918,7 +2035,7 @@ export const checkHud = () => {
 
   ship.fuelCapacity += 100;
   ship.cargoSpace += 4;
-  hud.update(options);
+  update(options);
   const capacityGrowth =
     fuelBar.getBoundingClientRect().width > fuelWidth &&
     text('[data-cargo-capacity]') === String(cargoCapacity + 4) &&
@@ -1927,7 +2044,7 @@ export const checkHud = () => {
 
   ship.fuelCapacity = fuelCapacity * 10;
   ship.cargoSpace = cargoCapacity * 10;
-  hud.update(options);
+  update(options);
   const largeCapacityReadout =
     text('[data-cargo-capacity]') === String(cargoCapacity * 10) &&
     fuelBar.children.length === 8 &&
@@ -1939,18 +2056,18 @@ export const checkHud = () => {
 
   ship.fuelCapacity = fuelCapacity;
   ship.cargoSpace = 0;
-  hud.update(options);
+  update(options);
   const emptyCargoCapacity =
     text('[data-cargo-current]') === '0' &&
     text('[data-cargo-capacity]') === '0';
 
   ship.cargoSpace = cargoCapacity;
-  hud.update(options);
+  update(options);
   const fullLabel = element.querySelector<HTMLElement>('[data-cargo-full]')!;
   const initiallyNotFull = fullLabel.hidden;
 
   ship.cargoContents = Array.from({ length: cargoCapacity }, () => target);
-  hud.update(options);
+  update(options);
   const cargoFull =
     initiallyNotFull &&
     !fullLabel.hidden &&
@@ -1958,7 +2075,7 @@ export const checkHud = () => {
     getComputedStyle(fullLabel).animationName !== 'none';
 
   ship.cargoContents = [];
-  hud.update(options);
+  update(options);
   const cargoFullCleared = fullLabel.hidden;
   const tooltips =
     text('#hud-fuel-tooltip')?.includes(
@@ -1976,17 +2093,17 @@ export const checkHud = () => {
 
   ship.fuel = ship.fuelCapacity / 2;
   ship.cargoContents.push(target);
-  hud.update(options);
+  update(options);
   const storeUpdates =
     filledFuelSegments() === 4 && text('[data-cargo-current]') === '1';
 
   ship.fuel = ship.fuelCapacity / 8 + 0.01;
-  hud.update(options);
+  update(options);
   const aboveReserve =
     filledFuelSegments() === 2 && !fuelBar.classList.contains('hud-fuel-low');
 
   ship.fuel = ship.fuelCapacity / 8;
-  hud.update(options);
+  update(options);
   const reserveWarning =
     aboveReserve &&
     filledFuelSegments() === 1 &&
@@ -1994,13 +2111,13 @@ export const checkHud = () => {
     getComputedStyle(fuelBar.firstElementChild!).animationName !== 'none';
 
   ship.fuel = 0;
-  hud.update(options);
+  update(options);
   const emptyFuel =
     filledFuelSegments() === 0 && fuelBar.classList.contains('hud-fuel-low');
 
   ship.fuel = originalFuel;
   ship.cargoContents.pop();
-  hud.update(options);
+  update(options);
   const fuelRecovered = !fuelBar.classList.contains('hud-fuel-low');
   const sharedRoot =
     panels.length === 6 &&
@@ -2015,7 +2132,7 @@ export const checkHud = () => {
   const naturalCase = getComputedStyle(element).textTransform === 'none';
 
   ship.fly(1, 0);
-  hud.update(options);
+  update(options);
   const constantThrusterPower =
     Number(meter.getAttribute('aria-valuenow')) === consumption;
 
@@ -2038,7 +2155,7 @@ export const checkHud = () => {
     if (segment.module instanceof SearchLight) segment.active = 1;
   });
 
-  hud.update({ ...options, sectorName: 'Hippokoon' });
+  update({ ...options, sectorName: 'Hippokoon' });
   const animations = meter.getAnimations({ subtree: true });
 
   animations.forEach((animation) => {
@@ -2111,7 +2228,7 @@ export const checkHud = () => {
   const enginePower = ship.engine.powerActivated;
 
   ship.engine.powerActivated = Number(powerScale) * 3;
-  hud.update(options);
+  update(options);
   meter
     .getAnimations({ subtree: true })
     .forEach((animation) => animation.finish());
@@ -2140,7 +2257,7 @@ export const checkHud = () => {
     document.elementFromPoint(markerX, meterBox.bottom + 2) === meter;
 
   ship.engine.powerActivated = enginePower;
-  hud.update({ ...options, sectorName: 'Hippokoon' });
+  update({ ...options, sectorName: 'Hippokoon' });
   const activeKey = element.querySelector(
     '.hud-modules > button[aria-pressed="true"] > kbd',
   )!;
@@ -2158,19 +2275,19 @@ export const checkHud = () => {
     targetLabel: 'JUMP GATE\nPatroclus\u2009→\u2009Acamas',
   });
 
-  hud.update({ ...options, target: gate });
+  update({ ...options, target: gate });
   const gateRoute =
     text('[data-name]') === gate.name &&
     text('[data-description]') === gate.targetLabel!.split('\n').at(-1) &&
     !element.querySelector<HTMLElement>('[data-description]')!.hidden;
 
   gate.position.x = 1000;
-  hud.update({ ...options, target: gate });
+  update({ ...options, target: gate });
   const gateApproach =
     text('[data-description]') === 'Move closer to request access';
 
   gate.position.x = 0;
-  hud.update({ ...options, target: gate });
+  update({ ...options, target: gate });
   const gateApproachCleared =
     text('[data-description]') === gate.targetLabel!.split('\n').at(-1);
 
@@ -2181,7 +2298,7 @@ export const checkHud = () => {
     new Wormhole(),
     ship,
   ].every((target) => {
-    hud.update({ ...options, target });
+    update({ ...options, target });
     const canvas = element.querySelector<HTMLCanvasElement>(
       '.hud-target-icon canvas',
     );
@@ -2194,17 +2311,17 @@ export const checkHud = () => {
     return pixels.some((value, index) => index % 4 === 3 && value > 0);
   });
 
-  hud.update({ ...options, target: undefined, shown: false });
+  update({ ...options, target: undefined, shown: false });
   const hidden =
     panels.every((panel) => !panel.getClientRects().length) &&
     element.getClientRects().length > 0;
 
   const noHiddenOpacity = panels.every((panel) => !panel.style.opacity);
 
-  hud.update({ ...options, target: undefined });
+  update({ ...options, target: undefined });
   const cleared = element.querySelector<HTMLElement>('.hud-target')!.hidden;
 
-  hud.update(options);
+  update(options);
   const visibleWithoutOverrides = panels.every(
     (panel) =>
       !panel.hidden &&
@@ -2217,6 +2334,13 @@ export const checkHud = () => {
 
   return Object.fromEntries([
     ['readouts', readouts],
+    ['coalescedInstruments', coalescedInstruments],
+    ['phasePreserved', phasePreserved],
+    ['unchangedDom', unchangedDom],
+    ['refreshedOnShow', refreshedOnShow],
+    ['refreshedOnSectorChange', refreshedOnSectorChange],
+    ['refreshedOnShipChange', refreshedOnShipChange],
+    ['immediateTargetClear', immediateTargetClear],
     ['alignedHudHeadings', alignedHudHeadings],
     ['stableCoordinates', stableCoordinates],
     ['expandingCoordinates', expandingCoordinates],

@@ -21,12 +21,16 @@ import { colors } from '../../../specs/colors';
 import { jumpGateSpec } from '../../../specs/jump-gate';
 import { renderTargetPreview } from '../target-preview';
 
+const hudInterval = 1000 / 30;
+
 export const createHud = ({
   onToggle = () => {},
   onMapView = () => {},
+  now = () => performance.now(),
 }: {
   onToggle?: (Type: typeof Module) => void;
   onMapView?: (position: Vec.Value) => void;
+  now?: () => number;
 } = {}) => {
   const element = ui.hudElement;
   const template = document.createElement('template');
@@ -74,9 +78,17 @@ export const createHud = ({
 
   let mapWidth = 0;
   let mapOptions: Parameters<typeof renderMinimap>[0] | undefined;
+  let nextMapDraw = -Infinity;
 
-  const drawMap = () => {
+  const drawMap = (scheduled = false) => {
     if (!mapOptions) return;
+    const time = now();
+
+    nextMapDraw =
+      scheduled && Number.isFinite(nextMapDraw)
+        ? nextMapDraw +
+          (Math.floor((time - nextMapDraw) / hudInterval) + 1) * hudInterval
+        : time + hudInterval;
     const displayScale = (expanded ? 600 : 300) / (mapWidth || 300);
 
     if (expanded) {
@@ -225,16 +237,56 @@ export const createHud = ({
 
   let rows: { Type: typeof Module; element: HTMLElement }[] = [];
 
-  const text = (selector: string, value: string) => {
-    const node = query(element, selector);
+  const nodes = new Map<string, HTMLElement>();
 
-    if (node.textContent !== value) node.textContent = value;
+  const node = (selector: string) => {
+    let found = nodes.get(selector);
+
+    if (!found) {
+      found = query(element, selector);
+      nodes.set(selector, found);
+    }
+
+    return found;
   };
 
-  const setShown = (shown: boolean) =>
+  const text = (selector: string, value: string) => {
+    const target = node(selector);
+
+    if (target.textContent !== value) target.textContent = value;
+  };
+
+  const attribute = (target: Element, name: string, value: string) => {
+    if (target.getAttribute(name) !== value) target.setAttribute(name, value);
+  };
+
+  const hidden = (target: HTMLElement, value: boolean) => {
+    if (target.hidden !== value) target.hidden = value;
+  };
+
+  const style = (target: HTMLElement, name: string, value: string) => {
+    if (target.style.getPropertyValue(name) !== value) {
+      target.style.setProperty(name, value);
+    }
+  };
+
+  let isShown = false;
+  let nextInstruments = -Infinity;
+  let instrumentShipId: number | undefined;
+
+  const setShown = (shown: boolean) => {
+    if (shown === isShown) return;
+    isShown = shown;
+
+    if (!shown) {
+      nextInstruments = -Infinity;
+      nextMapDraw = -Infinity;
+    }
+
     panels.forEach((panel) => {
       panel.hidden = !shown;
     });
+  };
 
   return {
     setShown,
@@ -276,6 +328,7 @@ export const createHud = ({
 
       if (!shown) {
         pendingMap = false;
+        nextMapDraw = -Infinity;
         stopDrag();
         return;
       }
@@ -287,9 +340,12 @@ export const createHud = ({
       displayName = nextDisplayName;
       mapMarkers = nextMapMarkers;
       mapReady = nextMapReady;
-      mapPanel.hidden = expanded && !mapReady;
+      hidden(mapPanel, expanded && !mapReady);
 
-      if (sectorName !== nextSectorName || mapSeed !== worldSeed) {
+      const sectorChanged =
+        sectorName !== nextSectorName || mapSeed !== worldSeed;
+
+      if (sectorChanged) {
         sectorName = nextSectorName;
         mapSeed = worldSeed;
         fields =
@@ -322,161 +378,192 @@ export const createHud = ({
         onMapView(Vec.clone(mapCenter));
       }
 
-      text('[data-pilot]', displayName);
-      text('[data-credits]', `${credits.toLocaleString('en-US')}$`);
-      text('[data-sector]', sectorName);
-      const x = String(Math.round(ship.position.x));
-      const y = String(Math.round(ship.position.y));
-      const coordinateWidth = Math.max(6, x.length, y.length);
+      const instrumentTime = now();
 
-      text(
-        '[data-coordinates]',
-        `${x.padStart(coordinateWidth)}\u2009/\u2009${y.padEnd(coordinateWidth)}`,
-      );
+      // Instrument values can update independently of map interactions and
+      // target handling; keep the first frame after a context change current.
+      if (
+        instrumentTime >= nextInstruments ||
+        sectorChanged ||
+        instrumentShipId !== ship.id
+      ) {
+        nextInstruments =
+          !sectorChanged &&
+          instrumentShipId === ship.id &&
+          Number.isFinite(nextInstruments)
+            ? nextInstruments +
+              (Math.floor((instrumentTime - nextInstruments) / hudInterval) +
+                1) *
+                hudInterval
+            : instrumentTime + hudInterval;
+        instrumentShipId = ship.id;
+        text('[data-pilot]', displayName);
+        text('[data-credits]', `${credits.toLocaleString('en-US')}$`);
+        text('[data-sector]', sectorName);
+        const x = String(Math.round(ship.position.x));
+        const y = String(Math.round(ship.position.y));
+        const coordinateWidth = Math.max(6, x.length, y.length);
 
-      const cargoCount = ship.cargoContents.length;
+        text(
+          '[data-coordinates]',
+          `${x.padStart(coordinateWidth)}\u2009/\u2009${y.padEnd(coordinateWidth)}`,
+        );
 
-      query(element, '[data-cargo-full]').hidden = cargoCount < ship.cargoSpace;
+        const cargoCount = ship.cargoContents.length;
 
-      fuel.style.width = `${ship.fuelCapacity}px`;
-      const fuelFraction =
-        ship.fuelCapacity > 0
-          ? Math.max(0, Math.min(1, ship.fuel / ship.fuelCapacity))
-          : 0;
+        hidden(node('[data-cargo-full]'), cargoCount < ship.cargoSpace);
 
-      fuelSegments.forEach((segment, index) => {
-        segment.classList.toggle('filled', index < Math.ceil(fuelFraction * 8));
-      });
+        style(fuel, 'width', `${ship.fuelCapacity}px`);
+        const fuelFraction =
+          ship.fuelCapacity > 0
+            ? Math.max(0, Math.min(1, ship.fuel / ship.fuelCapacity))
+            : 0;
 
-      fuel.classList.toggle(
-        'hud-fuel-low',
-        ship.fuelCapacity > 0 && fuelFraction <= 1 / 8,
-      );
-      fuel.setAttribute('aria-valuenow', String(ship.fuel));
-      fuel.setAttribute(
-        'aria-valuemax',
-        String(Math.max(ship.fuelCapacity, 1)),
-      );
-
-      text('[data-cargo-current]', String(cargoCount));
-      text('[data-cargo-capacity]', String(ship.cargoSpace));
-      text(
-        '#hud-fuel-tooltip',
-        `Fuel: ${ship.fuel.toFixed(1)} / ${ship.fuelCapacity} L`,
-      );
-      text(
-        '#hud-cargo-tooltip',
-        `Cargo: ${cargoCount} / ${ship.cargoSpace} slots`,
-      );
-
-      const modules = moduleRowsOf(ship);
-      const labels = modules.map(({ binding, name }) => [
-        binding.keys.map(keyLabel).join(' / ') || '—',
-        name,
-      ]);
-
-      const nextKey = JSON.stringify(labels);
-
-      if (moduleKey !== nextKey) {
-        moduleKey = nextKey;
-        modulesPanel.replaceChildren();
-
-        rows = modules.map(({ Type }, index) => {
-          const row = document.createElement('button');
-          const kbd = document.createElement('kbd');
-          const name = document.createElement('span');
-
-          row.className = 'ui-control flex items-center gap-3';
-          row.type = 'button';
-
-          row.addEventListener('click', () => {
-            onToggle(Type);
-            row.blur();
-          });
-
-          kbd.className = 'flex-none';
-
-          kbd.textContent = labels[index][0];
-          name.className = 'text-sm';
-          name.textContent = labels[index][1];
-          row.append(kbd, name);
-          modulesPanel.append(row);
-          return { Type, element: row };
+        fuelSegments.forEach((segment, index) => {
+          segment.classList.toggle(
+            'filled',
+            index < Math.ceil(fuelFraction * 8),
+          );
         });
+
+        fuel.classList.toggle(
+          'hud-fuel-low',
+          ship.fuelCapacity > 0 && fuelFraction <= 1 / 8,
+        );
+        attribute(fuel, 'aria-valuenow', String(ship.fuel));
+        attribute(
+          fuel,
+          'aria-valuemax',
+          String(Math.max(ship.fuelCapacity, 1)),
+        );
+
+        text('[data-cargo-current]', String(cargoCount));
+        text('[data-cargo-capacity]', String(ship.cargoSpace));
+        text(
+          '#hud-fuel-tooltip',
+          `Fuel: ${ship.fuel.toFixed(1)} / ${ship.fuelCapacity} L`,
+        );
+        text(
+          '#hud-cargo-tooltip',
+          `Cargo: ${cargoCount} / ${ship.cargoSpace} slots`,
+        );
+
+        const modules = moduleRowsOf(ship);
+        const labels = modules.map(({ binding, name }) => [
+          binding.keys.map(keyLabel).join(' / ') || '—',
+          name,
+        ]);
+
+        const nextKey = JSON.stringify(labels);
+
+        if (moduleKey !== nextKey) {
+          moduleKey = nextKey;
+          modulesPanel.replaceChildren();
+
+          rows = modules.map(({ Type }, index) => {
+            const row = document.createElement('button');
+            const kbd = document.createElement('kbd');
+            const name = document.createElement('span');
+
+            row.className = 'ui-control flex items-center gap-3';
+            row.type = 'button';
+
+            row.addEventListener('click', () => {
+              onToggle(Type);
+              row.blur();
+            });
+
+            kbd.className = 'flex-none';
+
+            kbd.textContent = labels[index][0];
+            name.className = 'text-sm';
+            name.textContent = labels[index][1];
+            row.append(kbd, name);
+            modulesPanel.append(row);
+            return { Type, element: row };
+          });
+        }
+
+        hidden(modulesPanel, !rows.length);
+
+        rows.forEach(({ Type, element: row }) => {
+          const active = ship.moduleActive({ module: Type });
+
+          attribute(row, 'aria-pressed', String(active));
+        });
+
+        const entries = ship.powerEntries.sort(
+          (a, b) =>
+            moduleCategoryIds.indexOf(a.module.category) -
+            moduleCategoryIds.indexOf(b.module.category),
+        );
+        let output = 0;
+        let total = 0;
+        let capacity = 0;
+
+        entries.forEach(({ module, value }) => {
+          output += module.powerGenerated || 0;
+          total += value;
+          capacity += module.powerCapacity || 0;
+        });
+
+        const scale = Math.max(output * 1.5, 1);
+
+        style(
+          power,
+          '--ui-power-generation',
+          `${(output / scale) * 100}%`,
+        );
+
+        attribute(storage, 'aria-valuenow', String(ship.storedPower));
+        attribute(storage, 'aria-valuemax', String(Math.max(capacity, 1)));
+        text(
+          '[data-power-label]',
+          `${Math.round(ship.storedPower)}/${Math.round(capacity)}`,
+        );
+        attribute(
+          storage,
+          'aria-valuetext',
+          `${ship.storedPower.toFixed(1)} of ${capacity.toFixed(1)} MJ`,
+        );
+        style(
+          query(storage, '.ui-power-part'),
+          'width',
+          `${capacity > 0 ? Math.max(0, Math.min(1, ship.storedPower / capacity)) * 100 : 0}%`,
+        );
+        const net = Number((output - total).toFixed(1));
+
+        style(
+          powerStore,
+          '--ui-color',
+          ship.storedPower > 0 ? colors.yellow[2] : colors.red[2],
+        );
+        text('[data-power-usage]', total.toFixed(1));
+        text('[data-power-generation]', output.toFixed(1));
+        text('[data-power-net]', `${net >= 0 ? '+' : ''}${net.toFixed(1)}`);
+
+        const parts = powerParts({ entries, scale });
+
+        if (parts !== powerKey) {
+          reconcileRows(power, parts);
+          powerKey = parts;
+        }
+
+        attribute(power, 'aria-valuenow', String(total));
+        attribute(power, 'aria-valuemax', String(scale));
+        attribute(
+          power,
+          'aria-valuetext',
+          `${total.toFixed(1)} of ${output.toFixed(1)} MW`,
+        );
+
+        text(
+          '[data-store="power"] .ui-tooltip-content',
+          `Stored: ${ship.storedPower.toFixed(1)} / ${capacity.toFixed(1)} MJ\nUsage: ${total.toFixed(1)} MW\nGeneration: ${output.toFixed(1)} MW`,
+        );
       }
 
-      modulesPanel.hidden = !rows.length;
-
-      rows.forEach(({ Type, element: row }) => {
-        const active = ship.moduleActive({ module: Type });
-
-        row.setAttribute('aria-pressed', String(active));
-      });
-
-      const entries = ship.powerEntries.sort(
-        (a, b) =>
-          moduleCategoryIds.indexOf(a.module.category) -
-          moduleCategoryIds.indexOf(b.module.category),
-      );
-      let output = 0;
-      let total = 0;
-      let capacity = 0;
-
-      entries.forEach(({ module, value }) => {
-        output += module.powerGenerated || 0;
-        total += value;
-        capacity += module.powerCapacity || 0;
-      });
-
-      const scale = Math.max(output * 1.5, 1);
-
-      power.style.setProperty(
-        '--ui-power-generation',
-        `${(output / scale) * 100}%`,
-      );
-
-      storage.setAttribute('aria-valuenow', String(ship.storedPower));
-      storage.setAttribute('aria-valuemax', String(Math.max(capacity, 1)));
-      text(
-        '[data-power-label]',
-        `${Math.round(ship.storedPower)}/${Math.round(capacity)}`,
-      );
-      storage.setAttribute(
-        'aria-valuetext',
-        `${ship.storedPower.toFixed(1)} of ${capacity.toFixed(1)} MJ`,
-      );
-      query(storage, '.ui-power-part').style.width =
-        `${capacity > 0 ? Math.max(0, Math.min(1, ship.storedPower / capacity)) * 100 : 0}%`;
-      const net = Number((output - total).toFixed(1));
-
-      powerStore.style.setProperty(
-        '--ui-color',
-        ship.storedPower > 0 ? colors.yellow[2] : colors.red[2],
-      );
-      text('[data-power-usage]', total.toFixed(1));
-      text('[data-power-generation]', output.toFixed(1));
-      text('[data-power-net]', `${net >= 0 ? '+' : ''}${net.toFixed(1)}`);
-
-      const parts = powerParts({ entries, scale });
-
-      if (parts !== powerKey) {
-        reconcileRows(power, parts);
-        powerKey = parts;
-      }
-
-      power.setAttribute('aria-valuenow', String(total));
-      power.setAttribute('aria-valuemax', String(scale));
-      power.setAttribute(
-        'aria-valuetext',
-        `${total.toFixed(1)} of ${output.toFixed(1)} MW`,
-      );
-
-      text(
-        '[data-store="power"] .ui-tooltip-content',
-        `Stored: ${ship.storedPower.toFixed(1)} / ${capacity.toFixed(1)} MJ\nUsage: ${total.toFixed(1)} MW\nGeneration: ${output.toFixed(1)} MW`,
-      );
-
-      targetPanel.hidden = !target;
+      hidden(targetPanel, !target);
 
       if (target) {
         const description =
@@ -487,7 +574,7 @@ export const createHud = ({
             : target.targetLabel?.split('\n').at(-1) || target.description;
 
         text('[data-description]', description || '');
-        query(element, '[data-description]').hidden = !description;
+        hidden(node('[data-description]'), !description);
         text(
           '[data-distance]',
           `${Math.round(Vec.distance(ship.position, (poses.get(target.id) || target).position)).toLocaleString('en-US')}\u2009m`,
@@ -498,7 +585,7 @@ export const createHud = ({
           text('[data-kind]', targetKinds.get(target.kind!) || '');
           const price = target.price;
 
-          query(element, '[data-value-row]').hidden = price === undefined;
+          hidden(node('[data-value-row]'), price === undefined);
           text(
             '[data-value]',
             `${Number(price || 0).toLocaleString('en-US')}$`,
@@ -512,7 +599,9 @@ export const createHud = ({
 
       previousTarget = target;
 
-      drawMap();
+      // Radar contacts need not be repainted at the display frame rate.
+      // Direct map interactions and resizing still draw immediately.
+      if (now() >= nextMapDraw) drawMap(true);
     },
   };
 };

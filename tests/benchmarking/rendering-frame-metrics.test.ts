@@ -57,6 +57,7 @@ assert.throws(() => calibrateRefreshRate({ intervals: [] }), /at least 48/);
 const defaults = parseRenderingOptions({ args: [] });
 
 assert.equal(defaults.browser, 'chrome');
+assert.equal(defaults.cpuThrottle, 1);
 assert.deepEqual(defaults.scenarios, [
   'live',
   'large',
@@ -112,4 +113,24 @@ assert.throws(
 assert.equal(
   parseRenderingOptions({ args: ['--seconds', '600'] }).seconds,
   600,
+);
+
+assert.equal(
+  parseRenderingOptions({ args: ['--cpu-throttle', '4'] }).cpuThrottle,
+  4,
+);
+
+for (const rate of ['0', '-1', 'NaN', 'Infinity']) {
+  assert.throws(
+    () => parseRenderingOptions({ args: [`--cpu-throttle=${rate}`] }),
+    /CPU throttle/,
+  );
+}
+
+assert.throws(
+  () =>
+    parseRenderingOptions({
+      args: ['--browser', 'firefox', '--cpu-throttle', '4'],
+    }),
+  /requires Chrome/,
 );
