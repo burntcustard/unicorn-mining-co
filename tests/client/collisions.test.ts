@@ -226,7 +226,7 @@ for (const contents of [[], [0]]) {
     assert.equal(part.resource, detached.resource);
     assert.equal(part.mass, detached.mass / 8);
     assert(Math.abs(area(outline) - parentArea / 4) < 1e-6);
-    assert(part.health / part.decay! >= 1.5 && part.health / part.decay! <= 3);
+    assert(part.health / part.decay! >= 1 && part.health / part.decay! <= 2);
     assert.equal(part.health, part.maxHealth);
 
     for (const [x, y] of outline) {
@@ -349,7 +349,7 @@ for (const contents of [[], [0]]) {
       elapsed += simulationStep;
     }
 
-    assert(part.dead && elapsed >= 1.5 && elapsed <= 3 + simulationStep);
+    assert(part.dead && elapsed >= 1 && elapsed <= 2 + simulationStep);
     durations.push(elapsed);
   }
 

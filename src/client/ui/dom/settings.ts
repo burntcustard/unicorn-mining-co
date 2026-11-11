@@ -123,6 +123,16 @@ export const createSettings = () => {
     'keydown',
     (event) => {
       if (capture < 0 || event.key === 'Enter') return;
+
+      if (
+        event.key === 'Control' ||
+        event.key === 'Meta' ||
+        ((event.ctrlKey || event.metaKey) &&
+          ['-', '+', '=', '0'].includes(event.key))
+      ) {
+        return;
+      }
+
       event.stopPropagation();
 
       if (event.repeat) {

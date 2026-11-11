@@ -18,6 +18,8 @@ Object.assign(globalThis, {
     declare key: string;
     declare repeat: boolean;
     declare shiftKey: boolean;
+    declare ctrlKey: boolean;
+    declare metaKey: boolean;
 
     constructor(
       type: string,
@@ -25,12 +27,22 @@ Object.assign(globalThis, {
         key,
         repeat = false,
         shiftKey = false,
-      }: { key: string; repeat?: boolean; shiftKey?: boolean },
+        ctrlKey = false,
+        metaKey = false,
+      }: {
+        key: string;
+        repeat?: boolean;
+        shiftKey?: boolean;
+        ctrlKey?: boolean;
+        metaKey?: boolean;
+      },
     ) {
       super(type, { cancelable: true });
       this.key = key;
       this.repeat = repeat;
       this.shiftKey = shiftKey;
+      this.ctrlKey = ctrlKey;
+      this.metaKey = metaKey;
     }
   },
 });
@@ -447,6 +459,16 @@ input.bindKeys('Escape', () => {
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 assert(escaped, 'full key names work for menu bindings');
 
+let plusActions = 0;
+
+input.bindKeys('+', () => plusActions++);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', ctrlKey: true }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: '+' }));
+assert.equal(plusActions, 0, 'browser zoom does not trigger a bound game key');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: '+' }));
+window.dispatchEvent(new KeyboardEvent('keyup', { key: '+' }));
+assert.equal(plusActions, 1, 'the unmodified key still triggers its binding');
+
 stopKeys();
 const stoppedActivity = activity;
 
@@ -468,11 +490,29 @@ const stopDeadKeys = input.initKeys({
   },
 });
 
-const zoomEvent = new KeyboardEvent('keydown', { key: '+' });
+for (const modifier of ['ctrlKey', 'metaKey'] as const) {
+  const modifierEvent = new KeyboardEvent('keydown', {
+    key: modifier === 'ctrlKey' ? 'Control' : 'Meta',
+    [modifier]: true,
+  });
 
-zoomEvent.preventDefault();
-window.dispatchEvent(zoomEvent);
-assert.equal(respawnKeys, 0, 'handled camera shortcuts do not request respawn');
+  window.dispatchEvent(modifierEvent);
+  assert.equal(modifierEvent.defaultPrevented, false);
+
+  for (const key of ['-', '+', '=', '0']) {
+    const event = new KeyboardEvent('keydown', { key, [modifier]: true });
+
+    window.dispatchEvent(event);
+    assert.equal(
+      event.defaultPrevented,
+      false,
+      'browser zoom remains available',
+    );
+    window.dispatchEvent(new KeyboardEvent('keyup', { key }));
+  }
+}
+
+assert.equal(respawnKeys, 0, 'browser zoom does not request respawn');
 
 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
 assert.equal(respawnKeys, 1, 'any new key can request a respawn');

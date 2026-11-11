@@ -31,13 +31,7 @@ import {
 } from './input/input';
 import { defaultKeybindings } from './input/keybindings';
 import { network } from './network/network';
-import {
-  camera,
-  centerCamera,
-  followTarget,
-  zoomCamera,
-  holeZoom,
-} from './camera';
+import { camera, centerCamera, followTarget, holeZoom } from './camera';
 
 import { revealBuriedItems } from './utilities/lighting';
 import { adoptPlayerShip, player, readSlate, updatePlayer } from './player';
@@ -235,12 +229,6 @@ canvas.addEventListener('click', (event) => {
 canvas.addEventListener('pointerleave', () => {
   pointerPosition = undefined;
   targeting.hover();
-});
-
-window.addEventListener('keydown', (event) => {
-  if (!ui.current) zoomCamera(game, event);
-
-  if (event.defaultPrevented && !gameStarted) renderSky();
 });
 
 const regionalObjects = new Map<number, SimulationObject>();

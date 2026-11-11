@@ -535,7 +535,7 @@ export async function runCollectionSession(args: string[]) {
       NODE_ENV: 'development',
       DATABASE_PATH: relative(root, report.database),
       BACKUP_DIRECTORY: resolve(directory, 'backups'),
-      GOMEMLIMIT: '300MiB',
+      GOMEMLIMIT: '600MiB',
       GOGC: '100',
       GOEXPERIMENT: 'simd',
       GOFLAGS: '',

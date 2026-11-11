@@ -145,7 +145,7 @@ try {
 
   let pid: number;
 
-  const restart = `GOMEMLIMIT=300MiB GOFLAGS=-overlay=${overlay} npm run dev:server`;
+  const restart = `GOMEMLIMIT=600MiB GOFLAGS=-overlay=${overlay} npm run dev:server`;
 
   try {
     pid = await localServerPid();
@@ -175,7 +175,7 @@ try {
     : null;
 
   if (
-    environment.GOMEMLIMIT !== '300MiB' ||
+    environment.GOMEMLIMIT !== '600MiB' ||
     (environment.GOGC ?? '100') !== '100' ||
     runningOverlay !== overlay
   ) {

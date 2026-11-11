@@ -67,7 +67,7 @@ const scenario = JSON.parse(process.env.NPC_STARTUP_CASE);
 const real = filesystem.promises;
 const record = (action) => appendFileSync(scenario.actions, action + '\n');
 const environment = [
-  ...(scenario.kind === 'missing-budget' ? [] : ['GOMEMLIMIT=300MiB']),
+  ...(scenario.kind === 'missing-budget' ? [] : ['GOMEMLIMIT=600MiB']),
   'GOGC=100',
   'GOFLAGS=-overlay=' + (scenario.kind === 'wrong-overlay' ? scenario.otherOverlay : scenario.overlay),
 ].join('\0') + '\0';
@@ -117,7 +117,7 @@ try {
   for (const scenario of [
     { kind: 'missing-fixture', message: /benchmark:npc:prepare/ },
     { kind: 'no-server', message: /3001/, command: /dev:server/ },
-    { kind: 'missing-budget', message: /300MiB/, command: /dev:server/ },
+    { kind: 'missing-budget', message: /600MiB/, command: /dev:server/ },
     { kind: 'wrong-overlay', message: /overlay/i, command: /dev:server/ },
     {
       kind: 'no-frontend',

@@ -17,8 +17,7 @@ export const setSizing = (game: GameState) => {
   // Cached artwork should stay sharp, without resampling between its pixels
   game.ctx.imageSmoothingEnabled = false;
 
-  // The HUD has a grid of its own, so that zooming the world out by raising
-  // game.size shrinks the ships without shrinking the text along with them
+  // The HUD has a grid of its own, independent of the world view size.
   game.uiScale =
     (Math.min(window.innerWidth, window.innerHeight) / 720) * graphics[3];
   game.uiWidth = (window.innerWidth * graphics[3]) / game.uiScale;

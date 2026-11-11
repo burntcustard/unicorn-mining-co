@@ -185,8 +185,8 @@ func TestAsteroidDebrisLifecycle(t *testing.T) {
 				t.Fatal("debris must have half the normal mass and quarter the original triangular area")
 			}
 
-			if lifetime < 1.5 || lifetime > 3 || part.Health != part.MaxHealth {
-				t.Fatal("debris must start at seeded full health for 1.5-3 seconds of decay")
+			if lifetime < 1 || lifetime > 2 || part.Health != part.MaxHealth {
+				t.Fatal("debris must start at seeded full health for 1-2 seconds of decay")
 			}
 
 			for _, item := range items {
@@ -232,8 +232,8 @@ func TestAsteroidDebrisLifecycle(t *testing.T) {
 
 				elapsed := float64(ticks) * catalog.Simulation.SimulationStep
 
-				if !part.Dead || elapsed < 1.5 || elapsed > 3+catalog.Simulation.SimulationStep || world.Entities.Len() != count-1 {
-					t.Fatal("debris must disappear after 1.5-3 seconds without further subdivision")
+				if !part.Dead || elapsed < 1 || elapsed > 2+catalog.Simulation.SimulationStep || world.Entities.Len() != count-1 {
+					t.Fatal("debris must disappear after 1-2 seconds without further subdivision")
 				}
 
 				durations[ticks] = true

@@ -107,8 +107,8 @@ func main() {
 
 		if scenario.repeated {
 			// Retain repeated fractures with the stock three-second firing interval,
-			// including hits after the reload at tick 241.
-			rockID, radius, position, ticks = 3324057349, 70, Vec.Create(160, -25), 600
+			// including hits after the reload at tick 241 and the fourth split.
+			rockID, radius, position, ticks = 3324057349, 70, Vec.Create(160, -25), 640
 		}
 
 		if scenario.triangle {

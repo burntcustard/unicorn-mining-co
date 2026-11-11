@@ -61,7 +61,7 @@ const runtime = Object.fromEntries(
     }),
 );
 
-assert.equal(runtime.GOMEMLIMIT, '300MiB', 'Match the live Go memory budget');
+assert.equal(runtime.GOMEMLIMIT, '600MiB', 'Match the live Go memory budget');
 const startedAt = Date.now();
 
 const manifest = {
