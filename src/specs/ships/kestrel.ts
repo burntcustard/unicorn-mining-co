@@ -52,10 +52,6 @@ export const kestrel = {
       mount: 9,
       module: 'cargoHatch',
     },
-    {
-      mount: 10,
-      module: 'autogunTurret',
-    },
   ],
   hullSegments: [
     {

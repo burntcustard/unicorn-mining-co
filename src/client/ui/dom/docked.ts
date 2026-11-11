@@ -30,6 +30,7 @@ import { reconcileRows } from '../../utilities/reconcile-rows';
 import { playNavigationSound } from '../../audio/sound-loader';
 import { applyHangarAction, hangarState } from '../../network/hangar-actions';
 import { Ship } from '../../objects/ship';
+import { Item } from '../../objects/item';
 import { shipSpecsById, type ShipId } from '../../../specs/ships';
 import { Station } from '../../objects/station';
 import { moduleTypesById } from '../../objects/modules';
@@ -878,7 +879,16 @@ const createDocked = () => {
       paintHull
         ? 'Hull paint'
         : module
-          ? module.name
+          ? selection.tab === 'outfitting' && module.ammo
+            ? `${module.name} (AMMO:${ship.cargoContents.reduce(
+                (sum, entry) =>
+                  entry instanceof Item &&
+                  entry.resource === module.ammo.resource
+                    ? sum + (entry.rounds || 0)
+                    : sum,
+                0,
+              )})`
+            : module.name
           : item
             ? item.name
             : kind === 'hull'

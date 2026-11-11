@@ -63,7 +63,7 @@ export const updateAutogunSounds = ({
             ? 1
             : 1 + (gun.dischargeDuration || 0) / gun.activationDuration),
       );
-      const multiplier = volume(craft) * 1.25;
+      const multiplier = volume(craft) * 1.5625;
 
       const voice = updateAutogunSound(previous, {
         level: (extension * 0.15 + speed * 0.85) * multiplier,

@@ -1,3 +1,4 @@
+import '../support/ignore-handshake-timeout.ts';
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';

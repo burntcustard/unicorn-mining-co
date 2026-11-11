@@ -23,11 +23,11 @@ export const autogun = {
   dischargeDuration: 1000,
   retractionDistance: 15,
   damage: 3,
-  fireInterval: 200,
+  fireInterval: 160,
   muzzleFlash: autogunMuzzleFlash,
   projectile: {
     effect: autogunExplosion,
-    speed: 1000,
+    speed: 1100,
     lifetime: 1000,
     fadeOut: 200,
     radius: 2,

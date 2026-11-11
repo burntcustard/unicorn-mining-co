@@ -1,3 +1,5 @@
+import '../support/ignore-handshake-timeout.ts';
+
 /* global Buffer, process */
 import { readFileSync } from 'node:fs';
 import { rolldown } from 'rolldown';

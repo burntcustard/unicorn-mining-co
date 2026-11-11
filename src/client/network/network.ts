@@ -439,6 +439,7 @@ export class NetworkClient {
     this.socket = socket;
     this.welcomed = false;
     socket.binaryType = 'arraybuffer';
+    const handshakeTimer = setTimeout(() => socket.close(), 15000);
 
     socket.onopen = () => {
       const storedToken = localStorage.getItem('playerToken');
@@ -466,12 +467,19 @@ export class NetworkClient {
             : decodeServerControl(bytes);
 
         this.receive({ message });
-      } catch {
+
+        if (this.welcomed) clearTimeout(handshakeTimer);
+      } catch (error) {
+        // @ifdef DEBUG
+        console.error('Could not process game server message:', error);
+        // @endif
         socket.close(1007, 'Invalid server message');
       }
     };
 
     socket.onclose = ({ code, reason }) => {
+      clearTimeout(handshakeTimer);
+
       if (this.socket !== socket) return;
       this.connected = false;
       this.pendingProfile?.reject(

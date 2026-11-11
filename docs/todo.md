@@ -48,9 +48,11 @@
 [x] "Move closer to request access" for jump gate targeted description
 [x] Add " Full" to "Cargo" when full & make " Full" flash like before
 [ ] Improve Create Profile styles, & add description of where name is used
-[ ] Fix big ships not having all mounts
+[ ] Fix big ships not having all mounts like weapon mounts
 [ ] Fix big ships having odd thruster left/right flares when turning
 [ ] Custom cursors
+[ ] Bigger power generators for bigger ships
+[ ] Fix hull smash sound when shield & asteroid collide
 
 ## MVP
 
@@ -97,7 +99,7 @@
 [ ] Add missile/torpedo module
 [-] Add turret modules
 [x] Add holding cargo hatch key to drop all cargo
-[ ] In outfitting, have current ammo listed somewhere
+[x] In outfitting, have current ammo listed somewhere
 [ ] Figure out dual/split thrusters
 [ ] Courser MKII ship
 [x] Fix stations having gone back to wireframe icon in info panels
@@ -131,6 +133,7 @@
 [ ] Circle plus and circle minus characters
 [ ] Zoom in and zoom out buttons in big map
 [ ] World map with sectors and lines between them (+ players?)
+[ ] Small asteroid chunk pop animation
 
 ## Big future things
 
@@ -146,6 +149,7 @@
 [ ] New graphics like concept art
 [ ] Redo path-outline.ts with different colors and stuff
 [ ] Make stars consistent with world location
+[ ] Module upgrades like autogun interval 150-160
 
 ## Js13kGames
 

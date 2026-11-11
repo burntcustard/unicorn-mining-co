@@ -68,6 +68,9 @@ respawn. The update retains all 983 actions and all 757 original messages
 unchanged; the fixed replay now checks 765 messages, including the added ship
 inventories, active ship IDs, and account balances.
 
+Removing the Kestrel’s fitted autogun turret lowers its sale price in one
+hangar message from 10,175 to 9,425; all other recorded values remain unchanged.
+
 `rendering.json` captures representative replicated ship, station, mixed cargo,
 and drilling stages. Browser tests hydrate it under source and production
 transforms and check rendering, reconciliation and object identity.

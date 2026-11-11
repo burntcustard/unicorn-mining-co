@@ -17,7 +17,26 @@ class TestWebSocket {
   }
 
   send() {}
+
+  close() {
+    this.onclose?.({ code: 1006, reason: '' });
+  }
 }
+
+const originalSetTimeout = globalThis.setTimeout;
+const originalClearTimeout = globalThis.clearTimeout;
+const timers = new Map<number, () => void>();
+let nextTimer = 0;
+
+Object.assign(globalThis, {
+  setTimeout: (callback: () => void) => {
+    const id = ++nextTimer;
+
+    timers.set(id, callback);
+    return id;
+  },
+  clearTimeout: (id: number) => timers.delete(id),
+});
 
 Object.assign(globalThis, {
   document: {
@@ -88,4 +107,15 @@ for (const production of [false, true]) {
       globalThis.setTimeout = setTimeout;
     }
   }
+
+  connect();
+  const timeout = timers.get(nextTimer)!;
+
+  timeout();
+  assert.equal(status.textContent, 'CONNECTION LOST - RETRYING...');
 }
+
+Object.assign(globalThis, {
+  setTimeout: originalSetTimeout,
+  clearTimeout: originalClearTimeout,
+});

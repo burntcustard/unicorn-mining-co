@@ -509,11 +509,7 @@ export const createHud = ({
 
         const scale = Math.max(output * 1.5, 1);
 
-        style(
-          power,
-          '--ui-power-generation',
-          `${(output / scale) * 100}%`,
-        );
+        style(power, '--ui-power-generation', `${(output / scale) * 100}%`);
 
         attribute(storage, 'aria-valuenow', String(ship.storedPower));
         attribute(storage, 'aria-valuemax', String(Math.max(capacity, 1)));

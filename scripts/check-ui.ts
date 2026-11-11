@@ -5162,6 +5162,10 @@ checkUi: try {
   })()`);
 
   await click(`[data-candidates] [data-key="${autogun}"]`);
+  assert.equal(
+    await check(`document.querySelector('[data-title]').textContent`),
+    'Autogun (AMMO:0)',
+  );
   assert.deepEqual(
     await check('fixture.transactionState()'),
     beforeAutogunSelection,
@@ -5209,7 +5213,7 @@ checkUi: try {
   );
   assert(
     await check(
-      `document.querySelector('[data-title]').textContent === 'Autogun'`,
+      `document.querySelector('[data-title]').textContent === 'Autogun (AMMO:200)'`,
     ),
     'buying ammunition keeps the selected module card open',
   );
