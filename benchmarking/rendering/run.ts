@@ -270,7 +270,9 @@ Reflect.set(window, 'perf-capture', async action => {
     const fromCamera={...camera};let aligned=false;
     const hold=()=>{
       const ship=player.ship, error=Math.atan2(Math.sin(heading-ship.rotation),Math.cos(heading-ship.rotation));
-      aligned ||= Math.abs(error)<.03 && Math.abs(ship.spin)<.05;
+      // Binary steering can cross the heading while still rotating; releasing
+      // turn lets the normal ship physics settle the spin during departure.
+      aligned ||= Math.abs(error)<.03;
       const steering=keyboardSteering({ship,angle:heading,thrust:aligned});
       const turn=aligned ? 0 : steering.turn;
       const thrust=steering.thrust;

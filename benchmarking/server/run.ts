@@ -22,7 +22,6 @@ import {
   spreadLateralAllowance,
   playerCounts,
   workloadNames,
-  weaponMeasurementLimit,
   type ProtocolWorkload,
   type MiningProposal,
   type MiningTarget,
@@ -600,7 +599,7 @@ async function main() {
       `benchmarking/_local/server-cpu-${new Date().toISOString().replaceAll(':', '-')}.json.gz`,
   );
   const directory = await mkdtemp(join(tmpdir(), 'unicorn-protocol-'));
-  const { runtime, runtimePath } = await loadProtocolRuntime(directory);
+  const { runtimePath } = await loadProtocolRuntime(directory);
   const sourcePaths = ['src', 'plugins', 'vite.config.ts'];
   const benchmarkPaths = [
     'benchmarking/server/run.ts',
@@ -673,7 +672,7 @@ async function main() {
     checkout,
     matrix: { playerCounts, workloads: workloadNames, selected: cases },
     setup:
-      'Fresh hello identities with unretained session tokens, normal game-socket binary codecs and delta application; changed keyboard inputs only; immediate requested snapshot receipts. Weapon clients physically dock, buy/equip normally, buy one standard200-round item for each autogun, clear the station bay and fan out for10 seconds. Weapons activate/charge during nonfiring warmup; continuous firing is briefly confirmed immediately before measurement. An optional local core limit changes only the Go server affinity and is restored after the suite.',
+      'Fresh hello identities with unretained session tokens, normal game-socket binary codecs and delta application; changed keyboard inputs only; immediate requested snapshot receipts. Weapon clients physically dock, buy/equip normally, purchase enough ordinary autogun ammunition for measurement and a five-second reserve, clear the station bay and fan out for10 seconds. Weapons activate/charge during nonfiring warmup; continuous firing is briefly confirmed immediately before measurement. An optional local core limit changes only the Go server affinity and is restored after the suite.',
     measurement:
       'Primary CPU uses matching machine busy-counter modes on both targets: selected local logical CPUs or the live Fly machine. Local measurements can include unrestricted load-generator or background processes; supplemental local Go-process CPU isolates the server. Hardware differs and no live process counter is available. Generator timings and traffic are application observations, not browser rendering or wire latency. Allocation counts are unavailable through the public game protocol. Failed cases are retained without reducing player count.',
     host: {
@@ -761,18 +760,6 @@ async function main() {
         let preparationProgressOpen = false;
 
         try {
-          if (configuration.workload === 'weapon') {
-            const maximum = weaponMeasurementLimit({
-              rounds: runtime.catalog.ammoRounds,
-              fireInterval: runtime.catalog.modules.autogun.fireInterval,
-            });
-
-            assert(
-              seconds <= maximum,
-              `One ordinary ${runtime.catalog.ammoRounds}-round item supports at most ${maximum}s of measured continuous autogun fire with a 5-second confirmation/transport reserve. Shorten --seconds; additional ammunition is never purchased.`,
-            );
-          }
-
           const count = Math.ceil(configuration.players / 8);
 
           for (let worker = 0; worker < count; worker++) {
@@ -977,22 +964,28 @@ async function main() {
           } else if (configuration.workload === 'module') {
             const approachStartedAt = Date.now();
             const deadline = approachStartedAt + prepareTimeout * 1000;
+            const surveySeconds = 10;
             const progress: Record<string, unknown>[] = [];
             const proposalsRetained: Record<string, unknown>[] = [];
             let targets: MiningTarget[] = [];
+            const preferredTargets = new Map<number, number>();
             let stage = 'departure';
             const indices = workers.flatMap((worker) => worker.indices);
+            let coordinatorCpu = process.cpuUsage();
+            let coordinatorCpuAt = performance.now();
+            let hostCpu = cpus().map(({ times }) => times);
 
             miningPreparation = {
               startedAt: approachStartedAt,
               deadline,
               totalBudgetSeconds: prepareTimeout,
+              surveySeconds,
               simultaneousClients: configuration.players,
               progress,
               proposals: proposalsRetained,
               targets,
               scheduling:
-                "Discover real clear whole rocks from every client's own snapshots and reserve unique targets and noncrossing approaches globally. Confirmed clients wait with neutral thrust/turn and drills off through warmup and CPU observer setup, then resume ordinary controls and confirm powered mining immediately before measurement. Discovery, approach, and startup share one preparation budget; warmup and observer setup do not consume its remaining startup time.",
+                "Discover real clear whole rocks from every client's own snapshots and reserve unique targets and noncrossing approaches globally. Unassigned settled ships survey while other ships settle; previous target choices are preferred only when freshly proposed and compatible. All routes are reserved from rest before approach. Confirmed clients wait with neutral thrust/turn and drills off through warmup and CPU observer setup, then resume ordinary controls and confirm powered mining immediately before measurement. Discovery, approach, and startup share one preparation budget; warmup and observer setup do not consume its remaining startup time.",
               contactReservation: `Unique decoded asteroid IDs and nonoverlapping ${miningWorkingRadius}-unit working disks. Anchor centers are separated by twice that radius plus both ship radii and120 units; initial contact poses and approaches retain their own hull clearance. Nominal contacts do not establish physical drill contact; strict readiness and measured causal work remain required.`,
               ownership: `After initial preparation, actual miner bodies must stay within their ${miningWorkingRadius}-unit disk. Whole target geometry and checked navigation endpoints reserve ${miningNavigationReserve} units inside that boundary; ordinary inward recovery retains safe powered drilling. This is a tested navigation reserve, not a formal bound on collision impulses.`,
               workingRadius: miningWorkingRadius,
@@ -1001,18 +994,57 @@ async function main() {
 
             await Promise.all(workers.map((worker) => worker.command('hold')));
             preparationProgressOpen = true;
+            let preparationProgressPending = false;
 
             preparationProgressTimer = setInterval(() => {
+              if (!preparationProgressOpen || preparationProgressPending) {
+                return;
+              }
+
+              preparationProgressPending = true;
+
               void Promise.all(
                 workers.map((worker) =>
-                  worker.command<Record<string, unknown>[]>(
-                    'preparationProgress',
-                  ),
+                  worker.command<{
+                    clients: Record<string, unknown>[];
+                    generator: Record<string, unknown>;
+                  }>('preparationProgress'),
                 ),
               )
                 .then((parts) => {
                   if (!preparationProgressOpen) return;
-                  const clients = parts.flat();
+                  const clients = parts.flatMap((part) => part.clients);
+                  const now = performance.now();
+                  const elapsedMs = now - coordinatorCpuAt;
+                  const used = process.cpuUsage(coordinatorCpu);
+                  const nextHostCpu = cpus().map(({ times }) => times);
+
+                  const hostDelta = nextHostCpu.reduce(
+                    (total, times, index) => {
+                      const previous = hostCpu[index];
+
+                      if (!previous) return total;
+
+                      total.idle += times.idle - previous.idle;
+                      total.all +=
+                        times.user +
+                        times.nice +
+                        times.sys +
+                        times.idle +
+                        times.irq -
+                        (previous.user +
+                          previous.nice +
+                          previous.sys +
+                          previous.idle +
+                          previous.irq);
+                      return total;
+                    },
+                    { idle: 0, all: 0 },
+                  );
+
+                  coordinatorCpu = process.cpuUsage();
+                  coordinatorCpuAt = now;
+                  hostCpu = nextHostCpu;
 
                   const observation = {
                     at: Date.now(),
@@ -1020,6 +1052,21 @@ async function main() {
                     elapsedSeconds: (Date.now() - approachStartedAt) / 1000,
                     confirmed: clients.filter((client) => client.confirmed)
                       .length,
+                    generators: parts.map((part) => part.generator),
+                    coordinator: {
+                      elapsedMs,
+                      cpuPercentOfOneCore:
+                        (used.user + used.system) / 10 / elapsedMs,
+                      rssBytes: process.memoryUsage().rss,
+                    },
+                    host: {
+                      cpuPercent:
+                        hostDelta.all > 0
+                          ? (100 * (hostDelta.all - hostDelta.idle)) /
+                            hostDelta.all
+                          : null,
+                      freeMemoryBytes: freemem(),
+                    },
                     clients,
                   };
 
@@ -1041,6 +1088,9 @@ async function main() {
                       `Preparation progress unavailable: ${error.message}`,
                     );
                   }
+                })
+                .finally(() => {
+                  preparationProgressPending = false;
                 });
             }, 10000);
 
@@ -1053,13 +1103,11 @@ async function main() {
             );
             await pause(15000);
             await Promise.all(workers.map((worker) => worker.command('hold')));
-            await pause(10000);
 
             miningPreparation.departure = {
               startedAt: departedAt,
               outwardSeconds: 15,
-              maxSpeed: 100,
-              neutralSettleSeconds: 10,
+              thrust: 'Full thrust when aligned with the checked survey route',
               endedAt: Date.now(),
             };
 
@@ -1078,16 +1126,30 @@ async function main() {
               const proposals = (
                 await Promise.all(
                   workers.map((worker) =>
-                    worker.command<MiningProposal[]>('miningCandidates', {
-                      timeoutMs: Math.max(1, deadline - Date.now()),
-                    }),
+                    worker.command<MiningProposal[]>('miningCandidates'),
                   ),
                 )
               ).flat();
 
               // Rebuild all provisional routes from current positions after
               // any unassigned client moves; no stale route is reserved.
-              targets = reserveMiningTargets({ proposals });
+              targets = reserveMiningTargets({
+                proposals,
+                preferred: preferredTargets,
+              });
+
+              for (const proposal of proposals) {
+                const target = targets.find(
+                  (item) => item.index === proposal.index,
+                );
+
+                if (target) {
+                  preferredTargets.set(proposal.index, target.asteroidId);
+                } else {
+                  preferredTargets.delete(proposal.index);
+                }
+              }
+
               miningPreparation.targets = targets;
 
               proposalsRetained.push({
@@ -1111,10 +1173,21 @@ async function main() {
                 (index) => !targets.some((target) => target.index === index),
               );
 
+              // Ships still settling stay held; they must not delay another
+              // settled, unassigned ship from continuing its search.
+              const surveying = proposals
+                .filter((proposal) => unassigned.includes(proposal.index))
+                .map((proposal) => proposal.index);
+
               if (!unassigned.length) break;
               console.error(
-                `Finding clear rocks for ${label}: ${indices.length - unassigned.length}/${indices.length} reserved`,
+                `Finding clear rocks for ${label}: ${indices.length - unassigned.length}/${indices.length} reserved, ${proposals.length}/${indices.length} settled`,
               );
+
+              if (!surveying.length) {
+                await pause(Math.max(1, Math.min(1000, deadline - Date.now())));
+                continue;
+              }
 
               const phaseAt = Date.now() + 100;
 
@@ -1122,12 +1195,17 @@ async function main() {
                 workers.map((worker) =>
                   worker.command('fanout', {
                     at: phaseAt,
-                    indices: unassigned,
+                    indices: surveying,
                   }),
                 ),
               );
 
-              await pause(Math.max(1, Math.min(5000, deadline - Date.now())));
+              await pause(
+                Math.max(
+                  1,
+                  Math.min(surveySeconds * 1000, deadline - Date.now()),
+                ),
+              );
               await Promise.all(
                 workers.map((worker) => worker.command('hold')),
               );
