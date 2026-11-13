@@ -25,7 +25,7 @@ func TestProfileNameSurvivesReconnectRestartAndRespawn(t *testing.T) {
 	name := "aé🦄 <&>\x00"
 	s.Receive(protocol.Control{Type: "profile", DisplayName: name}, socket)
 
-	if p.profile.DisplayName != name || p.ship.Name != "Mustang" || s.World.Players.Has(p.playerID) {
+	if p.profile.DisplayName != name || p.ship.TargetLabel != name || p.ship.Name != "Mustang" || s.World.Players.Has(p.playerID) {
 		t.Fatal("profile creation changed the name or entered the world")
 	}
 
@@ -57,7 +57,7 @@ func TestProfileNameSurvivesReconnectRestartAndRespawn(t *testing.T) {
 	s.Receive(protocol.Control{Type: "prepare", PlayerToken: token}, socket)
 	p = s.playersBySocket[socket]
 
-	if p.profile.DisplayName != name || p.ship.Name != "Mustang" || s.identityPreview(token)[0] != name {
+	if p.profile.DisplayName != name || p.ship.TargetLabel != name || p.ship.Name != "Mustang" || s.identityPreview(token)[0] != name {
 		t.Fatal("name lost after reconnect and restart")
 	}
 
@@ -66,7 +66,7 @@ func TestProfileNameSurvivesReconnectRestartAndRespawn(t *testing.T) {
 	p.ship.Remove()
 	s.Receive(protocol.Control{Type: "respawn"}, socket)
 
-	if p.ship.Name != "Mustang" {
+	if p.ship.Name != "Mustang" || p.ship.TargetLabel != name {
 		t.Fatal("replacement ship did not use its model name")
 	}
 }

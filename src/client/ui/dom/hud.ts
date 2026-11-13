@@ -2,7 +2,7 @@ import { targetKinds } from '../target-kinds';
 import './hud.css';
 import html from './hud.html?raw';
 import { query, ui } from './ui';
-import { type Ship } from '../../objects/ship';
+import { Ship } from '../../objects/ship';
 import { type GameObject } from '../../objects/game-object';
 import { type Module } from '../../objects/modules/module';
 import { type Pose } from '../../types';
@@ -427,7 +427,7 @@ export const createHud = ({
 
       if (
         (expanded || !mapReady) &&
-        mapTime - mapRequestedAt >= (expanded ? 250 : 1000)
+        mapTime - mapRequestedAt >= (expanded ? 1000 / 15 : 1000)
       ) {
         mapRequestedAt = mapTime;
         onMapView(Vec.clone(mapCenter));
@@ -622,7 +622,8 @@ export const createHud = ({
           Vec.distanceSquared(ship.position, target.position) >
             jumpGateSpec.approachRadius ** 2
             ? 'Move closer to request access'
-            : target.targetLabel?.split('\n').at(-1) || target.description;
+            : (!(target instanceof Ship) && target.targetLabel?.split('\n').at(-1)) ||
+              target.description;
 
         text('[data-description]', description || '');
         hidden(node('[data-description]'), !description);

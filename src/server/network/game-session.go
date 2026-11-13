@@ -169,6 +169,7 @@ func NewGameSession(seed float64, catalog specs.Catalog, options ...SessionOptio
 }
 
 func (s *GameSession) registerPlayer(p *playerRecord) {
+	p.ship.TargetLabel = p.profile.DisplayName
 	s.players.Set(p.profile.ID, p)
 	s.playersByID[p.playerID] = p
 	s.updatePlayerActivity(p)
@@ -307,6 +308,7 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 
 		if player.profile.DisplayName == "" {
 			player.profile.DisplayName = message.DisplayName
+			player.ship.TargetLabel = message.DisplayName
 			s.assignInitialOwner()
 			s.requirePlayerCommit(player)
 			s.flushChanges()
@@ -904,6 +906,7 @@ func (s *GameSession) respawn(p *playerRecord) {
 
 	p.ship.Remove()
 	ship := objects.CreatePlayerShip(s.World, objects.Properties{DefinitionID: p.ship.DefinitionID, PlayerID: &p.playerID, Position: station.Base().Position, Rotation: station.Base().Rotation})
+	ship.TargetLabel = p.profile.DisplayName
 	id := station.Base().ID
 	ship.DockedTo = &id
 

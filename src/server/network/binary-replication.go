@@ -579,6 +579,12 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 	if s, ok := source.(interface{ ShipBase() *objects.Ship }); ok {
 		ship := s.ShipBase()
 
+		if ship.TargetLabel != "" {
+			scalarString(record, field.TargetLabel, ship.TargetLabel)
+		} else {
+			clearField(record, field.TargetLabel)
+		}
+
 		if ship.NPCState != "" {
 			scalarString(record, field.NPCState, ship.NPCState)
 		} else {

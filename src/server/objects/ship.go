@@ -21,7 +21,7 @@ type Ship struct {
 	cargoReleaseTime   float64
 	thrusterMountCount int
 	*Craft
-	NPCState                                 string
+	NPCState, TargetLabel                    string
 	TargetID                                 *int64
 	Firing                                   bool
 	Fuel, FuelCapacity                       float64
