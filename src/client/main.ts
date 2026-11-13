@@ -16,8 +16,9 @@ const loadGameplay = async () =>
 
 const renderSky = () => {
   if (gameplay) return;
-  const width = Math.trunc(innerWidth * graphics[3]);
-  const height = Math.trunc(innerHeight * graphics[3]);
+  const resolution = graphics[3] * (devicePixelRatio || 1);
+  const width = Math.trunc(innerWidth * resolution);
+  const height = Math.trunc(innerHeight * resolution);
 
   if (skyCanvas.width !== width || skyCanvas.height !== height) {
     skyCanvas.width = canvas.width = width;
@@ -39,7 +40,7 @@ const renderSky = () => {
   background.renderBackground(
     skyCanvas,
     skyCanvas.getContext('2d')!,
-    (Math.min(innerWidth, innerHeight) / 1080) * graphics[3],
+    (Math.min(innerWidth, innerHeight) / 1080) * resolution,
   );
 };
 

@@ -213,6 +213,8 @@ func craftOf(entity simulation.Entity) *Craft {
 		return c.Craft
 	case *Station:
 		return c.Craft
+	case *NavBeacon:
+		return c.Craft
 	case *Craft:
 		return c
 	}
@@ -282,11 +284,13 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 			}
 
 			entity = item
-		case "ship", "station", "craft":
+		case "ship", "station", "craft", "navBeacon":
 			p := Properties{ObjectProperties: props, DefinitionID: o.DefinitionID, Shades: o.Shades}
 
 			if s.Wreckage != nil {
 				entity = CreateWreckage(p, s.Wreckage, world.Specification)
+			} else if o.Kind == "navBeacon" {
+				entity = NewNavBeacon(p, world.Specification)
 			} else if o.Kind == "station" {
 				id := o.DefinitionID
 

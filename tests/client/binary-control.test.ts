@@ -258,6 +258,7 @@ const mapMessage = {
     name: 'Pilot 🦄',
     definitionId: kind === 'station' ? 'corral-6' : '',
     color: '#4df',
+    ...(kind === 'ship' ? { senderRole: 'admin' } : {}),
   })),
 };
 

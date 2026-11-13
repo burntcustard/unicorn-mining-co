@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { camera, followTarget, holeZoom } from '../../src/client/camera.ts';
 import { type GameState } from '../../src/client/game.ts';
 import { setSizing } from '../../src/client/ui/set-sizing.ts';
+import { graphics } from '../../src/client/ui/dom/graphics.ts';
 
-const viewport = { innerWidth: 1080, innerHeight: 1080 };
+const viewport = { innerWidth: 1080, innerHeight: 1080, devicePixelRatio: 1 };
 
 Object.assign(globalThis, { window: viewport });
 
@@ -36,6 +37,23 @@ for (const [width, height] of [
   );
   assert.equal(game.uiScale, Math.min(width, height) / 720);
 }
+
+Object.assign(viewport, {
+  innerWidth: 800,
+  innerHeight: 600,
+  devicePixelRatio: 2,
+});
+
+graphics[3] = 0.75;
+setSizing(game);
+assert.equal(game.canvas.width, 1200);
+assert.equal(game.canvas.height, 900);
+assert.equal(game.width, 1440, 'pixel density does not change the world view');
+assert.equal(game.uiWidth, 960, 'pixel density does not change the HUD layout');
+assert.equal(game.uiScale, 1.25);
+graphics[3] = 1;
+viewport.devicePixelRatio = 1;
+setSizing(game);
 
 camera.x = 123;
 camera.y = -456;

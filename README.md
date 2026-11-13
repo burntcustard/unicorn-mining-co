@@ -78,7 +78,7 @@ Node is used only for frontend builds, generators, and development/test tooling.
 
 To preview object specs independently, run `npm run tool:object-viewer` and open
 the URL printed by Vite (starting at port 3100). The development-only GameObject Viewer needs no Go server.
-It uses the actual client renderers for ships, stations, items and procedural
+It uses the actual client renderers for ships, stations, nav beacons, items and procedural
 asteroids, including spiky amethyst. Each mount lists its position and a dropdown
 of compatible modules; its checkbox activates all segments of the fitted instance.
 Choose Empty to leave a mount unfitted.
@@ -134,7 +134,9 @@ wormhole. Jump Gates cluster nearer the populated area; wormholes sample a
 wider annulus, favoring the outskirts. Every portal and arrival point stays
 below 100,000 units from the origin. All stations follow the same procedural
 density and spacing rules; sectors have no guaranteed station. Sectors without
-Jump Gates have no stations.
+Jump Gates have no stations. Each active Jump Gate has a nav beacon 880–1,000 units
+away, and additional beacons are scattered rarely throughout sectors. Beacons
+are currently inactive.
 Source edits hot-reload, retaining the seed, selection, camera and layers.
 Generation runs in a worker so navigation stays responsive. Large views draw
 feature outlines without generating every asteroid. This tool is excluded from

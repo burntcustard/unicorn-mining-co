@@ -35,6 +35,7 @@ export const propertyNames = [
   'muzzlePosition',
   'updateTurrets',
   'targetId',
+  'navBeaconSpec',
   'stationModuleIds',
   'stranded',
   'paired',

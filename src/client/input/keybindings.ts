@@ -24,6 +24,8 @@ export type KeyAction =
   | 'targetNext'
   | 'fpsCounter'
   | 'sectorMap'
+  | 'mapZoomIn'
+  | 'mapZoomOut'
   | 'telemetry'
   | 'requestGateAccess';
 
@@ -61,6 +63,8 @@ export const defaultKeybindings: Keybindings = {
   requestGateAccess: { keys: ['r'], mode: 'press' },
   telemetry: { keys: ['v'], mode: 'press' },
   sectorMap: { keys: ['Tab'], mode: 'press' },
+  mapZoomIn: { keys: ['=', '+'], mode: 'press' },
+  mapZoomOut: { keys: ['-'], mode: 'press' },
 };
 
 // Module actions are one-byte protocol tags; binding fields are mangled
@@ -127,6 +131,8 @@ export const bindingEntries: [string, KeyBinding][] = [
   ['Release cargo', defaultKeybindings.cargoRelease],
   ['Toggle movement telemetry', defaultKeybindings.telemetry],
   ['Toggle map', defaultKeybindings.sectorMap],
+  ['Zoom map in', defaultKeybindings.mapZoomIn],
+  ['Zoom map out', defaultKeybindings.mapZoomOut],
 ];
 
 // Derive input property names from object keys so production property mangling

@@ -265,6 +265,9 @@ export function decodeBinarySnapshot(
       case entityKindIds.wormhole:
         return 'wormhole';
 
+      case entityKindIds.navBeacon:
+        return 'navBeacon';
+
       case entityKindIds.station:
         return 'station';
 

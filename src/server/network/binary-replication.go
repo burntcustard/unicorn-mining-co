@@ -590,6 +590,8 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 		kind = "projectile"
 	} else if o.Item {
 		kind = "item"
+	} else if o.Kind == "navBeacon" {
+		kind = "navBeacon"
 	} else if o.Kind == "station" {
 		kind = "station"
 	} else if crafted {

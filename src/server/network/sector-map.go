@@ -30,7 +30,7 @@ func (s *GameSession) sectorMapView(player *playerRecord, position specs.Vector)
 			return
 		}
 
-		markers = append(markers, protocol.MapMarker{Kind: "ship", ID: p.shipID, Position: p.ship.Position, Name: p.profile.DisplayName, Color: p.ship.Shades[2]})
+		markers = append(markers, protocol.MapMarker{Kind: "ship", ID: p.shipID, Position: p.ship.Position, Name: p.profile.DisplayName, Color: p.ship.Shades[2], SenderRole: string(p.profile.Role)})
 	})
 
 	s.sendControl(player.socket, protocol.ServerControl{Type: "sectorMap", MapMarkers: markers})

@@ -364,6 +364,16 @@ bindAction(defaultKeybindings.sectorMap, (event) => {
   hud.toggleMap();
 });
 
+for (const [binding, direction] of [
+  [defaultKeybindings.mapZoomIn, 1],
+  [defaultKeybindings.mapZoomOut, -1],
+] as const) {
+  bindAction(binding, (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    hud.zoomMap(direction);
+  });
+}
+
 bindAction(defaultKeybindings.telemetry, (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
   event.preventDefault();

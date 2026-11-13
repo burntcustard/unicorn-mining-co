@@ -1,3 +1,4 @@
+import { senderColor } from './sender-color';
 import { type Ship } from '../objects/ship';
 import { type Pose } from '../types';
 import { type MapMarker } from '../protocol/network';
@@ -20,6 +21,7 @@ export const renderSectorMap = ({
   mapMarkers,
   displayName,
   displayScale,
+  range = mapRange,
 }: {
   ctx: CanvasRenderingContext2D;
   ship: Ship;
@@ -28,8 +30,9 @@ export const renderSectorMap = ({
   mapMarkers: MapMarker[];
   displayName: string;
   displayScale: number;
+  range?: number;
 }) => {
-  const scale = 296 / mapRange;
+  const scale = 296 / range;
   const iconRadius = 7 * displayScale;
   const outline = withAlpha({ color: '#000', alpha: 0.8 });
   const offset = (position: Vec.Value) =>
@@ -44,14 +47,14 @@ export const renderSectorMap = ({
   ctx.lineWidth = 2 * displayScale;
   ctx.strokeStyle = withAlpha({ color: '#eef', alpha: 0.12 });
   ctx.beginPath();
-  const spacing = 4000;
+  const spacing = 10000;
 
   for (let axis = 0; axis < 2; axis++) {
     const center = axis ? mapCenter.y : mapCenter.x;
 
     for (
-      let value = Math.ceil((center - mapRange) / spacing) * spacing;
-      value <= center + mapRange;
+      let value = Math.ceil((center - range) / spacing) * spacing;
+      value <= center + range;
       value += spacing
     ) {
       const line = (value - center) * scale;
@@ -64,14 +67,14 @@ export const renderSectorMap = ({
   ctx.stroke();
   ctx.lineJoin = 'round';
 
-  const label = (name: string, y: number) => {
-    ctx.font = `${12 * displayScale}px system-ui, sans-serif`;
+  const label = (name: string, y: number, color: string) => {
+    ctx.font = `bold ${14 * displayScale}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.lineWidth = 3 * displayScale;
     ctx.strokeStyle = outline;
     ctx.strokeText(name, 0, y);
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = color;
     ctx.fillText(name, 0, y);
   };
 
@@ -124,7 +127,11 @@ export const renderSectorMap = ({
       ctx.stroke();
       ctx.fillStyle = marker.color;
       ctx.fill();
-      label(marker.name, iconRadius + 5 * displayScale);
+      label(
+        marker.name,
+        iconRadius + 5 * displayScale,
+        senderColor(marker.senderRole || ''),
+      );
     } else {
       renderLandmarkIcon({ ctx, object: marker, radius: iconRadius, outline });
       ctx.lineWidth = 2 * displayScale;
@@ -164,7 +171,15 @@ export const renderSectorMap = ({
   ctx.stroke();
   ctx.fill();
   ctx.restore();
-  label(displayName, iconRadius * 2 + 5 * displayScale);
+  const ownRole =
+    mapMarkers.find((marker) => marker.kind === 'ship' && marker.id === ship.id)
+      ?.senderRole || '';
+
+  label(
+    displayName,
+    iconRadius * 2 + 5 * displayScale,
+    senderColor(ownRole, true),
+  );
   ctx.restore();
   ctx.restore();
 };

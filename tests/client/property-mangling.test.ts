@@ -527,6 +527,7 @@ const browser = createContext({
   canvas,
   innerWidth: 800,
   innerHeight: 600,
+  devicePixelRatio: 1,
   document: {
     createElement: () => ({ getContext: () => context }),
     querySelector: () => canvas,

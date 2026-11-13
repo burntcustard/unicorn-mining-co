@@ -1,3 +1,4 @@
+import { navBeaconSpec } from '../src/specs/nav-beacon';
 import { jumpGateSpec, jumpGateHull } from '../src/specs/jump-gate';
 import { wormholeSpec } from '../src/specs/wormhole';
 import { portalSpec } from '../src/specs/portal';
@@ -107,6 +108,7 @@ const catalog = {
   wormholeSpec,
   portalSpec,
   jumpGateHull,
+  navBeaconSpec,
   sectorNames,
   sectorGeneration,
   startingSectorId,

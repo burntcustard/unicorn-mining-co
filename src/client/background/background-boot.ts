@@ -1,5 +1,5 @@
 import { renderBackground } from './background';
-import { restoreGraphics } from '../ui/dom/graphics';
+import { graphics, restoreGraphics } from '../ui/dom/graphics';
 
 window.addEventListener('ui-graphics', restoreGraphics);
 
@@ -10,10 +10,11 @@ Object.assign(globalThis, { background: { renderBackground } });
 const skyCanvas =
   document.querySelector<HTMLCanvasElement>('#background-canvas')!;
 const ctx = skyCanvas.getContext('2d');
-const scale = Math.min(innerWidth, innerHeight) / (720 * 1.5);
+const resolution = graphics[3] * (devicePixelRatio || 1);
+const scale = (Math.min(innerWidth, innerHeight) / (720 * 1.5)) * resolution;
 
-skyCanvas.width = canvas.width = innerWidth;
-skyCanvas.height = canvas.height = innerHeight;
+skyCanvas.width = canvas.width = innerWidth * resolution;
+skyCanvas.height = canvas.height = innerHeight * resolution;
 renderBackground(skyCanvas, ctx, scale);
 
 requestAnimationFrame(() => {

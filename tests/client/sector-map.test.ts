@@ -6,6 +6,7 @@ import * as Vec from '../../src/client/utilities/vector';
 
 const ship = createPlayerShip(createWorld());
 const labels: string[] = [];
+const labelColors: string[] = [];
 const arcs: number[][] = [];
 const clips: number[][] = [];
 const translations: number[][] = [];
@@ -33,6 +34,7 @@ const ctx = {
   strokeText() {},
   fillText(text: string) {
     labels.push(text);
+    labelColors.push(ctx.fillStyle as string);
   },
   arc(x: number, y: number, radius: number) {
     arcs.push([x, y, radius]);
@@ -69,6 +71,7 @@ const markers = [
     position: ship.position,
     radius: 0,
     name: 'Stale own name',
+    senderRole: 'owner',
     definitionId: '',
     color: '#fff',
   },
@@ -78,6 +81,7 @@ const markers = [
     position: Vec.create(4000, 2000),
     radius: 0,
     name: 'Other Pilot',
+    senderRole: 'admin',
     definitionId: '',
     color: '#3f7',
   },
@@ -113,6 +117,11 @@ assert.deepEqual(
   ['Other Pilot', 'Your Pilot'],
   'players are labeled once, including your docked ship',
 );
+assert.deepEqual(
+  labelColors,
+  ['#4df', '#ff0'],
+  'labels use player roles, including your own',
+);
 assert(
   arcs.some(([, , radius]) => radius === (2500 * 296) / mapRange),
   'field circles show their real radius',
@@ -134,3 +143,31 @@ assert(
   'panning moves your own marker away from the map center',
 );
 assert.equal(depth, 0);
+
+// Grid lines stay anchored to world coordinates as the viewport zooms.
+for (const range of [mapRange, mapRange * 2]) {
+  const lines: number[] = [];
+  let grid = true;
+
+  const gridContext = Object.assign(
+    Object.create(ctx) as CanvasRenderingContext2D,
+    {
+      moveTo(x: number, y: number) {
+        if (grid && y === -300) lines.push(x);
+      },
+      stroke() {
+        grid = false;
+      },
+    },
+  );
+
+  renderSectorMap({
+    ...options,
+    ctx: gridContext,
+    mapCenter: Vec.create(),
+    range,
+  });
+
+  assert(lines.includes(0));
+  assert(lines.includes((10000 * 296) / range));
+}

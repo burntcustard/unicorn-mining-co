@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -20,6 +21,7 @@ func TestSectorMapViewportIsPrivateAndRateLimited(t *testing.T) {
 	other := s.playersBySocket[b]
 	p.profile.DisplayName = "Map Pilot"
 	other.profile.DisplayName = "Other Pilot"
+	other.profile.Role = persistence.RoleAdmin
 	a.frames, b.frames = nil, nil
 	position := p.ship.Position
 	// A player beyond the original 12 km radius is visible at the wider zoom.
@@ -33,7 +35,7 @@ func TestSectorMapViewportIsPrivateAndRateLimited(t *testing.T) {
 
 	packet := a.frames[0]
 
-	if packet[3] != byte(catalog.Protocol.ControlMessageIDs["sectorMap"]) || !bytes.Contains(packet, []byte("Map Pilot")) || !bytes.Contains(packet, []byte("Other Pilot")) {
+	if packet[3] != byte(catalog.Protocol.ControlMessageIDs["sectorMap"]) || !bytes.Contains(packet, []byte("Map Pilot")) || !bytes.Contains(packet, []byte("Other Pilot")) || !bytes.Contains(packet, []byte("admin")) {
 		t.Fatal("map omitted same-sector player names")
 	}
 

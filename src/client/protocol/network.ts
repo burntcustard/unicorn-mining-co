@@ -49,6 +49,7 @@ export type ReplicatedEntity = {
     | 'item'
     | 'ship'
     | 'station'
+    | 'navBeacon'
     | 'object'
     | 'projectile'
     | 'jumpGate'
@@ -111,6 +112,7 @@ export type MapMarker = {
   name: string;
   definitionId: string;
   color: string;
+  senderRole?: string;
 };
 
 export type ClientMessage =

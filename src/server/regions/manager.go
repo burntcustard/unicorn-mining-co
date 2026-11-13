@@ -20,6 +20,7 @@ type Manager struct {
 	views      []protocol.RegionalView
 	Procedural *simulation.RegionManager
 	catalog    specs.Catalog
+	GateSites  []simulation.SectorConnectionSite
 }
 
 func New(seed uint32, catalog specs.Catalog, sectors ...simulation.Sector) *Manager {
@@ -193,6 +194,42 @@ func (r *Manager) Sync(world *simulation.World, positions []Vec.Vector) {
 			wreck.Paint = d.Paint
 			wreck.HasPaint = true
 			simulation.AddEntity(world, wreck)
+			r.Managed.Set(id, true)
+		}
+	}
+
+	for i, position := range positions {
+		reach := ranges.Asteroid
+
+		if i < len(limits) && limits[i] > 0 {
+			reach = min(reach, limits[i])
+		}
+
+		for _, d := range r.Procedural.NavBeacons(Vec.Add(position, Vec.Create(-reach, -reach)), Vec.Add(position, Vec.Create(reach, reach)), r.GateSites) {
+			if Vec.DistanceSquared(position, d.Position) > reach*reach {
+				continue
+			}
+
+			id := r.IDOffset + int64(d.ID)
+
+			if wanted[id] {
+				continue
+			}
+
+			wanted[id] = true
+
+			if world.Entities.Has(id) || r.Sleeping.Has(id) {
+				continue
+			}
+
+			if r.Managed.Has(id) {
+				r.Procedural.Remove(d.ID)
+				r.Managed.Delete(id)
+				continue
+			}
+
+			beacon := objects.NewNavBeacon(objects.Properties{ObjectProperties: simulation.ObjectProperties{World: world, ID: &id, Position: d.Position, Rotation: d.Rotation, Spin: d.Spin}}, r.catalog)
+			simulation.AddEntity(world, beacon)
 			r.Managed.Set(id, true)
 		}
 	}

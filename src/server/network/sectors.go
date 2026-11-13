@@ -145,6 +145,7 @@ func (s *GameSession) activateSector(id string) {
 				portal.ConnectionID = link.ID
 
 				if kind == 0 {
+					regionManager.GateSites = append(regionManager.GateSites, site)
 					portal.TargetLabel = "JUMP GATE\n" + sector.Name + "\u2009→\u2009" + destination.Name
 					portal.Name = fmt.Sprintf("%s%s-%d%d", sector.Name[:1], destination.Name[:1], int(math.Abs(utilities.RoundTiesUp(site.Position.X)))%10, int(math.Abs(utilities.RoundTiesUp(site.Position.Y)))%10)
 					portal.Rotation = link.Rotation

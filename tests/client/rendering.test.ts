@@ -28,6 +28,7 @@ import { crotus } from '${root}/src/specs/ships/crotus.ts';
 import { Ship } from '${root}/src/client/objects/ship.ts';
 import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import { Station } from '${root}/src/client/objects/station.ts';
+import { NavBeacon } from '${root}/src/client/objects/nav-beacon.ts';
 import {
   moduleTypesById,
   SearchLight,
@@ -93,6 +94,21 @@ init();
     assert.equal(ship.dead, false);
     assert.equal(ship.stranded, false);
   }
+}
+
+// Beacons hydrate as craft without acquiring ship or station behavior.
+{
+  const world = createWorld();
+  const record = {kind: 'navBeacon', id: 98765, radius: 36,
+    position: Vec.create(), rotation: 0, spin: 0};
+  const beacon = makeEntity({entity: record, world});
+  assert(beacon instanceof NavBeacon);
+  assert(beacon instanceof Craft);
+  assert(!(beacon instanceof Ship));
+  assert(!(beacon instanceof Station));
+  assert.equal(beacon.segments.length, 12);
+  assert.equal(beacon.hitbox().filter(collider => collider.physics !== false).length, 11);
+  assert.equal(makeEntity({entity: record, world, previous: beacon}), beacon);
 }
 
 // Gate safety state survives wire hydration, prediction, and authoritative reset.

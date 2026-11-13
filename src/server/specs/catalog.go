@@ -21,6 +21,7 @@ type Catalog struct {
 	PortalSpec       Portal              `json:"portalSpec"`
 	JumpGateSpec     JumpGate            `json:"jumpGateSpec"`
 	WormholeSpec     Wormhole            `json:"wormholeSpec"`
+	NavBeaconSpec    NavBeacon           `json:"navBeaconSpec"`
 	JumpGateHull     []HullSegment       `json:"jumpGateHull"`
 	SectorNames      []string            `json:"sectorNames"`
 	SectorGeneration SectorGeneration    `json:"sectorGeneration"`

@@ -29,6 +29,7 @@ import { GameObject } from '../objects/game-object';
 import { Craft } from '../objects/craft';
 import { Ship } from '../objects/ship';
 import { Station } from '../objects/station';
+import { NavBeacon } from '../objects/nav-beacon';
 import { createShip } from '../objects/create-ship';
 import { createWreckage } from '../objects/create-wreckage';
 import { type SimulationWorld } from '../simulation/world';
@@ -155,7 +156,11 @@ const makeEntity = ({
 
   const wreckage = entity.wreckage;
 
-  if (entity.kind !== 'ship' && entity.kind !== 'station') {
+  if (
+    entity.kind !== 'ship' &&
+    entity.kind !== 'station' &&
+    entity.kind !== 'navBeacon'
+  ) {
     throw new Error('Unknown replicated entity kind');
   }
 
@@ -173,24 +178,27 @@ const makeEntity = ({
       : previous instanceof Craft &&
           previous.definitionId === entity.definitionId &&
           !previous.decay &&
-          ((entity.kind === 'station' && previous instanceof Station) ||
+          ((entity.kind === 'navBeacon' && previous instanceof NavBeacon) ||
+            (entity.kind === 'station' && previous instanceof Station) ||
             (entity.kind === 'ship' && previous instanceof Ship))
         ? previous
-        : entity.kind === 'station'
-          ? new Station({
-              ...common,
-              cargoContents: [],
-              stationType:
-                entity.definitionId as import('../../specs/stations').StationId,
-              world,
-              ...(entity.shades && { shades: shadesOf(entity.shades) }),
-            })
-          : createShip(world, {
-              ...common,
-              shipType:
-                entity.definitionId as import('../../specs/ships').ShipId,
-              ...(entity.shades && { shades: shadesOf(entity.shades) }),
-            }),
+        : entity.kind === 'navBeacon'
+          ? new NavBeacon({ ...common, world })
+          : entity.kind === 'station'
+            ? new Station({
+                ...common,
+                cargoContents: [],
+                stationType:
+                  entity.definitionId as import('../../specs/stations').StationId,
+                world,
+                ...(entity.shades && { shades: shadesOf(entity.shades) }),
+              })
+            : createShip(world, {
+                ...common,
+                shipType:
+                  entity.definitionId as import('../../specs/ships').ShipId,
+                ...(entity.shades && { shades: shadesOf(entity.shades) }),
+              }),
     common,
     {
       ...(entity.fuel !== undefined && { fuel: entity.fuel }),

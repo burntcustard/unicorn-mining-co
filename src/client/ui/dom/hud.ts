@@ -61,12 +61,16 @@ export const createHud = ({
   const mapPanel = mapCanvas.parentElement!;
   const mapButton = query<HTMLButtonElement>(mapPanel, '[data-map-toggle]');
   const mapKey = query(mapButton, '[data-map-key]');
+  const mapZoom = query(mapPanel, '.hud-map-zoom');
   const controller = new AbortController();
   const { signal } = controller;
   let expanded = false;
+  let mapExpanded = false;
+  let mapCollapse: ReturnType<typeof setTimeout> | undefined;
   let mapReady = true;
   let pendingMap = false;
   let mapCenter = Vec.create();
+  let range = mapRange;
   let mapMarkers: MapMarker[] = [];
   let fields: ReturnType<typeof createMapFields> | undefined;
   let mapSeed: number | undefined;
@@ -89,14 +93,15 @@ export const createHud = ({
         ? nextMapDraw +
           (Math.floor((time - nextMapDraw) / hudInterval) + 1) * hudInterval
         : time + hudInterval;
-    const displayScale = (expanded ? 600 : 300) / (mapWidth || 300);
+    const displayScale = (mapExpanded ? 600 : 300) / (mapWidth || 300);
 
-    if (expanded) {
+    if (mapExpanded) {
       renderSectorMap({
         ...mapOptions,
         mapCenter,
+        range,
         mapMarkers: fields
-          ? [...fields(mapCenter, mapRange), ...mapMarkers]
+          ? [...fields(mapCenter, range), ...mapMarkers]
           : mapMarkers,
         displayName,
         displayScale,
@@ -117,22 +122,65 @@ export const createHud = ({
     pendingMap = false;
     stopDrag();
     expanded = !expanded;
-    mapCenter = Vec.clone(
-      (mapOptions.poses.get(mapOptions.ship.id) || mapOptions.ship).position,
-    );
+
+    if (expanded) {
+      mapCenter = Vec.clone(
+        (mapOptions.poses.get(mapOptions.ship.id) || mapOptions.ship).position,
+      );
+    }
+
     mapRequestedAt = -Infinity;
     mapPanel.classList.toggle('hud-map-expanded', expanded);
+    mapZoom.inert = !expanded;
     mapButton.setAttribute('aria-pressed', String(expanded));
     mapButton.setAttribute('aria-expanded', String(expanded));
-    mapCanvas.width = mapCanvas.height = expanded ? 600 : 300;
+    clearTimeout(mapCollapse);
+
+    const updateMap = () => {
+      mapExpanded = expanded;
+      mapCanvas.width = mapCanvas.height = mapExpanded ? 600 : 300;
+      mapCanvas.setAttribute(
+        'aria-label',
+        mapExpanded
+          ? `Sector map, north up, range ${range.toLocaleString('en-US')} meters.`
+          : `Nearby objects, north up, range ${minimapRange.toLocaleString('en-US')} meters`,
+      );
+      drawMap();
+    };
+
+    if (expanded) {
+      updateMap();
+    } else {
+      mapCollapse = setTimeout(updateMap, 100);
+    }
+  };
+
+  const zoomMap = (direction: number) => {
+    if (!expanded || mapPanel.hidden) return;
+    range = Math.max(
+      mapRange / 4,
+      Math.min(mapRange * 4, range * (direction > 0 ? 0.5 : 2)),
+    );
     mapCanvas.setAttribute(
       'aria-label',
-      expanded
-        ? `Sector map, north up, range ${mapRange.toLocaleString('en-US')} meters.`
-        : `Nearby objects, north up, range ${minimapRange.toLocaleString('en-US')} meters`,
+      `Sector map, north up, range ${range.toLocaleString('en-US')} meters.`,
     );
     drawMap();
   };
+
+  for (const [selector, direction] of [
+    ['[data-map-zoom-in]', 1],
+    ['[data-map-zoom-out]', -1],
+  ] as const) {
+    query<HTMLButtonElement>(mapPanel, selector).addEventListener(
+      'click',
+      (event) => {
+        zoomMap(direction);
+        (event.currentTarget as HTMLButtonElement).blur();
+      },
+      { signal },
+    );
+  }
 
   mapButton.addEventListener(
     'click',
@@ -168,7 +216,7 @@ export const createHud = ({
       const position = Vec.create(event.clientX, event.clientY);
       const delta = Vec.scale(
         Vec.subtract(position, drag.position),
-        (mapRange * 600) / (296 * (mapWidth || 600)),
+        (range * 600) / (296 * (mapWidth || 600)),
       );
 
       Vec.subtract(mapCenter, delta, mapCenter);
@@ -291,8 +339,10 @@ export const createHud = ({
   return {
     setShown,
     toggleMap,
+    zoomMap,
     destroy() {
       controller.abort();
+      clearTimeout(mapCollapse);
       mapResize.disconnect();
       mapOptions = undefined;
       panels.forEach((panel) => element.removeChild(panel));

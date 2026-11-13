@@ -1,3 +1,4 @@
+import { senderColor } from '../sender-color';
 import { playSound } from '../../audio/sound-loader';
 import './chat.css';
 import html from './chat.html?raw';
@@ -14,13 +15,6 @@ import { jumpGateSpec } from '../../../specs/jump-gate';
 import { jumpGateDialog } from '../../../specs/dialog/jump-gate';
 import { namedSeed } from '../../utilities/seed-hash';
 import * as Vec from '../../utilities/vector';
-
-const senderColors = new Map([
-  ['owner', '#ff0'],
-  ['friendly', '#3f7'],
-  ['admin', '#4df'],
-  ['hostile', '#f44'],
-]);
 
 /**
  * Gate conversations and received messages share one chronological chat history.
@@ -315,11 +309,10 @@ export const createChat = ({
           if (message === target && !button.disabled) access = button;
         } else {
           const sender = query(element, 'strong');
-          const color =
-            message.sender === network.displayName &&
-            !['admin', 'owner'].includes(message.senderRole)
-              ? '#e6f'
-              : senderColors.get(message.senderRole) || '#fff';
+          const color = senderColor(
+            message.senderRole,
+            message.sender === network.displayName,
+          );
 
           if (sender.style.getPropertyValue('--sender-color') !== color) {
             sender.style.setProperty('--sender-color', color);

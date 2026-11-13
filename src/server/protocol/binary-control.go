@@ -47,11 +47,11 @@ type Control struct {
 }
 
 type MapMarker struct {
-	Kind                      string
-	ID                        int64
-	Position                  specs.Vector
-	Radius                    float64
-	Name, DefinitionID, Color string
+	Kind                                  string
+	ID                                    int64
+	Position                              specs.Vector
+	Radius                                float64
+	Name, DefinitionID, Color, SenderRole string
 }
 
 type ServerControl struct {
@@ -577,6 +577,12 @@ func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, err
 
 			for _, value := range []string{marker.Name, marker.DefinitionID, marker.Color} {
 				if err := w.text(value); err != nil {
+					return nil, err
+				}
+			}
+
+			if marker.Kind == "ship" {
+				if err := w.text(marker.SenderRole); err != nil {
 					return nil, err
 				}
 			}

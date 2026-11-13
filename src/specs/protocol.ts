@@ -90,4 +90,5 @@ export const entityKindIds = {
   projectile: 5,
   jumpGate: 6,
   wormhole: 7,
+  navBeacon: 8,
 } as const satisfies Record<string, number>;

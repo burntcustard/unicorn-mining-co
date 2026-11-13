@@ -762,6 +762,8 @@ export function encodeServerControl(
       writer.text(marker.name);
       writer.text(marker.definitionId);
       writer.text(marker.color);
+
+      if (marker.kind === 'ship') writer.text(marker.senderRole || '');
     });
 
     return writer.finish();
@@ -909,6 +911,7 @@ export function decodeServerControl(
             name: reader.text(),
             definitionId: reader.text(),
             color: reader.text(),
+            ...(kind === 'ship' ? { senderRole: reader.text() } : {}),
           };
 
           if (marker.radius < 0) throw new Error('Invalid map radius');
