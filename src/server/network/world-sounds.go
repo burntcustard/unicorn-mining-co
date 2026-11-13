@@ -63,6 +63,17 @@ func (s *GameSession) worldSounds(events []protocol.SimulationEvent) []protocol.
 			}
 		case protocol.CollisionEvent:
 			if event.Impact >= 40 {
+				if event.Shield[0] || event.Shield[1] {
+					id := event.A
+
+					if !event.Shield[0] {
+						id = event.B
+					}
+
+					sounds = append(sounds, protocol.WorldSound{Effect: 5, ID: id, By: owner(id), Position: event.Position})
+					continue
+				}
+
 				for side, id := range []int64{event.A, event.B} {
 					by := owner(id)
 
@@ -84,6 +95,7 @@ func (s *GameSession) worldSounds(events []protocol.SimulationEvent) []protocol.
 			position := Vec.Vector{}
 			found := false
 			gap := math.MaxInt
+			shieldBounce := false
 
 			// Match the nearest event on this asteroid, so simultaneous miners keep
 			// separate attribution. Collision records can follow their fracture.
@@ -101,6 +113,7 @@ func (s *GameSession) worldSounds(events []protocol.SimulationEvent) []protocol.
 				var contact Vec.Vector
 				var contactBy int64
 				match := false
+				bounce := false
 
 				switch candidate := candidate.(type) {
 				case protocol.DrillDamage:
@@ -109,6 +122,7 @@ func (s *GameSession) worldSounds(events []protocol.SimulationEvent) []protocol.
 					match, contact, contactBy = candidate.TargetID == id, candidate.Position, candidate.By
 				case protocol.CollisionEvent:
 					match, contact = candidate.A == id || candidate.B == id, candidate.Position
+					bounce = candidate.Impact >= 40 && (candidate.Shield[0] || candidate.Shield[1])
 
 					if candidate.A == id {
 						contactBy = owner(candidate.B)
@@ -118,7 +132,7 @@ func (s *GameSession) worldSounds(events []protocol.SimulationEvent) []protocol.
 				}
 
 				if match {
-					position, found, gap = contact, true, delta
+					position, found, gap, shieldBounce = contact, true, delta, bounce
 
 					if _, destroyed := event.(protocol.AsteroidDestroyed); !destroyed {
 						by = contactBy
@@ -132,7 +146,7 @@ func (s *GameSession) worldSounds(events []protocol.SimulationEvent) []protocol.
 				}
 			}
 
-			if found {
+			if found && !shieldBounce {
 				sounds = append(sounds, protocol.WorldSound{Effect: 4, ID: id, By: by, Position: position})
 			}
 		}

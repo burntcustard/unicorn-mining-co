@@ -444,7 +444,15 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 			}
 		}
 
-		*events = append(*events, protocol.CollisionEvent{A: ao.ID, B: bo.ID, Impact: impact, Colors: [2]string{collision.OutlineColorOf(a, g.catalog.Colors), collision.OutlineColorOf(b, g.catalog.Colors)}, Damage: applied, Position: point})
+		shield := [2]bool{}
+
+		for i, collider := range [2]*collision.Collider{a, b} {
+			if segment, ok := collider.Segment.(*simulation.Segment); ok && segment != nil {
+				shield[i] = segment.Covers
+			}
+		}
+
+		*events = append(*events, protocol.CollisionEvent{A: ao.ID, B: bo.ID, Impact: impact, Colors: [2]string{collision.OutlineColorOf(a, g.catalog.Colors), collision.OutlineColorOf(b, g.catalog.Colors)}, Damage: applied, Position: point, Shield: shield})
 	})
 
 	if dt > 0 {

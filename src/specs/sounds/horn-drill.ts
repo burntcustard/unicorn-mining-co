@@ -4,7 +4,7 @@ export default {
   duration: 33,
   frequency: 35,
   volume: 0.25,
-  highpass: 30,
+  highpass: 80,
   basePitch: 0.4,
   activeVolume: 2,
   bitingVolume: 4,
