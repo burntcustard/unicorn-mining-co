@@ -1,0 +1,22 @@
+import { thruster } from './thruster';
+import type { ModuleSpec } from '../../types';
+
+export const thrusterSingleSm = {
+  ...thruster,
+  weight: 1,
+  name: 'Thruster sm',
+  health: 15,
+  power: 0.6,
+  powerActivated: 0.6,
+  price: 200,
+  fuelUsage: 0.04,
+  forwardThrust: 12,
+  rotationalThrust: 10,
+  model: [
+    {
+      outline: true,
+      flareSize: 5,
+      thrusterNozzleSide: 0,
+    },
+  ],
+} satisfies ModuleSpec;
