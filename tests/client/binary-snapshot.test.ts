@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot';
+import {
+  decodeBinarySnapshot,
+  mergeModuleStates,
+  BinaryField,
+} from '../../src/client/protocol/binary-snapshot';
 import {
   decodeClientMessage,
   encodeServerControl,
@@ -78,6 +82,94 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
   writer.unsigned(nextId);
 };
 
+// Construct packed motion independently, including alternating widths that
+// reuse the decoder's scratch buffer.
+{
+  const writer = new Writer();
+
+  const packed = (value: number, omitted: number) => {
+    const number = new Writer();
+
+    number.number(value);
+    number.bytes.slice(omitted).forEach((byte) => writer.byte(byte));
+  };
+
+  start(writer, 0, 0, 2);
+  writer.unsigned(1);
+
+  writer.record(1, [
+    [
+      BinaryField.packedPosition,
+      () => {
+        packed(-3000.25, 2);
+        packed(6300.75, 2);
+      },
+    ],
+    [BinaryField.packedRotation, () => packed(0.75, 3)],
+    [
+      BinaryField.packedVelocity,
+      () => {
+        packed(2 ** -24, 2);
+        packed(-1, 2);
+      },
+    ],
+    [BinaryField.packedSpin, () => packed(-(2 ** -24), 3)],
+  ]);
+
+  const entity = decodeBinarySnapshot(writer.packet()).fullEntities[0];
+
+  assert.deepEqual(entity.position, { x: -3000.25, y: 6300.75 });
+  assert.deepEqual(entity.velocity, { x: 2 ** -24, y: -1 });
+  assert.equal(entity.rotation, 0.75);
+  assert.equal(entity.spin, -(2 ** -24));
+}
+
+for (const [field, bytes] of [
+  [BinaryField.packedPosition, 11],
+  [BinaryField.packedRotation, 4],
+] as const) {
+  const writer = new Writer();
+
+  start(writer, 0, 0, 2);
+  writer.unsigned(1);
+
+  writer.record(1, [
+    [
+      field,
+      () => {
+        for (let i = 0; i < bytes; i++) writer.byte(0);
+      },
+    ],
+  ]);
+
+  assert.throws(
+    () => decodeBinarySnapshot(writer.packet()),
+    /Invalid binary snapshot/,
+  );
+}
+
+{
+  const writer = new Writer();
+
+  start(writer, 0, 0, 2);
+  writer.unsigned(1);
+
+  writer.record(1, [
+    [
+      BinaryField.packedRotation,
+      () => {
+        for (let i = 0; i < 5; i++) writer.byte(0);
+      },
+    ],
+    [BinaryField.rotation, () => writer.number(0)],
+  ]);
+
+  assert.throws(
+    () => decodeBinarySnapshot(writer.packet()),
+    /Invalid binary snapshot/,
+  );
+}
+
 // Exercise the nested schema, optional headers, clear tags, and JSON's number
 // normalization against bytes assembled independently of the server writer.
 {
@@ -126,18 +218,17 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
     [
       17,
       () => {
-        writer.unsigned(1);
+        writer.unsigned(2);
         writer.byte(55); // id, health, shades, startup charge
-        writer.number(3);
-        writer.number(4);
-        writer.number(5);
+        writer.unsigned(6);
+        writer.unsigned(8);
+        writer.unsigned(10);
         writer.number(6);
-        writer.unsigned(1);
-        writer.string('blue');
+        writer.byte(0); // red palette
         writer.number(0.7);
         writer.number(42);
         writer.unsigned(1);
-        writer.number(1);
+        writer.byte(9);
         writer.number(0.5);
       },
     ],
@@ -209,7 +300,7 @@ const start = (writer: Writer, flags: number, tick: number, nextId: number) => {
             mount: 4,
             id: 5,
             health: 6,
-            shades: ['blue'],
+            shades: colors.red,
             chargeCooldown: 0.7,
             healthActivated: 42,
             segments: [{ active: 1, activationProgress: 0.5 }],
@@ -882,4 +973,218 @@ for (const state of [null, 'Fighting', 'Collecting']) {
     decodeBinarySnapshot(writer.packet()).fullEntities[0].npcState,
     state,
   );
+}
+
+// Build module packets independently of the server encoder.
+const modulePacket = (write: (writer: Writer) => void, load = false) => {
+  const writer = new Writer();
+
+  start(writer, load ? 1 : 0, 0, 2);
+  writer.unsigned(1);
+  writer.record(1, [[17, () => write(writer)]]);
+  return writer.packet();
+};
+
+const signedModuleInteger = (writer: Writer, value: number) => {
+  writer.unsigned(value < 0 ? -value * 2 - 1 : value * 2);
+};
+
+const moduleEntry = (
+  writer: Writer,
+  id: number,
+  palette?: number,
+  progress = 0.5,
+) => {
+  writer.byte(1 | (palette === undefined ? 128 : 4));
+  writer.unsigned(8);
+  writer.unsigned(0);
+  signedModuleInteger(writer, id);
+
+  if (palette !== undefined) writer.byte(palette);
+  writer.unsigned(1);
+  writer.byte(9);
+  writer.number(progress);
+};
+
+const full = modulePacket((writer) => {
+  writer.unsigned(6); // Three full modules.
+  moduleEntry(writer, -1, 0);
+  moduleEntry(writer, -2, 1);
+  moduleEntry(writer, -3, 2);
+}, true);
+
+const previous = decodeBinarySnapshot(full).fullEntities[0];
+
+assert.deepEqual(
+  previous.modules?.map((m) => m.shades),
+  [colors.red, colors.orange, colors.yellow],
+);
+
+const moduleDelta = modulePacket((writer) => {
+  writer.unsigned(7); // Three modules with sparse changes.
+  writer.byte(2); // Only the second module changed.
+  moduleEntry(writer, -2);
+});
+
+const changed = decodeBinarySnapshot(moduleDelta).fullEntities[0];
+
+assert.throws(() => mergeModuleStates(changed), /Missing module baseline/);
+mergeModuleStates(changed, previous);
+assert.deepEqual(changed.modules, previous.modules);
+
+const wrong = decodeBinarySnapshot(moduleDelta).fullEntities[0];
+
+assert.throws(
+  () => mergeModuleStates(wrong, { modules: [previous.modules![0]] }),
+  /Missing module baseline/,
+);
+
+const reordered = {
+  modules: [previous.modules![0], previous.modules![2], previous.modules![1]],
+};
+
+assert.throws(
+  () =>
+    mergeModuleStates(
+      decodeBinarySnapshot(moduleDelta).fullEntities[0],
+      reordered,
+    ),
+  /Missing module shade baseline/,
+);
+
+// The paint update can be followed by sparse animation updates before a render.
+const repaintPacket = modulePacket((writer) => {
+  writer.unsigned(6);
+  moduleEntry(writer, -1, 3);
+  moduleEntry(writer, -2, 4);
+  moduleEntry(writer, -3, 5);
+});
+
+const repainted = decodeBinarySnapshot(repaintPacket).fullEntities[0];
+
+mergeModuleStates(repainted, previous);
+
+const animatedPacket = modulePacket((writer) => {
+  writer.unsigned(7);
+  writer.byte(2);
+  moduleEntry(writer, -2, undefined, 0.75);
+});
+
+const animated = decodeBinarySnapshot(animatedPacket).fullEntities[0];
+
+mergeModuleStates(animated, repainted);
+const animatedAgain = decodeBinarySnapshot(moduleDelta).fullEntities[0];
+
+mergeModuleStates(animatedAgain, animated);
+assert.deepEqual(
+  animatedAgain.modules?.map((module) => module.shades),
+  [colors.green, colors.cyan, colors.indigo],
+);
+assert.equal(animated.modules?.[1].segments[0].activationProgress, 0.75);
+
+// A full reordered layout is independent of the prior array.
+const layout = modulePacket((writer) => {
+  writer.unsigned(4);
+  moduleEntry(writer, -3, 5);
+  moduleEntry(writer, -1, 3);
+});
+
+const refitted = decodeBinarySnapshot(layout).fullEntities[0];
+
+mergeModuleStates(refitted, animatedAgain);
+assert.deepEqual(
+  refitted.modules?.map((module) => module.id),
+  [-3, -1],
+);
+
+for (const value of [0, -1, 63, -64, 64, -65, 2 ** 52 - 1, -(2 ** 52 - 1)]) {
+  const packet = modulePacket((writer) => {
+    writer.unsigned(2);
+    writer.byte(1);
+    [value, -value, value].forEach((number) =>
+      signedModuleInteger(writer, number),
+    );
+    writer.unsigned(0);
+  });
+
+  const module = decodeBinarySnapshot(packet).fullEntities[0].modules![0];
+
+  assert.equal(module.type, value || 0);
+  assert.equal(module.mount, -value || 0);
+  assert.equal(module.id, value || 0);
+}
+
+for (const [index, palette] of Object.values(colors).entries()) {
+  const packet = modulePacket((writer) => {
+    writer.unsigned(2);
+    moduleEntry(writer, -1, index);
+  });
+
+  assert.deepEqual(
+    decodeBinarySnapshot(packet).fullEntities[0].modules![0].shades,
+    palette,
+  );
+}
+
+for (const bytes of [
+  [2, 4, 0, 0, 255, 0], // Unknown palette.
+  [2, 128, 0, 0, 0], // Inheritance without an ID or partial array.
+  [3, 2], // Bits beyond the array size.
+  [2, 1, 128, 0, 0, 0], // Overlong integer.
+  [2, 1, 0, 0, 0, 1, 3], // Invalid segment flags.
+]) {
+  assert.throws(() =>
+    decodeBinarySnapshot(
+      modulePacket((writer) => bytes.forEach((value) => writer.byte(value))),
+    ),
+  );
+}
+
+assert.throws(() =>
+  decodeBinarySnapshot(
+    modulePacket((writer) => {
+      writer.unsigned(3);
+      writer.byte(0);
+    }, true),
+  ),
+);
+
+for (let length = 0; length < full.length; length++) {
+  assert.throws(() => decodeBinarySnapshot(full.subarray(0, length)));
+}
+
+for (const [code, value] of [
+  [0, 0],
+  [1, 1],
+  [2, -1],
+  [3, 0.375],
+] as const) {
+  const writer = new Writer();
+
+  start(writer, 0, 0, 2);
+  writer.unsigned(1);
+
+  writer.record(1, [
+    [
+      31,
+      () => {
+        writer.byte(code);
+
+        if (code === 3) writer.number(value);
+      },
+    ],
+    [
+      32,
+      () => {
+        writer.byte(code);
+
+        if (code === 3) writer.number(value);
+      },
+    ],
+  ]);
+
+  const entity = decodeBinarySnapshot(writer.packet()).fullEntities[0];
+
+  assert.equal(entity.thrust, value);
+  assert.equal(entity.turn, value);
 }

@@ -17,8 +17,7 @@ export const restoreGraphics = () => {
         if (typeof saved[i] === 'boolean') graphics[i] = saved[i];
       }
 
-      // Resolution is last, including in older preferences with a glow toggle.
-      const resolution = saved.at(-1);
+      const resolution = saved[3];
 
       if ([0.5, 0.75, 1, 1.5, 2].includes(resolution)) graphics[3] = resolution;
     }

@@ -2332,6 +2332,76 @@ export const checkHud = () => {
 
   hud.destroy();
 
+  const mapRequests: number[] = [];
+
+  const mapHud = createHud({
+    now: () => now,
+    onMapView: () => mapRequests.push(now),
+  });
+
+  const updateMap = (
+    time: number,
+    mapReady: boolean,
+    sectorName = 'Patroclus',
+  ) => {
+    now = time;
+    mapHud.update({ ...options, sectorName, mapReady });
+  };
+
+  updateMap(0, false);
+  updateMap(999, false);
+  const initialMapRequest = mapRequests.length === 1;
+
+  updateMap(1000, false);
+  const retryMapRequest = mapRequests.length === 2;
+
+  updateMap(1001, true);
+  updateMap(5000, true);
+  const settledMapStopsPolling = mapRequests.length === 2;
+
+  mapHud.toggleMap();
+  updateMap(5000, true);
+  const expandedMapRequestsImmediately = mapRequests.length === 3;
+  const mapCanvas =
+    element.querySelector<HTMLCanvasElement>('.hud-map canvas')!;
+  const mapRangeLabel = mapCanvas.getAttribute('aria-label');
+
+  mapHud.zoomMap(1);
+  const zoomedMapLabel = mapCanvas.getAttribute('aria-label');
+
+  element.querySelector<HTMLButtonElement>('[data-map-zoom-out]')!.click();
+  const mapZoomWorks =
+    zoomedMapLabel !== mapRangeLabel &&
+    mapCanvas.getAttribute('aria-label') === mapRangeLabel;
+
+  updateMap(5249, true);
+  const expandedMapWaits = mapRequests.length === 3;
+
+  updateMap(5250, true);
+  const expandedMapPolls = mapRequests.length === 4;
+
+  mapHud.toggleMap();
+  updateMap(8000, true);
+  const collapsedMapStopsPolling = mapRequests.length === 4;
+
+  mapHud.toggleMap();
+  updateMap(8000, true);
+  const reopenedMapRequestsImmediately = mapRequests.length === 5;
+
+  mapHud.toggleMap();
+  updateMap(8001, false);
+  updateMap(9000, false);
+  const resetMapRetries = mapRequests.length === 6;
+
+  updateMap(9001, false);
+  const resetMapRetryInterval = mapRequests.length === 7;
+
+  updateMap(9002, true);
+  updateMap(9003, false, 'Acamas');
+  const changedSectorRequestsImmediately = mapRequests.length === 8;
+
+  mapHud.destroy();
+
   return Object.fromEntries([
     ['readouts', readouts],
     ['coalescedInstruments', coalescedInstruments],
@@ -2397,6 +2467,18 @@ export const checkHud = () => {
     ['noHiddenOpacity', noHiddenOpacity],
     ['visibleWithoutOverrides', visibleWithoutOverrides],
     ['cleared', cleared],
+    ['initialMapRequest', initialMapRequest],
+    ['retryMapRequest', retryMapRequest],
+    ['settledMapStopsPolling', settledMapStopsPolling],
+    ['expandedMapRequestsImmediately', expandedMapRequestsImmediately],
+    ['mapZoomWorks', mapZoomWorks],
+    ['expandedMapWaits', expandedMapWaits],
+    ['expandedMapPolls', expandedMapPolls],
+    ['collapsedMapStopsPolling', collapsedMapStopsPolling],
+    ['reopenedMapRequestsImmediately', reopenedMapRequestsImmediately],
+    ['resetMapRetries', resetMapRetries],
+    ['resetMapRetryInterval', resetMapRetryInterval],
+    ['changedSectorRequestsImmediately', changedSectorRequestsImmediately],
     ...Object.entries(details),
   ]);
 };

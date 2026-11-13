@@ -151,10 +151,9 @@ func TestCompactShipPowerStorage(t *testing.T) {
 
 	saved := objects.CaptureShip(ship)
 	saved.StoredPower = nil
-	restored, err := objects.RestoreShip(saved, world, 1)
 
-	if err != nil || restored.StoredPower != restored.PowerCapacity() {
-		t.Fatal("legacy save did not start charged", err)
+	if _, err := objects.RestoreShip(saved, world, 1); err == nil {
+		t.Fatal("missing stored energy accepted")
 	}
 
 	for _, stored := range []float64{-1, ship.PowerCapacity() + 1} {

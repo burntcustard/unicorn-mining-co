@@ -34,8 +34,7 @@ type sessionPersistence struct {
 	tickStarted       time.Time
 }
 
-// EnablePersistence restores before accepting connections, skipping removed
-// definitions while preserving saved accounts and the remaining world.
+// EnablePersistence restores saved accounts and the world before accepting connections.
 func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 	saved, err := store.Load(s.worldSeed)
 
@@ -45,12 +44,11 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 	stored := map[int64]bool{}
 	npcs := map[int64]string{}
-	var discarded []persistence.Entity
 
 	if saved.World != nil {
 		w := saved.World
 
-		if !persistence.CompatibleGenerationDigest(s.World.Specification, w.GenerationDigest) {
+		if w.GenerationDigest != persistence.GenerationDigest(s.World.Specification) {
 			return fmt.Errorf("world generation rules changed; use a fresh world database before starting")
 		}
 
@@ -69,16 +67,6 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 		for _, e := range saved.Entities {
 			s.activateSector(e.SectorID)
 
-			if !e.Deleted && (e.State.Object.Kind == "projectile" || e.State.Object.Decay > 0 && !(e.State.Object.Kind == "asteroid" && len(e.State.Contents) > 0)) {
-				discarded = append(discarded, persistence.Entity{SectorID: e.SectorID, ID: e.ID, Generated: e.Generated, Deleted: true})
-
-				if e.Generated {
-					s.regions.Procedural.Remove(uint32(e.ID))
-				}
-
-				continue
-			}
-
 			if e.Deleted {
 				if e.Generated {
 					s.regions.Procedural.Remove(uint32(e.ID))
@@ -91,16 +79,6 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 			if err != nil {
 				return fmt.Errorf("restore entity %d: %w", e.ID, err)
-			}
-
-			if entity == nil {
-				discarded = append(discarded, persistence.Entity{SectorID: e.SectorID, ID: e.ID, Generated: e.Generated, Deleted: true})
-
-				if e.Generated {
-					s.regions.Procedural.Remove(uint32(e.ID))
-				}
-
-				continue
 			}
 
 			s.regions.Sleeping.Set(e.ID, entity)
@@ -124,12 +102,6 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 				return fmt.Errorf("restore player %s: %w", profile.ID, err)
 			}
 
-			if ship == nil {
-				// A removed hull leaves the account ready to respawn in a starter ship.
-				ship = objects.CreatePlayerShip(s.World, objects.Properties{ObjectProperties: simulation.ObjectProperties{ID: &profile.Ship.ID, PlayerID: &id}})
-				ship.Dead = true
-			}
-
 			now := s.now()
 
 			p := &playerRecord{sectorID: s.currentSector, profile: profile, playerID: id, ship: ship, shipID: ship.ID, hiddenShip: !ship.Dead, disconnectedAt: &now,
@@ -146,9 +118,7 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 					return fmt.Errorf("restore stored ship for %s: %w", profile.ID, err)
 				}
 
-				if storedShip != nil {
-					p.storedShips = append(p.storedShips, storedShip)
-				}
+				p.storedShips = append(p.storedShips, storedShip)
 			}
 
 			p.profile.Ship = objects.SavedShip{}
@@ -188,16 +158,6 @@ func (s *GameSession) EnablePersistence(store *persistence.Store) error {
 
 	s.assignInitialOwner()
 	store.Start()
-
-	if len(discarded) > 0 {
-		batch := persistence.Batch{Sequence: s.persistence.sequence + 1, World: s.worldRecord(), Entities: discarded}
-
-		if !store.Submit(batch) {
-			return fmt.Errorf("could not queue removal of obsolete temporary world records")
-		}
-
-		s.persistence.sequence = batch.Sequence
-	}
 
 	return nil
 }

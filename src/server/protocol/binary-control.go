@@ -74,7 +74,10 @@ type ServerControl struct {
 	Spawn                        specs.Vector
 }
 
-type writer struct{ data []byte }
+type writer struct {
+	data        []byte
+	moduleDelta *ModuleDelta
+}
 
 func ValidDisplayName(value string) bool {
 	return utf8.ValidString(value) && utf8.RuneCountInString(value) <= 16
@@ -302,7 +305,7 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 			return Control{}, ErrControl
 		}
 
-		if present == 1 {
+		if present&1 != 0 {
 			message.PlayerToken, err = r.uuid()
 
 			if err != nil {

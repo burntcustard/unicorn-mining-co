@@ -271,7 +271,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 		record := g.found[index]
 		object := e.Base()
 
-		if record != nil && record.Entity == e && record.Body.Parked && record.GeometrySource != nil && (object.Kind == "asteroid" || object.Kind == "station") {
+		if record != nil && record.Body.Parked && record.GeometrySource != nil && (object.Kind == "asteroid" || object.Kind == "station") {
 			record.SyncPending = true
 		} else {
 			record = g.syncRecord(e, record)

@@ -359,6 +359,11 @@ assert.equal(
   'snapshot preserves unchanged module instances',
 );
 assert.equal(ship.segmentsAtMount(fitted.mount)[0], segments[0]);
+const resetShades = ship.moduleStates.map((state) => state.id === fitted.id ? { ...state, shades: undefined } : state);
+ship.moduleStates = resetShades;
+assert.equal(fitted.shades, undefined, 'a cleared module palette must replace the old palette');
+ship.moduleStates = moduleStates;
+
 ship.cargoContents.push(new Item(diamondSpec, { resource: 0, world }));
 const state = captureWorld({ world });
 const expectedRandom = world.random.next();

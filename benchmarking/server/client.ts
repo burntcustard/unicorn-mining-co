@@ -26,12 +26,12 @@ import {
   type SnapshotTrafficMessage,
 } from '../utilities/snapshot-traffic-metrics.ts';
 import {
-  advanceMiningSurvey,
+  advanceSurvey,
   isOrdinaryAmmoItem,
   miningAreaContains,
   miningApproach,
   miningDrillSafe,
-  miningSurveyRoute,
+  surveyTravelRoute,
   miningTargetContained,
   obstacleSafeRoute,
   obstacleRadius,
@@ -47,7 +47,7 @@ import {
   workloadControls,
   type ProtocolWorkload,
   type SpreadCorridor,
-  type MiningSurveySearch,
+  type SurveySearch,
 } from './workloads.ts';
 
 /*
@@ -354,6 +354,11 @@ export class ProtocolClient {
         if (message.type === 'load') this.entities.clear();
 
         for (const record of message.fullEntities) {
+          this.options.runtime.mergeModuleStates(
+            record,
+            this.entities.get(record.id),
+          );
+
           const entity = {
             ...this.entities.get(record.id),
             ...record,
@@ -1229,8 +1234,12 @@ export class ProtocolClient {
                   !weaponClearAhead({
                     ship: this.ship,
                     entities: [entity],
-                    distance: 500,
-                  }),
+                    distance: entity.kind === 'ship' ? 1200 : 500,
+                  }) ||
+                  (entity.kind === 'ship' &&
+                    entity.id !== this.ship.id &&
+                    Vec.distance(this.ship.position, entity.position) <=
+                      this.ship.radius + entity.radius + 120),
               )
               .map((entity) => ({
                 id: entity.id,
@@ -1816,7 +1825,7 @@ async function workerMain() {
   let workload: ProtocolWorkload;
   let phase: 'idle' | 'hold' | 'fanout' | 'workload' = 'idle';
   const heldClients = new Set<ProtocolClient>();
-  const surveySearches = new Map<ProtocolClient, MiningSurveySearch>();
+  const surveySearches = new Map<ProtocolClient, SurveySearch>();
 
   const waitingInput = {
     ...neutralInput(),
@@ -1897,7 +1906,10 @@ async function workerMain() {
       const entities = [...client.entities.values()];
       let survey = surveySearches.get(client);
 
-      if (workload === 'module' && phase === 'fanout') {
+      if (
+        (workload === 'module' || workload === 'spread') &&
+        phase === 'fanout'
+      ) {
         if (!survey) {
           survey = {
             origin: Vec.clone(client.ship.position),
@@ -1908,7 +1920,7 @@ async function workerMain() {
           surveySearches.set(client, survey);
         }
 
-        advanceMiningSurvey({
+        advanceSurvey({
           state: survey,
           position: client.ship.position,
           seconds: timerSeconds,
@@ -1936,6 +1948,7 @@ async function workerMain() {
           firing: firingEnabled,
           fanout: phase === 'fanout',
           surveyHeadingOffset: survey?.headingOffset,
+          surveyRecovery: survey?.recovering,
           spreadCorridor: client.spreadCorridor,
         }),
       );
@@ -2044,7 +2057,7 @@ async function workerMain() {
           const survey =
             workload === 'module' && !client.miningAnchor && ship
               ? {
-                  route: miningSurveyRoute({
+                  route: surveyTravelRoute({
                     ship,
                     index: client.options.index,
                     players: client.options.players,

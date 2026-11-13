@@ -423,8 +423,13 @@ export const createHud = ({
 
       if (pendingMap && mapReady) toggleMap();
 
-      if (performance.now() - mapRequestedAt >= (expanded ? 250 : 1000)) {
-        mapRequestedAt = performance.now();
+      const mapTime = now();
+
+      if (
+        (expanded || !mapReady) &&
+        mapTime - mapRequestedAt >= (expanded ? 250 : 1000)
+      ) {
+        mapRequestedAt = mapTime;
         onMapView(Vec.clone(mapCenter));
       }
 

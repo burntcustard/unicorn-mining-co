@@ -2,6 +2,7 @@
 package specs
 
 type Protocol struct {
+	ModulePalettes    [][]string     `json:"modulePalettes"`
 	BinaryFieldIDs    *BinaryFields  `json:"binaryFieldIds"`
 	ControlMessageIDs map[string]int `json:"controlMessageIds"`
 	DockActionIDs     map[string]int `json:"dockActionIds"`
@@ -9,6 +10,10 @@ type Protocol struct {
 }
 
 type BinaryFields struct {
+	PackedPosition    int `json:"packedPosition"`
+	PackedVelocity    int `json:"packedVelocity"`
+	PackedRotation    int `json:"packedRotation"`
+	PackedSpin        int `json:"packedSpin"`
 	NPCState          int `json:"npcState"`
 	Hostile           int `json:"hostile"`
 	BlockedBeams      int `json:"blockedBeams"`

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
-	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -164,49 +163,6 @@ func TestSavedObjectBecomingTemporaryCannotResurrect(t *testing.T) {
 				t.Fatal("temporary object reappeared after restart or generation")
 			}
 		})
-	}
-}
-
-func TestLegacyTemporaryRowsAreRemovedOnRestore(t *testing.T) {
-	t.Parallel()
-	path := filepath.Join(t.TempDir(), "world.sqlite")
-	s, store := persistedSession(t, path)
-	committedSession(t, s)
-	decay := 6.0
-	shot := objects.NewProjectile("autogun", simulation.ObjectProperties{World: s.World}, s.World.Specification)
-	fragment := simulation.CreateAsteroid(s.World, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{Decay: &decay}})
-	var records []persistence.Entity
-
-	for _, e := range []simulation.Entity{shot, fragment} {
-		records = append(records, persistence.Entity{SectorID: s.currentSector, ID: e.Base().ID, State: objects.CaptureEntity(e)})
-	}
-
-	s.persistence.sequence++
-
-	if !store.Submit(persistence.Batch{Sequence: s.persistence.sequence, World: s.worldRecord(), Entities: records}) {
-		t.Fatal("could not create legacy records")
-	}
-
-	committedSession(t, s)
-
-	if err := store.Close(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-
-	s, store = persistedSession(t, path)
-	defer store.Close(context.Background())
-	committedSession(t, s)
-
-	for _, e := range []simulation.Entity{shot, fragment} {
-		if s.regions.Sleeping.Has(e.Base().ID) || s.World.Entities.Has(e.Base().ID) {
-			t.Fatal("legacy temporary object restored into gameplay")
-		}
-	}
-
-	saved, err := store.Load(25)
-
-	if err != nil || len(saved.Entities) != 0 {
-		t.Fatal("obsolete temporary rows remain in the database", err)
 	}
 }
 

@@ -12,7 +12,10 @@ import {
   decodeServerControl,
   isPlayerToken,
 } from '../protocol/binary-control';
-import { decodeBinarySnapshot } from '../protocol/binary-snapshot';
+import {
+  decodeBinarySnapshot,
+  mergeModuleStates,
+} from '../protocol/binary-snapshot';
 import { type SimulationEvent } from '../protocol/events';
 import { type WorldSound } from '../protocol/sounds';
 import {
@@ -457,7 +460,10 @@ export class NetworkClient {
         localStorage.removeItem('playerToken');
       }
 
-      this.send({ playerToken, type: this.deferred ? 'prepare' : 'hello' });
+      this.send({
+        playerToken,
+        type: this.deferred ? 'prepare' : 'hello',
+      });
     };
 
     socket.onmessage = ({ data }) => {
@@ -489,6 +495,7 @@ export class NetworkClient {
       clearTimeout(handshakeTimer);
 
       if (this.socket !== socket) return;
+
       this.connected = false;
       this.pendingProfile?.reject(
         new Error('Connection lost. Please try again.'),
@@ -753,6 +760,8 @@ export class NetworkClient {
 
     message.fullEntities = message.fullEntities.map((record) => {
       const previous = this.entityRecords.get(record.id);
+
+      mergeModuleStates(record, previous);
       const full = { ...previous, ...record } as ReplicatedEntity;
 
       Object.entries(record).forEach(([key, value]) => {

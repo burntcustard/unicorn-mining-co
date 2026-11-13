@@ -6,7 +6,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/random"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
-	"log"
 	"math"
 	"slices"
 )
@@ -14,7 +13,7 @@ import (
 // SavedObject contains mechanics, never live pointers, caches, or callbacks.
 // Gob preserves the NaN defaults used by the simulation and is versioned by
 // the database schema. Capture runs on the world owner; encoding runs elsewhere.
-// Label is the legacy on-disk key for Name; keep it compatible with existing gob saves.
+// Label holds the saved object name.
 type SavedObject struct {
 	ID                                                       int64
 	Kind, DefinitionID, Label, Unlock                        string
@@ -37,12 +36,10 @@ type SavedObject struct {
 }
 
 type SavedEntity struct {
-	TransitTime float64
-	TransitGate int64
-	Fuel        float64
-	StoredPower float64
-	// Gob omits zero-valued pointers; an empty battery needs explicit presence.
-	HasPower                    bool
+	TransitTime                 float64
+	TransitGate                 int64
+	Fuel                        float64
+	StoredPower                 float64
 	ThrusterPower, SystemsPower float64
 	Rounds                      *int
 	Object                      SavedObject
@@ -200,7 +197,7 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 
 	if ship, ok := entity.(*Ship); ok {
 		s.Fuel = ship.Fuel
-		s.StoredPower, s.HasPower = ship.StoredPower, true
+		s.StoredPower = ship.StoredPower
 		s.ThrusterPower, s.SystemsPower = ship.ThrusterPower, ship.SystemsPower
 	}
 
@@ -222,7 +219,6 @@ func craftOf(entity simulation.Entity) *Craft {
 	return nil
 }
 
-// RestoreEntity returns nil without an error for definitions removed from the catalog.
 func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, error) {
 	o := s.Object
 
@@ -248,8 +244,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 
 	if s.ModuleType != "" {
 		if _, ok := world.Specification.ModuleSpecs[s.ModuleType]; !ok {
-			log.Printf("Warning: skipping unknown saved module %q (ID %d)", s.ModuleType, o.ID)
-			return nil, nil
+			return nil, fmt.Errorf("unknown saved module %q (ID %d)", s.ModuleType, o.ID)
 		}
 
 		entity = modules.Create(s.ModuleType, props, world.Specification)
@@ -257,8 +252,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 		switch o.Kind {
 		case "projectile":
 			if _, ok := world.Specification.ModuleSpecs[o.DefinitionID]; !ok {
-				log.Printf("Warning: skipping saved projectile for unknown module %q (ID %d)", o.DefinitionID, o.ID)
-				return nil, nil
+				return nil, fmt.Errorf("unknown saved projectile module %q (ID %d)", o.DefinitionID, o.ID)
 			}
 
 			entity = NewProjectile(o.DefinitionID, props, world.Specification)
@@ -273,8 +267,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 			}
 
 			if _, ok := world.Specification.ItemSpecs[id]; o.HasResource && !ok {
-				log.Printf("Warning: skipping unknown saved item resource %d (ID %d)", o.Resource, o.ID)
-				return nil, nil
+				return nil, fmt.Errorf("unknown saved item resource %d (ID %d)", o.Resource, o.ID)
 			}
 
 			item := NewItem(id, props, world.Specification)
@@ -299,8 +292,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 				}
 
 				if _, ok := world.Specification.StationSpecs[id]; !ok {
-					log.Printf("Warning: skipping unknown saved station %q (ID %d)", id, o.ID)
-					return nil, nil
+					return nil, fmt.Errorf("unknown saved station %q (ID %d)", id, o.ID)
 				}
 
 				p.CargoContents = []simulation.Entity{}
@@ -313,8 +305,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 				}
 
 				if _, ok := world.Specification.ShipSpecs[id]; !ok {
-					log.Printf("Warning: skipping unknown saved ship %q (ID %d)", id, o.ID)
-					return nil, nil
+					return nil, fmt.Errorf("unknown saved ship %q (ID %d)", id, o.ID)
 				}
 
 				entity = NewShip(id, p, world.Specification)
@@ -339,8 +330,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 				m.Type = slices.Index(c.Catalog.ModuleIDs, id)
 
 				if _, exists := c.Catalog.ModuleSpecs[id]; !exists || m.Type < 0 {
-					log.Printf("Warning: skipping unknown saved module %q on craft %d", id, o.ID)
-					continue
+					return nil, fmt.Errorf("unknown saved module %q on craft %d", id, o.ID)
 				}
 
 				states = append(states, m)
@@ -365,9 +355,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 				return nil, err
 			}
 
-			if item != nil {
-				c.CargoContents = append(c.CargoContents, item)
-			}
+			c.CargoContents = append(c.CargoContents, item)
 		}
 
 		c.DockedTo, c.Launching, c.Forward, c.Turn = s.DockedTo, s.Launching, s.Forward, s.Turn
@@ -378,20 +366,14 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 	if ship, ok := entity.(*Ship); ok {
 		ship.Fuel = s.Fuel
 
-		if s.HasPower {
-			ship.StoredPower = min(s.StoredPower, ship.PowerCapacity())
-			ship.ThrusterPower, ship.SystemsPower = s.ThrusterPower, s.SystemsPower
-		} else {
-			ship.StoredPower = ship.PowerCapacity()
-		}
+		ship.StoredPower = min(s.StoredPower, ship.PowerCapacity())
+		ship.ThrusterPower, ship.SystemsPower = s.ThrusterPower, s.SystemsPower
 	}
 
 	b := entity.Base()
 	b.ID, b.Kind, b.DefinitionID, b.Unlock = o.ID, o.Kind, o.DefinitionID, o.Unlock
 
-	if o.Label != "" {
-		b.Name = o.Label
-	}
+	b.Name = o.Label
 
 	b.Position, b.Velocity, b.Rotation, b.Spin, b.Radius = o.Position, o.Velocity, o.Rotation, o.Spin, o.Radius
 	b.AngularDrag, b.AngularInertiaScale, b.Mass, b.Friction = o.AngularDrag, o.AngularInertiaScale, o.Mass, o.Friction

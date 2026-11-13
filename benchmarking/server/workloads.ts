@@ -58,15 +58,23 @@ export const weaponStagingControls = ({
   entities: ReplicatedEntity[];
 }) => {
   const angle = (index * Math.PI * 2) / players;
+
   const clear =
     !ship.dockedTo &&
     !ship.launching &&
     Math.abs(wrappedAngle(angle - ship.rotation)) < 0.25 &&
     weaponClearAhead({ ship, entities, distance: 500 }) &&
-    entities.every(
-      (entity) =>
-        entity.kind !== 'station' ||
-        Vec.distance(ship.position, entity.position) > entity.radius + 350,
+    weaponClearAhead({
+      ship,
+      entities: entities.filter((entity) => entity.kind === 'ship'),
+      distance: 1200,
+    }) &&
+    entities.every((entity) =>
+      entity.kind === 'ship' && entity.id !== ship.id
+        ? Vec.distance(ship.position, entity.position) >
+          ship.radius + entity.radius + 120
+        : entity.kind !== 'station' ||
+          Vec.distance(ship.position, entity.position) > entity.radius + 350,
     );
 
   return {
@@ -348,7 +356,30 @@ export const reserveSpreadCorridors = ({
 }: {
   proposals: SpreadCorridorProposal[];
 }) => {
-  const selected: { corridor: SpreadCorridor; radius: number }[] = [];
+  const selected: {
+    corridor: SpreadCorridor;
+    proposal: SpreadCorridorProposal;
+  }[] = [];
+
+  const unassigned: SpreadCorridorProposal[] = [];
+  const end = (corridor: SpreadCorridor) =>
+    Vec.addScaled(
+      corridor.start,
+      Vec.create(Math.cos(corridor.heading), Math.sin(corridor.heading)),
+      corridor.length,
+    );
+  const separated = (
+    candidate: SpreadCorridor,
+    radius: number,
+    other: (typeof selected)[number],
+  ) =>
+    segmentDistanceSquared(
+      candidate.start,
+      end(candidate),
+      other.corridor.start,
+      end(other.corridor),
+    ) >=
+    (radius + other.proposal.radius + 2 * spreadLateralAllowance + 100) ** 2;
 
   for (const proposal of proposals.toSorted(
     (a, b) => a.candidates.length - b.candidates.length || a.index - b.index,
@@ -357,37 +388,51 @@ export const reserveSpreadCorridors = ({
       continue;
     }
 
-    const corridor = proposal.candidates.find((candidate) => {
-      const end = Vec.addScaled(
-        candidate.start,
-        Vec.create(Math.cos(candidate.heading), Math.sin(candidate.heading)),
-        candidate.length,
+    const corridor = proposal.candidates.find((candidate) =>
+      selected.every((other) => separated(candidate, proposal.radius, other)),
+    );
+
+    if (corridor) {
+      selected.push({ corridor, proposal });
+    } else {
+      unassigned.push(proposal);
+    }
+  }
+
+  // One alternative for a blocking ship can make room without moving either ship.
+  for (const proposal of unassigned) {
+    if (selected.some(({ corridor }) => corridor.index === proposal.index)) {
+      continue;
+    }
+
+    for (const corridor of proposal.candidates) {
+      const blockers = selected.filter(
+        (other) => !separated(corridor, proposal.radius, other),
       );
 
-      return selected.every((other) => {
-        const otherEnd = Vec.addScaled(
-          other.corridor.start,
-          Vec.create(
-            Math.cos(other.corridor.heading),
-            Math.sin(other.corridor.heading),
+      if (blockers.length !== 1) continue;
+
+      const blocker = blockers[0];
+
+      const alternative = blocker.proposal.candidates.find(
+        (candidate) =>
+          separated(candidate, blocker.proposal.radius, {
+            corridor,
+            proposal,
+          }) &&
+          selected.every(
+            (other) =>
+              other === blocker ||
+              separated(candidate, blocker.proposal.radius, other),
           ),
-          other.corridor.length,
-        );
+      );
 
-        return (
-          segmentDistanceSquared(
-            candidate.start,
-            end,
-            other.corridor.start,
-            otherEnd,
-          ) >=
-          (proposal.radius + other.radius + 2 * spreadLateralAllowance + 100) **
-            2
-        );
-      });
-    });
+      if (!alternative) continue;
 
-    if (corridor) selected.push({ corridor, radius: proposal.radius });
+      blocker.corridor = alternative;
+      selected.push({ corridor, proposal });
+      break;
+    }
   }
 
   return selected.map(({ corridor }) => corridor);
@@ -1215,10 +1260,11 @@ export const miningDrillSafe = ({
   );
 };
 
-export type MiningSurveySearch = {
+export type SurveySearch = {
   origin: Vec.Value;
   activeSeconds: number;
   headingOffset: number;
+  recovering?: boolean;
 };
 
 /*
@@ -1226,12 +1272,12 @@ export type MiningSurveySearch = {
  * headings then lets a ship leave a local obstacle trap without changing its
  * normal controls or the target-separation checks.
  */
-export const advanceMiningSurvey = ({
+export const advanceSurvey = ({
   state,
   position,
   seconds,
 }: {
-  state: MiningSurveySearch;
+  state: SurveySearch;
   position: Vec.Value;
   seconds: number;
 }) => {
@@ -1240,6 +1286,7 @@ export const advanceMiningSurvey = ({
   if (state.activeSeconds < 15) return;
 
   if (Vec.distanceSquared(state.origin, position) < 200 ** 2) {
+    state.recovering = true;
     state.headingOffset = (state.headingOffset + Math.PI / 4) % (Math.PI * 2);
   }
 
@@ -1247,7 +1294,7 @@ export const advanceMiningSurvey = ({
   state.activeSeconds = 0;
 };
 
-export const miningSurveyRoute = ({
+export const surveyTravelRoute = ({
   ship,
   index,
   players,
@@ -1295,6 +1342,7 @@ export const workloadControls = ({
   firing = true,
   fanout = false,
   surveyHeadingOffset = 0,
+  surveyRecovery = false,
   spreadCorridor,
 }: {
   workload: ProtocolWorkload;
@@ -1312,6 +1360,7 @@ export const workloadControls = ({
   firing?: boolean;
   fanout?: boolean;
   surveyHeadingOffset?: number;
+  surveyRecovery?: boolean;
   spreadCorridor?: SpreadCorridor;
 }): PlayerInput => {
   if (!fanout && workload === 'spread') {
@@ -1331,8 +1380,9 @@ export const workloadControls = ({
     );
 
     const outwardRoute =
-      fanout && workload === 'module'
-        ? miningSurveyRoute({
+      fanout &&
+      (workload === 'module' || (workload === 'spread' && surveyRecovery))
+        ? surveyTravelRoute({
             ship,
             index,
             players,

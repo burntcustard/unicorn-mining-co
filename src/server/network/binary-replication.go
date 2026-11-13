@@ -34,6 +34,9 @@ type binaryRecord struct {
 	source                                           simulation.Entity
 	batchGeneration                                  uint64
 	revision, previousRevision                       int64
+	moduleLayoutRevision                             int64
+	moduleShadeRevisions                             []int64
+	moduleRevisions                                  []int64
 	fields                                           []fieldState
 	recentChanges                                    []int
 	modules                                          *moduleRecord
@@ -45,6 +48,36 @@ type binaryRecord struct {
 	cargoStates                                      []cargoState
 	fullGeneration, deltaGeneration                  uint64
 	fullOffset, fullLength, deltaOffset, deltaLength int
+}
+
+func sameOptionalNumber(a, b *float64) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
+func sameModuleLayout(a, b *moduleRecord) bool {
+	if a == nil || b == nil || !slices.Equal(a.modules, b.modules) || !slices.Equal(a.mounts, b.mounts) || len(a.states) != len(b.states) {
+		return false
+	}
+
+	for i, state := range a.states {
+		other := b.states[i]
+
+		if state.Type != other.Type || state.Mount != other.Mount || !sameOptionalNumber(state.ID, other.ID) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func sameModuleShades(a, b protocol.ModuleState) bool {
+	return (a.Shades == nil) == (b.Shades == nil) && slices.Equal(a.Shades, b.Shades)
+}
+
+func sameModuleState(a, b protocol.ModuleState) bool {
+	return sameOptionalNumber(a.FireCooldown, b.FireCooldown) &&
+		sameOptionalNumber(a.ChargeCooldown, b.ChargeCooldown) &&
+		sameOptionalNumber(a.AimRotation, b.AimRotation) && slices.Equal(a.Segments, b.Segments)
 }
 
 func recordOf(source simulation.Entity, fieldCount int) *binaryRecord {
@@ -484,10 +517,35 @@ func prepare(source simulation.Entity, batch *BinarySnapshotBatch) *binaryRecord
 
 		if states != nil {
 			if f.compare != states {
+				old, _ := f.compare.(*moduleRecord)
 				changed(record, field.Modules, states, states.states)
+
+				metadataChanged := old == nil || old.metadataRevision != states.metadataRevision
+				layoutChanged := old == nil || metadataChanged && !sameModuleLayout(old, states)
+
+				if layoutChanged {
+					record.moduleLayoutRevision = record.revision
+					record.moduleRevisions = make([]int64, len(states.states))
+					record.moduleShadeRevisions = make([]int64, len(states.states))
+				}
+
+				for i, state := range states.states {
+					shadesChanged := layoutChanged || metadataChanged && !sameModuleShades(old.states[i], state)
+					healthChanged := !layoutChanged && metadataChanged &&
+						(!sameOptionalNumber(old.states[i].Health, state.Health) || !sameOptionalNumber(old.states[i].HealthActivated, state.HealthActivated))
+
+					if shadesChanged {
+						record.moduleShadeRevisions[i] = record.revision
+					}
+
+					if shadesChanged || healthChanged || !sameModuleState(old.states[i], state) {
+						record.moduleRevisions[i] = record.revision
+					}
+				}
 			}
 		} else if f.compare != nil {
 			changed(record, field.Modules, nil, nil)
+			record.moduleLayoutRevision = record.revision
 		}
 
 		wreckage := entity.Wreckage()
@@ -663,6 +721,10 @@ func (b *BinarySnapshotBatch) prepared(source simulation.Entity) *binaryRecord {
 }
 
 func (b *BinarySnapshotBatch) fragment(record *binaryRecord, baseline int64, replaced *binaryRecord) (fragment, bool) {
+	if replaced != nil {
+		baseline = -1
+	}
+
 	full := baseline < 0
 
 	if full && replaced == nil && record.fullGeneration == b.Generation {
@@ -687,7 +749,16 @@ func (b *BinarySnapshotBatch) fragment(record *binaryRecord, baseline int64, rep
 	length := 0
 
 	if count > 0 {
-		data, err := protocol.AppendEntityRecord(b.arena, value, b.catalog.Protocol)
+		var delta *protocol.ModuleDelta
+
+		if !full {
+			delta = &protocol.ModuleDelta{
+				Revisions: record.moduleRevisions, ShadeRevisions: record.moduleShadeRevisions,
+				Baseline: baseline, LayoutRevision: record.moduleLayoutRevision,
+			}
+		}
+
+		data, err := protocol.AppendEntityRecordDelta(b.arena, value, b.catalog.Protocol, delta)
 
 		if err != nil {
 			panic(err)

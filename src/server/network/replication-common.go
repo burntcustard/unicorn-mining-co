@@ -12,11 +12,12 @@ import (
 )
 
 type moduleRecord struct {
-	modules []simulation.Module
-	mounts  []*simulation.Mount
-	states  []protocol.ModuleState
-	indexes map[simulation.Module]int
-	counts  []int
+	metadataRevision uint64
+	modules          []simulation.Module
+	mounts           []*simulation.Mount
+	states           []protocol.ModuleState
+	indexes          map[simulation.Module]int
+	counts           []int
 }
 
 func sameModuleSegments(entity *objects.Craft, record *moduleRecord) bool {
@@ -90,6 +91,13 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 		for i, module := range modules {
 			state := p.states[i]
 			object, data := module.Base(), module.ModuleBase()
+			typeIndex := int(state.Type)
+
+			if typeIndex < 0 || typeIndex >= len(entity.Catalog.ModuleIDs) || entity.Catalog.ModuleIDs[typeIndex] != data.Type {
+				same = false
+				break
+			}
+
 			var mount *simulation.Mount
 
 			if state.Mount >= 0 {
@@ -114,7 +122,7 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 				charge = *state.ChargeCooldown
 			}
 
-			if data.Mount != nil && data.Mount.HealthActivated != nil && (state.HealthActivated == nil || *data.Mount.HealthActivated != *state.HealthActivated) {
+			if data.Mount != nil && !sameOptionalNumber(data.Mount.HealthActivated, state.HealthActivated) {
 				same = false
 				break
 			}
@@ -129,7 +137,7 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 				stateChanged = true
 			}
 
-			if module != p.modules[i] || state.ID == nil || float64(object.ID) != *state.ID || data.Mount != mount || state.Health == nil || health != *state.Health || !slices.Equal(object.Shades, state.Shades) {
+			if module != p.modules[i] || state.ID == nil || float64(object.ID) != *state.ID || data.Mount != mount || state.Health == nil || health != *state.Health || (object.Shades == nil) != (state.Shades == nil) || !slices.Equal(object.Shades, state.Shades) {
 				same = false
 				break
 			}
@@ -170,6 +178,14 @@ func readModules(entity *objects.Craft, binary *binaryRecord) *moduleRecord {
 	}
 
 	record := &moduleRecord{modules: slices.Clone(modules), mounts: slices.Clone(mounts), indexes: map[simulation.Module]int{}, counts: make([]int, len(modules))}
+
+	if p != nil {
+		record.metadataRevision = p.metadataRevision
+	}
+
+	if !same {
+		record.metadataRevision++
+	}
 
 	for i, module := range modules {
 		o, d := module.Base(), module.ModuleBase()

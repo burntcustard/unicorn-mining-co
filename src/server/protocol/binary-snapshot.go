@@ -1,8 +1,10 @@
 package protocol
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
+	"slices"
 	"sort"
 	"unicode/utf16"
 
@@ -123,10 +125,64 @@ func (w *writer) outline(values [][]float64) {
 	}
 }
 
-func (w *writer) modules(values []ModuleState) {
-	w.unsigned(uint64(len(values)))
+// Zigzag encoding must remain an exact JavaScript integer after doubling.
+func compactInteger(value float64) bool {
+	return !(value == 0 && math.Signbit(value)) &&
+		value >= -(1<<52-1) && value <= 1<<52-1 && math.Trunc(value) == value
+}
 
-	for _, value := range values {
+func compactSegment(value float64) byte {
+	if value == 0 && !math.Signbit(value) {
+		return 0
+	}
+
+	if value == 1 {
+		return 1
+	}
+
+	return 2
+}
+
+// ModuleDelta describes the state already received by an observer.
+type ModuleDelta struct {
+	Revisions, ShadeRevisions []int64
+	Baseline, LayoutRevision  int64
+}
+
+func (w *writer) modules(values []ModuleState, palettes [][]string, delta *ModuleDelta) error {
+	partial := delta != nil && delta.Baseline >= delta.LayoutRevision &&
+		len(delta.Revisions) == len(values) && len(delta.ShadeRevisions) == len(values)
+	count := uint64(len(values)) << 1
+
+	if partial {
+		count++
+	}
+
+	w.unsigned(count)
+
+	if partial {
+		for start := 0; start < len(values); start += 8 {
+			var mask byte
+
+			for i := start; i < min(start+8, len(values)); i++ {
+				if delta.Revisions[i] > delta.Baseline {
+					mask |= 1 << (i - start)
+				}
+			}
+
+			w.byte(mask)
+		}
+	}
+
+	for index, value := range values {
+		if partial && delta.Revisions[index] <= delta.Baseline {
+			continue
+		}
+
+		if !compactInteger(value.Type) || !compactInteger(value.Mount) || value.ID != nil && !compactInteger(*value.ID) {
+			return ErrSnapshot
+		}
+
 		var mask byte
 
 		if value.ID != nil {
@@ -138,7 +194,11 @@ func (w *writer) modules(values []ModuleState) {
 		}
 
 		if value.Shades != nil {
-			mask |= 4
+			if partial && delta.ShadeRevisions[index] <= delta.Baseline && value.ID != nil {
+				mask |= 128
+			} else {
+				mask |= 4
+			}
 		}
 
 		if value.FireCooldown != nil {
@@ -158,19 +218,25 @@ func (w *writer) modules(values []ModuleState) {
 		}
 
 		w.byte(mask)
-		w.number(value.Type)
-		w.number(value.Mount)
+		w.signed(int64(value.Type))
+		w.signed(int64(value.Mount))
 
 		if value.ID != nil {
-			w.number(*value.ID)
+			w.signed(int64(*value.ID))
 		}
 
 		if value.Health != nil {
 			w.number(*value.Health)
 		}
 
-		if value.Shades != nil {
-			w.strings(value.Shades)
+		if mask&4 != 0 {
+			palette := slices.IndexFunc(palettes, func(p []string) bool { return slices.Equal(p, value.Shades) })
+
+			if palette < 0 || palette > 255 {
+				return ErrSnapshot
+			}
+
+			w.byte(byte(palette))
 		}
 
 		if value.FireCooldown != nil {
@@ -192,10 +258,20 @@ func (w *writer) modules(values []ModuleState) {
 		w.unsigned(uint64(len(value.Segments)))
 
 		for _, segment := range value.Segments {
-			w.number(segment.Active)
-			w.number(segment.ActivationProgress)
+			active, progress := compactSegment(segment.Active), compactSegment(segment.ActivationProgress)
+			w.byte(active | progress<<2)
+
+			if active == 2 {
+				w.number(segment.Active)
+			}
+
+			if progress == 2 {
+				w.number(segment.ActivationProgress)
+			}
 		}
 	}
+
+	return nil
 }
 
 func (w *writer) wreckage(values []WreckageSegment) {
@@ -289,6 +365,24 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 	}
 
 	switch id {
+	case fields.Thrust, fields.Turn:
+		number, ok := value.(float64)
+
+		if !ok {
+			return ErrSnapshot
+		}
+
+		switch number {
+		case 0:
+			w.byte(0)
+		case 1:
+			w.byte(1)
+		case -1:
+			w.byte(2)
+		default:
+			w.byte(3)
+			w.number(number)
+		}
 	case fields.Firing, fields.Hostile:
 		flag, ok := value.(bool)
 
@@ -332,7 +426,13 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 			return ErrSnapshot
 		}
 
-		w.modules(values)
+		var delta *ModuleDelta
+
+		if depth == 0 {
+			delta = w.moduleDelta
+		}
+
+		return w.modules(values, protocol.ModulePalettes, delta)
 	case fields.ShapeOutline:
 		values, ok := value.([][]float64)
 
@@ -404,6 +504,70 @@ func (w *writer) field(id int, value any, protocol specs.Protocol, depth int) er
 	return nil
 }
 
+// Motion rounding often leaves exact zero low bytes in the float64 encoding.
+// Retain all eight bytes for values that do not have those zero bytes.
+func (w *writer) motionField(id int, value any, protocol specs.Protocol) bool {
+	fields := protocol.BinaryFieldIDs
+
+	if id == fields.Position || id == fields.Velocity {
+		point, ok := value.(Vector)
+
+		if !ok {
+			return false
+		}
+
+		x, y := math.Float64bits(point.X), math.Float64bits(point.Y)
+
+		if (x|y)&0xffff != 0 {
+			return false
+		}
+
+		if id == fields.Position {
+			w.unsigned(uint64(fields.PackedPosition << 1))
+		} else {
+			w.unsigned(uint64(fields.PackedVelocity << 1))
+		}
+
+		var bytes [8]byte
+
+		binary.LittleEndian.PutUint64(bytes[:], x)
+		w.data = append(w.data, bytes[2:]...)
+		binary.LittleEndian.PutUint64(bytes[:], y)
+		w.data = append(w.data, bytes[2:]...)
+
+		return true
+	}
+
+	if id == fields.Rotation || id == fields.Spin {
+		number, ok := value.(float64)
+
+		if !ok {
+			return false
+		}
+
+		bits := math.Float64bits(number)
+
+		if bits&0xffffff != 0 {
+			return false
+		}
+
+		if id == fields.Rotation {
+			w.unsigned(uint64(fields.PackedRotation << 1))
+		} else {
+			w.unsigned(uint64(fields.PackedSpin << 1))
+		}
+
+		var bytes [8]byte
+
+		binary.LittleEndian.PutUint64(bytes[:], bits)
+		w.data = append(w.data, bytes[3:]...)
+
+		return true
+	}
+
+	return false
+}
+
 func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) error {
 	if depth > 32 || value.ID > (1<<53)-1 || len(value.Fields) > protocol.BinaryFieldIDs.NPCState {
 		return ErrSnapshot
@@ -420,6 +584,10 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 		for _, field := range value.Values {
 			if field.ID < 1 || field.ID > protocol.BinaryFieldIDs.NPCState {
 				return ErrSnapshot
+			}
+
+			if w.motionField(field.ID, field.Value, protocol) {
+				continue
 			}
 
 			tag := uint64(field.ID << 1)
@@ -460,6 +628,11 @@ func (w *writer) record(value EntityRecord, protocol specs.Protocol, depth int) 
 		}
 
 		field := value.Fields[id]
+
+		if w.motionField(id, field, protocol) {
+			continue
+		}
+
 		tag := uint64(id << 1)
 
 		if field == nil {
@@ -589,7 +762,11 @@ func AppendSnapshot(destination []byte, value Snapshot, protocol specs.Protocol)
 // Append helpers share the wire primitives with the authoritative replication
 // writer while allowing its reusable arena to own the backing storage.
 func AppendEntityRecord(destination []byte, value EntityRecord, ids specs.Protocol) ([]byte, error) {
-	w := writer{data: destination}
+	return AppendEntityRecordDelta(destination, value, ids, nil)
+}
+
+func AppendEntityRecordDelta(destination []byte, value EntityRecord, ids specs.Protocol, delta *ModuleDelta) ([]byte, error) {
+	w := writer{data: destination, moduleDelta: delta}
 	err := w.record(value, ids, 0)
 	return w.data, err
 }

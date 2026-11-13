@@ -892,7 +892,7 @@ export class Craft extends GameObject {
       module.chargeCooldown = state.chargeCooldown ?? 0;
       module.aimRotation = state.aimRotation ?? 0;
 
-      if (state.shades) module.shades = shadesOf(state.shades);
+      module.shades = state.shades ? shadesOf(state.shades) : undefined;
 
       if (state.mount >= 0) {
         const mount = mounts[state.mount];

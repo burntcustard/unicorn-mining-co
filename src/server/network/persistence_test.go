@@ -132,22 +132,6 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Reproduce a database saved before ammunition was appended to ItemIDs.
-	previousCatalog := s.World.Specification
-	previousCatalog.ItemIDs = previousCatalog.ItemIDs[:5]
-	db, err := sql.Open("sqlite", path)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = db.Exec("UPDATE world SET generation_digest = ?", persistence.GenerationDigest(previousCatalog))
-	closeErr := db.Close()
-
-	if err != nil || closeErr != nil {
-		t.Fatal(err, closeErr)
-	}
-
 	s, store = persistedSession(t, path)
 	defer store.Close(context.Background())
 
@@ -203,7 +187,7 @@ func TestProgressAndWorldSurviveRestart(t *testing.T) {
 	}
 
 	if saved.World.GenerationDigest != persistence.GenerationDigest(s.World.Specification) {
-		t.Fatal("compatible world digest was not upgraded")
+		t.Fatal("world digest changed on restart")
 	}
 
 	// More than 30 minutes offline no longer expires durable player records.
