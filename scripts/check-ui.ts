@@ -370,6 +370,10 @@ checkUi: try {
           ['Escape', 27],
           ['Tab', 9],
           [' ', 32],
+          ['ArrowLeft', 37],
+          ['ArrowUp', 38],
+          ['ArrowRight', 39],
+          ['ArrowDown', 40],
         ]).get(key),
       });
 
@@ -800,9 +804,9 @@ checkUi: try {
     await pressKey('ArrowDown');
     assert(
       await check(
-        `document.activeElement === document.querySelector('[data-module-bindings] button')`,
+        `document.activeElement === document.querySelector('[data-module-bindings] > :first-child').querySelectorAll('button')[2]`,
       ),
-      'Down from the final ship control reaches Modules',
+      'Down from the final ship binding reaches the first module binding',
     );
     await pressKey('ArrowUp');
     assert(
@@ -811,21 +815,73 @@ checkUi: try {
       ),
       'Up from the first module control returns to Ship controls',
     );
-    const moduleControls = await check(
-      `document.querySelectorAll('[data-module-bindings] button').length`,
+    const moduleRows = await check(
+      `document.querySelectorAll('[data-module-bindings] > div').length`,
     );
 
-    for (let step = 0; step <= moduleControls; step++) {
-      await pressKey('ArrowDown');
+    for (const column of [0, 1, 2]) {
+      await check(
+        `document.querySelectorAll('[data-module-bindings] > div')[0].querySelectorAll('button')[${column}].focus()`,
+      );
+
+      for (let row = 1; row < moduleRows; row++) {
+        await pressKey('ArrowDown');
+        assert(
+          await check(
+            `document.activeElement === document.querySelectorAll('[data-module-bindings] > div')[${row}].querySelectorAll('button')[${column}]`,
+          ),
+          `Down retains column ${column} between module rows`,
+        );
+      }
+
+      for (let row = moduleRows - 2; row >= 0; row--) {
+        await pressKey('ArrowUp');
+        assert(
+          await check(
+            `document.activeElement === document.querySelectorAll('[data-module-bindings] > div')[${row}].querySelectorAll('button')[${column}]`,
+          ),
+          `Up retains column ${column} between module rows`,
+        );
+      }
+    }
+
+    await check(
+      `document.querySelector('[data-module-bindings] > :first-child button').focus()`,
+    );
+
+    for (const column of [1, 2]) {
+      await pressKey('ArrowRight');
       assert(
         await check(
-          step < moduleControls
-            ? `document.activeElement === document.querySelectorAll('[data-module-bindings] button')[${step}]`
-            : `document.activeElement === document.querySelector('[data-reset]')`,
+          `document.activeElement === document.querySelector('[data-module-bindings] > :first-child').querySelectorAll('button')[${column}]`,
         ),
-        'Down traverses every module control and reaches Reset',
+        'Right moves across the module row',
       );
     }
+
+    await pressKey('ArrowRight');
+    assert(
+      await check(
+        `document.activeElement === document.querySelector('[data-module-bindings] > :first-child').querySelectorAll('button')[2]`,
+      ),
+      'Right stops at the end of a module row',
+    );
+
+    for (const column of [1, 0]) {
+      await pressKey('ArrowLeft');
+      assert(
+        await check(
+          `document.activeElement === document.querySelector('[data-module-bindings] > :first-child').querySelectorAll('button')[${column}]`,
+        ),
+        'Left moves across the module row',
+      );
+    }
+
+    await check(
+      `document.querySelector('[data-module-bindings] > :last-child button').focus()`,
+    );
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-reset]')`));
 
     await check(`(() => {
       document.querySelector('[data-back]').focus();
@@ -923,17 +979,27 @@ checkUi: try {
 
     for (const tab of ['controls', 'graphics']) {
       await check(`document.querySelector('[data-${tab}]').focus()`);
-
-      for (const arrow of ['ArrowUp', 'ArrowDown']) {
-        await pressKey(arrow);
-        assert(
-          await check(
-            `document.activeElement === document.querySelector('[data-${tab}]')`,
-          ),
-          `${arrow} does not move sideways between Settings tabs`,
-        );
-      }
+      await pressKey('ArrowUp');
+      assert(
+        await check(`document.activeElement.matches('[data-back]')`),
+        `Up from the ${tab} tab moves to Back`,
+      );
+      await check(`document.querySelector('[data-${tab}]').focus()`);
+      await pressKey('ArrowDown');
+      assert(
+        await check(
+          `document.activeElement === document.querySelector('[data-bindings] button')`,
+        ),
+        `Down from the ${tab} tab moves to the selected Controls panel`,
+      );
     }
+
+    await pressKey('ArrowUp');
+    assert(await check(`document.activeElement.matches('[data-controls]')`));
+    await pressKey('ArrowUp');
+    assert(await check(`document.activeElement.matches('[data-back]')`));
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-controls]')`));
 
     await check(`document.querySelector('[data-controls]').focus()`);
     await pressKey('ArrowLeft');
@@ -977,6 +1043,66 @@ checkUi: try {
         `document.querySelector('[data-graphics]').getAttribute('aria-current') === 'page'`,
       ),
       'Enter selects the focused section',
+    );
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-graphic="0"]')`));
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-graphics]')`),
+      'Up from the Graphics panel returns to its selected tab',
+    );
+    await pressKey('ArrowUp');
+    assert(await check(`document.activeElement.matches('[data-back]')`));
+    await pressKey('ArrowDown');
+    assert(
+      await check(`document.activeElement.matches('[data-graphics]')`),
+      'Down from Back returns to the selected Graphics tab',
+    );
+    await pressKey('ArrowDown');
+
+    for (const selector of [
+      '[data-graphic="1"]',
+      '[data-graphic="2"]',
+      '[data-backdrop-blur]',
+      '[data-hide-ui]',
+      '[data-renderer]',
+      '[data-resolution]',
+      '[data-hud-resolution]',
+    ]) {
+      await pressKey('ArrowDown');
+      assert(
+        await check(`document.activeElement.matches('${selector}')`),
+        `Down reaches ${selector} in the Graphics panel`,
+      );
+    }
+
+    await pressKey('ArrowUp');
+    assert(await check(`document.activeElement.matches('[data-resolution]')`));
+    await check(`document.querySelector('[data-renderer]').focus()`);
+    await pressKey('Enter');
+    await pressKey('ArrowDown');
+    await pressKey('Enter');
+    assert(
+      await check(
+        `document.querySelector('[data-renderer]').value === 'webgl'`,
+      ),
+      'an open graphics selector still accepts arrow keys to change its value',
+    );
+    await check(
+      `document.querySelector('[data-renderer]').value = 'canvas'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'))`,
+    );
+    await check(
+      `window.savedCssSupports = CSS.supports; CSS.supports = (...args) => args[0] === 'selector(:open)' ? false : window.savedCssSupports(...args)`,
+    );
+    await pressKey('ArrowDown');
+    assert(
+      await check(
+        `document.activeElement.matches('[data-renderer]') && document.activeElement.value === 'webgl'`,
+      ),
+      'graphics selectors keep native keyboard behavior without :open support',
+    );
+    await check(
+      `CSS.supports = window.savedCssSupports; delete window.savedCssSupports; document.querySelector('[data-renderer]').value = 'canvas'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'))`,
     );
     await checkHiddenElements();
     assert.equal(
@@ -1255,6 +1381,125 @@ checkUi: try {
 
     await capture('saves');
     assert(await check(`!document.querySelector('[data-clear]').disabled`));
+    const revealWidth = await check(
+      `document.querySelector('[data-reveal]').getBoundingClientRect().width`,
+    );
+
+    await click('[data-reveal]');
+    assert(
+      await check(`(() => {
+        const button = document.querySelector('[data-reveal]');
+        const [show, hide] = button.querySelectorAll('span');
+        return document.querySelector('[data-private-id]').type === 'text'
+          && button.getAttribute('aria-pressed') === 'true'
+          && show.getAttribute('aria-hidden') === 'true'
+          && hide.getAttribute('aria-hidden') === 'false'
+          && getComputedStyle(show).opacity === '0'
+          && getComputedStyle(hide).opacity === '1';
+      })()`),
+      'revealing the ID exposes only the Hide label',
+    );
+    assert.equal(
+      await check(
+        `document.querySelector('[data-reveal]').getBoundingClientRect().width`,
+      ),
+      revealWidth,
+      'the reveal button keeps its width when its label changes',
+    );
+    await click('[data-reveal]');
+    assert(
+      await check(`(() => {
+        const button = document.querySelector('[data-reveal]');
+        const [show, hide] = button.querySelectorAll('span');
+        return document.querySelector('[data-private-id]').type === 'password'
+          && button.getAttribute('aria-pressed') === 'false'
+          && show.getAttribute('aria-hidden') === 'false'
+          && hide.getAttribute('aria-hidden') === 'true'
+          && getComputedStyle(show).opacity === '1'
+          && getComputedStyle(hide).opacity === '0';
+      })()`),
+      'hiding the ID exposes only the Reveal label',
+    );
+    await check(`Object.defineProperty(navigator, 'clipboard', {
+      configurable: true, value: { writeText: async () => { throw Error(); } }
+    })`);
+    await click('[data-copy]');
+    await waitFor(
+      `document.querySelector('.ui-status').textContent.includes('Copy is unavailable')`,
+      'a failed copy offers manual selection',
+    );
+    assert(
+      await check(`document.querySelector('[data-private-id]').type === 'text'
+        && document.querySelector('[data-reveal] span:last-child').getAttribute('aria-hidden') === 'false'`),
+      'manual copying reveals the ID and updates the button label',
+    );
+    await check(`delete navigator.clipboard`);
+    await click('[data-reveal]');
+
+    for (const action of ['copy', 'clear', 'reveal']) {
+      for (const [arrow, target] of [
+        ['ArrowUp', 'private-id'],
+        ['ArrowDown', 'import-id'],
+      ]) {
+        await check(`document.querySelector('[data-${action}]').focus()`);
+        await pressKey(arrow);
+        assert(
+          await check(`document.activeElement.matches('[data-${target}]')`),
+          `${arrow} moves vertically past the Saves action row from ${action}`,
+        );
+      }
+    }
+
+    await check(`document.querySelector('[data-copy]').focus()`);
+
+    for (const action of ['clear', 'reveal']) {
+      await pressKey('ArrowRight');
+      assert(await check(`document.activeElement.matches('[data-${action}]')`));
+    }
+
+    for (const action of ['clear', 'copy']) {
+      await pressKey('ArrowLeft');
+      assert(await check(`document.activeElement.matches('[data-${action}]')`));
+    }
+
+    await check(`document.querySelector('[data-verify]').focus()`);
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-import-id]')`),
+      'Up moves from Verify to the import field',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-copy]')`),
+      'Up enters the Saves action row once',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-private-id]')`),
+      'Up moves to the saved private ID field',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-back]')`),
+      'Up moves from the saved private ID field to Back',
+    );
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-private-id]')`));
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-copy]')`));
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-import-id]')`));
+    await check(
+      `document.activeElement.value = 'abcd'; document.activeElement.setSelectionRange(2, 2)`,
+    );
+    await pressKey('ArrowLeft');
+    assert(
+      await check(`document.activeElement.matches('[data-import-id]')
+        && document.activeElement.selectionStart === 1`),
+      'Left continues to move the text cursor in the import field',
+    );
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-verify]')`));
     await check(
       `document.querySelector('[data-import-id]').value = 'invalid'; document.querySelector('[data-import]').requestSubmit()`,
     );
@@ -1291,6 +1536,16 @@ checkUi: try {
         `document.activeElement === document.querySelector('#profile-name')`,
       ),
       'profile input receives keyboard focus',
+    );
+    await pressKey('ArrowDown');
+    assert(
+      await check(`document.activeElement.matches('[data-play]')`),
+      'Down moves from the profile input to Play',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('#profile-name')`),
+      'Up returns from Play to the profile input',
     );
     await check(`(() => {
       const input = document.querySelector('#profile-name');
@@ -2170,6 +2425,23 @@ checkUi: try {
     'the deferred docking screen finishes loading',
   );
 
+  const beams = await check('fixture.checkBeamComposition()');
+
+  assert(beams.single[0] > 0, 'the beam surface contains visible light');
+  assert(beams.overlap[0] > beams.single[0], 'overlapping beams brighten');
+  const singleWash = (beams.single[0] / 255) * 0.5;
+  const overlapWash = (beams.overlap[0] / 255) * 0.5;
+  const originalOverlap = 1 - (1 - singleWash) ** 2;
+  const share = (overlapWash - singleWash) / (originalOverlap - singleWash);
+
+  assert(share > 0 && share < 1, 'the overlap is a restrained increase');
+  assert(
+    beams.dimOverlap[0] > beams.overlap[0],
+    'a weaker beam crossing at a different position adds light too',
+  );
+  assert.equal(beams.blend, 'screen');
+  assert.equal(beams.opacity, '0.5');
+
   if (process.env.UI_HANGAR_ONLY) {
     await waitFor(
       `!!document.querySelector('[data-tab="hangar"]')`,
@@ -2728,6 +3000,19 @@ checkUi: try {
       .find(button => button.textContent.includes('${name}')).getAttribute('data-key')`);
 
     await click(`[data-loadout] [data-key="${key}"]`);
+    await check('fixture.refresh(); fixture.refresh(); fixture.refresh()');
+    assert.equal(
+      await check(`Array.from(document.querySelectorAll('[data-module-power] h3'))
+        .filter(heading => heading.textContent.trim() === 'Weight').length`),
+      1,
+      `${name} shows its weight once after repeated updates`,
+    );
+    assert(
+      await check(`Array.from(document.querySelectorAll('[data-module-power] h3'))
+        .find(heading => heading.textContent.trim() === 'Weight')
+        .nextElementSibling.textContent.trim().endsWith(' KG')`),
+      `${name} shows weight in KG`,
+    );
     assert(
       await check(`!document.querySelector('[data-paint-unsupported]').hidden
         && document.querySelector('[data-paint-unsupported]').textContent.trim() === 'Painting unsupported on this module'

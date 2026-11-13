@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Ship } from '../../src/client/objects/ship';
-import { PowerPlant } from '../../src/client/objects/modules';
+import { PowerPlant, PowerPlant2V } from '../../src/client/objects/modules';
 import {
   encodeClientMessage,
   decodeClientMessage,
@@ -36,7 +36,7 @@ assert.equal(
   ship.applyDockAction({ action: 'repairHull', hullIndex: 1 }, { credits: 0 }),
   undefined,
 );
-const plant = new PowerPlant();
+const plant = new PowerPlant2V();
 
 ship.fit(plant, ship.mounts[3]);
 assert.equal(ship.mounts[3].hull.module, ship.hullSegments[3]);

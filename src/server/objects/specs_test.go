@@ -96,7 +96,7 @@ func TestStartingPowerPlants(t *testing.T) {
 			plants := 0
 
 			for _, mount := range ship.Mounts() {
-				if mount.Module == nil || mount.Module.ModuleBase().Type != "powerPlant" {
+				if mount.Module == nil || mount.Module.ModuleBase().Spec.Behavior != "powerPlant" {
 					continue
 				}
 
@@ -122,7 +122,7 @@ func TestStartingPowerPlants(t *testing.T) {
 			plants = 0
 
 			for _, mount := range restored.Mounts() {
-				if mount.Module != nil && mount.Module.ModuleBase().Type == "powerPlant" {
+				if mount.Module != nil && mount.Module.ModuleBase().Spec.Behavior == "powerPlant" {
 					plants++
 
 					if mount.Health != 40 {

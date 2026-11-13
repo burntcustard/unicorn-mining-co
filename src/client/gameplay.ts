@@ -33,7 +33,7 @@ import { defaultKeybindings } from './input/keybindings';
 import { network } from './network/network';
 import { camera, centerCamera, followTarget, holeZoom } from './camera';
 
-import { revealBuriedItems } from './utilities/lighting';
+import { beginBeams, endBeams, revealBuriedItems } from './utilities/lighting';
 import { adoptPlayerShip, player, readSlate, updatePlayer } from './player';
 import { renderSparks, updateSparks } from './effects/shrapnel';
 import { renderEffects, updateEffects } from './effects/effect';
@@ -49,6 +49,7 @@ import { game } from './game';
 
 import { Item } from './objects/item';
 import { beginSurfaces, endSurfaces } from './utilities/composited-surface';
+import { beginSpectra, endSpectra } from './utilities/prism';
 
 import { playSound, preloadSound, unlockAudio } from './audio/sound-loader';
 import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
@@ -467,6 +468,8 @@ const gameLoop = GameLoop({
     const focus = playerPose.position;
 
     beginSurfaces();
+    beginBeams();
+    beginSpectra();
 
     ctx.save();
     ctx.scale(scale, scale);
@@ -532,6 +535,14 @@ const gameLoop = GameLoop({
           : craft;
       });
 
+    const lightObjects = activeSprites.map((object) => {
+      const prediction = predicted.entities.get(object.id);
+
+      return prediction && prediction.constructor === object.constructor
+        ? prediction
+        : object;
+    });
+
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them. Thruster glows sit above flares, below hulls.
     for (const zIndex of Object.values(renderingLayers)) {
@@ -554,7 +565,7 @@ const gameLoop = GameLoop({
           // @endif
           revealBuriedItems({
             sprites: visibleSprites,
-            scenery: activeSprites,
+            scenery: lightObjects,
             predicted: predicted.entities,
             poses: remotePoses,
           });
@@ -573,14 +584,18 @@ const gameLoop = GameLoop({
 
       renderedCrafts.forEach((craft) => {
         craft.render({
-          scenery: activeSprites,
+          scenery: lightObjects,
+          poses: remotePoses,
           zIndex,
           pose: remotePoses.get(craft.id),
         });
       });
+
+      if (zIndex === renderingLayers.stationFloor) endSpectra(ctx);
     }
 
     endSurfaces();
+    endBeams();
 
     visibleSprites.forEach(
       (object) =>

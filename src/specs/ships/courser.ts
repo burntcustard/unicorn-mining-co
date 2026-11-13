@@ -1,3 +1,4 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 export const courser = {
@@ -12,7 +13,7 @@ export const courser = {
   initialLoadout: [
     { mount: 0, module: 'cannonSm' },
     { mount: 1, module: 'thrusterSingleSm' },
-    { mount: 2, module: 'powerPlant' },
+    { mount: 2, module: 'powerPlant1V' },
     { mount: 3, module: 'cargoHatchPair' },
     { mount: 5, module: 'cannonSm' },
   ],
@@ -40,7 +41,7 @@ export const courser = {
       health: 40,
       mounts: [
         [{ x: -19.8, y: 0, fits: ['thrusterSingleSm'] }],
-        [{ x: -12.5, y: 0, fits: ['powerPlant'] }],
+        [{ x: -12.5, y: 0, fits: powerPlantIdsBySize[1] }],
       ],
       points: [
         [-20, -7],

@@ -6,6 +6,7 @@ export const cargoHatch = {
   icon: './cargo-hatch.svg',
   description: 'Collect loose ore and cargo into your hold.',
   behavior: 'cargoHatch',
+  weight: 1,
   name: 'Cargo Hatch',
   health: 0,
   healthActivated: 4,

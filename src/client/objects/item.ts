@@ -14,12 +14,17 @@ import { type Collider } from '../collision/types';
 import { cargoPickupPoint } from './modules/cargo-hatch';
 import { itemDefaults } from '../../specs/items/defaults';
 import type { ItemSpec } from '../../specs/items/types';
+import { amethyst } from '../../specs/items/amethyst';
 
 export class Item extends GameObject {
   declare name: string;
   kind = 'item' as const;
   declare resource: number;
   declare rounds?: number;
+
+  get lightFilter() {
+    return this.resource === amethyst.resource ? colors.violet[2] : undefined;
+  }
 
   addToScene() {
     this.networked = 1;

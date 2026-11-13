@@ -8,6 +8,7 @@ export const plasmaAcceleratorTurret = {
   icon: './plasma-accelerator.svg',
   description: 'Launch a charged plasma projectile.',
   behavior: 'weapon',
+  weight: 1,
   name: 'Plasma Accelerator Turret',
   turret: true,
   turretTurnRate: 3,

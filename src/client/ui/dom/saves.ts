@@ -22,14 +22,17 @@ export const createSaves = () => {
       'Connecting to create a pilot, or import an existing private ID.';
   }
 
+  const setVisible = (visible: boolean) => {
+    privateId.setAttribute('type', visible ? 'text' : 'password');
+    reveal.children[0].setAttribute('aria-hidden', String(visible));
+    reveal.children[1].setAttribute('aria-hidden', String(!visible));
+    reveal.setAttribute('aria-pressed', String(visible));
+  };
+
   reveal.addEventListener(
     'ui-press',
     () => {
-      const visible = privateId.getAttribute('type') === 'password';
-
-      privateId.setAttribute('type', visible ? 'text' : 'password');
-      reveal.textContent = visible ? 'Hide' : 'Reveal';
-      reveal.setAttribute('aria-pressed', String(visible));
+      setVisible(privateId.getAttribute('type') === 'password');
     },
     { signal: screen.signal },
   );
@@ -41,10 +44,8 @@ export const createSaves = () => {
         await navigator.clipboard.writeText(privateId.value);
         status.textContent = 'Private ID copied.';
       } catch {
-        privateId.setAttribute('type', 'text');
+        setVisible(true);
         privateId.select();
-        reveal.textContent = 'Hide';
-        reveal.setAttribute('aria-pressed', 'true');
         status.textContent =
           'Copy is unavailable. Select and copy your private ID manually.';
       }

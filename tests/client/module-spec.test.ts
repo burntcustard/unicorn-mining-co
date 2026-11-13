@@ -20,6 +20,7 @@ const spec: ModuleSpec = {
   description: 'Timing fixture.',
   power: exampleWeapon.power,
   powerActivated: exampleWeapon.powerActivated,
+  weight: 1,
   health: 10,
   price: 20,
   zIndex: renderingLayers.modulesBelowShipHull,
@@ -97,11 +98,14 @@ for (const category of moduleCategoryIds) {
     import.meta.url,
   );
 
-  for (const file of readdirSync(folder).filter(
+  for (const file of readdirSync(folder, {
+    recursive: true,
+    encoding: 'utf8',
+  }).filter(
     (file) =>
       file.endsWith('.ts') &&
       file !== 'index.ts' &&
-      !file.startsWith('example-'),
+      !file.split('/').at(-1)!.startsWith('example-'),
   )) {
     const exports = await import(new URL(file, folder).href);
 
@@ -174,6 +178,7 @@ try {
 }
 
 for (const module of moduleSpecList) {
+  assert(Number.isFinite(module.weight) && module.weight > 0);
   assert(Number.isFinite(module.power) && module.power >= 0);
   assert(
     Number.isFinite(module.powerActivated) &&
@@ -181,4 +186,4 @@ for (const module of moduleSpecList) {
   );
 }
 
-assert(moduleSpecs.powerPlant.powerGenerated > 0);
+assert(moduleSpecs.powerPlant2V.powerGenerated > 0);

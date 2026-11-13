@@ -11,7 +11,7 @@ import {
   renderingLayers,
   type RenderingLayer,
 } from '../../specs/rendering-layers';
-import { drawInside, drawSpectrum, traceBeam } from '../utilities/prism';
+import { collectSpectrum, drawInside, traceBeam } from '../utilities/prism';
 import { drawSegment, objectLineWidth } from '../utilities/drawing';
 import { game } from '../game';
 
@@ -66,6 +66,7 @@ export type ModuleState = {
 
 export interface CraftRenderOptions extends RenderOptions {
   scenery?: GameObject[];
+  poses?: ReadonlyMap<number, Pose>;
   zIndex?: RenderingLayer;
   drawHull?: (options: {
     segment: Segment;
@@ -938,6 +939,7 @@ export class Craft extends GameObject {
 
   render({
     scenery = [],
+    poses,
     zIndex = renderingLayers.shipHull,
     draw,
     drawHull,
@@ -981,15 +983,17 @@ export class Craft extends GameObject {
               ctx.translate(segment.localPosition.x, segment.localPosition.y);
 
               if (zIndex === renderingLayers.stationFloor) {
-                segment.prism = traceBeam(pose, segment, scenery);
+                segment.prism = traceBeam(pose, segment, scenery, this, poses);
               }
 
               if (glow) {
                 segment.module.renderGlow({ segment });
               } else {
-                (zIndex === renderingLayers.stationFloor
-                  ? drawSpectrum
-                  : drawInside)(ctx, segment, segment.prism);
+                if (zIndex === renderingLayers.stationFloor) {
+                  collectSpectrum(ctx, segment, segment.prism, pose);
+                } else {
+                  drawInside(ctx, segment, segment.prism);
+                }
               }
 
               ctx.restore();

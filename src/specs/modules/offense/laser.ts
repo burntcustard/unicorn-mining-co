@@ -7,6 +7,7 @@ export const laser = {
   icon: './laser.svg',
   description: 'Focus a continuous beam onto your target.',
   behavior: 'beam',
+  weight: 1,
   name: 'Beam Laser',
   health: 0,
   healthActivated: 40,

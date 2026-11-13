@@ -7,6 +7,7 @@ export const exampleCargoHatch = {
   icon: './cargo-hatch.svg',
   description: 'Synthetic module for mechanics tests; excluded from gameplay.',
   behavior: 'cargoHatch',
+  weight: 1,
   name: 'Example Cargo Hatch',
   health: 0,
   healthActivated: 4,

@@ -1,3 +1,4 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 export const arrow = {
@@ -15,7 +16,7 @@ export const arrow = {
     { mount: 4, module: 'cargoHatch' },
     { mount: 6, module: 'hornDrill' },
     { mount: 7, module: 'searchLight' },
-    { mount: 8, module: 'powerPlant' },
+    { mount: 8, module: 'powerPlant2V' },
   ],
   hullSegments: [
     {
@@ -158,7 +159,7 @@ export const arrow = {
             fits: ['searchLight'],
           },
         ],
-        [{ x: 26, y: 0, fits: ['powerPlant'] }],
+        [{ x: 26, y: 0, fits: powerPlantIdsBySize[2] }],
       ],
       points: [
         [30, -6],

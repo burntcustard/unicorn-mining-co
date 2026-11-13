@@ -1,3 +1,4 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 const rearX = -28.4;
@@ -22,7 +23,7 @@ export const kestrel = {
   initialLoadout: [
     {
       mount: 1,
-      module: 'powerPlant',
+      module: 'powerPlant3V',
     },
     {
       mount: 2,
@@ -75,7 +76,7 @@ export const kestrel = {
           {
             x: -8.6,
             y: 0,
-            fits: ['powerPlant'],
+            fits: powerPlantIdsBySize[3],
           },
         ],
       ],

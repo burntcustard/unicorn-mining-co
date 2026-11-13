@@ -3,6 +3,7 @@ import { cargoHatch } from './cargo-hatch';
 
 export const cargoHatchPair = {
   ...cargoHatch,
+  weight: 2,
   name: 'Cargo Hatch Pair',
   description: 'Open two center-split doors to collect loose ore and cargo.',
   offset: 0,

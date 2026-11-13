@@ -33,18 +33,6 @@
     }
   }
 
-  .chat-panel input {
-    min-height: 32px;
-    padding-block: 4px;
-    padding-inline: 8px;
-    font-family: system-ui, sans-serif;
-
-    &:focus-visible {
-      border-color: var(--ui-color);
-      outline: none;
-    }
-  }
-
   .chat-contact strong {
     color: #3f7;
   }

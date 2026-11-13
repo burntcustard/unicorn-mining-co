@@ -60,7 +60,7 @@ func TestCompactShipSkipsRemovedDefinitions(t *testing.T) {
 	saved = objects.CaptureShip(ship)
 
 	for i := range saved.Modules {
-		if saved.Modules[i].Type == "powerPlant" {
+		if saved.Modules[i].Type == "powerPlant2V" {
 			saved.Modules[i].Type = "retired-power-plant"
 		}
 	}

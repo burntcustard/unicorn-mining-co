@@ -405,7 +405,7 @@ assert.deepEqual(
     'cargoHatch',
     'cargoHatch',
     null,
-    'powerPlant',
+    'powerPlant2V',
   ],
 );
 

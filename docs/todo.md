@@ -109,7 +109,7 @@
 [-] Map
 [ ] "Random" NPC spaceship name generator
 [ ] Shield generator should have health and UI so can be disrupted
-[ ] Add nav beacons and scanning using the search light
+[-] Add nav beacons and scanning using the search light
 [x] New mining triangles thing
 [x] Add sound: Autogun fire + ammo explode
 [-] Add sound: Plasma Accelerator ready, fire + ammo explode
@@ -129,11 +129,10 @@
 [ ] New sound: Asteroid segment destroyed (with item)
 [ ] Sound volume slider in settings
 [x] Fix ships in stations rendering on map
-[ ] Player list (with tab and/or just near/on map?)
-[ ] Circle plus and circle minus characters
-[ ] Zoom in and zoom out buttons in big map
+[x] Zoom in and zoom out buttons in big map
 [ ] World map with sectors and lines between them (+ players?)
 [ ] Small asteroid chunk pop animation
+[ ] Make big ships turn slow
 
 ## Big future things
 

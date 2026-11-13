@@ -1,3 +1,4 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 // Five-panel compact craft with two interchangeable weapon/cargo hardpoints.
@@ -13,7 +14,7 @@ export const finch = {
   initialLoadout: [
     {
       mount: 0,
-      module: 'powerPlant',
+      module: 'powerPlant1V',
     },
     {
       mount: 2,
@@ -44,7 +45,7 @@ export const finch = {
           {
             x: -11,
             y: 0,
-            fits: ['powerPlant'],
+            fits: powerPlantIdsBySize[1],
           },
         ],
         [

@@ -1093,7 +1093,9 @@ for (const fragment of [
 }
 let revealed = 0;
 const litRock = {
+  id: 12345,
   scenery: true,
+  physics: true,
   segments: [{}],
   position: Vec.add(remote.position, Vec.create(60)),
   rotation: 0,
@@ -1112,6 +1114,7 @@ const litRock = {
     },
   ],
 };
+Object.setPrototypeOf(litRock, Asteroid.prototype);
 const remotePose = { position: Vec.create(900, 800), rotation: 0.3 };
 litRock.position = Vec.add(
   remotePose.position,
@@ -1119,9 +1122,11 @@ litRock.position = Vec.add(
 );
 const unlitRock = {
   ...litRock,
+  id: 12346,
   position: Vec.add(remotePose.position, Vec.create(0, 200)),
   renderContents: [{ render() { assert.fail('buried cargo outside the traced light is not drawn'); } }],
 };
+Object.setPrototypeOf(unlitRock, Asteroid.prototype);
 const remotePrediction = cloneEntity({ entity: remote });
 const predictedLamp = remotePrediction.segments.find(
   (segment) => segment.module instanceof SearchLight,
@@ -1170,6 +1175,14 @@ assert.equal(
   2,
   'predicted light can reveal cargo while the base sprite is stale',
 );
+const predictedRock = Object.assign(Object.create(Asteroid.prototype), litRock);
+revealBuriedItems({
+  sprites: [remote, litRock, unlitRock],
+  scenery: [predictedRock, unlitRock],
+  predicted: new Map([[remote.id, remotePrediction]]),
+  poses: new Map([[remote.id, remotePose]]),
+});
+assert.equal(revealed, 3, 'a predicted rock reveals the displayed rock contents');
 const before = gradients;
 // Global layers must put either ship's horn drill behind both hulls, irrespective
 // of the order the two craft entered the renderer.

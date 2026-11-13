@@ -53,7 +53,7 @@ type Module struct {
 	Model                 []ModelPart `json:"model"`
 	Behavior              string      `json:"behavior"`
 	Name                  string      `json:"name"`
-	Health, Price         float64
+	Health, Price, Weight float64
 	ZIndex                int      `json:"zIndex"`
 	Shades                []string `json:"shades"`
 	ActivationDuration    float64  `json:"activationDuration"`

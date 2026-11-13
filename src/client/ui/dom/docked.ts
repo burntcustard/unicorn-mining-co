@@ -3,7 +3,14 @@ import html from './docked.html?raw';
 import './docked.css';
 import pentagon from '../icons/corral-5.svg?raw';
 import hexagon from '../icons/corral-6.svg?raw';
-import { createScreen, focusMenuTarget, nextMenuButton, query, ui } from './ui';
+import {
+  createScreen,
+  focusMenuTarget,
+  menuRowFilter,
+  nextMenuButton,
+  query,
+  ui,
+} from './ui';
 import { player, paintUnlocked, unlockPaint } from '../../player';
 import { paintColors } from '../../../specs/colors';
 import { type Craft } from '../../objects/craft';
@@ -950,11 +957,13 @@ const createDocked = () => {
     setHtml(
       query(root, '[data-module-power]'),
       module && !trading
-        ? module.powerGenerated
-          ? `<h3 class="text-sm uppercase">Generation</h3><div class="text-color text-lg mt-4">${module.powerGenerated.toFixed(1)} MW</div><h3 class="text-sm uppercase mt-4">Storage</h3><div class="text-color text-lg mt-4">${(module.powerCapacity || 0).toFixed(1)} MJ</div>`
-          : `<h3 class="text-sm uppercase">Power consumption</h3><div class="flex items-center gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div>${module.powerFiring ? `<div><span class="block text-muted text-sm uppercase">Firing</span><span class="text-color text-lg">${module.powerFiring.toFixed(1)} MW</span></div>` : ''}${module.powerCharging ? `<div><span class="block text-muted text-sm uppercase">Charging</span><span class="text-color text-lg">${module.powerCharging.toFixed(1)} MW</span></div>` : ''}</div>`
+        ? (module.powerGenerated
+            ? `<h3 class="text-sm uppercase">Generation</h3><div class="text-color text-lg mt-4">${module.powerGenerated.toFixed(1)} MW</div><h3 class="text-sm uppercase mt-4">Storage</h3><div class="text-color text-lg mt-4">${(module.powerCapacity || 0).toFixed(1)} MJ</div>`
+            : `<h3 class="text-sm uppercase">Power consumption</h3><div class="flex items-center gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div>${module.powerFiring ? `<div><span class="block text-muted text-sm uppercase">Firing</span><span class="text-color text-lg">${module.powerFiring.toFixed(1)} MW</span></div>` : ''}${module.powerCharging ? `<div><span class="block text-muted text-sm uppercase">Charging</span><span class="text-color text-lg">${module.powerCharging.toFixed(1)} MW</span></div>` : ''}</div>`) +
+            `<h3 class="text-sm uppercase mt-4">Weight</h3><div class="text-color text-lg mt-4">${module.weight} KG</div>`
         : '',
     );
+
     query(root, '[data-module-power]').hidden = !module || trading;
     text(
       '[data-fuel-usage]',
@@ -1423,14 +1432,11 @@ const createDocked = () => {
             ? nextMenuButton({ group: inPaints, direction })
             : focused;
         } else {
-          const paint = inPaints ? focused : firstButton('[data-paints]');
-
           target =
             nextMenuButton({
               group: inDetail,
               direction,
-              filter: (button) =>
-                !button.hasAttribute('data-paint') || button === paint,
+              filter: menuRowFilter('[data-paints]'),
             }) || focused;
         }
       } else if (vertical && inCandidates) {

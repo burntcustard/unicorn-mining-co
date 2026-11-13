@@ -104,7 +104,7 @@
 
 **latency trial** - One actor input event and its measured responses. The three observers remain paired within that trial rather than counting as three independent input events.
 
-**light beam** - The visible cone projected by an active search light, from its lens to the first asteroid it meets or the end of its reach.
+**light beam** - The visible cone projected by an active search light, from its lens to the first physical object it meets or the end of its reach.
 
 **lightweight protocol client** - A benchmark client that uses the normal binary game protocol without running a browser or renderer.
 

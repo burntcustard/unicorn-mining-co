@@ -1,3 +1,4 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 // Broad twin-horn miner with two wing-mounted medium dual thrusters.
@@ -14,7 +15,7 @@ export const moth = {
   initialLoadout: [
     {
       mount: 0,
-      module: 'powerPlant',
+      module: 'powerPlant4V',
     },
     {
       mount: 2,
@@ -25,23 +26,23 @@ export const moth = {
       module: 'thrusterDualMd',
     },
     {
-      mount: 4,
-      module: 'hornDrill',
-    },
-    {
-      mount: 5,
-      module: 'searchLight',
-    },
-    {
       mount: 6,
-      module: 'thrusterDualMd',
+      module: 'hornDrill',
     },
     {
       mount: 7,
-      module: 'hornDrill',
+      module: 'searchLight',
     },
     {
       mount: 8,
+      module: 'thrusterDualMd',
+    },
+    {
+      mount: 11,
+      module: 'hornDrill',
+    },
+    {
+      mount: 12,
       module: 'searchLight',
     },
   ],
@@ -54,7 +55,7 @@ export const moth = {
           {
             x: -1,
             y: 0,
-            fits: ['powerPlant'],
+            fits: powerPlantIdsBySize[4],
           },
         ],
         [
@@ -117,6 +118,12 @@ export const moth = {
         [-0.7, -26.8],
         [-10, -29.9],
       ],
+      mounts: [
+        [
+          { x: -7, y: -48, fits: ['autogun', 'laser'] },
+          { x: -1, y: -48, fits: ['plasmaAccelerator'] },
+        ],
+      ],
     },
     {
       health: 25,
@@ -136,6 +143,12 @@ export const moth = {
         [10.7, -38.8],
         [22.4, -28],
         [12.9, -18],
+      ],
+      mounts: [
+        [
+          { x: 8, y: -34, fits: ['autogun', 'laser'] },
+          { x: 14, y: -34, fits: ['plasmaAccelerator'] },
+        ],
       ],
     },
     {
@@ -200,6 +213,12 @@ export const moth = {
         [10.7, 38.8],
         [-10, 58],
       ],
+      mounts: [
+        [
+          { x: -7, y: 48, fits: ['autogun', 'laser'] },
+          { x: -1, y: 48, fits: ['plasmaAccelerator'] },
+        ],
+      ],
     },
     {
       health: 25,
@@ -219,6 +238,12 @@ export const moth = {
         [10.7, 38.8],
         [-0.7, 26.8],
         [-9, 18],
+      ],
+      mounts: [
+        [
+          { x: 8, y: 34, fits: ['autogun', 'laser'] },
+          { x: 14, y: 34, fits: ['plasmaAccelerator'] },
+        ],
       ],
     },
     {

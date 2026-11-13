@@ -25,11 +25,16 @@
         />
       </label>
       <div class="gap-2 flex flex-wrap" data-action-group>
-        <button class="uppercase ui-button" data-reveal aria-pressed="false">
-          Reveal
-        </button>
         <button class="uppercase ui-button" data-copy>Copy</button>
         <button class="uppercase ui-button" data-clear>Clear save</button>
+        <button
+          class="uppercase ui-button ui-button-toggle"
+          data-reveal
+          aria-pressed="false"
+        >
+          <span aria-hidden="false">Reveal</span>
+          <span aria-hidden="true">Hide</span>
+        </button>
       </div>
       <p>
         Clear Save removes this browser's save and reloads the game. Your pilot
@@ -37,7 +42,7 @@
         and settings are kept.
       </p>
     </div>
-    <form class="grid gap-4" data-import>
+    <form class="grid gap-4" data-import autocomplete="off">
       <h3 class="uppercase text-lg">Import a pilot</h3>
       <label class="uppercase grid gap-2">
         Private ID
@@ -48,10 +53,13 @@
           required
           autocomplete="off"
           spellcheck="false"
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
         />
       </label>
-      <button class="uppercase ui-button" type="button" data-verify>
+      <button
+        class="uppercase ui-button justify-self-start"
+        type="button"
+        data-verify
+      >
         Verify ID
       </button>
     </form>

@@ -5,6 +5,10 @@
  * skips quoted paths, so a name can also occur inside shape-distance.
  */
 export const propertyNames = [
+  'lightFilter',
+  'filterAt',
+  'filterColor',
+  'filteredEnd',
   'decaying',
   'ready',
   'gainPoints',
@@ -99,6 +103,7 @@ export const propertyNames = [
   'powerActivated',
   'powerCharging',
   'powerFiring',
+  'weight',
   'powerGenerated',
   'powerCapacity',
   'powerGeneration',

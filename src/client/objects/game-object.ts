@@ -124,6 +124,10 @@ export class GameObject {
         ];
   }
 
+  get lightFilter(): string | undefined {
+    return undefined;
+  }
+
   remove() {
     this.dead = true;
     const resident: GameObject | undefined = this.world?.entities.get(this.id);

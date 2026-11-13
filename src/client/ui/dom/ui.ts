@@ -41,25 +41,75 @@ export const query = <T extends Element = HTMLElement>(
   selector: string,
 ) => element.querySelector<T>(selector)!;
 
-export const nextMenuButton = ({
-  group,
-  direction,
-  filter,
-}: {
+const nextMenuTarget = <T extends HTMLElement>(
+  {
+    group,
+    direction,
+    filter,
+  }: {
+    group: ParentNode;
+    direction: number;
+    filter?: (control: T) => boolean;
+  },
+  selector: string,
+) => {
+  const controls = [...group.querySelectorAll<T>(selector)].filter(
+    (control) =>
+      control.getClientRects().length && (!filter || filter(control)),
+  );
+  const index = controls.indexOf(document.activeElement as T);
+
+  if (index < 0) return controls.at(direction > 0 ? 0 : -1);
+
+  return controls[index + direction] || controls[index];
+};
+
+export const nextMenuButton = (options: {
   group: ParentNode;
   direction: number;
   filter?: (button: HTMLButtonElement) => boolean;
-}) => {
-  const buttons = [
-    ...group.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
-  ].filter(
-    (button) => button.getClientRects().length && (!filter || filter(button)),
-  );
-  const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+}) => nextMenuTarget(options, 'button:not(:disabled)');
 
-  if (index < 0) return buttons.at(direction > 0 ? 0 : -1);
+export const menuRowFilter = (selector: string) => {
+  const active = document.activeElement;
+  const activeRow = active?.closest(selector);
+  const rowButtons = (row: Element | null | undefined) =>
+    row
+      ? [
+          ...row.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+        ].filter((button) => button.getClientRects().length)
+      : [];
+  const activeButtons = rowButtons(activeRow);
+  const activeIndex = activeButtons.indexOf(active as HTMLButtonElement);
+  const seen = new Set<Element>();
 
-  return buttons[index + direction] || buttons[index];
+  return (control: HTMLElement) => {
+    const row = control.closest(selector);
+
+    if (!row) return true;
+
+    if (row === activeRow) return control === active;
+
+    const selected = row.querySelector<HTMLElement>(
+      '[aria-current="page"]:not(:disabled)',
+    );
+
+    if (selected?.getClientRects().length) return control === selected;
+
+    if (activeIndex >= 0) {
+      const buttons = rowButtons(row);
+      const offset = activeButtons.length - 1 - activeIndex;
+
+      if (buttons.length) {
+        return control === buttons[Math.max(0, buttons.length - 1 - offset)];
+      }
+    }
+
+    if (seen.has(row)) return false;
+
+    seen.add(row);
+    return true;
+  };
 };
 
 export const focusMenuTarget = (
@@ -253,24 +303,50 @@ export const ui = (() => {
     const screen = stack.at(-1)?.element;
 
     if (!direction || !screen) return;
-    const focused = screen.querySelector<HTMLButtonElement>(':focus');
-
-    if (focused && !focused.matches('button')) return;
+    const focused = screen.querySelector<HTMLElement>(':focus');
+    const vertical = ['ArrowUp', 'ArrowDown'].includes(event.key);
 
     if (
-      focused?.closest('.ui-tabs') &&
-      ['ArrowUp', 'ArrowDown'].includes(event.key)
+      focused?.matches('select') &&
+      (!CSS.supports('selector(:open)') || focused.matches(':open'))
     ) {
-      event.preventDefault();
+      return;
+    }
+
+    if (
+      focused &&
+      !focused.matches('button') &&
+      (!vertical ||
+        event.shiftKey ||
+        event.isComposing ||
+        !focused.matches(
+          'input.ui-input, input[type="checkbox"], select.ui-input',
+        ))
+    ) {
       return;
     }
 
     const group =
-      focused?.closest('nav, [data-controls-panel], [data-action-group]') ||
-      screen.querySelector('nav') ||
+      focused?.closest(
+        vertical
+          ? 'dialog'
+          : 'nav, [data-controls-panel], [data-action-group], dialog',
+      ) ||
+      (!focused && screen.querySelector('nav')) ||
       screen;
 
-    const target = nextMenuButton({ group, direction });
+    const target = nextMenuTarget(
+      {
+        group,
+        direction,
+        filter: vertical
+          ? menuRowFilter('.ui-tabs, [data-action-group]')
+          : undefined,
+      },
+      vertical
+        ? 'button:not(:disabled), input.ui-input:not(:disabled), input[type="checkbox"]:not(:disabled), select.ui-input:not(:disabled)'
+        : 'button:not(:disabled)',
+    );
 
     if (!target) return;
     event.preventDefault();

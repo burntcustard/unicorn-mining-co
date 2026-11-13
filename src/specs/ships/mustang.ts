@@ -1,3 +1,4 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 export const mustang = {
@@ -15,7 +16,7 @@ export const mustang = {
     { mount: 6, module: 'cargoHatch' },
     { mount: 4, module: 'hornDrill' },
     { mount: 5, module: 'searchLight' },
-    { mount: 3, module: 'powerPlant' },
+    { mount: 3, module: 'powerPlant2V' },
   ],
   hullSegments: [
     {
@@ -90,7 +91,7 @@ export const mustang = {
             ],
           },
         ],
-        [{ x: -8, y: 0, fits: ['powerPlant'] }],
+        [{ x: -8, y: 0, fits: powerPlantIdsBySize[2] }],
       ],
       points: [
         [-16, -20],

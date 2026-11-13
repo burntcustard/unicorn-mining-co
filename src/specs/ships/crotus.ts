@@ -1,3 +1,4 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 export const crotus = {
@@ -14,7 +15,7 @@ export const crotus = {
     { mount: 4, module: 'cargoHatch' },
     { mount: 3, module: 'cargoHatch' },
     { mount: 0, module: 'autogun' },
-    { mount: 6, module: 'powerPlant' },
+    { mount: 6, module: 'powerPlant2V' },
   ],
   hullSegments: [
     {
@@ -185,7 +186,7 @@ export const crotus = {
             fits: ['shieldGeneratorSm', 'shieldGeneratorMd'],
           },
         ],
-        [{ x: 0, y: 0, fits: ['powerPlant'] }],
+        [{ x: 0, y: 0, fits: powerPlantIdsBySize[2] }],
       ],
       points: [
         [-5, 0],

@@ -44,6 +44,7 @@ type ModuleValues = {
   // Generation is MW (MJ/s); storage capacity is MJ.
   powerGenerated?: number;
   powerCapacity?: number;
+  weight: number;
   health: number;
   // Optional separate health pool for the exposed active module or shield bubble.
   healthActivated?: number;

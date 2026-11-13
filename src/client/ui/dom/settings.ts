@@ -46,6 +46,7 @@ export const createSettings = () => {
     const row = document.createElement('div');
 
     row.className = 'flex items-center justify-between gap-6 py-2 uppercase';
+    row.setAttribute('data-action-group', '');
     const text = document.createElement('span');
 
     text.textContent = label;

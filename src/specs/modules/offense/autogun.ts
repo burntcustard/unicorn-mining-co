@@ -7,8 +7,10 @@ import type { ModuleSpec } from '../types';
 
 export const autogun = {
   icon: './autogun.svg',
-  description: 'Fire a rapid stream of kinetic projectiles.',
+  description:
+    "Fire a rapid stream of kinetic projectiles.\nDon't forget to buy ammo!",
   behavior: 'weapon',
+  weight: 1,
   name: 'Autogun',
   health: 0,
   healthActivated: 20,

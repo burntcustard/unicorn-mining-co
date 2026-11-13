@@ -8,6 +8,7 @@ export const plasmaAccelerator = {
   icon: './plasma-accelerator.svg',
   description: 'Launch a charged plasma projectile.',
   behavior: 'weapon',
+  weight: 1,
   name: 'Plasma Accelerator',
   health: 0,
   healthActivated: 20,
