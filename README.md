@@ -7,7 +7,7 @@
 
 Leave the station by pressing any key, fly around, shine the <ins>L</ins>IGHT into asteroids to search for valuable resources, turn on the <ins>D</INS>RILL to mine those resources out, open the cargo <ins>H</ins>ATCH to scoop them up, and then dock at one of the many stations to sell items, repair your ship, and buy upgrades like thrusters or a <ins>S</ins>HIELD.
 
-Press **P** to deploy or retract Plasma Accelerators and **A** for Autoguns. Deployment takes 0.7 seconds, followed by a 2-second plasma charge or 0.7-second autogun spin-up. Hold **Space** to fire ready weapons. Active weapons take no damage. The Plasma Accelerator fires once every 2 seconds without ammunition; the three indicators in its side recess recharge one at a time every 0.5 seconds. The Autogun fires once every 0.16 seconds and consumes one round per shot. Each Autogun ammunition pack contains 200 rounds. Buy ammunition from the cargo menu while docked. Two Plasma hits or five Autogun hits split a fresh asteroid chunk.
+Press **P** to deploy or retract Plasma Accelerators and **A** for Autoguns. Deployment takes 0.7 seconds, followed by a 2-second plasma charge or 0.7-second autogun spin-up. Hold **Space** to fire ready weapons. Active weapons take no damage. The Plasma Accelerator fires once every 2 seconds without ammunition; the three indicators in its side recess recharge one at a time every 0.5 seconds. The Autogun fires once every 0.16 seconds and consumes one round per shot. Each projectile ammo pack contains 200 rounds. Buy ammunition from the cargo menu while docked. Two Plasma hits or five Autogun hits split a fresh asteroid chunk.
 
 There are six rainbow-inspired colors, plus white, that you can color your ship parts with for free. You start with white and violet, but the others you unlock through exploration in the game. There is no death screen (you just have to refresh) or saving (no space, no pun intended, sorry), but if you manage to unlock all 5 of the non-starting colors, then you can consider yourself having complicated the game!
 
@@ -91,6 +91,11 @@ or removing spec files updates the selections without editing game indexes.
 Selection, rotation, zoom, viewing aids, fitted modules and module activation
 survive updates and page refreshes. Viewer source lives under `src/tools/game-object-viewer` and is
 excluded from the game production entry.
+
+To preview the game’s module panels, run `npm run tool:module-viewer` and open
+the URL printed by Vite. The Module Viewer needs no Go server. Filter by spec
+folder and optionally enable model previews; the filters follow the module spec
+directory structure.
 
 To preview Gemetric, run `npm run tool:font-viewer` and open
 the URL printed by Vite (starting at port 3100).

@@ -9,6 +9,10 @@ import { EntityState } from '../../src/client/simulation/entity-state';
 import { cloneEntity } from '../../src/client/simulation/world-state';
 import { createWorld } from '../../src/client/simulation/world';
 import { installExampleModules } from '../support/example-modules';
+import {
+  modulePowerMarkup,
+  moduleThrusterMarkup,
+} from '../../src/client/ui/dom/module-details';
 
 installExampleModules();
 
@@ -23,7 +27,52 @@ const systemDemand = engineDemand / 2;
 const close = (value: number, expected: number) =>
   assert(Math.abs(value - expected) < 1e-9, `${value} != ${expected}`);
 
+const thrusterDetails = moduleThrusterMarkup(engine, ship.turnRate);
+
+assert.match(thrusterDetails, /Fuel usage<\/span><span>3\.6 L\/min/);
+assert.match(
+  thrusterDetails,
+  /Max speed<\/span><span class="text-color text-lg">272 m\/s/,
+);
+assert.match(
+  thrusterDetails,
+  /Turn rate<\/span><span class="text-color text-lg">172°\/s/,
+);
+assert(
+  thrusterDetails.includes(
+    `Power use</span><span>${engineDemand.toFixed(1)} MW`,
+  ),
+);
+assert.equal(modulePowerMarkup(engine), '');
+assert.match(moduleThrusterMarkup(engine, ship.turnRate / 2), /86°\/s/);
+assert.match(
+  moduleThrusterMarkup(engine),
+  /Turn thrust<\/span><span class="text-color text-lg">16/,
+);
+assert.doesNotMatch(moduleThrusterMarkup(engine), /°\/s/);
+assert.equal(moduleThrusterMarkup(plant, ship.turnRate), '');
+assert.match(
+  modulePowerMarkup(plant),
+  /Storage<\/span><span class="text-color text-lg">64 MJ/,
+);
+
 assert.equal(ship.storedPower, ship.powerCapacity, 'new ships start charged');
+
+const plantDraw = () =>
+  ship.powerEntries.find(({ module }) => module === plant)!.value;
+
+assert.equal(plant.power, undefined);
+assert.equal(plant.powerActivated, undefined);
+assert.equal(plantDraw(), 0, 'an inactive plant without idle draw uses zero');
+const generation = plant.powerGenerated;
+
+plant.powerGenerated = 0;
+assert.equal(
+  (modulePowerMarkup(plant).match(/0\.0 MW/g) || []).length,
+  2,
+  'module details display zero for both missing consumption values',
+);
+plant.powerGenerated = generation;
 
 for (const module of ship.modules) {
   module.power = module.powerActivated = 0;

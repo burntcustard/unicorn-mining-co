@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-func recordEntity(e simulation.Entity) map[string]any {
+func recordEntity(e simulation.Entity, thrusterStats bool) map[string]any {
 	o := e.Base()
 	var health any
 
@@ -60,6 +60,13 @@ func recordEntity(e simulation.Entity) map[string]any {
 		r["storedPower"] = s.StoredPower
 		r["thrusterPower"] = s.ThrusterPower
 		r["systemsPower"] = s.SystemsPower
+
+		if thrusterStats {
+			r["fuel"] = s.Fuel
+			r["forwardThrust"] = s.ForwardThrust()
+			r["rotationalThrust"] = s.RotationalThrust()
+			r["maxSpeed"] = s.MaxSpeed()
+		}
 	}
 
 	return r
@@ -151,7 +158,13 @@ func TestTypeScriptGameplay(t *testing.T) {
 				}
 
 				id := int64(i + 1)
-				ship := objects.CreatePlayerShip(world, objects.Properties{ID: &id, PlayerID: &id, Position: position, Rotation: rotation})
+				shipType := ""
+
+				if scenario.Name == "moth-thrusters" {
+					shipType = "moth"
+				}
+
+				ship := objects.CreatePlayerShip(world, objects.Properties{ID: &id, PlayerID: &id, Position: position, Rotation: rotation, DefinitionID: shipType})
 				simulation.AddEntity(world, ship)
 				moduleID := int64(-2000)
 
@@ -162,6 +175,15 @@ func TestTypeScriptGameplay(t *testing.T) {
 				if scenario.Engine != "" {
 					ship.Fit(modules.Create(scenario.Engine, simulation.ObjectProperties{ID: &moduleID}, catalog), nil)
 					ship.Launch()
+				}
+
+				if scenario.Name == "moth-thrusters" {
+					ship.Fit(modules.Create("thrusterDualLg", simulation.ObjectProperties{ID: &moduleID}, catalog), ship.Mounts()[8])
+					medium, large := catalog.ModuleSpecs["thrusterDualMd"], catalog.ModuleSpecs["thrusterDualLg"]
+
+					if ship.ForwardThrust() != (medium.ForwardThrust+large.ForwardThrust)/2 || ship.RotationalThrust() != (medium.RotationalThrust+large.RotationalThrust)/2 {
+						t.Fatal("mixed thrusters should average their forward and rotational thrust")
+					}
 				}
 
 				if scenario.Name == "power" {
@@ -211,6 +233,28 @@ func TestTypeScriptGameplay(t *testing.T) {
 			snapshot := 0
 
 			for tick := 0; tick < scenario.Ticks; tick++ {
+				if scenario.Name == "moth-thrusters" && tick == 40 {
+					entity, _ := world.Entities.Get(1)
+					ship := entity.(*objects.Ship)
+
+					for _, mount := range ship.Mounts() {
+						if mount.Module != nil && mount.Module.ModuleBase().Type == "thrusterDualMd" {
+							objects.Damage(mount.Hull, 10000)
+							break
+						}
+					}
+				}
+
+				if scenario.Name == "moth-thrusters" && tick == 41 {
+					entity, _ := world.Entities.Get(1)
+					ship := entity.(*objects.Ship)
+					large := catalog.ModuleSpecs["thrusterDualLg"]
+
+					if ship.ForwardThrust() != large.ForwardThrust/2 || ship.RotationalThrust() != large.RotationalThrust/2 {
+						t.Fatal("losing a thruster hull should leave half of the remaining engine's thrust")
+					}
+				}
+
 				if scenario.Name == "power" && (tick == 60 || tick == 120) {
 					entity, _ := world.Entities.Get(1)
 					engineDemand := entity.(*objects.Ship).Engine().ModuleBase().Spec.PowerActivated
@@ -235,7 +279,7 @@ func TestTypeScriptGameplay(t *testing.T) {
 						input.Thrust = 1
 					}
 
-					if scenario.Name == "flight" {
+					if scenario.Name == "flight" || scenario.Name == "moth-thrusters" {
 						if tick%180 < 60 {
 							input.Turn = -1
 						} else if tick%180 < 120 {
@@ -264,7 +308,9 @@ func TestTypeScriptGameplay(t *testing.T) {
 
 					entities := []any{}
 
-					world.Entities.ForEach(func(e simulation.Entity, _ int64) { entities = append(entities, recordEntity(e)) })
+					world.Entities.ForEach(func(e simulation.Entity, _ int64) {
+						entities = append(entities, recordEntity(e, scenario.Name == "moth-thrusters"))
+					})
 
 					recorded := []any{}
 

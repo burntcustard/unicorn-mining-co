@@ -195,7 +195,7 @@ unknown definition or invalid equipment fails instead of discarding it.
 Changing `WORLD_SEED` also requires a fresh database; an incompatible database
 never silently creates a fresh world.
 
-New stations start with 300 autogun ammo packs. Saved stations restore their
+New stations start with 300 projectile ammo packs. Saved stations restore their
 inventory as saved, including partial or empty ammo supplies.
 
 ## Fly deployment

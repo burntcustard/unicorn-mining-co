@@ -48,10 +48,10 @@
 [x] "Move closer to request access" for jump gate targeted description
 [x] Add " Full" to "Cargo" when full & make " Full" flash like before
 [ ] Improve Create Profile styles, & add description of where name is used
-[ ] Fix big ships not having all mounts like weapon mounts
+[x] Fix big ships not having all mounts like weapon mounts
 [ ] Fix big ships having odd thruster left/right flares when turning
 [ ] Custom cursors
-[ ] Bigger power generators for bigger ships
+[x] Bigger power generators for bigger ships
 [ ] Fix hull smash sound when shield & asteroid collide
 [ ] New icon for wormholes
 
@@ -124,7 +124,6 @@
 [x] Add sound: Chat message
 [-] Add sound: Wormhole in and wormhole out
 [-] Add sound: Jump Gate open/close
-[ ] Add sound: New asteroid split
 [ ] New sound: Asteroid split
 [ ] New sound: Asteroid segment destroyed (empty)
 [ ] New sound: Asteroid segment destroyed (with item)

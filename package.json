@@ -47,6 +47,7 @@
     "test": "node scripts/test.ts",
     "test:ui": "node --import tsx scripts/check-ui.ts",
     "tool:font-viewer": "vite --config src/tools/font-viewer/vite.config.ts",
+    "tool:module-viewer": "vite --config src/tools/module-viewer/vite.config.ts",
     "tool:object-viewer": "vite --config src/tools/game-object-viewer/vite.config.ts",
     "tool:sound-editor": "vite --config src/tools/sound-editor/vite.config.ts",
     "tool:world-viewer": "vite --config src/tools/world-viewer/vite.config.ts",

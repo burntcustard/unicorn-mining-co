@@ -8,9 +8,54 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 	"reflect"
 	"testing"
 )
+
+func TestSavedModuleRestoresAfterModelGrows(t *testing.T) {
+	catalog, err := testsupport.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const moduleID = "powerPlant2V" // Wire slot containing the synthetic plant.
+	spec := catalog.ModuleSpecs[moduleID]
+	spec.Model = nil
+	catalog.ModuleSpecs[moduleID] = spec
+	world := simulation.CreateWorld(25, catalog)
+	ship := objects.CreatePlayerShip(world, objects.Properties{})
+	mountIndex := -1
+
+	for index, mount := range ship.Mounts() {
+		if mount.Module != nil && mount.Module.ModuleBase().Type == moduleID {
+			mountIndex = index
+			mount.Health = 40
+			break
+		}
+	}
+
+	if mountIndex < 0 {
+		t.Fatal("fixture has no matching mount")
+	}
+
+	saved := objects.CaptureEntity(ship)
+	spec.Model = []specs.ModelPart{{Points: []specs.Point{{0, 0}, {2, 0}, {0, 2}}}}
+	world.Specification.ModuleSpecs[moduleID] = spec
+	restored, err := objects.RestoreEntity(saved, world)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result := restored.(*objects.Ship)
+	mount := result.Mounts()[mountIndex]
+
+	if mount.Module == nil || mount.Module.ModuleBase().Type != moduleID || mount.Health != 40 || len(result.SegmentsAtMount(mount)) != 1 {
+		t.Fatal("restoring a saved module lost its identity, health or added segment")
+	}
+}
 
 func TestSavedEntityRoundTrip(t *testing.T) {
 	catalog, err := specs.Load()

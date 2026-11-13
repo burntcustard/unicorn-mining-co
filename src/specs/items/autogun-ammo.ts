@@ -3,8 +3,9 @@ import type { ItemSpec } from './types';
 
 export const autogunAmmo = {
   resource: 5,
-  name: 'Autogun Ammo',
-  description: 'Autogun ammunition. Each pack supplies 200 rounds.',
+  name: 'Projectile ammo',
+  description:
+    'Ammunition for projectile weapons like the cannon and autogun. Each pack supplies 200 rounds.',
   price: 2,
   rounds: 200,
   points: [

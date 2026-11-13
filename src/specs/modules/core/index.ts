@@ -1,21 +1,19 @@
-export {
-  powerPlant1A,
-  powerPlant1H,
-  powerPlant1V,
-  powerPlant1L,
-  powerPlant2A,
-  powerPlant2H,
-  powerPlant2V,
-  powerPlant2L,
-  powerPlant3A,
-  powerPlant3H,
-  powerPlant3V,
-  powerPlant3L,
-  powerPlant4A,
-  powerPlant4H,
-  powerPlant4V,
-  powerPlant4L,
-} from './power-plants/power-plant';
+export { powerPlant1A } from './power-plants/power-plant-1a';
+export { powerPlant1H } from './power-plants/power-plant-1h';
+export { powerPlant1V } from './power-plants/power-plant-1v';
+export { powerPlant1L } from './power-plants/power-plant-1l';
+export { powerPlant2A } from './power-plants/power-plant-2a';
+export { powerPlant2H } from './power-plants/power-plant-2h';
+export { powerPlant2V } from './power-plants/power-plant-2v';
+export { powerPlant2L } from './power-plants/power-plant-2l';
+export { powerPlant3A } from './power-plants/power-plant-3a';
+export { powerPlant3H } from './power-plants/power-plant-3h';
+export { powerPlant3V } from './power-plants/power-plant-3v';
+export { powerPlant3L } from './power-plants/power-plant-3l';
+export { powerPlant4A } from './power-plants/power-plant-4a';
+export { powerPlant4H } from './power-plants/power-plant-4h';
+export { powerPlant4V } from './power-plants/power-plant-4v';
+export { powerPlant4L } from './power-plants/power-plant-4l';
 export { thrusterSingleSm } from './thrusters/thruster-x1-sm';
 export { thrusterSingleMd } from './thrusters/thruster-x1-md';
 export { thrusterSingleLg } from './thrusters/thruster-x1-lg';

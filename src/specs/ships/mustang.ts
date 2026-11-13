@@ -91,7 +91,7 @@ export const mustang = {
             ],
           },
         ],
-        [{ x: -8, y: 0, fits: powerPlantIdsBySize[2] }],
+        [{ x: -6, y: 0, fits: powerPlantIdsBySize[2] }],
       ],
       points: [
         [-16, -20],

@@ -30,7 +30,9 @@ import { pirateDialog } from '../../src/specs/dialog/pirate';
 import { cloneEntity } from '../../src/client/simulation/world-state';
 import {
   Autogun,
+  AutogunTurret,
   Laser,
+  PlasmaAccelerator,
   SearchLight,
 } from '../../src/client/objects/modules/index.ts';
 import { paintColors } from '../../src/specs/colors.ts';
@@ -926,6 +928,33 @@ export const reopenDock = () => {
   syncDockedUi({ ship: player.ship, available: true });
 };
 
+export const ammoShip = () => {
+  const ship = createPlayerShip(player.ship.world!, { shipType: 'courser' });
+
+  addEntity(ship.world!, ship);
+  ship.dockedTo = station.id;
+  player.ships.unshift(ship);
+  player.credits = 10000;
+  station.cargoContents.push(new Item(autogunAmmo));
+  reopenDock();
+};
+
+export const alternateAmmo = () => {
+  const ammo = { ...autogunAmmo, resource: 999, price: 7 };
+  const cannon = player.ship.mounts[0].module;
+
+  if (!cannon) throw new Error('Cannon not fitted');
+
+  cannon.ammo = ammo;
+  station.cargoContents.push(new Item(ammo));
+  ui.current.update();
+};
+
+export const ammoState = () => [
+  player.credits,
+  player.ship.cargoContents.map((object) => object.resource),
+];
+
 export const inspect = () => [
   player.credits,
   player.ship.cargoContents.length,
@@ -1365,6 +1394,7 @@ export const itemPreviewFraming = async () => {
 
 export const previewOcclusion = async () => {
   const { Ship } = await import('../../src/client/objects/ship');
+  const { renderingLayers } = await import('../../src/specs/rendering-layers');
   const { default: shipPreview } =
     await import('../../src/client/ui/dom/ship-preview');
   const target = document.createElement('canvas');
@@ -1393,12 +1423,12 @@ export const previewOcclusion = async () => {
 
     ctx.resetTransform();
 
-    if (zIndex === 2 && selectedModule) {
+    if (zIndex === renderingLayers.modulesBelowShipHull && selectedModule) {
       ctx.fillStyle = '#f0f';
       ctx.fillRect(8, 8, 32, 32);
     }
 
-    if (zIndex === 4) {
+    if (zIndex === renderingLayers.shipHull) {
       if (hull(0)) {
         ctx.fillStyle = '#0f0';
         ctx.fillRect(20, 8, 12, 32);
@@ -1415,7 +1445,7 @@ export const previewOcclusion = async () => {
       }
     }
 
-    if (zIndex === 5 && selectedModule) {
+    if (zIndex === renderingLayers.modulesAboveShipHull && selectedModule) {
       ctx.fillStyle = '#0ff';
       ctx.fillRect(20, 34, 12, 6);
     }
@@ -1439,6 +1469,189 @@ export const previewOcclusion = async () => {
   } finally {
     preview.destroy();
 
+    Object.defineProperties(Ship.prototype, descriptors);
+    window.requestAnimationFrame = request;
+    document.body.removeChild(target);
+  }
+};
+
+export const moduleLineWidths = async () => {
+  const { Module } = await import('../../src/client/objects/modules/module');
+  const { examplePowerPlant } =
+    await import('../../src/specs/modules/core/power-plants/example-power-plant');
+
+  const shades = ['#111', '#222', '#fff'];
+
+  const part = {
+    outline: true,
+    points: [
+      [0, 0],
+      [10, 0],
+      [0, 10],
+    ],
+    lines: [
+      [
+        [1, 1],
+        [5, 1],
+      ],
+    ],
+  };
+
+  const spec = { ...examplePowerPlant, shades, model: [part] };
+  const module = new Module({ shades });
+  const normal = Module.createModel(spec);
+
+  const custom = Module.createModel({
+    ...spec,
+    model: [{ ...part, lineWidth: 1.25 }],
+  });
+
+  const context = document.createElement('canvas').getContext('2d')!;
+  const previous = game.ctx;
+  const widths: number[] = [];
+
+  context.lineWidth = 4;
+
+  context.stroke = () => {
+    widths.push(context.lineWidth);
+  };
+
+  game.ctx = context;
+
+  try {
+    module.render({ segment: normal[0], markingsRotation: 0 });
+    const inherited = widths.splice(0);
+
+    module.render({ segment: custom[0], markingsRotation: 0 });
+    return [inherited, widths, context.lineWidth];
+  } finally {
+    game.ctx = previous;
+  }
+};
+
+export const previewInsideHull = async () => {
+  const { Ship } = await import('../../src/client/objects/ship');
+  const { renderingLayers } = await import('../../src/specs/rendering-layers');
+  const { default: shipPreview } =
+    await import('../../src/client/ui/dom/ship-preview');
+  const { moduleTypesById } = await import('../../src/client/objects/modules');
+  const source = createPlayerShip(createWorld());
+  const mount = source.mounts.findIndex(
+    ({ module }) => module && module.definitionId === 'powerPlant2V',
+  );
+  const hull = source.hullSegments.indexOf(source.mounts[mount].hull.module);
+  const target = document.createElement('canvas');
+  const descriptors = Object.getOwnPropertyDescriptors(Ship.prototype);
+  const request = window.requestAnimationFrame;
+  let draw: FrameRequestCallback;
+
+  target.style.width = target.style.height = '64px';
+  document.body.append(target);
+
+  window.requestAnimationFrame = (callback) => {
+    draw = callback;
+    return 0;
+  };
+
+  Ship.prototype.render = function ({ zIndex } = {}) {
+    const ctx = game.ctx;
+    const sameHullModule = this.segments.some(
+      (segment) =>
+        segment.mount &&
+        segment.mount.hull.module === this.hullSegments[hull] &&
+        segment.module.definitionId !== 'powerPlant2V',
+    );
+    const otherHullModule = this.segments.some(
+      (segment) =>
+        segment.mount && segment.mount.hull.module !== this.hullSegments[hull],
+    );
+
+    ctx.resetTransform();
+
+    if (
+      zIndex === renderingLayers.modulesInsideShipHull &&
+      this.segments.some(
+        (segment) =>
+          segment.mount && segment.module.definitionId === 'powerPlant2V',
+      )
+    ) {
+      ctx.fillStyle = '#f00';
+      ctx.fillRect(8, 8, 24, 32);
+    }
+
+    if (
+      zIndex === renderingLayers.shipHull &&
+      this.segments.some(
+        (segment) => segment.hull && segment.module !== this.hullSegments[hull],
+      )
+    ) {
+      ctx.fillStyle = '#00f';
+      ctx.fillRect(28, 16, 8, 8);
+    }
+
+    if (
+      zIndex === renderingLayers.shipHull &&
+      this.segments.some(
+        (segment) => segment.hull && segment.module === this.hullSegments[hull],
+      )
+    ) {
+      ctx.fillStyle = '#0f0';
+      ctx.fillRect(20, 8, 20, 32);
+    }
+
+    if (zIndex === renderingLayers.modulesBelowShipHull && sameHullModule) {
+      ctx.fillStyle = '#0ff';
+      ctx.fillRect(44, 24, 8, 8);
+    }
+
+    if (zIndex === renderingLayers.modulesAboveShipHull) {
+      if (sameHullModule) {
+        ctx.fillStyle = '#00f';
+        ctx.fillRect(44, 44, 8, 8);
+      }
+
+      if (otherHullModule) {
+        ctx.fillStyle = '#f0f';
+        ctx.fillRect(52, 8, 8, 8);
+      }
+    }
+  };
+
+  const preview = shipPreview.createShipPreview(target);
+  const pixels = () =>
+    [
+      [12, 12],
+      [24, 12],
+      [38, 12],
+      [46, 26],
+      [46, 46],
+      [54, 12],
+      [30, 18],
+    ].map(([x, y]) =>
+      Array.from(target.getContext('2d').getImageData(x, y, 1, 1).data),
+    );
+
+  try {
+    preview.update(source, { hull, mount });
+    draw(16);
+    const selected = pixels();
+
+    source.fit(0, source.mounts[mount]);
+
+    preview.update(source, {
+      hull,
+      mount,
+      candidate: moduleTypesById.get('powerPlant2V'),
+    });
+
+    draw(32);
+    const candidate = pixels();
+
+    preview.update(source, { hull });
+    draw(48);
+    return [selected, candidate, pixels()];
+  } finally {
+    preview.destroy();
     Object.defineProperties(Ship.prototype, descriptors);
     window.requestAnimationFrame = request;
     document.body.removeChild(target);
@@ -1495,6 +1708,133 @@ export const checkNotifications = () => {
     ui.hudElement.hidden = previousHudHidden;
     saveHideUi(previousHideUi);
     updateNotification(previousMessage);
+  }
+};
+
+export const previewAutogunAudio = async () => {
+  const { Ship } = await import('../../src/client/objects/ship');
+  const { default: shipPreview } =
+    await import('../../src/client/ui/dom/ship-preview');
+  const { preloadSound, unlockAudio } =
+    await import('../../src/client/audio/sound-loader');
+
+  await preloadSound();
+  await unlockAudio();
+
+  const target = document.createElement('canvas');
+  const request = window.requestAnimationFrame;
+  const cancel = window.cancelAnimationFrame;
+  // oxlint-disable-next-line typescript/unbound-method
+  const start = AudioBufferSourceNode.prototype.start;
+  // oxlint-disable-next-line typescript/unbound-method
+  const stop = AudioBufferSourceNode.prototype.stop;
+  const frames = new Map<number, FrameRequestCallback>();
+  const started: AudioBufferSourceNode[] = [];
+  const stopped: AudioBufferSourceNode[] = [];
+  let nextFrame = 0;
+  let time = 0;
+
+  target.style.width = target.style.height = '128px';
+  document.body.append(target);
+
+  window.requestAnimationFrame = (callback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  };
+
+  window.cancelAnimationFrame = (id) => {
+    frames.delete(id);
+  };
+
+  AudioBufferSourceNode.prototype.start = function (...args) {
+    started.push(this);
+    return start.apply(this, args);
+  };
+
+  AudioBufferSourceNode.prototype.stop = function (...args) {
+    stopped.push(this);
+    return stop.apply(this, args);
+  };
+
+  const draw = (count: number) => {
+    for (let index = 0; index < count; index++) {
+      const pending = [...frames.values()];
+
+      frames.clear();
+      time += 16;
+      pending.forEach((callback) => callback(time));
+    }
+  };
+
+  const source = new Ship();
+  const gunMount = source.mounts.findIndex(({ fits }) =>
+    fits.includes(Autogun),
+  );
+  const turretMount = source.mounts.findIndex(({ fits }) =>
+    fits.includes(AutogunTurret),
+  );
+  let preview = shipPreview.createShipPreview(target);
+
+  try {
+    source.fit(new Autogun(), source.mounts[gunMount]);
+    preview.update(source, { mount: gunMount });
+    draw(110);
+    const fittedMotor = started.find((node) => node.loop);
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    draw(1);
+    const fittedClick = started.some((node) => !node.loop);
+
+    source.fit(0, source.mounts[gunMount]);
+    preview.update(source, { mount: turretMount, candidate: AutogunTurret });
+    draw(110);
+    const candidateMotor = started.filter((node) => node.loop).at(-1);
+    const fittedStopped = !!fittedMotor && stopped.includes(fittedMotor);
+
+    target.style.display = 'none';
+    draw(1);
+    const hiddenStopped = !!candidateMotor && stopped.includes(candidateMotor);
+
+    target.style.display = '';
+    preview.update(source, { mount: turretMount, candidate: AutogunTurret });
+    draw(2);
+    const resumedMotor = started.filter((node) => node.loop).at(-1);
+
+    preview.update(source, { mount: -1 });
+    const unselectedStopped = !!resumedMotor && stopped.includes(resumedMotor);
+
+    preview.update(source, { mount: turretMount, candidate: AutogunTurret });
+    draw(2);
+    const reselectedMotor = started.filter((node) => node.loop).at(-1);
+
+    preview.destroy();
+    const destroyed = !!reselectedMotor && stopped.includes(reselectedMotor);
+    const beforePlasma = started.filter((node) => !node.loop).length;
+
+    preview = shipPreview.createShipPreview(target);
+    preview.update(source, { mount: gunMount, candidate: PlasmaAccelerator });
+    draw(220);
+    const plasmaBeeps = started.filter((node) => !node.loop).length;
+
+    return [
+      !!fittedMotor,
+      fittedClick,
+      fittedStopped,
+      !!candidateMotor && candidateMotor !== fittedMotor,
+      hiddenStopped,
+      !!resumedMotor && resumedMotor !== candidateMotor,
+      unselectedStopped,
+      !!reselectedMotor && reselectedMotor !== resumedMotor,
+      destroyed,
+      plasmaBeeps > beforePlasma,
+    ];
+  } finally {
+    preview.destroy();
+    AudioBufferSourceNode.prototype.start = start;
+    AudioBufferSourceNode.prototype.stop = stop;
+    window.requestAnimationFrame = request;
+    window.cancelAnimationFrame = cancel;
+    document.body.removeChild(target);
   }
 };
 

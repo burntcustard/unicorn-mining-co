@@ -11,7 +11,7 @@ export const moth = {
   drag: 0.36,
   mass: 14,
   radius: 74.5,
-  turnRate: 2.4,
+  turnRate: 1.8,
   initialLoadout: [
     {
       mount: 0,
@@ -53,7 +53,7 @@ export const moth = {
       mounts: [
         [
           {
-            x: -1,
+            x: 5,
             y: 0,
             fits: powerPlantIdsBySize[4],
           },

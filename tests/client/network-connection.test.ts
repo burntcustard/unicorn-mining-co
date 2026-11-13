@@ -81,6 +81,18 @@ for (const production of [false, true]) {
                export const inspectModule = client => {
                  const module = client.entityRecords.get(7).modules[0];
                  return [module.shades, module.segments[0].active];
+               };
+               export const switchDockedShip = client => {
+                 client.connected = true;
+                 client.playerId = 1;
+                 client.shipId = 7;
+                 client.world.players.set(1, {shipId: 7});
+                 client.world.entities.set(7, {id: 7, dockedTo: 100, dead: false});
+                 client.receive({message: {type: 'respawn', shipId: 8}});
+                 const during = client.shipDestroyed;
+                 client.world.entities.delete(7);
+                 client.applySnapshot({message: {type: 'load', fullEntities: [], entityIds: [], nextEntityId: 1, serverTick: 1}});
+                 return [during, client.shipDestroyed];
                };`
             : undefined,
       },
@@ -95,6 +107,12 @@ for (const production of [false, true]) {
     `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
   );
   const connect = built.default;
+
+  assert.deepEqual(
+    built.switchDockedShip(connect()),
+    [false, true],
+    'a docked ship switch stays available until the replacement snapshot is applied',
+  );
 
   for (const [code, reason, expected] of [
     [4003, bannedMessage, bannedMessage],

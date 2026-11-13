@@ -21,7 +21,7 @@ import { type SimulationWorld } from '../simulation/world';
 import { type Mount, type Segment } from '../types';
 import { HornDrill } from './modules/horn-drill';
 import { CargoHatch } from './modules/cargo-hatch';
-import { moduleTypes } from './modules/index';
+import { moduleTypes, moduleTypesById } from './modules/index';
 import { stationModuleIds } from '../../specs/modules';
 import { Module } from './modules/module';
 import { Item } from './item';
@@ -42,6 +42,8 @@ export type PredictedShot = {
 };
 
 export type ShotObserver = (shot: PredictedShot) => void;
+
+const thrusterMountCounts = new WeakMap<object, number>();
 
 type DockActionRequest =
   | Exclude<CraftAction, { action: 'buy' }>
@@ -86,16 +88,14 @@ export class Ship extends Craft {
         {
           module,
           value:
-            Number(
-              firing
-                ? module.powerFiring
-                : active
-                  ? module.powerCharging &&
-                    Math.max(module.chargeCooldown, module.fireCooldown) > 1e-9
-                    ? module.powerCharging
-                    : module.powerActivated
-                  : module.power,
-            ) || 0,
+            (firing
+              ? module.powerFiring
+              : active
+                ? module.powerCharging &&
+                  Math.max(module.chargeCooldown, module.fireCooldown) > 1e-9
+                  ? module.powerCharging
+                  : module.powerActivated
+                : module.power) ?? 0,
         },
       ];
     });
@@ -178,7 +178,7 @@ export class Ship extends Craft {
   consumeFuel(dt: number) {
     if (!this.cockpit || this.dockedTo || this.dead) return;
     const usage =
-      (this.engine.fuelUsage || 0) *
+      this.thrusterTotal('fuel') *
       this.thrusterPower *
       Math.max(this.forward || 0, Math.abs(this.turn || 0) / 2);
     const reserve = this.fuelCapacity * flight.lowFuelThreshold;
@@ -443,17 +443,16 @@ export class Ship extends Craft {
       !this.dead &&
       !this.dockedTo &&
       !this.launching &&
-      (!this.engine.mount || this.fuel <= 0) &&
+      (!this.thrusterTotal('forward') || this.fuel <= 0) &&
       this.segments.some(
         (segment) => segment.hull && segment.core && !(segment.health < 1),
       )
     );
   }
 
-  // This hull has one engine mount; each nozzle belongs to the same module.
   get engine(): any {
     for (const segment of this.segments) {
-      if (!segment.mounts) continue;
+      if (!segment.hull || !segment.mounts) continue;
 
       for (const mount of segment.mounts) {
         const module = mount.module;
@@ -462,25 +461,57 @@ export class Ship extends Craft {
           module &&
           module.forwardThrust &&
           module.mount &&
-          !(module.mount.health < 1)
+          !(module.mount.health < 1) &&
+          !(mount.hull.health < 1)
         ) {
           return module;
         }
       }
     }
 
-    for (const object of this.cargoContents) {
-      if (
-        object instanceof Module &&
-        object.forwardThrust &&
-        object.mount &&
-        !(object.mount.health < 1)
-      ) {
-        return object;
+    return {};
+  }
+
+  get thrusterMountCount() {
+    let count = thrusterMountCounts.get(this.hullSegments);
+
+    if (count !== undefined) return count;
+    count = 0;
+
+    for (const segment of this.hullSegments) {
+      for (const points of segment.mounts || []) {
+        if (
+          points.some((point) =>
+            point.fits.some((id) => moduleTypesById.get(id)?.forwardThrust),
+          )
+        ) {
+          count++;
+        }
       }
     }
 
-    return {};
+    thrusterMountCounts.set(this.hullSegments, count);
+    return count;
+  }
+
+  thrusterTotal(kind: 'forward' | 'rotation' | 'fuel') {
+    let total = 0;
+
+    for (const segment of this.segments) {
+      if (!segment.hull || !segment.mounts || segment.health < 1) continue;
+
+      for (const { module, health } of segment.mounts) {
+        if (!module || !module.forwardThrust || health < 1) continue;
+        total +=
+          kind === 'forward'
+            ? module.forwardThrust
+            : kind === 'rotation'
+              ? module.rotationalThrust || 0
+              : module.fuelUsage || 0;
+      }
+    }
+
+    return total;
   }
 
   fly(forward: number, turn: number) {
@@ -502,8 +533,11 @@ export class Ship extends Craft {
   }
 
   get forwardThrust() {
+    const mountCount = this.thrusterMountCount;
+
+    if (!mountCount) return 0;
     return (
-      (this.engine.forwardThrust || 0) *
+      (this.thrusterTotal('forward') / mountCount) *
       this.launchThrottle ** 2 *
       this.fuelThrottle *
       this.thrusterPower
@@ -648,8 +682,11 @@ export class Ship extends Craft {
   }
 
   get rotationalThrust() {
+    const mountCount = this.thrusterMountCount;
+
+    if (!mountCount) return 0;
     return (
-      (this.engine.rotationalThrust || 0) *
+      (this.thrusterTotal('rotation') / mountCount) *
       this.launchThrottle ** 2 *
       this.fuelThrottle *
       this.thrusterPower

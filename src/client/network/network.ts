@@ -281,6 +281,7 @@ export class NetworkClient {
     { type: 'load' | 'snapshot' }
   >;
   private pendingTime = 0;
+  private changingDockedShip = false;
   playerId?: number;
   private prediction: PredictionManager;
   readonly ready: Promise<void>;
@@ -291,7 +292,7 @@ export class NetworkClient {
   get shipDestroyed() {
     const ship = this.world.entities.get(this.shipId!);
 
-    return this.connected && (!ship || ship.dead);
+    return this.connected && (ship ? ship.dead : !this.changingDockedShip);
   }
   get shipStranded() {
     const ship = this.world.entities.get(this.shipId!);
@@ -417,6 +418,8 @@ export class NetworkClient {
       nextEntityId: message.nextEntityId,
       tick: this.serverTick,
     });
+
+    this.changingDockedShip = false;
 
     if (!this.pendingDockActions.length) this.dockIds.clear();
 
@@ -654,6 +657,7 @@ export class NetworkClient {
     }
 
     if (message.type === 'welcome') {
+      this.changingDockedShip = false;
       this.snapshotReceivedAt = 0;
       this.mapMarkers = [];
       this.mapReady = false;
@@ -720,6 +724,9 @@ export class NetworkClient {
     }
 
     if (message.type === 'respawn') {
+      const previous = this.world.entities.get(this.shipId!);
+
+      this.changingDockedShip = Boolean(previous?.dockedTo && !previous.dead);
       this.mapMarkers = [];
       this.mapReady = false;
       this.asteroidPositions = [];

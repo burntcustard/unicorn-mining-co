@@ -10,10 +10,8 @@ export const examplePowerPlant = {
   behavior: 'powerPlant',
   health: 100,
   price: 750,
-  power: 0,
-  powerActivated: 0,
   powerGenerated: 6.4,
   powerCapacity: 64,
   zIndex: renderingLayers.modulesAboveShipHull,
-  model: [],
+  model: [] as Extract<ModuleSpec, { behavior: 'powerPlant' }>['model'],
 } satisfies ModuleSpec;

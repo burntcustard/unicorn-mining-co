@@ -17,8 +17,10 @@ chunk transforms.
 | `sound`                           | Loads after the first main menu paint, on an earlier menu press or arrow-key move, or during gameplay preparation. A menu press, a successful arrow-key move, or Play can enable audio. |
 | `docked`, its CSS, and SVG assets | Gameplay preparation loads the assets. The screen opens when the predicted ship is docked, launch is not pending, and no other HTML screen is open.                                     |
 
-Shared dependency chunks, including `ship`, `shield`, and `keybindings`, load
-with their importers. They have no independent loading trigger. Keep the runtime
+Shared dependency chunks, including the ship and autogun-audio updater,
+`shield`, and `keybindings`, load with their importers. They have no independent
+loading trigger. The preview uses the lightweight autogun updater, while sound
+synthesis remains in the separately loaded `sound` chunk. Keep the runtime
 object hierarchy together to avoid class-initialization cycles.
 
 Preparation follows the preview's first paint, including a default or cached

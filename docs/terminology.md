@@ -68,7 +68,7 @@
 
 **fuel capacity** - The maximum liters (L) of fuel a ship can hold, defined by its ship spec.
 
-**fuel usage** - A thruster module's full forward-thrust consumption in liters per second (L/s). Turning alone uses half this rate; forward thrust with turning uses the forward rate. Coasting and docking use no fuel. Below 5% capacity, speed and turn rate are halved and fuel usage is one quarter of normal.
+**fuel usage** - A thruster module's full forward-thrust consumption in liters per second (L/s). A ship consumes the combined fuel usage of its working thrusters. Turning alone uses half this rate; forward thrust with turning uses the forward rate. Coasting and docking use no fuel. Below 5% capacity, speed and turn rate are halved and fuel usage is one quarter of normal.
 
 **refuel** - A station overview action that fills the ship's fuel tank, charging for the missing liters at the shared fuel price, rounded up to whole unicredits.
 
@@ -229,7 +229,7 @@ Module and effect specs author durations and delays in milliseconds. Module cons
 
 **throttling** - The host scheduler withholding CPU time after a shared server exhausts its quota and burst balance. Memory pressure can cause separate stalls even without CPU throttling.
 
-**thruster** - A module used to propel a craft.
+**thruster** - A module used to propel a craft. A ship's forward and rotational thrust are the sums from its working thrusters divided by the number of thruster-capable mounts in its original hull plan. Empty mounts and mounts on destroyed hull segments still count.
 
 **flare** - A visual effect that expresses craft thrust. A thruster flare may appear larger, smaller, or not be visible at all, depending on its associated thruster's activation status.
 

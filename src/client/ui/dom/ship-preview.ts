@@ -15,6 +15,7 @@ import { type ShipId } from '../../../specs/ships';
 import { paintColors, colors } from '../../../specs/colors';
 import { type ShipPreview } from './identity';
 import { rotatePoint, rotatePoints } from '../../utilities/geometry';
+import { createAutogunSoundUpdater } from '../../audio/update-autogun-sounds';
 
 const layers = Object.values(renderingLayers);
 
@@ -72,6 +73,7 @@ const renderShip = ({
 };
 
 const createShipPreview = (canvas: HTMLCanvasElement) => {
+  const updateAutogunSounds = createAutogunSoundUpdater();
   let buffers: HTMLCanvasElement[];
   let ship: Ship;
   let hullIndex = -1;
@@ -148,13 +150,22 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
   const draw = (time: number) => {
     frame = 0;
 
-    if (!ship || !canvas.getClientRects().length) return;
+    if (!ship || !canvas.getClientRects().length) {
+      updateAutogunSounds({ crafts: [], dt: 0 });
+      return;
+    }
+
     const dt = Math.min((time - (previousTime || time)) / 1000, 0.05);
 
     previousTime = time;
     ship.updateModules(dt);
     updateActivation();
     ship.updateVisual(dt);
+
+    updateAutogunSounds({
+      crafts: pendingFitting.mount >= 0 ? [ship] : [],
+      dt,
+    });
 
     if (
       ship.segments.some(
@@ -186,7 +197,7 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
       return;
     }
 
-    buffers ||= Array.from({ length: 3 }, () =>
+    buffers ||= Array.from({ length: 4 }, () =>
       document.createElement('canvas'),
     );
 
@@ -197,26 +208,74 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
       }
     });
 
-    const [buffer, selection, layer] = buffers;
+    const [buffer, selection, layer, insideMask] = buffers;
     const selected = hullAt(hullIndex);
+    const selectedMount = ship.mounts[pendingFitting.mount];
+    const inside =
+      selectedMount?.hull === selected &&
+      ship.segments.some(
+        (segment) =>
+          segment.mount === selectedMount &&
+          segment.zIndex === renderingLayers.modulesInsideShipHull,
+      );
     const isSelected = (segment: Segment) =>
       segment === selected || segment.mount?.hull === selected;
 
     const full = buffer.getContext('2d')!;
     const visible = selection.getContext('2d')!;
     const groups = [false, true].map((focused) =>
-      ship.segments.filter((segment) => isSelected(segment) === focused),
+      ship.segments.filter(
+        (segment) =>
+          isSelected(segment) === focused &&
+          (!inside ||
+            segment.mount?.hull !== selected ||
+            segment.mount === selectedMount),
+      ),
     );
 
     full.clearRect(0, 0, width, height);
     visible.clearRect(0, 0, width, height);
 
+    if (inside) {
+      renderShip({
+        target: insideMask,
+        ship,
+        segments: groups[1].filter(
+          (segment) => segment.mount === selectedMount,
+        ),
+        scale,
+        zIndex: renderingLayers.modulesInsideShipHull,
+      });
+    }
+
     // Keep normal occlusion in both images. Higher unselected layers erase
     // covered selection pixels; selection is raised only within its own layer.
+    // An inside module remains visible through translucent overlapping hulls;
+    // other modules on that hull are hidden until the selection changes.
     layers.forEach((zIndex) => {
       groups.forEach((segments, focused) => {
         renderShip({ target: layer, ship, segments, scale, zIndex });
+
+        if (inside && zIndex === renderingLayers.shipHull) {
+          const context = layer.getContext('2d')!;
+
+          context.globalCompositeOperation = 'destination-out';
+          context.drawImage(insideMask, 0, 0);
+          context.globalCompositeOperation = 'source-over';
+        }
+
         full.drawImage(layer, 0, 0);
+
+        if (inside && focused && zIndex === renderingLayers.shipHull) {
+          renderShip({
+            target: layer,
+            ship,
+            segments: segments.filter((segment) => segment !== selected),
+            scale,
+            zIndex,
+          });
+        }
+
         visible.globalCompositeOperation = focused
           ? 'source-over'
           : 'destination-out';
@@ -373,6 +432,7 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
       const rebuilding = loadout !== nextLoadout;
 
       if (rebuilding) {
+        updateAutogunSounds({ crafts: [], dt: 0 });
         loadout = nextLoadout;
         fitting = undefined;
         fittingKey = '';
@@ -467,12 +527,15 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
 
       hullIndex = hull;
       pendingFitting = { candidate, mount, active };
+
+      if (mount < 0) updateAutogunSounds({ crafts: [], dt: 0 });
       updateActivation();
       requestDraw();
     },
     thumbnail,
     clearThumbnail: (target: HTMLCanvasElement) => thumbnails.delete(target),
     destroy: () => {
+      updateAutogunSounds({ crafts: [], dt: 0 });
       observer.disconnect();
       cancelAnimationFrame(frame);
     },
@@ -592,7 +655,18 @@ const itemThumbnail = (
   const centerX = (Math.min(...xs) + Math.max(...xs)) / 2,
     centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
 
-  if (object instanceof Item) {
+  if (object instanceof Ship) {
+    object.segments.forEach((segment) => {
+      rotatePoints(
+        segment.lines?.flat() || [],
+        object.rotation,
+        rotatePoint(segment.localPosition, object.rotation),
+      ).forEach(([x, y]) => {
+        xs.push(x);
+        ys.push(y);
+      });
+    });
+  } else {
     rotatePoints(object.lines?.flat() || [], object.rotation).forEach(
       ([x, y]) => {
         xs.push(x);

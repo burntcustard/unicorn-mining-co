@@ -204,7 +204,7 @@ func TestCourserCargoHatchPair(t *testing.T) {
 	}
 }
 
-func TestCourserCannonsNotForSale(t *testing.T) {
+func TestCourserReplacementModules(t *testing.T) {
 	catalog, _ := specs.Load()
 	world := simulation.CreateWorld(25, catalog)
 	ship := CreatePlayerShip(world, Properties{DefinitionID: "courser"})
@@ -212,34 +212,20 @@ func TestCourserCannonsNotForSale(t *testing.T) {
 	simulation.AddEntity(world, station)
 	ship.DockedTo = &station.ID
 	credits := 10000.0
-	id := int64(slices.Index(catalog.ModuleIDs, "cannonSm"))
-	ship.Fit(nil, ship.Mounts()[0])
 
-	for _, action := range []protocol.DockAction{
-		{Action: "buy", Module: id},
-		{Action: "buy", Module: id, HasMount: true, Mount: 0},
-	} {
-		if _, ok := ship.ApplyDockAction(action, &credits); ok || credits != 10000 {
-			t.Fatal("stations must reject cannon purchases for cargo and mounts")
+	for index, definition := range map[int]string{0: "cannonSm", 3: "cargoHatchPair"} {
+		mount := ship.Mounts()[index]
+		original := mount.Module
+
+		if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "sell", ObjectIDs: []int64{original.Base().ID}}, &credits); !ok || !slices.Contains(station.CargoContents, simulation.Entity(original)) {
+			t.Fatalf("sold %s must become station stock", definition)
 		}
-	}
 
-	cannon := modules.Create("cannonSm", simulation.ObjectProperties{World: world}, catalog)
-	ship.CargoContents = append(ship.CargoContents, cannon)
+		id := int64(slices.Index(catalog.ModuleIDs, definition))
 
-	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "sell", ObjectIDs: []int64{cannon.Base().ID}}, &credits); !ok {
-		t.Fatal("owned cannons can be sold")
-	}
-
-	if slices.Contains(station.CargoContents, simulation.Entity(cannon)) {
-		t.Fatal("sold cannons must never become station stock")
-	}
-
-	station.CargoContents = append(station.CargoContents, cannon)
-	before := credits
-
-	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "buyStock", ObjectIDs: []int64{cannon.Base().ID}}, &credits); ok || credits != before {
-		t.Fatal("station stock purchases must also reject cannons")
+		if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "buy", Module: id, HasMount: true, Mount: int64(index)}, &credits); !ok || mount.Module == nil || mount.Module.ModuleBase().Type != definition {
+			t.Fatalf("station must sell a replacement %s for its mount", definition)
+		}
 	}
 }
 

@@ -22,9 +22,6 @@ export const applyCraftAction: DockActionDispatcher = (ship, action) =>
 export const refuelShip = (ship: Ship) =>
   applyCraftAction(ship, { action: 'refuel' });
 
-export const buyAmmo = (ship: Ship) =>
-  applyCraftAction(ship, { action: 'buyAmmo' });
-
 export const repairHullSegment = ({
   ship,
   hullIndex,

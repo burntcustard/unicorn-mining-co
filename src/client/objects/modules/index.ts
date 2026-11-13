@@ -12,8 +12,9 @@ import {
   type ModuleId,
 } from '../../../specs/modules/index';
 import { Module } from './module';
+import { PowerPlant } from './power-plant';
 
-export class PowerPlant extends Module {}
+export { PowerPlant } from './power-plant';
 
 const powerPlants = powerPlantIds.map((id) => PowerPlant.define(id));
 

@@ -1,0 +1,34 @@
+.module-viewer-main {
+  padding: 1.5rem;
+  line-height: 1.5;
+}
+
+.module-viewer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--dock-inspector-max-width));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.module-viewer-card {
+  min-width: 0;
+}
+
+.module-viewer-model {
+  width: 10rem;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  margin: 0 auto 1rem;
+}
+
+.module-viewer-grid h2 {
+  width: auto;
+  padding: 0;
+  background: transparent;
+}
+
+.module-viewer-grid .dock-detail {
+  /* Match the dock workspace with no compatible-module list above the panel. */
+  max-height: max(0px, calc(100dvh - 186px - max(28px, calc(12px + 1.125rem))));
+}

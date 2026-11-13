@@ -256,7 +256,7 @@ test('shared protocol runtime emits a usable codec and the ordinary catalog', as
 
     for (const [ship, mount, x] of [
       ['mustang', 4, 46],
-      ['arrow', 6, 56],
+      ['arrow', 7, 56],
       ['crotus', 0, 56],
     ] as const) {
       const definition = runtime.catalog.ships[ship];
@@ -273,7 +273,7 @@ test('shared protocol runtime emits a usable codec and the ordinary catalog', as
       );
     }
 
-    assert.deepEqual(runtime.catalog.ships.arrow.mounts[6], [
+    assert.deepEqual(runtime.catalog.ships.arrow.mounts[7], [
       'hornDrill',
       'autogun',
       'laser',

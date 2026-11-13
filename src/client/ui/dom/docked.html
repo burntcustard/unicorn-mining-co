@@ -197,8 +197,26 @@
           <span class="uppercase text-sm" data-trade-price-label></span>
           <span data-trade-value></span>
         </div>
+        <div class="mt-6" data-weapon-stats hidden></div>
         <div class="mt-6" data-module-power hidden></div>
-        <p class="mt-4" data-fuel-usage></p>
+        <div data-thruster-stats hidden></div>
+        <div
+          class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
+          data-weapon-dps
+          title="Maximum direct-hit damage per second while firing continuously"
+          hidden
+        >
+          <span class="uppercase">DPS</span>
+          <span data-dps></span>
+        </div>
+        <div
+          class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
+          data-weight-panel
+          hidden
+        >
+          <span class="uppercase">Weight</span>
+          <span data-weight></span>
+        </div>
         <div
           class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
           data-health-panel

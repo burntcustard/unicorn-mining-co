@@ -43,7 +43,7 @@ export const finch = {
       mounts: [
         [
           {
-            x: -11,
+            x: -5.5,
             y: 0,
             fits: powerPlantIdsBySize[1],
           },

@@ -15,10 +15,11 @@ import (
 )
 
 type Ship struct {
-	cargoReleaseHeld  bool
-	releasingCargo    bool
-	cargoReleaseHatch int
-	cargoReleaseTime  float64
+	cargoReleaseHeld   bool
+	releasingCargo     bool
+	cargoReleaseHatch  int
+	cargoReleaseTime   float64
+	thrusterMountCount int
 	*Craft
 	NPCState                                 string
 	TargetID                                 *int64
@@ -476,6 +477,10 @@ func (s *Ship) Stranded() bool {
 
 func (s *Ship) Engine() simulation.Module {
 	for _, segment := range s.Segments {
+		if !segment.Hull || segment.Health < 1 {
+			continue
+		}
+
 		for _, m := range segment.Mounts {
 			module := m.Module
 
@@ -491,17 +496,41 @@ func (s *Ship) Engine() simulation.Module {
 		}
 	}
 
-	for _, e := range s.CargoContents {
-		if module, ok := e.(simulation.Module); ok {
-			data := module.ModuleBase()
+	return nil
+}
 
-			if data.Spec.ForwardThrust != 0 && data.Mount != nil && !(data.Mount.Health < 1) {
-				return module
+// Thruster output is averaged over every compatible hull mount, including
+// mounts on hull segments that have been destroyed. Fuel is consumed by each
+// working thruster independently.
+func (s *Ship) thrusterOutput() (forward, rotational, fuel float64) {
+	for _, segment := range s.Segments {
+		if !segment.Hull || segment.Health < 1 {
+			continue
+		}
+
+		for _, mount := range segment.Mounts {
+			if mount.Module == nil || mount.Health < 1 {
+				continue
+			}
+
+			spec := mount.Module.ModuleBase().Spec
+
+			if spec.ForwardThrust != 0 {
+				forward += spec.ForwardThrust
+				rotational += spec.RotationalThrust
+				fuel += spec.FuelUsage
 			}
 		}
 	}
 
-	return nil
+	if s.thrusterMountCount > 0 {
+		forward /= float64(s.thrusterMountCount)
+		rotational /= float64(s.thrusterMountCount)
+	} else {
+		forward, rotational = 0, 0
+	}
+
+	return forward, rotational, fuel
 }
 
 func (s *Ship) LowFuel() bool { return s.Fuel < s.FuelCapacity*s.Rules.Flight.LowFuelThreshold }
@@ -527,13 +556,8 @@ func (s *Ship) ConsumeFuel(dt float64) {
 		return
 	}
 
-	engine := s.Engine()
-
-	if engine == nil {
-		return
-	}
-
-	usage := engine.ModuleBase().Spec.FuelUsage * s.ThrusterPower * math.Max(s.Forward, math.Abs(s.Turn)/2)
+	_, _, fuel := s.thrusterOutput()
+	usage := fuel * s.ThrusterPower * math.Max(s.Forward, math.Abs(s.Turn)/2)
 	reserve := s.FuelCapacity * s.Rules.Flight.LowFuelThreshold
 	normal := math.Min(math.Max(0, s.Fuel-reserve), usage*dt)
 	s.Fuel = math.Max(0, s.Fuel-normal-(usage*dt-normal)*s.Rules.Flight.LowFuelUsage)
@@ -550,25 +574,15 @@ func (s *Ship) LaunchThrottle() float64 {
 }
 
 func (s *Ship) ForwardThrust() float64 {
-	engine := s.Engine()
-
-	if engine == nil {
-		return 0
-	}
-
+	forward, _, _ := s.thrusterOutput()
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Spec.ForwardThrust * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
+	return forward * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
 }
 
 func (s *Ship) RotationalThrust() float64 {
-	engine := s.Engine()
-
-	if engine == nil {
-		return 0
-	}
-
+	_, rotational, _ := s.thrusterOutput()
 	throttle := s.LaunchThrottle()
-	return engine.ModuleBase().Spec.RotationalThrust * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
+	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
 }
 
 func (s *Ship) MaxSpeed() float64 {
@@ -712,9 +726,12 @@ func (s *Ship) Update(dt float64) {
 
 	if s.Cockpit != nil && (s.DockedTo == nil || *s.DockedTo == 0) {
 		f := s.Rules.Flight
-		push := ((f.ThrustScale * s.ForwardThrust()) / s.Mass) * s.Forward * dt
-		thrust := s.RotationalThrust()
 		throttle := s.LaunchThrottle()
+		forward, rotational, _ := s.thrusterOutput()
+		fuelThrottle := s.FuelThrottle()
+		forward = forward * (throttle * throttle) * fuelThrottle * s.ThrusterPower
+		thrust := rotational * (throttle * throttle) * fuelThrottle * s.ThrusterPower
+		push := ((f.ThrustScale * forward) / s.Mass) * s.Forward * dt
 		target := (s.Turn * s.TurnRate * thrust * (throttle * throttle)) / f.SpinDivisor
 		s.Spin = utilities.Approach(s.Spin, target, thrust*dt)
 		s.Velocity = simulation.MovePoint(s.Velocity, s.Rotation+s.Spin*dt, push)
@@ -779,6 +796,18 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 	}
 
 	ship := &Ship{Craft: NewCraft(props, plans, catalog), ThrusterPower: 1, SystemsPower: 1}
+
+	for _, plan := range ship.HullSegments {
+		for _, mount := range plan.Mounts {
+			for _, id := range mount.Fits {
+				if catalog.ModuleSpecs[id].ForwardThrust != 0 {
+					ship.thrusterMountCount++
+					break
+				}
+			}
+		}
+	}
+
 	ship.Self = ship
 	ship.Kind = "ship"
 	ship.AngularInertiaScale = catalog.Simulation.Flight.AngularInertiaScale

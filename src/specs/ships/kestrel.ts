@@ -19,7 +19,7 @@ export const kestrel = {
   drag: 0.42,
   mass: 12,
   radius: 73,
-  turnRate: 2.6,
+  turnRate: 1.2,
   initialLoadout: [
     {
       mount: 1,

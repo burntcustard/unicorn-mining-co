@@ -1,4 +1,10 @@
 import { powerParts } from './power';
+import {
+  modulePowerMarkup,
+  moduleThrusterMarkup,
+  moduleWeaponDps,
+  moduleWeaponMarkup,
+} from './module-details';
 import html from './docked.html?raw';
 import './docked.css';
 import pentagon from '../icons/corral-5.svg?raw';
@@ -15,13 +21,11 @@ import { player, paintUnlocked, unlockPaint } from '../../player';
 import { paintColors } from '../../../specs/colors';
 import { type Craft } from '../../objects/craft';
 import { type ItemSpec } from '../../../specs/items/types';
-import { autogunAmmo } from '../../../specs/items';
 import { Module, moduleMaximumHealth } from '../../objects/modules/module';
-import { moduleTypes, SearchLight, PowerPlant } from '../../objects/modules';
+import { moduleTypes, SearchLight } from '../../objects/modules';
 import { fitsOf, cargoMenuEntriesOf } from '../docked-model';
 import {
   applyCraftAction,
-  buyAmmo,
   refuelShip,
   removeModule,
   repairHullSegment,
@@ -422,9 +426,12 @@ const createDocked = () => {
     [
       '[data-detail-preview]',
       '[data-health-panel]',
+      '[data-weight-panel]',
       '[data-candidate-panel]',
+      '[data-weapon-stats]',
+      '[data-weapon-dps]',
       '[data-module-power]',
-      '[data-fuel-usage]',
+      '[data-thruster-stats]',
       '[data-trade-price-panel]',
       '[data-actions]',
     ].forEach((selector) => {
@@ -954,26 +961,30 @@ const createDocked = () => {
           ? ship.repairCost(mount)
           : 0;
 
+    const weaponMarkup = module ? moduleWeaponMarkup(module) : '';
+
+    setHtml(query(root, '[data-weapon-stats]'), weaponMarkup);
+    query(root, '[data-weapon-stats]').hidden = !weaponMarkup;
     setHtml(
       query(root, '[data-module-power]'),
-      module && !trading
-        ? (module.powerGenerated
-            ? `<h3 class="text-sm uppercase">Generation</h3><div class="text-color text-lg mt-4">${module.powerGenerated.toFixed(1)} MW</div><h3 class="text-sm uppercase mt-4">Storage</h3><div class="text-color text-lg mt-4">${(module.powerCapacity || 0).toFixed(1)} MJ</div>`
-            : `<h3 class="text-sm uppercase">Power consumption</h3><div class="flex items-center gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div>${module.powerFiring ? `<div><span class="block text-muted text-sm uppercase">Firing</span><span class="text-color text-lg">${module.powerFiring.toFixed(1)} MW</span></div>` : ''}${module.powerCharging ? `<div><span class="block text-muted text-sm uppercase">Charging</span><span class="text-color text-lg">${module.powerCharging.toFixed(1)} MW</span></div>` : ''}</div>`) +
-            `<h3 class="text-sm uppercase mt-4">Weight</h3><div class="text-color text-lg mt-4">${module.weight} KG</div>`
-        : '',
+      module && !trading ? modulePowerMarkup(module) : '',
     );
 
-    query(root, '[data-module-power]').hidden = !module || trading;
-    text(
-      '[data-fuel-usage]',
-      module?.fuelUsage
-        ? `Fuel usage: ${(module.fuelUsage * 60).toFixed(1)} L/min`
-        : '',
+    query(root, '[data-module-power]').hidden =
+      !module || trading || Boolean(module.forwardThrust);
+    const dps = module ? moduleWeaponDps(module) : '';
+
+    query(root, '[data-weapon-dps]').hidden = !dps;
+    text('[data-dps]', dps);
+    setHtml(
+      query(root, '[data-thruster-stats]'),
+      module ? moduleThrusterMarkup(module, ship.turnRate) : '',
     );
-    query(root, '[data-fuel-usage]').hidden = !module?.fuelUsage;
+    query(root, '[data-thruster-stats]').hidden = !module?.forwardThrust;
+    query(root, '[data-weight-panel]').hidden = !module || trading;
+    text('[data-weight]', module ? `${module.weight} KG` : '');
     const owned = item instanceof Module;
-    const ammo = module?.ammo === autogunAmmo ? autogunAmmo : undefined;
+    const ammo = module?.ammo;
     const equipped = Boolean(mount?.module);
     const hasSpace = ship.cargoContents.length < ship.cargoSpace;
     const available = trading
@@ -982,7 +993,7 @@ const createDocked = () => {
           ...(kind === 'hull' || equipped ? ['FIX'] : []),
           ...(equipped ? ['REMOVE'] : []),
           ...(owned || kind === 'cargo' ? ['SELL'] : []),
-          ...(owned && ammo ? ['BUY_AMMO'] : []),
+          ...(ammo ? ['BUY_AMMO'] : []),
           ...(item && !owned && kind !== 'cargo' ? ['BUY'] : []),
           ...(owned && mount && !equipped ? ['EQUIP'] : []),
         ];
@@ -999,7 +1010,7 @@ const createDocked = () => {
           : action === 'BUY' || action === 'BUY_AMMO'
             ? (!hasSpace && (action === 'BUY_AMMO' || !mount || equipped)) ||
               (action === 'BUY_AMMO' &&
-                !stock.some(([entry]) => entry === ammo)) ||
+                !stock.some(([entry]) => entry.resource === ammo?.resource)) ||
               player.credits <
                 (action === 'BUY_AMMO' ? ammo?.price : item?.price)
             : action === 'REMOVE'
@@ -1022,8 +1033,7 @@ const createDocked = () => {
     query(root, '[data-paint-panel]').hidden =
       trading || (!paintHull && !owned);
     query(root, '[data-paint-heading]').hidden = paintHull;
-    const paintUnsupported =
-      module instanceof SearchLight || module instanceof PowerPlant;
+    const paintUnsupported = module instanceof SearchLight;
 
     query(root, '[data-paint-unsupported]').hidden = !paintUnsupported;
     query(root, '[data-paints]').hidden = paintUnsupported;
@@ -1066,11 +1076,17 @@ const createDocked = () => {
         moduleCategoryIds.indexOf(a.module.category) -
         moduleCategoryIds.indexOf(b.module.category),
     );
-    const idle = consumers.reduce((sum, entry) => sum + entry.module.power, 0);
+    const idle = consumers.reduce(
+      (sum, entry) => sum + (entry.module.power ?? 0),
+      0,
+    );
     const active = consumers.reduce(
       (sum, entry) =>
         sum +
-        Math.max(entry.module.powerActivated, entry.module.powerFiring || 0),
+        Math.max(
+          entry.module.powerActivated ?? 0,
+          entry.module.powerFiring ?? 0,
+        ),
       0,
     );
     const output = consumers.reduce(
@@ -1093,8 +1109,8 @@ const createDocked = () => {
         entries: consumers.map(({ module, at }) => ({
           module,
           value: active
-            ? Math.max(module.powerActivated, module.powerFiring || 0)
-            : module.power,
+            ? Math.max(module.powerActivated ?? 0, module.powerFiring ?? 0)
+            : (module.power ?? 0),
           highlighted:
             previewHull < 0 ||
             (previewMount
@@ -1238,7 +1254,8 @@ const createDocked = () => {
     if (!candidate || event instanceof KeyboardEvent) {
       (key.startsWith('mount:') && !currentItem
         ? candidateList.getClientRects().length
-          ? buttons(candidateList)[0] || candidateList
+          ? (event instanceof KeyboardEvent && buttons(candidateList)[0]) ||
+            candidateList
           : element
         : buttons(detail)[0] || detail
       ).focus();
@@ -1270,6 +1287,25 @@ const createDocked = () => {
 
     if (!inDetails && !selection.key) return launch();
     playNavigationSound('unselect');
+
+    if (
+      selection.tab === 'outfitting' &&
+      selection.key.startsWith('mount:') &&
+      selection.candidate
+    ) {
+      const candidate = buttons(candidateList).find(
+        (button) => button.getAttribute('data-key') === selection.candidate,
+      );
+
+      selection.candidate = '';
+      selection.inspected = selection.key;
+      inspectedCandidate = '';
+      inDetails = true;
+      (candidate || candidateList).focus();
+      update();
+      return;
+    }
+
     inDetails = false;
     const row =
       detailOrigin?.() ||
@@ -1823,7 +1859,19 @@ const createDocked = () => {
         }
 
         if (command === 'BUY_AMMO') {
-          buyAmmo(ship);
+          const stock = (
+            ship.world?.entities.get(ship.dockedTo) as Craft
+          )?.cargoContents.find(
+            (object) =>
+              object instanceof Item && object.resource === item.ammo?.resource,
+          );
+
+          if (stock) {
+            applyCraftAction(ship, {
+              action: 'buyStock',
+              objectIds: [stock.id],
+            });
+          }
         }
 
         if (command === 'EQUIP') {

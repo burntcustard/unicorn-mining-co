@@ -213,6 +213,8 @@ export const stationModuleIds: readonly ModuleId[] = [
   'thrusterDualXl',
   'thrusterTriple',
   'cargoHatch',
+  'cargoHatchPair',
+  'cannonSm',
   'searchLight',
   'hornDrill',
   'shieldGeneratorSm',

@@ -1,4 +1,5 @@
 import * as Vec from '../../../src/client/utilities/vector';
+import assert from 'node:assert/strict';
 import {
   createWorld,
   addEntity,
@@ -17,6 +18,7 @@ import { diamond as diamondSpec } from '../../../src/specs/items/index';
 import { Craft } from '../../../src/client/objects/craft';
 import { Ship } from '../../../src/client/objects/ship';
 import { GameObject } from '../../../src/client/objects/game-object';
+import { damage } from '../../../src/client/objects/damage';
 import { updateWorld } from '../../../src/client/simulation/update-world';
 import { emptyPlayerInput } from '../../../src/client/protocol/input';
 import {
@@ -43,7 +45,7 @@ GameCollisions.prototype.step = function (options) {
   return found;
 };
 
-const record = (entity: GameObject) => ({
+const record = (entity: GameObject, thrusterStats = false) => ({
   id: entity.id,
   kind: entity.kind,
   position: entity.position,
@@ -74,6 +76,12 @@ const record = (entity: GameObject) => ({
     storedPower: entity.storedPower,
     thrusterPower: entity.thrusterPower,
     systemsPower: entity.systemsPower,
+    ...(thrusterStats && {
+      fuel: entity.fuel,
+      forwardThrust: entity.forwardThrust,
+      rotationalThrust: entity.rotationalThrust,
+      maxSpeed: entity.maxSpeed,
+    }),
   }),
 });
 
@@ -85,6 +93,7 @@ const cases = [
   { name: 'docking', count: 1, ticks: 120 },
   { name: 'shield', count: 1, ticks: 180 },
   { name: 'power', count: 1, ticks: 180 },
+  { name: 'moth-thrusters', count: 1, ticks: 100 },
   ...(
     [
       'thrusterSingleMd',
@@ -113,6 +122,7 @@ const cases = [
         playerId: i + 1,
         position,
         rotation: scenario.name === 'contact' && i % 2 ? Math.PI : 0,
+        shipType: scenario.name === 'moth-thrusters' ? 'moth' : 'mustang',
       }),
     );
 
@@ -143,6 +153,21 @@ const cases = [
 
       ship.fit(new Type({ id: -2000 }));
       ship.launch();
+    }
+
+    if (scenario.name === 'moth-thrusters') {
+      const Type = moduleTypesById.get('thrusterDualLg')!;
+      const medium = moduleTypesById.get('thrusterDualMd')!;
+
+      ship.fit(new Type({ id: -2000 }), ship.mounts[8]);
+      assert.equal(
+        ship.forwardThrust,
+        (medium.forwardThrust + Type.forwardThrust) / 2,
+      );
+      assert.equal(
+        ship.rotationalThrust,
+        (medium.rotationalThrust + Type.rotationalThrust) / 2,
+      );
     }
 
     ship.modules.forEach((module, index) => {
@@ -185,6 +210,24 @@ const cases = [
   const snapshots = [];
 
   for (let tick = 0; tick < scenario.ticks; tick++) {
+    if (scenario.name === 'moth-thrusters' && tick === 40) {
+      const ship = world.entities.get(1) as Ship;
+      const mount = ship.mounts.find(
+        ({ module }) =>
+          module?.constructor === moduleTypesById.get('thrusterDualMd'),
+      )!;
+
+      damage(mount.hull, 10000);
+    }
+
+    if (scenario.name === 'moth-thrusters' && tick === 41) {
+      const ship = world.entities.get(1) as Ship;
+      const large = moduleTypesById.get('thrusterDualLg')!;
+
+      assert.equal(ship.forwardThrust, large.forwardThrust / 2);
+      assert.equal(ship.rotationalThrust, large.rotationalThrust / 2);
+    }
+
     if (scenario.name === 'power' && (tick === 60 || tick === 120)) {
       const ship = world.entities.get(1) as Ship;
 
@@ -204,7 +247,7 @@ const cases = [
               : 0,
           shieldGenerator: scenario.name === 'shield' && tick < 90,
           turn:
-            scenario.name === 'flight'
+            scenario.name === 'flight' || scenario.name === 'moth-thrusters'
               ? tick % 180 < 60
                 ? -1
                 : tick % 180 < 120
@@ -232,7 +275,9 @@ const cases = [
           events,
           contacts,
           nextEntityId: world.nextEntityId,
-          entities: [...world.entities.values()].map(record),
+          entities: [...world.entities.values()].map((entity) =>
+            record(entity, scenario.name === 'moth-thrusters'),
+          ),
         }),
       );
     }

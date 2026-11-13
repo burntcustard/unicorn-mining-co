@@ -20,7 +20,7 @@ import hornDrillSettings from '${process.cwd()}/src/specs/sounds/horn-drill.ts';
 import { renderEffectBuffer, renderContinuousBuffer, renderLoopBuffer, resolveSoundEffect } from '${process.cwd()}/src/client/audio/synthesis.ts';
 import { HornDrill } from '${process.cwd()}/src/client/objects/modules/horn-drill.ts';
 import { updateHornDrillSounds } from '${process.cwd()}/src/client/audio/update-horn-drill-sounds.ts';
-import { updateAutogunSounds } from '${process.cwd()}/src/client/audio/update-autogun-sounds.ts';
+import { createAutogunSoundUpdater, updateAutogunSounds } from '${process.cwd()}/src/client/audio/update-autogun-sounds.ts';
 import { remoteSoundVolume } from '${process.cwd()}/src/client/audio/remote-sound-volume.ts';
 import { presentWorldSounds } from '${process.cwd()}/src/client/audio/present-world-sounds.ts';
 import { updateThrusterSounds } from '${process.cwd()}/src/client/audio/update-thruster-sounds.ts';
@@ -530,6 +530,29 @@ Object.assign(hornDrillSettings, originalDrill);
   updateAutogunSounds({crafts:[],dt:.1});
   assert.equal(resumed.stops,1,'removal while suspended cannot leave an orphaned loop');
   context.state='running';
+}
+// Preview and world updaters must not retire or reuse each other's voices.
+{
+  context.currentTime += 10;
+  const gun = {definitionId:'autogun',chargeCooldown:1,chargeDuration:1,dischargeDuration:1,activationDuration:.5,fireInterval:.2};
+  const part = {active:1,activationProgress:.5};
+  const craft = {id:702,dead:false,dockedTo:0,mounts:[{health:1,module:gun}],segmentsAtMount:()=>[part]};
+  const preview = createAutogunSoundUpdater();
+  updateAutogunSounds({crafts:[craft],dt:.016});
+  const worldMotor = lastVoice();
+  preview({crafts:[craft],dt:.016});
+  const previewMotor = lastVoice();
+  assert.notEqual(previewMotor,worldMotor,'preview owns its own motor');
+  preview({crafts:[],dt:0});
+  assert.equal(previewMotor.stops,1,'closing the preview retires its motor');
+  assert.equal(worldMotor.stops,0,'closing the preview does not stop world audio');
+  preview({crafts:[craft],dt:.016});
+  const replacement = lastVoice();
+  updateAutogunSounds({crafts:[],dt:0});
+  assert.equal(worldMotor.stops,1);
+  assert.equal(replacement.stops,0,'world cleanup does not stop preview audio');
+  preview({crafts:[],dt:0});
+  assert.equal(replacement.stops,1);
 }
 
 // Every effect is audible, finite, filled before assignment, cached and debounced.

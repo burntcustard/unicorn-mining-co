@@ -2996,7 +2996,7 @@ checkUi: try {
 
   await click('[data-tab="outfitting"]');
 
-  for (const name of ['Search Light', 'Power Plant']) {
+  for (const name of ['Search Light', 'Power Plant', 'Thruster']) {
     const key =
       await check(`Array.from(document.querySelectorAll('[data-loadout] [data-key]'))
       .find(button => button.textContent.includes('${name}')).getAttribute('data-key')`);
@@ -3004,23 +3004,74 @@ checkUi: try {
     await click(`[data-loadout] [data-key="${key}"]`);
     await check('fixture.refresh(); fixture.refresh(); fixture.refresh()');
     assert.equal(
-      await check(`Array.from(document.querySelectorAll('[data-module-power] h3'))
-        .filter(heading => heading.textContent.trim() === 'Weight').length`),
+      await check(
+        `document.querySelectorAll('[data-weight-panel]:not([hidden])').length`,
+      ),
       1,
       `${name} shows its weight once after repeated updates`,
     );
     assert(
-      await check(`Array.from(document.querySelectorAll('[data-module-power] h3'))
-        .find(heading => heading.textContent.trim() === 'Weight')
-        .nextElementSibling.textContent.trim().endsWith(' KG')`),
-      `${name} shows weight in KG`,
+      await check(`(() => {
+        const weight = document.querySelector('[data-weight-panel]');
+        const health = document.querySelector('[data-health-panel]');
+        return weight.className === health.className
+          && weight.textContent.trim().startsWith('Weight')
+          && weight.querySelector('[data-weight]').textContent.trim().endsWith(' KG')
+          && !document.querySelector('[data-module-power]').textContent.includes('Weight');
+      })()`),
+      `${name} shows weight in KG as a compact health-style row`,
+    );
+
+    assert.equal(
+      await check(`document.querySelector('[data-thruster-stats]').hidden`),
+      name !== 'Thruster',
+      `${name} shows thruster stats only for thrusters`,
     );
     assert(
-      await check(`!document.querySelector('[data-paint-unsupported]').hidden
-        && document.querySelector('[data-paint-unsupported]').textContent.trim() === 'Painting unsupported on this module'
-        && document.querySelector('[data-paints]').hidden`),
-      `${name} explains why painting is unavailable`,
+      await check(`document.querySelector('[data-weapon-stats]').hidden`),
+      `${name} does not show weapon stats`,
     );
+    assert(
+      await check(`document.querySelector('[data-weapon-dps]').hidden`),
+      `${name} does not show weapon DPS`,
+    );
+
+    if (name === 'Thruster') {
+      assert(
+        await check(`(() => {
+          const [handling, power, fuel] = document.querySelector('[data-thruster-stats]').children;
+          const health = document.querySelector('[data-health-panel]');
+          const columns = handling.children;
+          if (columns.length !== 2) return false;
+          const [speed, turn] = columns;
+          const a = speed.getBoundingClientRect(), b = turn.getBoundingClientRect();
+          return document.querySelector('[data-thruster-stats]').children.length === 3
+            && document.querySelector('[data-module-power]').hidden
+            && speed.textContent.includes('Max speed') && speed.textContent.includes('m/s')
+            && turn.textContent.includes('Turn rate') && turn.textContent.includes('°/s')
+            && speed.querySelector('.text-lg') && turn.querySelector('.text-lg')
+            && Math.abs(a.y - b.y) < 1 && a.right <= b.left
+            && power.className === health.className && power.textContent.includes('Power use') && power.textContent.includes(' MW')
+            && fuel.className === health.className && fuel.textContent.includes('Fuel usage') && fuel.textContent.includes('L/min');
+        })()`),
+        'thruster details show large ship-specific handling columns above compact power and fuel rows',
+      );
+    }
+
+    if (name === 'Power Plant') {
+      assert(
+        await check(`(() => {
+          const columns = document.querySelector('[data-module-power] > div').children;
+          if (columns.length !== 2) return false;
+          const [generation, storage] = columns;
+          const a = generation.getBoundingClientRect(), b = storage.getBoundingClientRect();
+          return generation.textContent.includes('Generation') && generation.textContent.includes(' MW')
+            && /^Storage\\s*\\d+ MJ$/.test(storage.textContent.trim())
+            && Math.abs(a.y - b.y) < 1 && a.right <= b.left;
+        })()`),
+        'power plant generation and storage appear side by side',
+      );
+    }
   }
 
   for (const activation of ['Enter', ' ', 'click']) {
@@ -3030,6 +3081,32 @@ checkUi: try {
     const candidate = '[data-candidates] [data-key="shop-laser"]';
 
     await click(candidate);
+    assert(
+      await check(`(() => {
+        const stats = document.querySelector('[data-weapon-stats]');
+        const columns = [...stats.firstElementChild.children];
+        const power = document.querySelector('[data-module-power]');
+        const dps = document.querySelector('[data-weapon-dps]');
+        const health = document.querySelector('[data-health-panel]');
+        const boxes = columns.map(column => column.getBoundingClientRect());
+        return !stats.hidden && columns.length === 2
+          && columns[0].textContent.trim() === 'Damage0.2'
+          && columns[1].textContent.trim() === 'ROF∞'
+          && columns.every(column => column.querySelector('.text-lg'))
+          && Math.abs(boxes[0].y - boxes[1].y) < 1 && boxes[0].right <= boxes[1].left
+          && stats.getBoundingClientRect().bottom <= power.getBoundingClientRect().top
+          && !dps.hidden && dps.className === health.className
+          && dps.querySelector('[data-dps]').textContent.trim() === '6'
+          && power.getBoundingClientRect().bottom <= dps.getBoundingClientRect().top
+          && document.fonts.check('16px Gemetric', '∞');
+      })()`),
+      'laser details show damage and infinity above power and compact DPS below',
+    );
+
+    if (process.env.UI_CAPTURE_DIR && activation === 'Enter') {
+      await capture('docked-laser-stats');
+    }
+
     assert.equal(
       await check(`document.querySelector('[data-health]').textContent`),
       '40/40',
@@ -3110,6 +3187,28 @@ checkUi: try {
     await check(`fixture.previewStability()`),
     [true, true, true, true, true, true, true, true],
     'preview updates retain animation for visual changes and committed fittings while rebuilding other loadout changes',
+  );
+
+  await c.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x: 1,
+    y: 1,
+    button: 'left',
+    clickCount: 1,
+  });
+
+  await c.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: 1,
+    y: 1,
+    button: 'left',
+    clickCount: 1,
+  });
+
+  assert.deepEqual(
+    await check(`fixture.previewAutogunAudio()`),
+    [true, true, true, true, true, true, true, true, true, true],
+    'outfitting previews play autogun motor and clicks, preserve plasma beeps, and stop motors on replacement, hiding, deselection and destruction',
   );
 
   assert(
@@ -3620,7 +3719,7 @@ checkUi: try {
     [
       ['items', ['Diamond']],
       ['modules', ['Beam Laser']],
-      ['ammunition', ['Autogun Ammo']],
+      ['ammunition', ['Projectile ammo']],
     ],
     'cargo tables classify items, modules, and ammunition without duplicates',
   );
@@ -3769,7 +3868,7 @@ checkUi: try {
       await checkTradeActionVisibility(ammoStock, 'BUY');
       assert(
         await check(
-          `document.querySelector('[data-title]').textContent === 'Autogun Ammo' && document.querySelector('[data-description]').textContent.includes('Autogun ammunition')`,
+          `document.querySelector('[data-title]').textContent === 'Projectile ammo' && !!document.querySelector('[data-description]').textContent.trim()`,
         ),
         'buying from a surviving stack retains its inspector and full ammunition description',
       );
@@ -3855,7 +3954,7 @@ checkUi: try {
       ])`),
       [
         ['modules', ['Beam Laser', 'Beam Laser']],
-        ['ammunition', ['Autogun Ammo']],
+        ['ammunition', ['Projectile ammo']],
       ],
       'station stock separates modules and ammunition into matching trade tables',
     );
@@ -4982,6 +5081,11 @@ checkUi: try {
     'sparkles and extra strokes zoom out without moving the item body off center or clipping the preview',
   );
   assert.deepEqual(
+    await check(`fixture.moduleLineWidths()`),
+    [[4, 4], [4, 1.25], 4],
+    'model line widths inherit the current default or use the part override without changing its outline',
+  );
+  assert.deepEqual(
     await check(`fixture.previewOcclusion()`),
     [
       [255, 0, 255, 255],
@@ -4992,6 +5096,51 @@ checkUi: try {
       [0, 0, 0, 0],
     ],
     'selected modules retain their layer, covered pixels stay hidden, and unselected overlaps stay at 50% opacity',
+  );
+  const [insideSelected, insideCandidate, hullOnly] = await check(
+    `fixture.previewInsideHull()`,
+  );
+
+  for (const image of [insideSelected, insideCandidate]) {
+    assert.deepEqual(image[0], [255, 0, 0, 255]);
+    assert.deepEqual(
+      image[1],
+      [255, 0, 0, 255],
+      'the supporting hull does not cover or tint the selected inside module',
+    );
+    assert.deepEqual(image[2], [0, 255, 0, 128]);
+    assert.deepEqual(
+      image.slice(3, 5),
+      [
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+      ],
+      'other modules on the supporting hull are fully hidden at every layer',
+    );
+    assert.deepEqual(
+      image[5],
+      [255, 0, 255, 128],
+      'modules on other hulls remain visible',
+    );
+    assert.deepEqual(
+      image[6],
+      [255, 0, 0, 255],
+      'an adjacent hull does not cover the selected inside module',
+    );
+  }
+
+  assert.deepEqual(
+    hullOnly[1],
+    [0, 255, 0, 255],
+    'the supporting hull remains opaque when no inside module is selected',
+  );
+  assert.deepEqual(
+    hullOnly.slice(3, 5),
+    [
+      [0, 255, 255, 255],
+      [0, 0, 255, 255],
+    ],
+    'other modules return when the inside module is no longer selected',
   );
 
   assert(
@@ -5007,7 +5156,7 @@ checkUi: try {
     await check(
       `Array.from(document.querySelectorAll('[data-stock-items] [data-key^="shop:"]'), button => button.querySelector('.dock-trade-name').textContent.trim())`,
     ),
-    ['Autogun Ammo'],
+    ['Projectile ammo'],
     'Trade stocks ammunition only; modules are purchased in Outfitting',
   );
   assert.equal(
@@ -5030,7 +5179,7 @@ checkUi: try {
   );
   assert(
     await check(
-      `document.querySelector('[data-title]').textContent === 'Autogun Ammo' && !document.querySelector('[data-detail-preview]').hidden && document.querySelector('[data-location]').textContent === document.querySelector('[data-station]').textContent`,
+      `document.querySelector('[data-title]').textContent === 'Projectile ammo' && !document.querySelector('[data-detail-preview]').hidden && document.querySelector('[data-location]').textContent === document.querySelector('[data-station]').textContent`,
     ),
     'focusing stock previews its item with the station name without selecting it',
   );
@@ -5227,6 +5376,58 @@ checkUi: try {
     ),
     'Escape returns from compatible modules to the slot without launching',
   );
+
+  for (const activation of ['Enter', 'click']) {
+    await focusDock('[data-key="mount:2"]');
+    await pressKey('Enter');
+    const selected = await check(
+      `document.querySelector('[data-candidates] button:first-child').getAttribute('data-key')`,
+    );
+    const candidate = `[data-candidates] [data-key="${selected}"]`;
+    const transaction = await check('fixture.transactionState()');
+
+    if (activation === 'Enter') {
+      await focusDock(candidate);
+      await pressKey('Enter');
+    } else {
+      await click(candidate);
+    }
+
+    assert(
+      await check(
+        `document.querySelector(${JSON.stringify(candidate)}).getAttribute('aria-pressed') === 'true'`,
+      ),
+      `${activation} selects a compatible module`,
+    );
+    await hover('[data-key="hull:1"]');
+    await pressKey('Escape');
+    await expectEmptySlot();
+    assert(
+      await check(`document.activeElement.matches(${JSON.stringify(candidate)})
+        && document.querySelector('[data-loadout] [data-key="mount:2"]').getAttribute('aria-pressed') === 'true'
+        && document.querySelector('[data-back-label]').textContent === 'Back'
+        && !fixture.inspect()[3]`),
+      'first Escape clears the compatible module and returns focus to it while retaining the mount',
+    );
+    assert.deepEqual(await check('fixture.transactionState()'), transaction);
+    await pressKey('Escape', { repeat: true });
+    await expectEmptySlot();
+    assert(
+      await check(
+        `document.querySelector('[data-loadout] [data-key="mount:2"]').getAttribute('aria-pressed') === 'true'`,
+      ),
+      'a repeated Escape does not also leave the mount',
+    );
+    await pressKey('Escape');
+    assert(
+      await check(`document.activeElement.getAttribute('data-key') === 'mount:2'
+        && !document.querySelector('[data-loadout] [aria-pressed="true"]')
+        && document.querySelector('[data-back-label]').textContent === 'Launch'
+        && !fixture.inspect()[3]`),
+      'second Escape leaves the mount and returns focus to its loadout row',
+    );
+  }
+
   await click('[data-key="hull:0"]');
   assert(
     await check(
@@ -5337,11 +5538,18 @@ checkUi: try {
   await click('[data-key="mount:2"]');
   assert(
     await check(
-      `document.activeElement.matches('[data-candidates] button:first-child') && !document.querySelector('[data-fitting-preview]').hidden`,
+      `document.activeElement.matches('[data-candidates]') && document.querySelector('[data-fitting-preview]').hidden`,
     ),
-    'clicking an empty slot focuses and previews the first compatible module',
+    'clicking an empty slot focuses the compatible modules without previewing one',
   );
   await expectEmptySlot();
+  await pressKey('Tab');
+  assert(
+    await check(
+      `document.activeElement.matches('[data-candidates] button:first-child') && !document.querySelector('[data-fitting-preview]').hidden`,
+    ),
+    'Tab from the compatible modules list focuses and previews its first item',
+  );
   await click('[data-loadout] [data-key="mount:0"]');
   assert(
     await check(`document.activeElement.matches('[data-command="REMOVE"]')`),
@@ -5407,6 +5615,14 @@ checkUi: try {
     'hull thumbnail is centered in its card',
   );
   await capture('docked-hull');
+  await click('[data-key="mount:3"]');
+  assert(
+    await check(
+      `!/(NaN|undefined)/.test(document.querySelector('.dock-energy').innerHTML)`,
+    ),
+    'power totals and bars remain valid when a power plant omits consumption',
+  );
+  await capture('docked-power-plant');
   await click('[data-key="mount:5"]');
   assert.deepEqual(
     await check(`fixture.previewState()`),
@@ -5449,6 +5665,28 @@ checkUi: try {
   })()`);
 
   await click(`[data-candidates] [data-key="${autogun}"]`);
+
+  if (process.env.UI_CAPTURE_DIR) await capture('docked-autogun-stats');
+  assert(
+    await check(`(() => {
+      const stats = document.querySelector('[data-weapon-stats]');
+      if (!stats.firstElementChild) return false;
+      const columns = [...stats.firstElementChild.children];
+      const power = document.querySelector('[data-module-power]');
+      const dps = document.querySelector('[data-weapon-dps]');
+      const health = document.querySelector('[data-health-panel]');
+      const boxes = columns.map(column => column.getBoundingClientRect());
+      return !stats.hidden && columns.length === 2
+        && columns[0].textContent.trim() === 'Damage3'
+        && columns[1].textContent.trim() === 'ROF6.25/s'
+        && !dps.hidden && dps.className === health.className
+        && dps.querySelector('[data-dps]').textContent.trim() === '18.75'
+        && power.getBoundingClientRect().bottom <= dps.getBoundingClientRect().top
+        && boxes.every(box => Math.abs(box.y - boxes[0].y) < 1)
+        && boxes[0].right <= boxes[1].left;
+    })()`),
+    'autogun details show damage and ROF above power and compact DPS below',
+  );
   assert.equal(
     await check(`document.querySelector('[data-title]').textContent`),
     'Autogun (AMMO:0)',
@@ -5506,7 +5744,7 @@ checkUi: try {
   );
   await click('[data-tab="trade"]');
   const ammoCargo = await check(
-    `Array.from(document.querySelectorAll('[data-trade-items] [data-key^="cargo:"]')).find(button => button.textContent.includes('Autogun Ammo')).getAttribute('data-key')`,
+    `Array.from(document.querySelectorAll('[data-trade-items] [data-key^="cargo:"]')).find(button => button.textContent.includes('Projectile ammo')).getAttribute('data-key')`,
   );
 
   await click(`[data-trade-items] [data-key="${ammoCargo}"]`);
@@ -5567,6 +5805,12 @@ checkUi: try {
       `document.querySelector('[data-title]').textContent === 'Autogun' && !document.querySelector('[data-detail-preview]').hidden && document.querySelector('[data-location]').textContent === document.querySelector('[data-station]').textContent`,
     ),
     'hovered sold module shows the station name and a preview',
+  );
+  assert(
+    await check(`!document.querySelector('[data-weapon-dps]').hidden
+      && document.querySelector('[data-weapon-dps] [data-dps]').textContent.trim() === '18.75'
+      && !document.querySelector('[data-weapon-stats]').hidden`),
+    'Trade also shows compact DPS and prominent damage for weapon modules',
   );
   await capture('docked-trade-module');
   const moduleImage = await check(
@@ -5798,6 +6042,15 @@ checkUi: try {
       `document.querySelector('[data-candidates] [aria-pressed="true"]').getAttribute('data-key') === '${plasma}'`,
     ),
     'Space selects the focused shop module',
+  );
+  assert(
+    await check(`(() => {
+      const stats = document.querySelector('[data-weapon-stats]');
+      const columns = [...stats.firstElementChild.children];
+      return !stats.hidden && columns.length === 3
+        && columns[2].textContent.trim() === 'AOE24 m';
+    })()`),
+    'plasma details retain its explosion radius',
   );
   await expectFocus(
     '[data-command="BUY"]',
@@ -6388,6 +6641,12 @@ checkUi: try {
     await click(`[data-key="owned:${firstOwned[1]}"]`);
     await click('[data-hangar-command="PILOT"]');
     assert.equal((await check('fixture.hangarTestState()'))[1], firstOwned[1]);
+    assert(
+      await check(
+        `document.querySelector('[data-tab="hangar"]').getAttribute('aria-current') === 'page'`,
+      ),
+      'piloting another ship keeps the Hangar open',
+    );
     await click('[data-hangar-command="PAINT"]');
     await click('[data-paint="2"]');
     assert(
@@ -6483,6 +6742,33 @@ checkUi: try {
       'special offer immediately selects the new Mustang without confirmation',
     );
   }
+
+  await check('fixture.ammoShip()');
+  await click('[data-tab="outfitting"]');
+  await click('[data-key="mount:0"]');
+  assert(
+    await check(
+      `!document.querySelector('[data-command="BUY_AMMO"]').hidden && !document.querySelector('[data-command="BUY_AMMO"]').disabled`,
+    ),
+    'a fitted cannon offers its ammunition',
+  );
+  await click('[data-command="BUY_AMMO"]');
+  const cannonAmmo = await check('fixture.ammoState()');
+
+  assert.equal(cannonAmmo[0], 9998);
+  await check('fixture.alternateAmmo()');
+  assert.equal(
+    await check(`document.querySelector('[data-ammo-price]').textContent`),
+    '7$',
+  );
+  await click('[data-command="BUY_AMMO"]');
+  const otherAmmo = await check('fixture.ammoState()');
+
+  assert.equal(otherAmmo[0], cannonAmmo[0] - 7);
+  assert(
+    otherAmmo[1].includes(999),
+    'buying ammunition uses the selected weapon ammo type',
+  );
 
   console.log(
     'Production UI: navigation, identity, previews, trading, repairs, paint, Hangar purchases, names, confirmations, empty hangars, focus and launch passed.',

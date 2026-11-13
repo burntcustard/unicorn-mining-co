@@ -29,6 +29,7 @@ export type Segment = {
   activationProgress: number;
   health: number;
   hull: boolean;
+  lineWidth?: number;
   localPosition: Vec.Value;
   module: any;
   mounts?: Mount[];

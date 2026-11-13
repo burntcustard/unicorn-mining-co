@@ -1,4 +1,8 @@
 @layer components {
+  :root {
+    --dock-inspector-max-width: 480px;
+  }
+
   .hud:has(> .dock-screen:not([hidden]))::before {
     background-color: var(--ui-dock);
   }
@@ -28,7 +32,7 @@
     grid-template-rows: 72px minmax(0, 1fr);
     grid-template-columns: minmax(390px, 440px) minmax(240px, 1fr) minmax(
         400px,
-        480px
+        var(--dock-inspector-max-width)
       );
   }
 
@@ -255,7 +259,10 @@
   }
 
   .dock-screen:has([data-tab='trade'][aria-current='page']) .dock-workspace {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(400px, 480px);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(
+        400px,
+        var(--dock-inspector-max-width)
+      );
     grid-template-rows: minmax(0, 1fr);
   }
 
