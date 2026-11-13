@@ -419,7 +419,7 @@ const createDocked = () => {
         ? `<dt>Hull</dt><dd>${health(ship.hullHealthTotal, ship.hullMaxHealth)}</dd>
         <dt>Modules fitted</dt><dd>${ship.mounts.filter((mount) => mount.module).length}/${ship.mounts.length}</dd>
         <dt>Cargo</dt><dd>${ship.cargoContents.length}/${ship.cargoSpace}</dd>
-        <dt>Fuel</dt><dd>${ship.fuel.toFixed(1)}/${ship.fuelCapacity} L</dd>`
+        <dt>Fuel</dt><dd>${Math.round(ship.fuel)}/${ship.fuelCapacity} L</dd>`
         : '',
     );
 
@@ -461,7 +461,9 @@ const createDocked = () => {
           (command === 'BUY' && player.credits < offer?.price) ||
           (command === 'REPAIR' && (!total || player.credits < total)) ||
           (command === 'REFUEL' &&
-            (!owned?.refuelCost || player.credits < owned.refuelCost));
+            (!owned?.refuelCost ||
+              Math.round(owned.fuel) >= owned.fuelCapacity ||
+              player.credits < owned.refuelCost));
       });
 
     text('[data-ship-buy-label]', buyLabel(offer?.price));
@@ -655,11 +657,12 @@ const createDocked = () => {
       query(root, '.dock-station-icon'),
       station.definitionId === 'corral-6' ? hexagon : pentagon,
     );
-    text('[data-fuel]', `${ship.fuel.toFixed(1)}/${ship.fuelCapacity} L`);
+    text('[data-fuel]', `${Math.round(ship.fuel)}/${ship.fuelCapacity} L`);
     text('[data-fuel-price]', money(ship.refuelCost));
     query<HTMLButtonElement>(root, '[data-refuel]').disabled =
       !player.ships.length ||
       !ship.refuelCost ||
+      Math.round(ship.fuel) >= ship.fuelCapacity ||
       player.credits < ship.refuelCost;
     text('[data-balance]', money(player.credits));
     text('[data-ship-name]', ship.name);

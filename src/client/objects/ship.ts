@@ -210,7 +210,12 @@ export class Ship extends Craft {
     if (action.action === 'refuel') {
       const cost = this.refuelCost;
 
-      if (station?.kind !== 'station' || !(cost > 0) || player.credits < cost) {
+      if (
+        station?.kind !== 'station' ||
+        !(cost > 0) ||
+        Math.round(this.fuel) >= this.fuelCapacity ||
+        player.credits < cost
+      ) {
         return;
       }
 

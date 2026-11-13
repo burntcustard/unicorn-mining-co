@@ -147,7 +147,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 	case "refuel":
 		cost := s.RefuelCost()
 
-		if s.TradeStation() == nil || !(cost > 0) || *credits < cost {
+		if s.TradeStation() == nil || !(cost > 0) || math.Round(s.Fuel) >= s.FuelCapacity || *credits < cost {
 			return action, false
 		}
 

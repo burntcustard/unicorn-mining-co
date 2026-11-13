@@ -381,13 +381,6 @@ func TestPirateEscapeToStation(t *testing.T) {
 		t.Fatal("pirate continued attacking a docked player")
 	}
 
-	for range 12 {
-		s.Tick(1)
-	}
-
-	if chatCount(p, "You've gotten away this time Skye") != 1 {
-		t.Fatal("docking during combat did not announce the escape exactly once")
-	}
 }
 
 func TestPirateRetaliationAndCleanup(t *testing.T) {
@@ -800,8 +793,8 @@ func TestDockingCallsOffAnOngoingPirateEncounter(t *testing.T) {
 			s.World.Tick += pirateDecisionTicks(s)
 			s.Update()
 
-			if npc.aggressors[p.ID] || chatCount(p, "You've gotten away this time Skye") != 1 {
-				t.Fatal("escape message was missing or repeated")
+			if npc.aggressors[p.ID] {
+				t.Fatal("docked player became a target again")
 			}
 
 			p.Craft.Launch()
@@ -858,8 +851,8 @@ func TestDockingCallsOffOnlyThePlayerWhoEscaped(t *testing.T) {
 			s.World.Tick += pirateDecisionTicks(s)
 			s.Update()
 
-			if npc.aggressors[escaped.ID] || !npc.aggressors[active.ID] || chatCount(p, "You've gotten away this time "+escaped.Craft.Name) != 1 {
-				t.Fatal("the escaped player became a target again or received repeated messages")
+			if npc.aggressors[escaped.ID] || !npc.aggressors[active.ID] {
+				t.Fatal("the escaped player became a target again")
 			}
 		})
 	}

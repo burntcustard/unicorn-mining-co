@@ -178,7 +178,7 @@ func (m *Manager) callOffDockedTargets(npc *pirate) {
 			return
 		}
 
-		m.chat(npc, m.World.Specification.PirateDialog.Escaped, "{player}", p.Ship().Name)
+		m.chat(npc, m.World.Specification.PirateDialog.Escaped, "{player}", p.DisplayName())
 		delete(npc.aggressors, p.ObserverID())
 		npc.ThinkAfter = 0
 

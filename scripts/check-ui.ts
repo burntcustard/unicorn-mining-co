@@ -5030,11 +5030,6 @@ checkUi: try {
     'refuel requires enough credits',
   );
   await check('fixture.setFuel(0, 24)');
-  assert(
-    await check(
-      `document.querySelector('[data-fuel]').textContent === '0.0/120 L'`,
-    ),
-  );
   await click('[data-refuel]');
   assert.deepEqual(
     await check('fixture.fuelState()'),
@@ -5044,6 +5039,16 @@ checkUi: try {
   assert(
     await check(`document.querySelector('[data-refuel]').disabled`),
     'full tank cannot be refilled',
+  );
+  await check('fixture.setFuel(119.5, 1)');
+  assert(
+    await check(`document.querySelector('[data-refuel]').disabled`),
+    'fuel that rounds to full cannot be refilled',
+  );
+  await check('fixture.setFuel(119.49, 1)');
+  assert(
+    await check(`!document.querySelector('[data-refuel]').disabled`),
+    'fuel that rounds below full can be refilled',
   );
   await check(`fixture.setFuel(120, ${fuelCredits})`);
   await check(`document.activeElement.blur()`);

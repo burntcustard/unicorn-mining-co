@@ -1173,7 +1173,11 @@ try {
   await choose('continuous-sound', 'hornDrill');
   let drill = audio.sources.at(-1)!;
 
-  assert.equal(get('continuous-parameters').children.length, 9);
+  assert.equal(get('continuous-parameters').children.length, 10);
+  assert.equal(
+    input('Horn drill: High-pass (Hz)').valueAsNumber,
+    drillSettings.highpass,
+  );
   assert.equal(drill.playbackRate.value, drillSettings.activePitch);
   const previousDrill = drill;
 

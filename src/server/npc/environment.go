@@ -16,6 +16,7 @@ The identity remains stable when its current ship or connection changes.
 */
 type Player interface {
 	AccountID() string
+	DisplayName() string
 	ObserverID() int64
 	Ship() *objects.Ship
 	Connected() bool

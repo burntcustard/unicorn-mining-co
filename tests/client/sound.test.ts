@@ -423,6 +423,19 @@ for (const kind of ['engine', 'hornDrill']) {
   assert.equal(samples.length, 441, 'continuous duration controls its generated buffer');
   assert(samples.every(Number.isFinite) && samples.some(sample => sample !== 0), 'edited continuous sounds remain audible and finite');
 }
+const drillLoop = (highpass) => renderContinuousBuffer({context, kind: 'hornDrill', settings: {...hornDrillSettings, highpass}}).getChannelData(0);
+const unfilteredDrill = drillLoop(0);
+const filteredDrill = drillLoop(100);
+const bin = (samples, frequency) => {
+  let real = 0, imaginary = 0;
+  samples.forEach((sample, i) => {
+    real += sample * Math.cos(2 * Math.PI * frequency * i / samples.length);
+    imaginary += sample * Math.sin(2 * Math.PI * frequency * i / samples.length);
+  });
+  return Math.hypot(real, imaginary);
+};
+assert(bin(filteredDrill, 1) / bin(unfilteredDrill, 1) < bin(filteredDrill, 5) / bin(unfilteredDrill, 5), 'drill high-pass attenuates low frequencies more than high frequencies');
+assert(Math.abs(filteredDrill.reduce((sum, sample) => sum + sample, 0)) < 1e-5, 'filtered drill loop has no DC offset at its seam');
 
 // Playback tuning comes from the saved data, including envelope timing.
 const originalEngine = { ...engineSettings };

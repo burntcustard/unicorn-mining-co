@@ -301,6 +301,7 @@ export const hornDrillParameters: Record<
   duration: { label: 'Loop length', ...duration },
   frequency: { label: 'Frequency', ...frequency },
   volume: { label: 'Wave volume', ...volume },
+  highpass: { label: 'High-pass', ...highpass },
   basePitch: { label: 'Starting pitch', ...pitch },
   activeVolume: { label: 'Active volume', ...volume },
   bitingVolume: { label: 'Biting volume', ...volume },

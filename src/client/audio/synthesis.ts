@@ -75,6 +75,7 @@ export type HornDrillSoundSettings = {
   duration: number;
   frequency: number;
   volume: number;
+  highpass: number;
   basePitch: number;
   activeVolume: number;
   bitingVolume: number;
@@ -698,6 +699,29 @@ export const renderContinuousBuffer = ({
       samples[i] = wave * envelope * settings.volume;
     }
   });
+
+  if (kind === 'hornDrill') {
+    const rate = Math.min(
+      1,
+      (2 * Math.PI * (settings as HornDrillSoundSettings).highpass) / sampleRate,
+    );
+
+    if (rate) {
+      let bass = 0;
+
+      samples.forEach((sample) => {
+        bass += (sample - bass) * rate;
+      });
+
+      // Start in the filter's steady state so the loop has no filter reset.
+      bass /= 1 - (1 - rate) ** length;
+
+      samples.forEach((sample, i) => {
+        bass += (sample - bass) * rate;
+        samples[i] = sample - bass;
+      });
+    }
+  }
 
   return buffer;
 };

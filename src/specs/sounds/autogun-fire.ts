@@ -2,7 +2,7 @@ import type { SoundEffect } from '../../client/audio/synthesis';
 
 export default [
   {
-    volume: 0.007,
+    volume: 0.008,
     attack: 0,
     decay: 395,
     sustain: 1,
@@ -22,7 +22,7 @@ export default [
     ring: 4.4,
   },
   {
-    volume: 0.044,
+    volume: 0.053,
     attack: 0,
     decay: 379,
     sustain: 1,
@@ -40,7 +40,7 @@ export default [
     ring: 20.1,
   },
   {
-    volume: 1.524,
+    volume: 1.829,
     attack: 0,
     decay: 400,
     sustain: 1,
@@ -59,7 +59,7 @@ export default [
     ],
   },
   {
-    volume: 0.02,
+    volume: 0.024,
     attack: 0,
     decay: 395,
     sustain: 1,

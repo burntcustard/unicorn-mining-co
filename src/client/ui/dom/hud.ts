@@ -496,7 +496,7 @@ export const createHud = ({
         text('[data-cargo-capacity]', String(ship.cargoSpace));
         text(
           '#hud-fuel-tooltip',
-          `Fuel: ${ship.fuel.toFixed(1)} / ${ship.fuelCapacity} L`,
+          `Fuel: ${Math.round(ship.fuel)} / ${ship.fuelCapacity} L`,
         );
         text(
           '#hud-cargo-tooltip',
