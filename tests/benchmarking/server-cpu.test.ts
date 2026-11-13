@@ -11,14 +11,16 @@ import {
   replicatedAsteroidHealth,
 } from '../../benchmarking/server/client.ts';
 import {
-  advanceMiningSurvey,
+  advanceSurvey,
   proposeMiningTargets,
+  proposeSpreadCorridors,
+  reserveSpreadCorridors,
   reserveMiningTargets,
   isOrdinaryAmmoItem,
   miningAreaContains,
   miningAimPosition,
   miningApproach,
-  miningSurveyRoute,
+  surveyTravelRoute,
   obstacleSafeTarget,
   obstacleSafeRoute,
   obstacleRadius,
@@ -27,6 +29,7 @@ import {
   weaponClearAhead,
   weaponStagingControls,
   workloadControls,
+  type SurveySearch,
 } from '../../benchmarking/server/workloads.ts';
 import {
   selectServerCpuCases,
@@ -492,13 +495,170 @@ const clearSurvey = workloadControls({
 
 assert.equal(clearSurvey.thrust, 1, 'Clear survey routes can accelerate');
 
+// A selected corridor can unnecessarily block a later ship even when the
+// selected ship has another individually clear corridor.
+const spreadLane = (index: number, x: number, y: number, heading: number) => ({
+  index,
+  start: Vec.create(x, y),
+  heading,
+  length: 1000,
+  speed: 38,
+});
+
+const flexibleSpread = {
+  index: 0,
+  position: Vec.create(0, 0),
+  radius: 40,
+  candidates: [spreadLane(0, 0, 0, 0), spreadLane(0, 0, 0, Math.PI / 2)],
+};
+
+const blockedSpread = {
+  index: 1,
+  position: Vec.create(600, -500),
+  radius: 40,
+  candidates: [
+    spreadLane(1, 600, -500, Math.PI / 2),
+    spreadLane(1, 600, -500, Math.PI / 4),
+  ],
+};
+
+const repairedSpread = reserveSpreadCorridors({
+  proposals: [flexibleSpread, blockedSpread],
+});
+
+assert.deepEqual(
+  repairedSpread.map(({ index, heading }) => ({ index, heading })),
+  [
+    { index: 0, heading: Math.PI / 2 },
+    { index: 1, heading: Math.PI / 2 },
+  ],
+  'A previously selected ship can use a checked alternative to make room',
+);
+
+assert.equal(
+  reserveSpreadCorridors({
+    proposals: [
+      { ...flexibleSpread, candidates: flexibleSpread.candidates.slice(0, 1) },
+      { ...blockedSpread, candidates: blockedSpread.candidates.slice(0, 1) },
+    ],
+  }).length,
+  1,
+  'Crossing routes remain rejected when no checked alternative exists',
+);
+
+// A spread pilot repeatedly thrust into this asteroid throughout fanout.
+const trappedSpreadShip = {
+  ...ship,
+  id: 23,
+  position: Vec.create(-3635.406, 1994.604),
+  rotation: -1.738,
+};
+
+const trappedSpreadRocks = [
+  [-3656.245, 1839.874, 171.7],
+  [-3508.313, 1979.941, 50.8],
+  [-3533.13, 1926.643, 44.53],
+].map(([x, y, radius], index) => ({
+  ...ship,
+  id: 100 + index,
+  kind: 'asteroid' as const,
+  position: Vec.create(x, y),
+  radius,
+}));
+
+const trappedSpreadSearch: SurveySearch = {
+  origin: Vec.clone(trappedSpreadShip.position),
+  activeSeconds: 0,
+  headingOffset: 0,
+};
+
+assert.equal(
+  proposeSpreadCorridors({
+    ship: trappedSpreadShip,
+    index: 23,
+    players: 32,
+    entities: trappedSpreadRocks,
+    stations: {},
+    speed: 38.125,
+  }).candidates.length,
+  0,
+  'The normal spread corridor clearance rejects the trapped starting pose',
+);
+
+const spreadSurvey = {
+  workload: 'spread' as const,
+  index: 23,
+  players: 32,
+  elapsed: 0,
+  ship: trappedSpreadShip,
+  entities: trappedSpreadRocks,
+  fanout: true,
+};
+
+const beforeSpreadRecovery = workloadControls(spreadSurvey);
+
+assert.equal(
+  beforeSpreadRecovery.thrust,
+  1,
+  'Spread keeps its old survey before a stall',
+);
+
+advanceSurvey({
+  state: trappedSpreadSearch,
+  position: trappedSpreadShip.position,
+  seconds: 15,
+});
+
+assert(
+  trappedSpreadSearch.recovering,
+  'A stalled spread survey activates recovery',
+);
+
+const spreadEscape = surveyTravelRoute({
+  ship: trappedSpreadShip,
+  index: 23,
+  players: 32,
+  entities: trappedSpreadRocks,
+  headingOffset: trappedSpreadSearch.headingOffset,
+});
+
+assert(!spreadEscape.blocked, 'The existing survey route finds an escape');
+assert(
+  Vec.distance(spreadEscape.target, trappedSpreadRocks[0].position) >
+    Vec.distance(trappedSpreadShip.position, trappedSpreadRocks[0].position),
+  'The checked escape increases clearance from the blocking asteroid',
+);
+
+const trappedSpreadControls = workloadControls({
+  ...spreadSurvey,
+  surveyRecovery: trappedSpreadSearch.recovering,
+  surveyHeadingOffset: trappedSpreadSearch.headingOffset,
+});
+
+assert.notEqual(trappedSpreadControls.turn, 0);
+assert.equal(trappedSpreadControls.thrust, 0, 'Turn away before thrusting');
+
+trappedSpreadSearch.headingOffset = (7 * Math.PI) / 4;
+
+advanceSurvey({
+  state: trappedSpreadSearch,
+  position: trappedSpreadShip.position,
+  seconds: 15,
+});
+
+assert.equal(trappedSpreadSearch.headingOffset, 0);
+assert(
+  trappedSpreadSearch.recovering,
+  'Recovery stays active after the heading wraps',
+);
+
 const surveySearch = {
   origin: Vec.create(0, 0),
   activeSeconds: 0,
   headingOffset: 0,
 };
 
-advanceMiningSurvey({
+advanceSurvey({
   state: surveySearch,
   position: Vec.create(500, 0),
   seconds: 15,
@@ -510,7 +670,7 @@ assert.equal(
   'A moving survey keeps its heading',
 );
 
-advanceMiningSurvey({
+advanceSurvey({
   state: surveySearch,
   position: Vec.create(510, 10),
   seconds: 14,
@@ -522,7 +682,7 @@ assert.equal(
   'A short pause does not change heading',
 );
 
-advanceMiningSurvey({
+advanceSurvey({
   state: surveySearch,
   position: Vec.create(510, 10),
   seconds: 1,
@@ -543,7 +703,7 @@ const delayedSurvey = {
   headingOffset: 0,
 };
 
-advanceMiningSurvey({
+advanceSurvey({
   state: delayedSurvey,
   position: Vec.create(-10920.054, -625.436),
   seconds: 15,
@@ -551,7 +711,7 @@ advanceMiningSurvey({
 
 assert.equal(delayedSurvey.headingOffset, Math.PI / 4);
 
-const rotatedSurvey = miningSurveyRoute({
+const rotatedSurvey = surveyTravelRoute({
   ship,
   index: 0,
   players: 32,
@@ -572,7 +732,7 @@ const surveyObstacle = {
   radius: 100,
 };
 
-const surveyRoute = miningSurveyRoute({
+const surveyRoute = surveyTravelRoute({
   ship,
   index: 0,
   players: 32,
@@ -629,7 +789,7 @@ const oscillatingSurveyRocks = [
   radius,
 }));
 
-const forwardSurvey = miningSurveyRoute({
+const forwardSurvey = surveyTravelRoute({
   ship: oscillatingSurveyShip,
   index: 9,
   players: 32,
@@ -1363,7 +1523,7 @@ const paddedTrapRocks = [
   radius,
 }));
 
-const paddedTrapEscape = miningSurveyRoute({
+const paddedTrapEscape = surveyTravelRoute({
   ship: paddedTrapShip,
   index: 25,
   players: 32,
@@ -2414,7 +2574,10 @@ const staged = weaponStagingControls({
   ship: beyondOldTarget,
   index: 1,
   players: 4,
-  entities: [station],
+  entities: [
+    station,
+    { ...station, kind: 'asteroid', position: Vec.create(0, 10110) },
+  ],
 });
 
 assert(staged.ready && staged.clear);
@@ -2434,18 +2597,23 @@ assert.equal(
   'A clear ship physically coasts to a settled speed',
 );
 
-const blockedStage = weaponStagingControls({
-  ship: beyondOldTarget,
-  index: 1,
-  players: 4,
-  entities: [{ ...assignedAsteroid, position: Vec.create(0, 9200) }],
-});
+for (const position of [Vec.create(37, 10110), Vec.create(-176.8, 9018.7)]) {
+  const peer = { ...ship, id: 88, position };
 
-assert(!blockedStage.ready && !blockedStage.clear);
-assert(
-  blockedStage.input.turn || blockedStage.input.thrust,
-  'Blocked staging resumes ordinary obstacle-aware navigation instead of parking permanently',
-);
+  const blockedStage = weaponStagingControls({
+    ship: beyondOldTarget,
+    index: 1,
+    players: 4,
+    entities: [peer],
+  });
+
+  assert(weaponClearAhead({ ship: beyondOldTarget, entities: [peer] }));
+  assert(!blockedStage.ready && !blockedStage.clear);
+  assert(
+    blockedStage.input.turn || blockedStage.input.thrust,
+    'Blocked staging resumes ordinary obstacle-aware navigation instead of parking permanently',
+  );
+}
 
 const recoveringWeapon = workloadControls({
   workload: 'weapon',

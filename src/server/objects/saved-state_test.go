@@ -35,13 +35,17 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 	asteroid.Segments()[0].Health -= 1
 	station := objects.CreateStation(objects.Properties{ObjectProperties: simulation.ObjectProperties{World: w}}, catalog)
 	station.SetHullHealth(station.HullHealth())
+	beacon := objects.NewNavBeacon(objects.Properties{ObjectProperties: simulation.ObjectProperties{World: w}}, catalog)
+	beaconHealth := beacon.HullHealth()
+	beaconHealth[0] -= 1
+	beacon.SetHullHealth(beaconHealth)
 	fill := 1.0
 	wreck := objects.CreateWreckage(objects.Properties{ObjectProperties: simulation.ObjectProperties{World: w}}, []objects.WreckageSegment{{Radius: 10, Health: 2, FillShade: &fill, Offset: Vec.Create(2, 3), Stroke: [][][]float64{{{1, 2}, {3, 4}}}}}, catalog)
 	wreck.Decay = 2
 	message := "hello"
 	item := objects.NewItem("message", simulation.ObjectProperties{World: w, Message: &message}, catalog)
 
-	for _, entity := range []simulation.Entity{ship, asteroid, station, wreck, item} {
+	for _, entity := range []simulation.Entity{ship, asteroid, station, beacon, wreck, item} {
 		t.Run(entity.Base().Kind, func(t *testing.T) {
 			saved := objects.CaptureEntity(entity)
 			before, err := persistence.Encode(saved)
@@ -70,6 +74,10 @@ func TestSavedEntityRoundTrip(t *testing.T) {
 			case *objects.Item:
 				if restored.Name != "Message" {
 					t.Fatal("item display name must be reconstructed from its spec")
+				}
+			case *objects.NavBeacon:
+				if !reflect.DeepEqual(restored.HullHealth(), beaconHealth) {
+					t.Fatal("navigation beacon hull damage was not preserved")
 				}
 			}
 
@@ -356,11 +364,11 @@ func TestSavedNames(t *testing.T) {
 	}
 
 	ship := objects.NewShip("mustang", objects.Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, catalog)
-	legacy := objects.CaptureEntity(ship)
-	legacy.Object.Label = ""
-	restored, err := objects.RestoreEntity(legacy, world)
+	saved := objects.CaptureEntity(ship)
+	saved.Object.Label = ""
+	restored, err := objects.RestoreEntity(saved, world)
 
-	if err != nil || restored.Base().Name != "Mustang" {
-		t.Fatalf("old saves must reconstruct the spec name: %v", err)
+	if err != nil || restored.Base().Name != "" {
+		t.Fatalf("empty names must round-trip: %v", err)
 	}
 }

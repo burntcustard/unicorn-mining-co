@@ -85,6 +85,7 @@ const server = [
       name: kind === 'ship' ? 'Pilot 🦄' : '',
       definitionId: kind === 'station' ? 'corral-6' : '',
       color: kind === 'ship' ? '#4df' : '',
+      ...(kind === 'ship' ? { senderRole: 'admin' } : {}),
     })),
   },
   ...['user', 'owner', 'friendly', 'admin', 'hostile'].map((senderRole) => ({

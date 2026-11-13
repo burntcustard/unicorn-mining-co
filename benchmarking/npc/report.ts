@@ -198,12 +198,14 @@ export async function readNPCReport({
   seed,
   start,
   end,
+  allowEarlyCompletion = false,
 }: {
   shipId: number;
   scenario: string;
   seed?: number;
   start: number;
   end: number;
+  allowEarlyCompletion?: boolean;
 }) {
   const manifest = JSON.parse(
     await readFile(
@@ -266,14 +268,28 @@ export async function readNPCReport({
     (event) => event.at >= start && event.at <= end,
   );
 
-  validateNPCActivity({
-    scenario,
-    maximumActive: data.maximumActive,
-    events,
-    captureEvents,
-  });
+  const completedBeforeCapture =
+    allowEarlyCompletion &&
+    scenario === 'collector' &&
+    data.maximumActive > 0 &&
+    data.items > 0 &&
+    !captureEvents.some((event) => event.kind === 'pickup') &&
+    collectionProgress({
+      items: data.items,
+      events: events.filter((event) => event.at < start),
+    }).complete;
+
+  if (!completedBeforeCapture) {
+    validateNPCActivity({
+      scenario,
+      maximumActive: data.maximumActive,
+      events,
+      captureEvents,
+    });
+  }
 
   return {
+    completedBeforeCapture,
     ...data,
     events,
     captureEvents,
@@ -321,4 +337,24 @@ export function validateNPCActivity({
       'An idle fixture must not collect its items',
     );
   }
+}
+
+/*
+ * Retry only known early-completion attempts, recording every rejected window.
+ */
+export async function retryEarlyCollection<T>({
+  run,
+  record,
+}: {
+  run: () => Promise<T | undefined>;
+  record: (rejected: T) => Promise<void>;
+}) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const rejected = await run();
+
+    if (rejected === undefined) return;
+    await record(rejected);
+  }
+
+  throw new Error('Collector completed before capture in three attempts');
 }

@@ -231,3 +231,39 @@ func TestTargetInput(t *testing.T) {
 		}
 	}
 }
+
+func TestHelloTokenFlag(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, kind := range []string{"hello", "prepare"} {
+		for flags := byte(0); flags < 2; flags++ {
+			packet := writer{data: []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs[kind]), flags}}
+
+			if flags&1 != 0 {
+				if err := packet.uuid("12345678-1234-1234-1234-123456789abc"); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			control, err := DecodeClientControl(packet.data, catalog.Protocol, catalog.Simulation.SimulationStep)
+
+			if err != nil || control.Type != kind || (control.PlayerToken != "") != (flags&1 != 0) {
+				t.Fatalf("%s flags %d: %+v %v", kind, flags, control, err)
+			}
+		}
+
+		for _, data := range [][]byte{
+			{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs[kind])},
+			{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs[kind]), 2},
+			{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs[kind]), 1},
+		} {
+			if _, err := DecodeClientControl(data, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
+				t.Fatalf("%s accepted malformed flags or token %x", kind, data)
+			}
+		}
+	}
+}

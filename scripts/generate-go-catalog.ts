@@ -131,7 +131,13 @@ const catalog = {
   ),
   shipSpecs,
   stationSpecs,
-  protocol: { binaryFieldIds, controlMessageIds, dockActionIds, entityKindIds },
+  protocol: {
+    binaryFieldIds,
+    controlMessageIds,
+    dockActionIds,
+    entityKindIds,
+    modulePalettes: Object.values(colors),
+  },
   simulation,
   regionGeneration,
 };

@@ -546,7 +546,7 @@ export function decodeClientMessage(
 
       message = {
         type: reader.type === hello ? 'hello' : 'prepare',
-        playerToken: token ? reader.uuid() : null,
+        playerToken: token & 1 ? reader.uuid() : null,
       };
 
       break;

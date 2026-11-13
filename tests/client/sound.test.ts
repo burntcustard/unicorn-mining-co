@@ -291,42 +291,7 @@ for (const waveform of ['noise', 'crackle']) {
   }
 }
 
-// Legacy defaults retain their exact envelope, filter order, and pitch clock.
-const legacySamples = (effect) => {
-  const {volume, frequency = 0, attack, decay, cutoff = 0, endFrequency = frequency, highpass = 0} = effect;
-  const length = Math.floor(((attack + decay) / 1000) * 44100);
-  const samples = new Float32Array(Math.max(1, length));
-  let filtered = 0;
-  let bass = 0;
-  let phase = 0;
-  for (let i = 0; i < length; i++) {
-    phase += (frequency + ((endFrequency - frequency) * i) / length) / 44100;
-    const wave = cutoff ? Math.random() * 2 - 1 : Math.sin(phase * Math.PI * 2);
-    const elapsed = i / 44100;
-    const envelope = i === 0 ? 0 : Math.min(attack ? elapsed / (attack / 1000) : 1, decay ? .01 ** ((elapsed - attack / 1000) / (decay / 1000)) : 1);
-    filtered += (wave * envelope * volume - filtered) * (cutoff ? cutoff / (cutoff + 44100) : 1);
-    bass += (filtered - bass) * Math.min(1, (2 * Math.PI * highpass) / 44100);
-    samples[i] = filtered - bass;
-  }
-  return samples;
-};
 const render = (effect) => renderEffectBuffer({context, layers: [effect]}).getChannelData(0);
-const stableRandom = Math.random;
-Math.random = () => .75;
-for (const effect of [
-  {volume: .3, frequency: 680, attack: 13, decay: 91, endFrequency: 1280},
-  {volume: .7, frequency: 93, attack: 11, decay: 217, endFrequency: 17, highpass: 26},
-  {volume: .5, attack: 37, decay: 421, cutoff: 123},
-  {volume: .3, frequency: 400, attack: 0, decay: 103},
-  {volume: .3, frequency: 400, attack: 21, decay: 0},
-  {volume: .3, frequency: 0, attack: 0, decay: 0},
-]) {
-  const original = legacySamples(effect);
-  const current = render(effect);
-  assert.equal(current.length, original.length);
-  assert(current.every((sample, index) => Math.abs(sample - original[index]) <= 1e-6), 'existing effects preserve their original samples');
-}
-Math.random = stableRandom;
 
 const waveforms = ['sine', 'triangle', 'square', 'pulse', 'sawtooth', 'noise', 'crackle'];
 const curves = ['linear', 'exponential', 'ease-in', 'ease-out'];

@@ -200,7 +200,7 @@ const keybindingBundle = await rolldown({
       resolveId: (id) => (id === keybindingEntry ? keybindingEntry : undefined),
       load: (id) =>
         id === keybindingEntry
-          ? `import { defaultKeybindings, moduleBinding, updateMovement } from './client/input/keybindings';
+          ? `import { bindingModes, bindingModeLabel, defaultKeybindings, moduleBinding, updateMovement } from './client/input/keybindings';
 export function inspectBindings() {
   const bindings = [defaultKeybindings.forwardThrust, defaultKeybindings.turnLeft, defaultKeybindings.turnRight, moduleBinding('hornDrill'), moduleBinding('cargoHatch'), moduleBinding('searchLight'), moduleBinding('shieldGenerator')];
   return bindings.map(binding => binding.keys[0]);
@@ -209,6 +209,9 @@ export function inspectMovement() {
   const input = { thrust: 0, turn: 0 };
   updateMovement(new Set(['arrowup', 'arrowleft']), input);
   return [input.thrust, input.turn];
+}
+export function inspectBindingModes() {
+  return [...bindingModes.map(bindingModeLabel), bindingModeLabel(defaultKeybindings.telemetry.mode)];
 }`
           : undefined,
     },
@@ -243,6 +246,7 @@ try {
     's',
   ]);
   assert.deepEqual(built.inspectMovement(), [1, -1]);
+  assert.deepEqual(built.inspectBindingModes(), ['Hold', 'Toggle', 'Press']);
 } finally {
   await keybindingBundle.close();
 }

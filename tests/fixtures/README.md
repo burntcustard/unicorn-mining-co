@@ -70,6 +70,9 @@ inventories, active ship IDs, and account balances.
 
 Removing the Kestrel’s fitted autogun turret lowers its sale price in one
 hangar message from 10,175 to 9,425; all other recorded values remain unchanged.
+The revised power-plant loadouts subsequently change the Courser, Moth, Finch,
+and Kestrel offers to 4,725, 10,650, 3,125, and 10,175 respectively. The
+remaining replay values are unchanged.
 
 `rendering.json` captures representative replicated ship, station, mixed cargo,
 and drilling stages. Browser tests hydrate it under source and production

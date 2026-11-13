@@ -328,7 +328,7 @@ for (const invalid of [
   changed(hello, 0, 0),
   changed(hello, 2, 2),
   changed(hello, 3, 255),
-  changed(hello, 4, 2), // invalid token marker
+  changed(hello, 4, 4), // unknown hello capability
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
@@ -374,6 +374,10 @@ assert.throws(
 );
 
 assert.throws(() => decodeServerControl(hello), /Invalid binary control/);
+assert.throws(
+  () => decodeClientMessage(Uint8Array.from([0x55, 0x43, 1, 0, 4])),
+  /Invalid binary control/,
+);
 assert.throws(
   () =>
     decodeServerControl(

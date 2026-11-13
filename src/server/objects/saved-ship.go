@@ -6,7 +6,6 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
-	"log"
 	"math"
 	"slices"
 )
@@ -157,17 +156,16 @@ func CaptureShip(ship *Ship) SavedShip {
 	return s
 }
 
-func restorePaint(paint *int, catalog specs.Catalog) []string {
+func restorePaint(paint *int, catalog specs.Catalog) ([]string, error) {
 	if paint == nil {
-		return nil
+		return nil, nil
 	}
 
 	if *paint < 0 || *paint >= len(catalog.PaintColors) {
-		log.Printf("Warning: skipping unknown saved paint %d", *paint)
-		return nil
+		return nil, fmt.Errorf("unknown saved paint %d", *paint)
 	}
 
-	return slices.Clone(catalog.PaintColors[*paint])
+	return slices.Clone(catalog.PaintColors[*paint]), nil
 }
 
 func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, error) {
@@ -178,11 +176,14 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 	}
 
 	if _, ok := catalog.ShipSpecs[s.Type]; !ok {
-		log.Printf("Warning: skipping unknown saved ship %q (ID %d)", s.Type, s.ID)
-		return nil, nil
+		return nil, fmt.Errorf("unknown saved ship %q (ID %d)", s.Type, s.ID)
 	}
 
-	shades := restorePaint(s.Paint, catalog)
+	shades, err := restorePaint(s.Paint, catalog)
+
+	if err != nil {
+		return nil, err
+	}
 
 	ship := NewShip(s.Type, Properties{ObjectProperties: simulation.ObjectProperties{ID: &s.ID, World: world, PlayerID: &playerID, Position: Vec.Create(float64(s.Position[0]), float64(s.Position[1])), Rotation: s.Rotation}, Shades: shades}, catalog)
 
@@ -224,15 +225,12 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 
 	states := []ModuleState{}
 	mounts := ship.Mounts()
-	equipmentChanged := false
 
 	for _, m := range s.Modules {
 		kind := slices.Index(catalog.ModuleIDs, m.Type)
 
 		if _, exists := catalog.ModuleSpecs[m.Type]; !exists || kind < 0 {
-			log.Printf("Warning: skipping unknown saved module %q on ship %d", m.Type, s.ID)
-			equipmentChanged = true
-			continue
+			return nil, fmt.Errorf("unknown saved module %q on ship %d", m.Type, s.ID)
 		}
 
 		if m.Mount < 0 || m.Mount >= len(mounts) {
@@ -240,12 +238,14 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 		}
 
 		if !slices.Contains(mounts[m.Mount].Fits, m.Type) {
-			log.Printf("Warning: skipping saved module %q that no longer fits ship %d mount %d", m.Type, s.ID, m.Mount)
-			equipmentChanged = true
-			continue
+			return nil, fmt.Errorf("saved module %q does not fit ship %d mount %d", m.Type, s.ID, m.Mount)
 		}
 
-		shades := restorePaint(m.Paint, catalog)
+		shades, err := restorePaint(m.Paint, catalog)
+
+		if err != nil {
+			return nil, err
+		}
 
 		health := m.Health
 
@@ -278,15 +278,12 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 	}
 
 	ship.SetModuleStates(states)
-	ship.StoredPower = ship.PowerCapacity()
 
-	if s.StoredPower != nil {
-		if math.IsNaN(*s.StoredPower) || math.IsInf(*s.StoredPower, 0) || *s.StoredPower < 0 || !equipmentChanged && *s.StoredPower > ship.PowerCapacity() {
-			return nil, fmt.Errorf("invalid saved power storage")
-		}
-
-		ship.StoredPower = min(*s.StoredPower, ship.PowerCapacity())
+	if s.StoredPower == nil || math.IsNaN(*s.StoredPower) || math.IsInf(*s.StoredPower, 0) || *s.StoredPower < 0 || *s.StoredPower > ship.PowerCapacity() {
+		return nil, fmt.Errorf("invalid saved power storage")
 	}
+
+	ship.StoredPower = min(*s.StoredPower, ship.PowerCapacity())
 
 	for _, cargo := range s.Cargo {
 		props := simulation.ObjectProperties{ID: &cargo.ID, Message: cargo.Message, Health: cargo.Health}
@@ -294,12 +291,15 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 
 		if cargo.Module {
 			if _, ok := catalog.ModuleSpecs[cargo.Type]; !ok {
-				log.Printf("Warning: skipping unknown cargo module %q on ship %d", cargo.Type, s.ID)
-				continue
+				return nil, fmt.Errorf("unknown cargo module %q on ship %d", cargo.Type, s.ID)
 			}
 
 			entity = modules.Create(cargo.Type, props, catalog)
-			shades := restorePaint(cargo.Paint, catalog)
+			shades, err := restorePaint(cargo.Paint, catalog)
+
+			if err != nil {
+				return nil, err
+			}
 
 			if shades != nil {
 				entity.Base().Shades = shades
@@ -310,8 +310,7 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 			}
 		} else {
 			if _, ok := catalog.ItemSpecs[cargo.Type]; !ok {
-				log.Printf("Warning: skipping unknown cargo item %q on ship %d", cargo.Type, s.ID)
-				continue
+				return nil, fmt.Errorf("unknown cargo item %q on ship %d", cargo.Type, s.ID)
 			}
 
 			entity = NewItem(cargo.Type, props, catalog)

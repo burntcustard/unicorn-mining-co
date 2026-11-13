@@ -53,6 +53,7 @@
 [ ] Custom cursors
 [ ] Bigger power generators for bigger ships
 [ ] Fix hull smash sound when shield & asteroid collide
+[ ] New icon for wormholes
 
 ## MVP
 
@@ -131,8 +132,9 @@
 [x] Fix ships in stations rendering on map
 [x] Zoom in and zoom out buttons in big map
 [ ] World map with sectors and lines between them (+ players?)
-[ ] Small asteroid chunk pop animation
+[-] Small asteroid chunk pop animation
 [ ] Make big ships turn slow
+[ ] Make Items and other Game Objects block light
 
 ## Big future things
 

@@ -77,23 +77,6 @@ func GenerationDigest(catalog specs.Catalog) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// CompatibleGenerationDigest accepts catalogs before items were appended.
-// Existing resource indices and saved contents stay unchanged; keep all other
-// generation checks intact.
-func CompatibleGenerationDigest(catalog specs.Catalog, saved string) bool {
-	for {
-		if saved == GenerationDigest(catalog) {
-			return true
-		}
-
-		if len(catalog.ItemIDs) == 0 {
-			return false
-		}
-
-		catalog.ItemIDs = catalog.ItemIDs[:len(catalog.ItemIDs)-1]
-	}
-}
-
 type Player struct {
 	Role                      PlayerRole
 	Banned                    bool
@@ -202,7 +185,7 @@ func (s *Store) initialize() error {
 		return err
 	}
 
-	if version != 0 && version != 6 && version != SchemaVersion {
+	if version != 0 && version != SchemaVersion {
 		return fmt.Errorf("unsupported database schema %d; this server requires %d", version, SchemaVersion)
 	}
 
@@ -217,19 +200,6 @@ func (s *Store) initialize() error {
 	}
 
 	defer tx.Rollback()
-
-	if version == 6 {
-		if _, err = tx.Exec(`ALTER TABLE players ADD COLUMN role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin','owner'));
-ALTER TABLE players ADD COLUMN banned INTEGER NOT NULL DEFAULT 0 CHECK(banned IN (0,1));`); err != nil {
-			return err
-		}
-
-		if _, err = tx.Exec(fmt.Sprintf("PRAGMA user_version=%d", SchemaVersion)); err != nil {
-			return err
-		}
-
-		return tx.Commit()
-	}
 
 	if _, err = tx.Exec(`CREATE TABLE world (
   id INTEGER PRIMARY KEY CHECK(id=1), seed REAL NOT NULL,

@@ -2425,22 +2425,24 @@ checkUi: try {
     'the deferred docking screen finishes loading',
   );
 
-  const beams = await check('fixture.checkBeamComposition()');
+  const [single, overlap, dimOverlap, blend, opacity] = await check(
+    'fixture.checkBeamComposition()',
+  );
 
-  assert(beams.single[0] > 0, 'the beam surface contains visible light');
-  assert(beams.overlap[0] > beams.single[0], 'overlapping beams brighten');
-  const singleWash = (beams.single[0] / 255) * 0.5;
-  const overlapWash = (beams.overlap[0] / 255) * 0.5;
+  assert(single[0] > 0, 'the beam surface contains visible light');
+  assert(overlap[0] > single[0], 'overlapping beams brighten');
+  const singleWash = (single[0] / 255) * 0.5;
+  const overlapWash = (overlap[0] / 255) * 0.5;
   const originalOverlap = 1 - (1 - singleWash) ** 2;
   const share = (overlapWash - singleWash) / (originalOverlap - singleWash);
 
   assert(share > 0 && share < 1, 'the overlap is a restrained increase');
   assert(
-    beams.dimOverlap[0] > beams.overlap[0],
+    dimOverlap[0] > overlap[0],
     'a weaker beam crossing at a different position adds light too',
   );
-  assert.equal(beams.blend, 'screen');
-  assert.equal(beams.opacity, '0.5');
+  assert.equal(blend, 'screen');
+  assert.equal(opacity, '0.5');
 
   if (process.env.UI_HANGAR_ONLY) {
     await waitFor(

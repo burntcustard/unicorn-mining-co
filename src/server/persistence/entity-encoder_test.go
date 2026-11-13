@@ -82,11 +82,11 @@ func entityEncodingFixtures(t testing.TB) []entityEncodingFixture {
 		ID: 25, Kind: "item", Position: Vec.Create(minusZero, 4), Velocity: Vec.Create(math.Inf(1), math.Inf(-1)),
 		Drag: math.NaN(), SpeedLimit: math.Float64frombits(0x7ff8000000001234), Health: math.NaN(), Price: math.Inf(1),
 		RadiusEven: &minusZero, Bounciness: &zero, Message: &message, PlayerID: &zeroID,
-	}, HasPower: true, Rounds: &zeroInt, DockedTo: &zeroID, HasLaunching: true}
+	}, Rounds: &zeroInt, DockedTo: &zeroID, HasLaunching: true}
 
 	populated := objects.SavedEntity{
 		Object:      objects.SavedObject{ID: 26, Kind: "craft", DefinitionID: "mustang", Label: "saved craft", Unlock: "RED", Position: Vec.Create(6, 7), Velocity: Vec.Create(8, 9), Rotation: 0.2, Spin: -0.3, Radius: 10, AngularDrag: 0.4, AngularInertiaScale: 2, Mass: 3, Friction: 0.5, Drag: 0.6, SpeedLimit: 11, PendingUpdateTime: 0.02, Health: 12, Decay: 4, Price: 13, Physics: true, Dead: true, Buried: true, Ballistic: true, HasPaint: true, HasResource: true, Item: true, Mined: true, Paint: 2, PointCount: 3, Resource: 1, RadiusEven: &zero, Bounciness: &zero, Message: &message, PlayerID: &zeroID, Shades: []string{"white", "red"}, ShapeOutline: outline, LocalMovementParent: 27, LocalMovementRate: 0.7, RandomState: 1234, SharedRandom: true},
-		TransitTime: 1, TransitGate: 28, Fuel: 2, StoredPower: 3, HasPower: true, ThrusterPower: 4, SystemsPower: 5, Rounds: &zeroInt, ModuleType: catalog.ModuleIDs[0], Contents: []int{0, 1, 2}, MaxHealth: 6,
+		TransitTime: 1, TransitGate: 28, Fuel: 2, StoredPower: 3, ThrusterPower: 4, SystemsPower: 5, Rounds: &zeroInt, ModuleType: catalog.ModuleIDs[0], Contents: []int{0, 1, 2}, MaxHealth: 6,
 		AsteroidSegments: []*simulation.AsteroidSegment{{Contents: []int{1}, Health: 1, Mass: 2, MaxHealth: 3, ShapeOutline: outline}},
 		HullHealth:       []float64{1, 2}, HullEdges: [][]bool{nil, {}, {false, true}},
 		Modules: []objects.ModuleState{{ID: &zeroID, Health: &zero, HealthActivated: &zero, ChargeCooldown: &zero, FireCooldown: &zero, Type: 1, Mount: -1, Shades: []string{"red"}, Segments: []objects.ModuleSegmentState{{Active: 0.5, ActivationProgress: 0.2}}}}, ModuleTypes: []string{catalog.ModuleIDs[0]},

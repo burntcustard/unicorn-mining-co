@@ -367,12 +367,6 @@ export const renderEffectBuffer = ({
       1,
       (2 * Math.PI * endHighpass) / sampleRate,
     );
-    const legacyEnvelope =
-      !hold &&
-      !release &&
-      sustain === 0.01 &&
-      (!attack || attackCurve === 'linear') &&
-      (!decay || decayCurve === 'exponential');
     const fullPitchDuration = Math.abs(pitchDuration - duration) <= 1e-9;
     const fullFilterDuration = Math.abs(filterDuration - duration) <= 1e-9;
     const maxHighpassRate = Math.max(highpassRate, endHighpassRate);
@@ -465,12 +459,7 @@ export const renderEffectBuffer = ({
       let envelope = 0;
 
       if (i) {
-        if (legacyEnvelope) {
-          envelope = Math.min(
-            attack ? elapsed / attack : 1,
-            decay ? 0.01 ** ((elapsed - attack) / decay) : 1,
-          );
-        } else if (elapsed < attack) {
+        if (elapsed < attack) {
           envelope = interpolate({
             curve: attackCurve,
             from: 0,

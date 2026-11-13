@@ -65,17 +65,13 @@ export const checkBeamComposition = () => {
     const dimOverlap = Array.from(paint.getImageData(40, 50, 1, 1).data);
     const style = getComputedStyle(surface);
 
-    return {
-      single,
-      overlap,
-      dimOverlap,
-      blend: style.mixBlendMode,
-      opacity: style.opacity,
-    };
+    return [single, overlap, dimOverlap, style.mixBlendMode, style.opacity];
   } finally {
     endBeams();
-    document.querySelector('.world-beams')?.remove();
-    canvas.remove();
+    const surface = document.querySelector('.world-beams');
+
+    if (surface) surface.parentNode?.removeChild(surface);
+    canvas.parentNode?.removeChild(canvas);
     Object.assign(game, previous);
   }
 };

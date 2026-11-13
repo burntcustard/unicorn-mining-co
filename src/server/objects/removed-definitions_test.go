@@ -1,8 +1,6 @@
 package objects_test
 
 import (
-	"bytes"
-	"log"
 	"strings"
 	"testing"
 
@@ -12,7 +10,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
 
-func TestCompactShipSkipsRemovedDefinitions(t *testing.T) {
+func TestSavedShipRejectsUnknownDefinitions(t *testing.T) {
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -21,58 +19,31 @@ func TestCompactShipSkipsRemovedDefinitions(t *testing.T) {
 
 	world := simulation.CreateWorld(25, catalog)
 	ship := objects.CreatePlayerShip(world, objects.Properties{})
-	saved := objects.CaptureShip(ship)
-	removed := saved.Modules[0]
-	removed.Type = "retired-module"
-	saved.Modules[0] = removed
 
-	saved.Cargo = []objects.SavedCargo{
-		{ID: 1001, Type: "retired-module", Module: true},
-		{ID: 1002, Type: "retired-item"},
-		{ID: 1003, Type: "autogunAmmo", Rounds: new(73)},
-	}
+	for _, test := range []struct {
+		name   string
+		mutate func(*objects.SavedShip)
+	}{
+		{"ship", func(s *objects.SavedShip) { s.Type = "retired-ship" }},
+		{"module", func(s *objects.SavedShip) { s.Modules[0].Type = "retired-module" }},
+		{"cargo module", func(s *objects.SavedShip) {
+			s.Cargo = []objects.SavedCargo{{ID: 1001, Type: "retired-module", Module: true}}
+		}},
+		{"cargo item", func(s *objects.SavedShip) { s.Cargo = []objects.SavedCargo{{ID: 1002, Type: "retired-item"}} }},
+		{"paint", func(s *objects.SavedShip) { s.Paint = new(len(catalog.PaintColors)) }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			saved := objects.CaptureShip(ship)
+			test.mutate(&saved)
 
-	var warnings bytes.Buffer
-	previous := log.Writer()
-	log.SetOutput(&warnings)
-	defer log.SetOutput(previous)
-	restored, err := objects.RestoreShip(saved, world, 1)
-
-	if err != nil || restored == nil {
-		t.Fatal("removed definitions must not prevent restoring a ship", err)
-	}
-
-	if restored.Mounts()[removed.Mount].Module != nil || len(restored.Modules()) != len(saved.Modules)-1 {
-		t.Fatal("the removed module must leave its mount empty and retain other equipment")
-	}
-
-	if len(restored.CargoContents) != 1 || restored.CargoContents[0].Base().ID != 1003 || *restored.CargoContents[0].(*objects.Item).Rounds != 73 {
-		t.Fatal("only removed cargo must be discarded")
-	}
-
-	for _, id := range []string{"retired-module", "retired-item"} {
-		if !strings.Contains(warnings.String(), id) {
-			t.Fatalf("missing warning identifying removed definition %q", id)
-		}
-	}
-
-	// Removing a power plant also reduces capacity below the saved battery level.
-	saved = objects.CaptureShip(ship)
-
-	for i := range saved.Modules {
-		if saved.Modules[i].Type == "powerPlant2V" {
-			saved.Modules[i].Type = "retired-power-plant"
-		}
-	}
-
-	restored, err = objects.RestoreShip(saved, world, 1)
-
-	if err != nil || restored.StoredPower != restored.PowerCapacity() || restored.PowerCapacity() != 0 {
-		t.Fatal("removed power equipment must clamp stored energy to the remaining capacity", err)
+			if _, err := objects.RestoreShip(saved, world, 1); err == nil {
+				t.Fatal("invalid saved definition was accepted")
+			}
+		})
 	}
 }
 
-func TestSavedEntitySkipsRemovedDefinitions(t *testing.T) {
+func TestSavedEntityRejectsUnknownDefinitions(t *testing.T) {
 	catalog, err := specs.Load()
 
 	if err != nil {
@@ -81,46 +52,34 @@ func TestSavedEntitySkipsRemovedDefinitions(t *testing.T) {
 
 	world := simulation.CreateWorld(25, catalog)
 	ship := objects.CreatePlayerShip(world, objects.Properties{})
+	ship.CargoContents = []simulation.Entity{modules.Create("searchLight", simulation.ObjectProperties{World: world}, catalog)}
 
-	ship.CargoContents = []simulation.Entity{
-		modules.Create("searchLight", simulation.ObjectProperties{World: world}, catalog),
-		objects.NewItem("diamond", simulation.ObjectProperties{World: world}, catalog),
+	for _, test := range []struct {
+		name   string
+		mutate func(*objects.SavedEntity)
+	}{
+		{"fitted module", func(s *objects.SavedEntity) { s.ModuleTypes[0] = "retired-module" }},
+		{"cargo module", func(s *objects.SavedEntity) { s.CargoContents[0].ModuleType = "retired-module" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			saved := objects.CaptureEntity(ship)
+			test.mutate(&saved)
+
+			if _, err := objects.RestoreEntity(saved, world); err == nil || !strings.Contains(err.Error(), "retired-module") {
+				t.Fatal("invalid saved definition was accepted", err)
+			}
+		})
 	}
 
-	saved := objects.CaptureEntity(ship)
-	removedMount := saved.Modules[0].Mount
-	saved.ModuleTypes[0] = "retired-module"
-	saved.CargoContents[0].ModuleType = "retired-module"
-	restored, err := objects.RestoreEntity(saved, world)
-
-	if err != nil || restored == nil {
-		t.Fatal("removed definitions must not prevent restoring a world craft", err)
-	}
-
-	craft := restored.(*objects.Ship)
-
-	if craft.Mounts()[removedMount].Module != nil || len(craft.Modules()) != len(ship.Modules())-2 || len(craft.CargoContents) != 1 || craft.CargoContents[0].Base().ID != ship.CargoContents[1].Base().ID {
-		t.Fatal("world craft restoration must discard only the removed modules")
-	}
-
-	for _, removed := range []objects.SavedEntity{
+	for _, saved := range []objects.SavedEntity{
 		{ModuleType: "retired-module"},
 		{Object: objects.SavedObject{Kind: "ship", DefinitionID: "retired-ship"}},
 		{Object: objects.SavedObject{Kind: "station", DefinitionID: "retired-station"}},
 		{Object: objects.SavedObject{Kind: "projectile", DefinitionID: "retired-module"}},
 		{Object: objects.SavedObject{Kind: "item", HasResource: true, Resource: len(catalog.ItemIDs)}},
 	} {
-		entity, err := objects.RestoreEntity(removed, world)
-
-		if err != nil || entity != nil {
-			t.Fatal("removed world definitions must be skipped without an error", err)
+		if _, err := objects.RestoreEntity(saved, world); err == nil {
+			t.Fatal("invalid saved entity definition was accepted")
 		}
-	}
-
-	compact := objects.CaptureShip(ship)
-	compact.Type = "retired-ship"
-
-	if entity, err := objects.RestoreShip(compact, world, 1); err != nil || entity != nil {
-		t.Fatal("a removed player hull must be skipped without an error", err)
 	}
 }

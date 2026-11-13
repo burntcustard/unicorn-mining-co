@@ -79,6 +79,10 @@ export const binaryFieldIds = {
   blockedBeams: 45,
   hostile: 46,
   npcState: 47,
+  packedPosition: 54,
+  packedVelocity: 55,
+  packedRotation: 56,
+  packedSpin: 57,
 } as const satisfies Record<string, number>;
 
 export const entityKindIds = {

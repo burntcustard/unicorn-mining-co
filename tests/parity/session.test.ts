@@ -3,7 +3,11 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { decodeServerControl } from '../../src/client/protocol/binary-control';
-import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot';
+import {
+  decodeBinarySnapshot,
+  mergeModuleStates,
+} from '../../src/client/protocol/binary-snapshot';
+import type { ReplicatedEntity } from '../../src/client/protocol/network';
 
 const fixture = JSON.parse(
   gunzipSync(readFileSync('tests/fixtures/session.json.gz')).toString(),
@@ -17,7 +21,7 @@ const go = JSON.parse(
   }),
 );
 
-function decoded(packet: string) {
+function decoded(packet: string, records: Map<number, ReplicatedEntity>) {
   const data = Buffer.from(packet, 'hex');
   const message =
     data[1] === 0x43 ? decodeServerControl(data) : decodeBinarySnapshot(data);
@@ -25,6 +29,31 @@ function decoded(packet: string) {
   if (message.type === 'welcome') message.playerToken = 'token';
 
   if (message.type === 'load' || message.type === 'snapshot') {
+    if (message.type === 'load') records.clear();
+
+    message.fullEntities.forEach((entity) => {
+      const previous = records.get(entity.id);
+
+      mergeModuleStates(entity, previous);
+      const current = { ...previous, ...entity } as ReplicatedEntity;
+
+      Object.entries(entity).forEach(([key, value]) => {
+        if (value === null) {
+          delete (current as unknown as Record<string, unknown>)[key];
+        }
+      });
+
+      records.set(entity.id, current);
+    });
+
+    if (message.entityIds) {
+      const visible = new Set(message.entityIds);
+
+      records.forEach((_, id) => {
+        if (!visible.has(id)) records.delete(id);
+      });
+    }
+
     message.fullEntities.sort((a, b) => a.id - b.id);
   }
 
@@ -74,8 +103,10 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
   assert.equal(go[id].code, socket.code);
   assert.equal(go[id].packets.length, socket.messages.length);
 
+  const records = new Map<number, ReplicatedEntity>();
+
   socket.messages.forEach((expected, index) => {
-    const actual = decoded(go[id].packets[index]);
+    const actual = decoded(go[id].packets[index], records);
     const comparable = { ...(expected as Record<string, unknown>) };
 
     // Receipt requests are optional; every present sequence and all gameplay

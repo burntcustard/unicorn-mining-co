@@ -43,7 +43,7 @@ func TestModuleCooldownCacheRetainsExactMutableWireState(t *testing.T) {
 		{"reset turret state", func() { gun.ModuleBase().AimRotation = 0 }},
 		{"mount health", func() { gun.ModuleBase().Mount.Health-- }},
 		{"module health", func() { spare.Base().Health-- }},
-		{"shades", func() { gun.Base().Shades = []string{"#123456"} }},
+		{"shades", func() { gun.Base().Shades = catalog.Colors["red"] }},
 		{"activation", func() { ship.Segments[0].Active = 1; ship.Segments[0].ActivationProgress = .4 }},
 		{"activation health", func() { gun.ModuleBase().Mount.HealthActivated = new(17.) }},
 		{"empty mount insertion", func() { hull.Mounts = append(hull.Mounts, &simulation.Mount{Hull: hull}) }},
@@ -111,5 +111,70 @@ func TestModuleCooldownUpdatesAvoidMetadataAllocations(t *testing.T) {
 
 	if allocations > 3 {
 		t.Fatalf("single cooldown update allocated %g objects", allocations)
+	}
+}
+
+func TestModuleRevisionsTrackChangedEntriesAndAppearance(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := objects.CreatePlayerShip(world, objects.Properties{DefinitionID: "courser"})
+	batch := NewBinarySnapshotBatch(catalog)
+	batch.Begin(NewReplicationView(world))
+	record := batch.prepared(ship)
+
+	if len(record.modules.modules) < 2 {
+		t.Fatal("fixture needs at least two modules")
+	}
+
+	first, second := record.modules.modules[0], record.modules.modules[1]
+	initial, layoutRevision := record.revision, record.moduleLayoutRevision
+
+	first.ModuleBase().FireCooldown = .25
+	batch.Begin(NewReplicationView(world))
+	record = batch.prepared(ship)
+
+	if record.moduleLayoutRevision != layoutRevision || record.moduleRevisions[0] <= initial || record.moduleRevisions[1] > initial {
+		t.Fatal("cooldown update should only change the first module revision")
+	}
+
+	middle := record.revision
+
+	second.ModuleBase().AimRotation = .75
+	batch.Begin(NewReplicationView(world))
+	record = batch.prepared(ship)
+
+	if record.moduleRevisions[0] > middle || record.moduleRevisions[1] <= middle {
+		t.Fatal("observer baseline should distinguish changes across snapshots")
+	}
+
+	if record.moduleRevisions[0] <= initial || record.moduleRevisions[1] <= initial {
+		t.Fatal("stale observer must receive both changed modules")
+	}
+
+	beforeHealth := record.revision
+	first.ModuleBase().Mount.Health--
+	batch.Begin(NewReplicationView(world))
+	record = batch.prepared(ship)
+
+	if record.moduleLayoutRevision != layoutRevision || record.moduleRevisions[0] <= beforeHealth || record.moduleRevisions[1] > beforeHealth || record.moduleShadeRevisions[0] > beforeHealth {
+		t.Fatal("health changes must not resend unchanged colors or other modules")
+	}
+
+	beforePaint := record.revision
+	first.Base().Shades = catalog.Colors["red"]
+	batch.Begin(NewReplicationView(world))
+	record = batch.prepared(ship)
+
+	if record.moduleLayoutRevision != layoutRevision || record.moduleShadeRevisions[0] <= beforePaint || record.moduleShadeRevisions[1] > beforePaint {
+		t.Fatal("repainting must update only that module's shades")
+	}
+
+	if record.moduleRevisions[0] <= beforePaint || record.moduleRevisions[1] > beforePaint {
+		t.Fatal("repainting must only update the changed module")
 	}
 }
