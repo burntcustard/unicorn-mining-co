@@ -37,7 +37,7 @@ export function parseLatencyOptions(args: string[]) {
     target,
     url:
       target === 'local'
-        ? 'http://localhost:3000/'
+        ? 'http://localhost:3002/'
         : 'https://unicorn-mining.co/',
     networkPermission: target === 'local' ? 'loopback-network' : null,
     scenario,

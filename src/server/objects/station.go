@@ -10,6 +10,7 @@ import (
 
 type Station struct {
 	*Craft
+	ShipsForSale        []specs.ShipOffer
 	LocalMovementRadius float64
 	DockingBays         []float64
 	moduleSellers       map[int64]int64
@@ -52,6 +53,7 @@ func NewStation(id string, props Properties, catalog specs.Catalog) *Station {
 	}
 
 	station.DockingBays = d.DockingBays
+	station.ShipsForSale = slices.Clone(d.ShipsForSale)
 	station.ZIndex = d.ZIndex
 	station.LocalMovementRadius = d.LocalMovementRadius
 

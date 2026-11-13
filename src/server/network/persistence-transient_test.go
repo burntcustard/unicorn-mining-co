@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
-	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
@@ -167,49 +166,6 @@ func TestSavedObjectBecomingTemporaryCannotResurrect(t *testing.T) {
 	}
 }
 
-func TestLegacyTemporaryRowsAreRemovedOnRestore(t *testing.T) {
-	t.Parallel()
-	path := filepath.Join(t.TempDir(), "world.sqlite")
-	s, store := persistedSession(t, path)
-	committedSession(t, s)
-	decay := 6.0
-	shot := objects.NewProjectile("autogun", simulation.ObjectProperties{World: s.World}, s.World.Specification)
-	fragment := simulation.CreateAsteroid(s.World, simulation.AsteroidProperties{ObjectProperties: simulation.ObjectProperties{Decay: &decay}})
-	var records []persistence.Entity
-
-	for _, e := range []simulation.Entity{shot, fragment} {
-		records = append(records, persistence.Entity{SectorID: s.currentSector, ID: e.Base().ID, State: objects.CaptureEntity(e)})
-	}
-
-	s.persistence.sequence++
-
-	if !store.Submit(persistence.Batch{Sequence: s.persistence.sequence, World: s.worldRecord(), Entities: records}) {
-		t.Fatal("could not create legacy records")
-	}
-
-	committedSession(t, s)
-
-	if err := store.Close(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-
-	s, store = persistedSession(t, path)
-	defer store.Close(context.Background())
-	committedSession(t, s)
-
-	for _, e := range []simulation.Entity{shot, fragment} {
-		if s.regions.Sleeping.Has(e.Base().ID) || s.World.Entities.Has(e.Base().ID) {
-			t.Fatal("legacy temporary object restored into gameplay")
-		}
-	}
-
-	saved, err := store.Load(25)
-
-	if err != nil || len(saved.Entities) != 0 {
-		t.Fatal("obsolete temporary rows remain in the database", err)
-	}
-}
-
 func TestQueuedPermanentObjectStillQueuesDeletionBeforeCommit(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "world.sqlite")
@@ -261,6 +217,82 @@ func TestQueuedPermanentObjectStillQueuesDeletionBeforeCommit(t *testing.T) {
 
 	if err != nil || len(saved.Entities) != 0 {
 		t.Fatal("removed permanent object survived its queued deletion", err)
+	}
+}
+
+func TestItemBearingDebrisSurvivesRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "world.sqlite")
+	s, store := persistedSession(t, path)
+	position := Vec.Create(100, 100)
+	outline := &simulation.ShapeOutline{Points: []simulation.Point{{-120, -80}, {120, -80}, {0, 160}}}
+	parent := simulation.CreateAsteroid(s.World, simulation.AsteroidProperties{Position: position, ShapeOutline: outline, Contents: []int{0}, Health: new(0.0)})
+	simulation.AddEntity(s.World, parent)
+	events := []protocol.SimulationEvent{}
+	parent.Fracture(nil, 7, &events, s.World)
+	var retained *simulation.Asteroid
+	var emptyIDs []int64
+
+	for _, entity := range s.World.Entities.Values() {
+		if part, ok := entity.(*simulation.Asteroid); ok && part.Decay > 0 {
+			if len(part.Contents) > 0 {
+				retained = part
+			} else {
+				emptyIDs = append(emptyIDs, part.ID)
+			}
+		}
+	}
+
+	if retained == nil || len(emptyIDs) != 3 {
+		t.Fatal("fixture must retain one item in debris and leave three decaying triangles")
+	}
+
+	id, health := retained.ID, retained.Health
+	s.regions.OnSleep(retained)
+	s.persistence.nextCheckpoint = s.now()
+	s.checkpoint()
+
+	for len(s.persistence.checkpoint) > 0 {
+		s.checkpoint()
+	}
+
+	if err := s.shutdownPersistence(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	committedSession(t, s)
+
+	if err := store.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	s, store = persistedSession(t, path)
+	defer store.Close(context.Background())
+	s.regions.Sync(s.World, []Vec.Vector{position})
+	entity, exists := s.World.Entities.Get(id)
+
+	if !exists {
+		t.Fatal("retained loot and its triangle disappeared at restart")
+	}
+
+	part := entity.(*simulation.Asteroid)
+	part.Update(60)
+
+	if part.Dead || part.Health != health || part.Decaying() || len(part.Contents) != 1 || part.Contents[0] != 0 {
+		t.Fatal("restored item-bearing debris lost its health, contents, or decay protection")
+	}
+
+	for _, empty := range emptyIDs {
+		if s.World.Entities.Has(empty) || s.regions.Sleeping.Has(empty) {
+			t.Fatal("empty temporary debris survived restart")
+		}
+	}
+
+	count := s.World.Entities.Len()
+	part.Health = 0
+	part.Fracture(nil, 7, &events, s.World)
+
+	if !part.Dead || s.World.Entities.Len() != count {
+		t.Fatal("restored item-bearing debris must release its item without subdividing")
 	}
 }
 

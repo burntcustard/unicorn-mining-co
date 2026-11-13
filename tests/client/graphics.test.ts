@@ -33,15 +33,12 @@ preferences.saveNativeHud(true);
 assert.equal(preferences.nativeHud, true);
 assert.equal(storage.get('unicorn-native-hud'), 'true');
 assert.deepEqual(graphics, [true, true, true, 1]);
-storage.set(
-  'unicorn-graphics',
-  JSON.stringify([false, true, false, false, 0.5]),
-);
+storage.set('unicorn-graphics', JSON.stringify([false, true, false, 0.5]));
 restoreGraphics();
 assert.deepEqual(
   graphics,
   [false, true, false, 0.5],
-  'old preferences preserve resolution and discard the glow toggle',
+  'preferences restore their saved resolution',
 );
 
 let changes = 0;
@@ -51,7 +48,7 @@ saveGraphics();
 assert.deepEqual(
   JSON.parse(storage.get('unicorn-graphics')!),
   [false, true, false, 0.5],
-  'saving uses the four remaining preferences',
+  'saving uses the four graphics preferences',
 );
 assert.equal(changes, 1);
 
@@ -60,7 +57,7 @@ restoreGraphics();
 assert.deepEqual(
   graphics,
   [true, false, true, 1.5],
-  'new preferences restore resolution from its new position',
+  'preferences restore their updated resolution',
 );
 
 storage.set('unicorn-graphics', JSON.stringify([true, false, true, false]));
@@ -136,3 +133,16 @@ assert.equal(
 );
 preferences.saveBackdropBlur(true);
 assert.equal(storage.get('unicorn-backdrop-blur'), 'true');
+
+assert.equal(preferences.hideUi, false, 'hide UI defaults to off');
+preferences.saveHideUi(true);
+assert.equal(preferences.hideUi, true);
+assert.equal(storage.get('unicorn-hide-ui'), 'true');
+const restoredHideUi = await import(
+  '../../src/client/ui/dom/graphics.ts' + '?hide-ui=restore'
+);
+
+assert.equal(restoredHideUi.hideUi, true, 'hide UI persists across reloads');
+preferences.saveHideUi(false);
+assert.equal(preferences.hideUi, false);
+assert.equal(storage.get('unicorn-hide-ui'), 'false');

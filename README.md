@@ -7,7 +7,7 @@
 
 Leave the station by pressing any key, fly around, shine the <ins>L</ins>IGHT into asteroids to search for valuable resources, turn on the <ins>D</INS>RILL to mine those resources out, open the cargo <ins>H</ins>ATCH to scoop them up, and then dock at one of the many stations to sell items, repair your ship, and buy upgrades like thrusters or a <ins>S</ins>HIELD.
 
-Press **P** to deploy or retract Plasma Accelerators and **A** for Autoguns. Deployment takes 0.7 seconds, followed by a 2-second plasma charge or 0.7-second autogun spin-up. Hold **Space** to fire ready weapons. Active weapons take no damage. The Plasma Accelerator fires once every 2 seconds without ammunition; the three indicators in its side recess recharge one at a time every 0.5 seconds. The Autogun fires five times per second and consumes one round per shot. Each Autogun ammunition pack contains 200 rounds. Buy ammunition from the cargo menu while docked. Two Plasma hits or five Autogun hits split a fresh asteroid chunk.
+Press **P** to deploy or retract Plasma Accelerators and **A** for Autoguns. Deployment takes 0.7 seconds, followed by a 2-second plasma charge or 0.7-second autogun spin-up. Hold **Space** to fire ready weapons. Active weapons take no damage. The Plasma Accelerator fires once every 2 seconds without ammunition; the three indicators in its side recess recharge one at a time every 0.5 seconds. The Autogun fires once every 0.16 seconds and consumes one round per shot. Each projectile ammo pack contains 200 rounds. Buy ammunition from the cargo menu while docked. Two Plasma hits or five Autogun hits split a fresh asteroid chunk.
 
 There are six rainbow-inspired colors, plus white, that you can color your ship parts with for free. You start with white and violet, but the others you unlock through exploration in the game. There is no death screen (you just have to refresh) or saving (no space, no pun intended, sorry), but if you manage to unlock all 5 of the non-starting colors, then you can consider yourself having complicated the game!
 
@@ -56,7 +56,7 @@ WHITE - Unlocked by default from the start of the game.
    `npm run dev:server`
 
 4. In another terminal, start hot-reloading [Vite](https://vitejs.dev/) at
-   [localhost:3000](http://localhost:3000/)
+   [localhost:3002](http://localhost:3002/)
    `npm run dev`
 
 5. Build the browser assets in `dist/` and Go executable in `bin/server`
@@ -66,15 +66,19 @@ WHITE - Unlocked by default from the start of the game.
    [localhost:3001](http://localhost:3001/). It serves the client and WebSocket
    on the same port. `npm run preview` also works with `start:server` running.
 
+Port 3001 is reserved for the Go server. The dev frontend starts at 3002 and
+tools start at 3100, advancing to the next available port when needed. Start
+these in any order and use the URL Vite prints. The frontend proxies game
+connections to the Go server on 3001.
+
 Use `dev` with `dev:server`, or the production build with `start:server`.
 New players start with 2,000 credits. Existing players keep their saved balance.
 The same Go server supports source and production clients through binary packets.
 Node is used only for frontend builds, generators, and development/test tooling.
 
 To preview object specs independently, run `npm run tool:object-viewer` and open
-[localhost:3000](http://localhost:3000/). Stop the regular frontend first because
-both use port 3000. The development-only GameObject Viewer needs no Go server.
-It uses the actual client renderers for ships, stations, items and procedural
+the URL printed by Vite (starting at port 3100). The development-only GameObject Viewer needs no Go server.
+It uses the actual client renderers for ships, stations, nav beacons, items and procedural
 asteroids, including spiky amethyst. Each mount lists its position and a dropdown
 of compatible modules; its checkbox activates all segments of the fitted instance.
 Choose Empty to leave a mount unfitted.
@@ -88,12 +92,36 @@ Selection, rotation, zoom, viewing aids, fitted modules and module activation
 survive updates and page refreshes. Viewer source lives under `src/tools/game-object-viewer` and is
 excluded from the game production entry.
 
+To preview the game’s module panels, run `npm run tool:module-viewer` and open
+the URL printed by Vite. The Module Viewer needs no Go server. Filter by spec
+folder and optionally enable model previews; the filters follow the module spec
+directory structure.
+
 To preview Gemetric, run `npm run tool:font-viewer` and open
-[localhost:3000](http://localhost:3000/) with the other frontend stopped.
+the URL printed by Vite (starting at port 3100).
 See [font/README.md](font/README.md) for glyph editing, generation, and reuse.
 
+To preview and edit game audio, run `npm run tool:sound-editor` and open
+the URL printed by Vite (starting at port 3100).
+The Sound Editor uses the game's synth and runs without a Go server.
+Choose an event from the searchable list, then play the event or solo a layer.
+Edit the layer controls and use the waveform to inspect their timing.
+Selecting an event or making a valid edit previews the sound. Save writes
+only the selected event or layer. External file edits replace its pending
+draft, so save any edits you want to keep before changing the file.
+
+Use **New sound event** to create a spec. **Save layer** copies a layer into
+the Unassigned library, and **Add to event** copies a saved layer into an event.
+Switch to Continuous sounds to preview engine power and load or horn drill
+biting. Spec files live under `src/specs/sounds/`.
+
+The offline tools can measure a change, compare spectrograms, export rapid
+repeats, and fit a procedural event to a recording. See the
+[sound analysis workflow](.agents/skills/sound-design/references/workflow.md)
+for commands.
+
 To inspect procedural sectors, run `npm run tool:world-viewer` and open
-[localhost:3000](http://localhost:3000/) with the other frontend stopped.
+the URL printed by Vite (starting at port 3100).
 The World Viewer needs no Go server. Choose a seed and sector, pan by dragging,
 and scroll to zoom. The world map shows the connected initial 20 sectors;
 enable future sectors to see all 68. Click a map sector to inspect its fields,
@@ -111,7 +139,9 @@ wormhole. Jump Gates cluster nearer the populated area; wormholes sample a
 wider annulus, favoring the outskirts. Every portal and arrival point stays
 below 100,000 units from the origin. All stations follow the same procedural
 density and spacing rules; sectors have no guaranteed station. Sectors without
-Jump Gates have no stations.
+Jump Gates have no stations. Each active Jump Gate has a nav beacon 880–1,000 units
+away, and additional beacons are scattered rarely throughout sectors. Beacons
+are currently inactive.
 Source edits hot-reload, retaining the seed, selection, camera and layers.
 Generation runs in a worker so navigation stays responsive. Large views draw
 feature outlines without generating every asteroid. This tool is excluded from
@@ -276,6 +306,8 @@ frontend's normal proxy. Stop only servers started for testing.
 
 Use `UI_MENU_ONLY=1 npm run test:ui` to check startup and menu loading without
 the docking fixture, or `UI_DOCK_ONLY=1 npm run test:ui` for the docking fixture.
+Use `UI_HANGAR_ONLY=1 npm run test:ui` to check Hangar transactions, names,
+sale confirmations, keyboard navigation, hull paint, and empty hangars alone.
 Set `CHROME_BIN` when the browser executable is not named `chromium`.
 
 Use `UI_HUD_ONLY=1 npm run test:ui` for static HUD
@@ -283,15 +315,29 @@ desktop scenes, with `UI_CAPTURE_DIR` to retain screenshots and geometry.
 
 Movement telemetry toggles with **V** (rebindable in Settings → Controls) and
 starts off on every page load. While enabled, `.hud-telemetry` refreshes at about
-10 Hz. It reads the fixed-tick client simulation, before display smoothing or
-fractional frame prediction. Existing HUD text and meters provide names, types,
+10 Hz. Bold Simulation and Rendered headings separate fixed-tick world data
+from displayed poses. Simulation includes position, rotation, and native motion.
+Rendered includes world position, rotation, and screen position for the displayed
+player and selected target. The world-to-screen transform uses CSS viewport pixels:
+`screen X = world X * scale + offset X`, likewise for Y. It includes camera
+movement, zoom, canvas resolution, and the canvas's viewport offset. Frame time
+is the interval between rendered frames; render time measures CPU work in the
+render callback, excluding telemetry refresh and GPU completion.
+
+Settings → Graphics → Hide UI defaults to off and persists across reloads. It
+sets opacity to zero on the in-game HUD container, leaving panels, chat,
+telemetry, and controls readable and usable through the DOM. Main menus,
+settings, and docked UI stay visible.
+
+Existing HUD text and meters provide names, types,
 fuel, cargo, power, and module activation.
 
-Read `.hud-telemetry`'s visible text, or its `.telemetry-player`,
-`.telemetry-target`, and `.telemetry-parent` rows. Values are displayed only in
+Read `.hud-telemetry`'s visible text. Scope `.telemetry-player` and
+`.telemetry-target` rows to `.telemetry-simulation` or `.telemetry-rendered`;
+`.telemetry-parent` rows appear only under Simulation. Values are displayed only in
 text, without duplicate data attributes. Movement values use three decimal
-places. Positions are world units, rotations are radians, native velocities
-are world units per second, and native spin is radians per second.
+places. Positions are meters, rotations are radians, native velocities
+are meters per second, and native spin is radians per second.
 
 Native motion excludes station-carried motion. When active, the visible
 `localMovementRate` is a dimensionless blend rate and `Carrier #` identifies

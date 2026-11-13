@@ -37,6 +37,7 @@ export type ShipSpec = {
     reach: number;
     powerFiring: number;
   };
+  price: number;
   fuelCapacity: number;
   cargoSpace: number;
   drag: number;

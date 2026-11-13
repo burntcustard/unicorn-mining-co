@@ -1,7 +1,9 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 export const mustang = {
   name: 'Mustang',
+  price: 2400,
   fuelCapacity: 120,
   cargoSpace: 12,
   drag: 0.56,
@@ -14,7 +16,7 @@ export const mustang = {
     { mount: 6, module: 'cargoHatch' },
     { mount: 4, module: 'hornDrill' },
     { mount: 5, module: 'searchLight' },
-    { mount: 3, module: 'powerPlant' },
+    { mount: 3, module: 'powerPlant2V' },
   ],
   hullSegments: [
     {
@@ -70,6 +72,7 @@ export const mustang = {
             fits: [
               'thrusterSingleMd',
               'thrusterSingleLg',
+              'thrusterDualSm',
               'thrusterDualMd',
               'thrusterDualLg',
               'thrusterTriple',
@@ -88,7 +91,7 @@ export const mustang = {
             ],
           },
         ],
-        [{ x: -8, y: 0, fits: ['powerPlant'] }],
+        [{ x: -6, y: 0, fits: powerPlantIdsBySize[2] }],
       ],
       points: [
         [-16, -20],

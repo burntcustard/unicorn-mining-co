@@ -36,10 +36,10 @@
 [x] Laser beam not seen by other players? Ensure effects are always seen
 [ ] Gun comes with ammo? Or make more clear
 [x] New world gen with jump gates and wormholes
-[ ] New sounds
+[-] New sounds
 [x] Fix unnecessary scroll on right card thing
 [?] Can't buy search light
-[ ] Map UI (tab or M?)
+[-] Map UI (tab or M?)
 [x] Move currency to somewhere on the right
 [x] Make FPS not on by default
 [x] Make laser use significantly more power while firing
@@ -48,6 +48,12 @@
 [x] "Move closer to request access" for jump gate targeted description
 [x] Add " Full" to "Cargo" when full & make " Full" flash like before
 [ ] Improve Create Profile styles, & add description of where name is used
+[x] Fix big ships not having all mounts like weapon mounts
+[ ] Fix big ships having odd thruster left/right flares when turning
+[ ] Custom cursors
+[x] Bigger power generators for bigger ships
+[ ] Fix hull smash sound when shield & asteroid collide
+[ ] New icon for wormholes
 
 ## MVP
 
@@ -94,17 +100,40 @@
 [ ] Add missile/torpedo module
 [-] Add turret modules
 [x] Add holding cargo hatch key to drop all cargo
-[ ] In outfitting, have current ammo listed somewhere
+[x] In outfitting, have current ammo listed somewhere
 [ ] Figure out dual/split thrusters
 [ ] Courser MKII ship
 [x] Fix stations having gone back to wireframe icon in info panels
 [x] Fix not being able to sell Autocannon with inventory full
 [x] Fix "Heard reports of mining" on losing track of player
 [x] Make map icons for other ships just simple triangles with no rotation
-[ ] Map
+[-] Map
 [ ] "Random" NPC spaceship name generator
 [ ] Shield generator should have health and UI so can be disrupted
-[ ] Add nav beacons and scanning using the search light
+[-] Add nav beacons and scanning using the search light
+[x] New mining triangles thing
+[x] Add sound: Autogun fire + ammo explode
+[-] Add sound: Plasma Accelerator ready, fire + ammo explode
+[-] Add sound: Laser Beam (initial sound event, continuous, hit)
+[ ] Add sound: Docking/undocking
+[x] Add sound: Main menu open/close
+[-] Use sound: Use UI Nav Neutral for docked UI tab hover/focus
+[-] Add sound: Docked UI change (select) tab
+[ ] Add sound: Ship explosion
+[-] Add sound: Lose/deselect target
+[x] Add sound: Chat message
+[-] Add sound: Wormhole in and wormhole out
+[-] Add sound: Jump Gate open/close
+[ ] New sound: Asteroid split
+[ ] New sound: Asteroid segment destroyed (empty)
+[ ] New sound: Asteroid segment destroyed (with item)
+[ ] Sound volume slider in settings
+[x] Fix ships in stations rendering on map
+[x] Zoom in and zoom out buttons in big map
+[ ] World map with sectors and lines between them (+ players?)
+[-] Small asteroid chunk pop animation
+[ ] Make big ships turn slow
+[ ] Make Items and other Game Objects block light
 
 ## Big future things
 
@@ -120,6 +149,7 @@
 [ ] New graphics like concept art
 [ ] Redo path-outline.ts with different colors and stuff
 [ ] Make stars consistent with world location
+[ ] Module upgrades like autogun interval 150-160
 
 ## Js13kGames
 

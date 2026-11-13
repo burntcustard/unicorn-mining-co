@@ -2,6 +2,7 @@
 type TestBufferSource = {
   playbackRate: ReturnType<typeof audioParam>;
   starts: number;
+  startTimes: number[];
   stops: number;
   stopTimes: number[];
   assignedSamples: Float32Array;
@@ -10,7 +11,7 @@ type TestBufferSource = {
   destination: unknown;
   stop: (time?: number) => void;
   connect: (destination: unknown) => void;
-  start: () => void;
+  start: (time?: number) => void;
 };
 
 const audioParam = () => ({
@@ -60,6 +61,7 @@ export class TestAudioContext {
     const source = {
       playbackRate: { ...audioParam(), value: 1 },
       starts: 0,
+      startTimes: [] as number[],
       stops: 0,
       stopTimes: [] as number[],
       assignedSamples: undefined as Float32Array,
@@ -79,8 +81,9 @@ export class TestAudioContext {
       connect(destination: unknown) {
         this.destination = destination;
       },
-      start() {
+      start(time = 0) {
         this.starts++;
+        this.startTimes.push(time);
       },
     };
 

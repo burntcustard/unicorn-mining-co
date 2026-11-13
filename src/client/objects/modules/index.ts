@@ -6,10 +6,17 @@ import {
   PlasmaAcceleratorTurret,
   AutogunTurret,
 } from './weapon';
-import { moduleIds, type ModuleId } from '../../../specs/modules/index';
+import {
+  moduleIds,
+  powerPlantIds,
+  type ModuleId,
+} from '../../../specs/modules/index';
 import { Module } from './module';
+import { PowerPlant } from './power-plant';
 
-export const PowerPlant = Module.define('powerPlant');
+export { PowerPlant } from './power-plant';
+
+const powerPlants = powerPlantIds.map((id) => PowerPlant.define(id));
 
 import { CargoHatch, CargoHatchPair } from './cargo-hatch';
 import { SearchLight } from './search-light';
@@ -83,7 +90,7 @@ export const moduleTypesById = new Map<ModuleId, typeof Module>(
     PlasmaAccelerator,
     Autogun,
     Laser,
-    PowerPlant,
+    ...powerPlants,
     CannonSm,
     CargoHatchPair,
     PlasmaAcceleratorTurret,
@@ -92,3 +99,4 @@ export const moduleTypesById = new Map<ModuleId, typeof Module>(
   ].map((Type) => [Type.definitionId, Type]),
 );
 export const moduleTypes = moduleIds.map((id) => moduleTypesById.get(id)!);
+export const PowerPlant2V = moduleTypesById.get('powerPlant2V')!;

@@ -47,8 +47,10 @@ const reservedProperties = (files: URL[]) => {
   const reserved = new Set([
     'background',
     'bufferedAmount',
-    // Native context option missing from Terser's built-in DOM property list.
+    // Native options missing from Terser's built-in DOM property list.
     'willReadFrequently',
+    'preventScroll',
+    'focusVisible',
   ]);
 
   const reserve = (name: string) => {

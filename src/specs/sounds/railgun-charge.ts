@@ -1,0 +1,41 @@
+import type { SoundEffect } from '../../client/audio/synthesis';
+
+export default [
+  {
+    volume: 0.008,
+    attack: 65,
+    decay: 0,
+    hold: 35,
+    release: 50,
+    sustain: 1,
+    releaseCurve: 'ease-out',
+    frequency: 3500,
+    endFrequency: 4550,
+  },
+  {
+    volume: 0.007,
+    attack: 65,
+    decay: 0,
+    hold: 35,
+    release: 50,
+    sustain: 1,
+    releaseCurve: 'ease-out',
+    frequency: 3670,
+    endFrequency: 4750,
+  },
+  {
+    volume: 0.018,
+    attack: 18,
+    decay: 0,
+    delay: 85,
+    hold: 10,
+    release: 35,
+    sustain: 1,
+    releaseCurve: 'ease-out',
+    cutoff: 11000,
+    highpass: 6200,
+    endResonance: 8350,
+    resonance: 7500,
+    ring: 2,
+  },
+] satisfies SoundEffect[];

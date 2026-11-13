@@ -7,6 +7,7 @@ import { camera } from '../camera';
 import { colors } from '../../specs/colors';
 import { pathOutline } from './path-outline';
 import { renderText } from './text';
+import { playSound } from '../audio/sound-loader';
 
 type Bounds = { left: number; right: number; top: number; bottom: number };
 
@@ -30,6 +31,7 @@ export class Targeting {
   private hovered?: TargetView;
 
   clear() {
+    this.selectTarget();
     this.pointer = undefined;
     this.targetId = undefined;
     this.targetView = undefined;
@@ -42,8 +44,7 @@ export class Targeting {
   }
 
   targetHovered() {
-    this.targetView = this.hovered;
-    this.targetId = this.targetView?.object.id;
+    this.selectTarget(this.hovered);
   }
 
   cycleTarget(reverse = false) {
@@ -60,8 +61,22 @@ export class Targeting {
           : 0
         : (index + (reverse ? -1 : 1) + ordered.length) % ordered.length;
 
-    this.targetView = ordered[next];
-    this.targetId = this.targetView?.object.id;
+    this.selectTarget(ordered[next]);
+  }
+
+  private selectTarget(view?: TargetView) {
+    const id = view?.object.id;
+
+    if (id !== undefined && id !== this.targetId) {
+      playSound('acquire-target', { id });
+    }
+
+    if (id === undefined && this.targetId !== undefined) {
+      playSound('lose-target', { id: this.targetId });
+    }
+
+    this.targetView = view;
+    this.targetId = id;
   }
 
   update({
@@ -107,7 +122,7 @@ export class Targeting {
       ({ object }) => object.id === this.targetId,
     );
 
-    if (!this.targetView) this.targetId = undefined;
+    if (!this.targetView) this.selectTarget();
     this.updateHover();
   }
 

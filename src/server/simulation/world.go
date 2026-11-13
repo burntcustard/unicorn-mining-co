@@ -14,6 +14,7 @@ type Entity interface {
 	Update(float64)
 	Hitbox() []*collision.Collider
 	MaxSpeed() float64
+	Decaying() bool
 }
 
 type Player struct {

@@ -68,6 +68,55 @@ input[type='color'] {
   height: 2.5rem;
 }
 
+.number-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8rem clamp(4rem, 15%, 6rem);
+  column-gap: 0.75rem;
+  row-gap: 0;
+  align-items: center;
+  width: 100%;
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.number-control > :is(label, span) {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.number-control > small {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 0.75rem;
+}
+
+.number-control input {
+  grid-row: 1 / span 2;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.number-control input[type='range'] {
+  grid-column: 2;
+  margin: 0;
+}
+
+.number-control input[type='number'] {
+  grid-column: 3;
+  padding: 0.25rem;
+}
+
+.number-control select {
+  grid-column: 2 / span 2;
+  min-width: 0;
+  padding: 0.25rem;
+}
+
+.number-control [aria-invalid='true'] {
+  outline: 2px solid #f88;
+}
+
 output {
   font-family: ui-monospace, monospace;
 }

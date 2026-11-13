@@ -1,4 +1,5 @@
 import * as Vec from '../utilities/vector';
+import { colors } from '../../specs/colors';
 import type { ReplicatedEntity, ServerMessage } from './network';
 import {
   binaryFieldIds as BinaryField,
@@ -7,10 +8,60 @@ import {
 
 export { binaryFieldIds as BinaryField } from '../../specs/protocol';
 
+const motionView = new DataView(new ArrayBuffer(8));
+
 type SnapshotMessage = Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
 
 type WireEntity = { id: number } & {
   [Key in Exclude<keyof ReplicatedEntity, 'id'>]?: ReplicatedEntity[Key] | null;
+};
+
+const modulePalettes = Object.values(colors);
+const inheritedModule = {} as NonNullable<ReplicatedEntity['modules']>[number];
+const inheritedShades: readonly string[] = Object.freeze([]);
+
+/**
+ * Restore module entries and shades before retaining a received snapshot.
+ */
+export const mergeModuleStates = (
+  record: Pick<WireEntity, 'modules'>,
+  previous?: Pick<ReplicatedEntity, 'modules'>,
+) => {
+  const modules = record.modules;
+
+  if (!modules) return;
+
+  for (let index = 0; index < modules.length; index++) {
+    const module = modules[index];
+
+    if (module !== inheritedModule && module.shades !== inheritedShades) {
+      continue;
+    }
+
+    const before = previous?.modules?.[index];
+
+    if (!before || previous?.modules?.length !== modules.length) {
+      throw new Error('Missing module baseline');
+    }
+
+    if (module === inheritedModule) {
+      modules[index] = before;
+      continue;
+    }
+
+    if (
+      module.id === undefined ||
+      module.id !== before.id ||
+      module.type !== before.type ||
+      module.mount !== before.mount ||
+      before.shades === undefined ||
+      before.shades === inheritedShades
+    ) {
+      throw new Error('Missing module shade baseline');
+    }
+
+    module.shades = before.shades;
+  }
 };
 
 /**
@@ -88,6 +139,29 @@ export function decodeBinarySnapshot(
     return fail();
   };
 
+  // Compact module integers stay within the exact Number-based zigzag range.
+  const compactSigned = () => {
+    const value = unsigned();
+
+    return value % 2 ? -(value + 1) / 2 : value / 2;
+  };
+
+  const motionNumber = (omitted: 2 | 3) => {
+    if (bytes.length - offset < 8 - omitted) return fail();
+    const low =
+      omitted === 2
+        ? view.getUint16(offset, true) << 16
+        : view.getUint8(offset) << 24;
+    const high = view.getUint32(offset + 4 - omitted, true);
+
+    offset += 8 - omitted;
+    motionView.setUint32(0, low, true);
+    motionView.setUint32(4, high, true);
+    const value = motionView.getFloat64(0, true);
+
+    return Number.isFinite(value) ? value || 0 : null;
+  };
+
   const count = (minimumBytes: number) => {
     const value = unsigned();
 
@@ -120,6 +194,15 @@ export function decodeBinarySnapshot(
 
   const vector = () => Vec.create(number() as number, number() as number);
 
+  const control = () => {
+    const code = byte();
+
+    if (code === 3) return number();
+
+    if (code > 2) return fail();
+    return code === 2 ? -1 : code;
+  };
+
   const numbers = () => {
     const length = count(8);
     const values: number[] = [];
@@ -147,31 +230,69 @@ export function decodeBinarySnapshot(
     return values;
   };
 
-  const modules = () => {
-    const length = count(18);
+  const modules = (allowPartial: boolean) => {
+    const header = unsigned();
+    const partial = header % 2 === 1;
+    const length = Math.floor(header / 2);
+
+    if (length > bytes.length * 8 || (partial && !allowPartial)) return fail();
+    const changed: number[] = [];
+
+    if (partial) {
+      for (let index = 0; index < Math.ceil(length / 8); index++) {
+        changed.push(byte());
+      }
+
+      if (length % 8 && changed.at(-1)! >> (length % 8)) return fail();
+    }
+
     const values: NonNullable<ReplicatedEntity['modules']> = [];
 
     for (let index = 0; index < length; index++) {
+      if (partial && !(changed[Math.floor(index / 8)] & (1 << (index % 8)))) {
+        values.push(inheritedModule);
+        continue;
+      }
+
       const mask = byte();
 
-      if (mask & ~127) return fail();
-      const type = number() as number;
-      const mount = number() as number;
-      const id = mask & 1 ? (number() as number) : undefined;
+      if (mask & 128 && (!partial || !(mask & 1) || mask & 4)) return fail();
+      const type = compactSigned();
+      const mount = compactSigned();
+      const id = mask & 1 ? compactSigned() : undefined;
       const health = mask & 2 ? (number() as number) : undefined;
-      const moduleShades = mask & 4 ? shades() : undefined;
+      let moduleShades: readonly string[] | undefined;
+
+      if (mask & 4) {
+        moduleShades = modulePalettes[byte()];
+
+        if (!moduleShades) return fail();
+      } else if (mask & 128) {
+        moduleShades = inheritedShades;
+      }
+
       const fireCooldown = mask & 8 ? (number() as number) : undefined;
       const chargeCooldown = mask & 16 ? (number() as number) : undefined;
       const healthActivated = mask & 32 ? (number() as number) : undefined;
       const aimRotation = mask & 64 ? (number() as number) : undefined;
-      const segmentCount = count(16);
+      const segmentCount = count(1);
       const segments: (typeof values)[number]['segments'] = [];
 
       for (let segment = 0; segment < segmentCount; segment++) {
-        segments.push({
-          active: number() as number,
-          activationProgress: number() as number,
-        });
+        const flags = byte();
+        const activeCode = flags & 3;
+        const progressCode = (flags >> 2) & 3;
+
+        if (flags & 0xf0 || activeCode === 3 || progressCode === 3) {
+          return fail();
+        }
+
+        const active = (activeCode === 2 ? number() : activeCode) as number;
+        const activationProgress = (
+          progressCode === 2 ? number() : progressCode
+        ) as number;
+
+        segments.push({ active, activationProgress });
       }
 
       values.push({
@@ -179,7 +300,7 @@ export function decodeBinarySnapshot(
         mount,
         ...(mask & 1 && { id }),
         ...(mask & 2 && { health }),
-        ...(mask & 4 && { shades: moduleShades }),
+        ...(mask & 132 && { shades: moduleShades }),
         ...(mask & 8 && { fireCooldown }),
         ...(mask & 16 && { chargeCooldown }),
         ...(mask & 32 && { healthActivated }),
@@ -265,6 +386,9 @@ export function decodeBinarySnapshot(
       case entityKindIds.wormhole:
         return 'wormhole';
 
+      case entityKindIds.navBeacon:
+        return 'navBeacon';
+
       case entityKindIds.station:
         return 'station';
 
@@ -287,8 +411,30 @@ export function decodeBinarySnapshot(
 
     for (let index = 0; index < fieldCount; index++) {
       const tag = unsigned();
-      const field = Math.floor(tag / 2);
+      let field = Math.floor(tag / 2);
       const clear = !!(tag % 2);
+      let packedMotion = true;
+
+      switch (tag) {
+        case BinaryField.packedPosition * 2:
+          field = BinaryField.position;
+          break;
+
+        case BinaryField.packedVelocity * 2:
+          field = BinaryField.velocity;
+          break;
+
+        case BinaryField.packedRotation * 2:
+          field = BinaryField.rotation;
+          break;
+
+        case BinaryField.packedSpin * 2:
+          field = BinaryField.spin;
+          break;
+
+        default:
+          packedMotion = false;
+      }
 
       if (field < 1 || field > BinaryField.npcState || seen.has(field)) {
         return fail();
@@ -434,7 +580,7 @@ export function decodeBinarySnapshot(
           break;
 
         case BinaryField.modules:
-          entity.modules = clear ? null : modules();
+          entity.modules = clear ? null : modules(depth === 0 && !(flags & 1));
           break;
 
         case BinaryField.wreckage:
@@ -462,7 +608,11 @@ export function decodeBinarySnapshot(
           break;
 
         case BinaryField.position:
-          entity.position = clear ? null : vector();
+          entity.position = clear
+            ? null
+            : packedMotion
+              ? Vec.create(motionNumber(2), motionNumber(2))
+              : vector();
           break;
 
         case BinaryField.radius:
@@ -478,11 +628,19 @@ export function decodeBinarySnapshot(
           break;
 
         case BinaryField.rotation:
-          entity.rotation = clear ? null : number();
+          entity.rotation = clear
+            ? null
+            : packedMotion
+              ? motionNumber(3)
+              : number();
           break;
 
         case BinaryField.spin:
-          entity.spin = clear ? null : number();
+          entity.spin = clear
+            ? null
+            : packedMotion
+              ? motionNumber(3)
+              : number();
           break;
 
         case BinaryField.segments:
@@ -490,15 +648,19 @@ export function decodeBinarySnapshot(
           break;
 
         case BinaryField.thrust:
-          entity.thrust = clear ? null : number();
+          entity.thrust = clear ? null : control();
           break;
 
         case BinaryField.turn:
-          entity.turn = clear ? null : number();
+          entity.turn = clear ? null : control();
           break;
 
         case BinaryField.velocity:
-          entity.velocity = clear ? null : vector();
+          entity.velocity = clear
+            ? null
+            : packedMotion
+              ? Vec.create(motionNumber(2), motionNumber(2))
+              : vector();
           break;
 
         case BinaryField.storedPower:

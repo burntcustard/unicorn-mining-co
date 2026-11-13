@@ -1,7 +1,9 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 export const arrow = {
   name: 'Arrow',
+  price: 2600,
   fuelCapacity: 120,
   cargoSpace: 12,
   drag: 0.56,
@@ -11,8 +13,10 @@ export const arrow = {
   initialLoadout: [
     { mount: 2, module: 'thrusterSingleMd' },
     { mount: 0, module: 'cargoHatch' },
-    { mount: 4, module: 'cargoHatch' },
-    { mount: 8, module: 'powerPlant' },
+    { mount: 5, module: 'cargoHatch' },
+    { mount: 7, module: 'hornDrill' },
+    { mount: 8, module: 'searchLight' },
+    { mount: 4, module: 'powerPlant2V' },
   ],
   hullSegments: [
     {
@@ -78,6 +82,7 @@ export const arrow = {
             fits: ['shieldGeneratorMd'],
           },
         ],
+        [{ x: -15, y: 0, fits: powerPlantIdsBySize[2] }],
       ],
       points: [
         [-32, -10],
@@ -155,7 +160,6 @@ export const arrow = {
             fits: ['searchLight'],
           },
         ],
-        [{ x: 26, y: 0, fits: ['powerPlant'] }],
       ],
       points: [
         [30, -6],

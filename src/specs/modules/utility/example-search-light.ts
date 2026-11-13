@@ -7,6 +7,7 @@ export const exampleSearchLight = {
   icon: './search-light.svg',
   description: 'Synthetic module for mechanics tests; excluded from gameplay.',
   behavior: 'searchLight',
+  weight: 1,
   name: 'Example Search Light',
   health: 10,
   power: 0.2,

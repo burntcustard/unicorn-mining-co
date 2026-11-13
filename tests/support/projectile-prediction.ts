@@ -1,3 +1,5 @@
+import './ignore-handshake-timeout.ts';
+
 /* global Buffer, process */
 import { execFileSync } from 'node:child_process';
 import { rolldown } from 'rolldown';
@@ -168,7 +170,7 @@ for (const [start, framesPerTick] of miningTimings) {
   // A fresh client must also handle fragments created before it joined/reloaded.
   network.receive({ message: decode(start ? repeated.frames[start - 1].reload : repeated.initial) });
   let now = performance.now() + 100;
-  let samples = 0, maxDisplacement = 0, maxRotation = 0;
+  let samples = 0, maxDisplacement = 0, maxRotation = 0, worstRotation;
   for (let frame = start * framesPerTick; frame < repeated.frames.length * framesPerTick; frame++) {
     const tick = Math.floor(frame / framesPerTick);
     const packet = repeated.frames[tick - 8]?.packet;
@@ -186,13 +188,14 @@ for (const [start, framesPerTick] of miningTimings) {
     const turn = displayed.rotation-actual.rotation;
     const rotation = Math.abs(Math.atan2(Math.sin(turn),Math.cos(turn))) * largest.radius;
     maxDisplacement = Math.max(maxDisplacement,displacement);
+    if (rotation > maxRotation) worstRotation = { tick, id: largest.id, decay: largest.decay, segments: largest.segments?.length, actual: actual.rotation, displayed: displayed.rotation, server: repeated.frames[tick].poses[largest.id] };
     maxRotation = Math.max(maxRotation,rotation);
     samples++;
   }
   // Allow subpixel contact rounding in the production bundle; the regression
   // previously displaced the remainder by .45 units and its edge by .51.
   assert(maxDisplacement < .05, 'repeated plasma hits must not judder the remainder: reload=' + start + ' displacement=' + maxDisplacement);
-  assert(maxRotation < .05, 'repeated plasma hits must not judder the remainder rotation: reload=' + start + ' edge displacement=' + maxRotation);
+  assert(maxRotation < .05, 'repeated plasma hits must not judder the remainder rotation: reload=' + start + ' edge displacement=' + maxRotation + ' sample=' + JSON.stringify(worstRotation));
   assert(samples > 100, 'the moving remainder is checked across repeated hits');
 }
 `;

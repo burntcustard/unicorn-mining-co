@@ -34,6 +34,7 @@ import {
 } from '${root}/src/client/objects/modules/index.ts';
 import { Craft } from '${root}/src/client/objects/craft.ts';
 import { Weapon } from '${root}/src/client/objects/modules/weapon.ts';
+import { soundCalls } from '${root}/src/client/audio/sound-loader.ts';
 import { contactBetween } from '${root}/src/client/collision/contact-between.ts';
 import { GameObject } from '${root}/src/client/objects/game-object.ts';
 import { Projectile } from '${root}/src/client/objects/projectile.ts';
@@ -1594,6 +1595,50 @@ for (const Type of [Autogun, PlasmaAccelerator]) {
   assert.equal(effects.length, 4, 'a delayed display frame cannot repeat a remote flash');
 }
 effects.length = 0;
+// Charging cues follow indicator transitions, not rendered-frame count.
+for (const definitionId of ['plasmaAccelerator', 'plasmaAcceleratorTurret']) {
+  soundCalls.length = 0;
+  const craft = { world: { tick: 1 } };
+  let weapon = Object.assign(Object.create(Weapon.prototype), {
+    definitionId, id: 900, fireInterval: 2, chargeCooldown: 2,
+    fireCooldown: 0, mount: { health: 1 }, muzzleFlash: undefined,
+  });
+  const segments = [.5, 1, 1.5, 2].map(rechargeDelay => ({
+    rechargeDelay, active: 1, activationProgress: 1,
+  }));
+  const present = () => weapon.updateVisual({ craft, segments, dt: 0 });
+  present();
+  assert.equal(soundCalls.length, 0);
+  for (let stage = 1; stage <= 3; stage++) {
+    craft.world.tick++;
+    weapon.chargeCooldown = 2 - stage * .5;
+    present();
+    weapon = Object.assign(Object.create(Weapon.prototype), weapon);
+    present();
+    assert.equal(soundCalls.length, stage, 'snapshot reconstruction does not replay a charge step');
+  }
+  weapon.chargeCooldown = 0;
+  present(); present();
+  assert.deepEqual(soundCalls.map(call => call[0]), [
+    'railgun-charge', 'railgun-charge',
+    'railgun-charge', 'railgun-ready',
+  ], 'three indicators sound before the barrel becomes ready');
+  weapon.chargeCooldown = 2;
+  present();
+  weapon.chargeCooldown = 1.5;
+  present();
+  assert.equal(soundCalls.length, 5, 'a new charging cycle sounds again');
+  segments.forEach(segment => { segment.active = 0; });
+  present();
+  weapon.chargeCooldown = 0;
+  present();
+  assert.equal(soundCalls.length, 5, 'inactive indicators are silent');
+  segments.forEach(segment => { segment.active = 1; });
+  weapon.mount.health = 0;
+  weapon.chargeCooldown = .5;
+  present();
+  assert.equal(soundCalls.length, 5, 'destroyed mounts are silent');
+}
 const rechargeWorld = createWorld();
 const chargingShip = addEntity(
   rechargeWorld,
@@ -1638,9 +1683,10 @@ chargingShip.updateModules(chargingGun.activationDuration / 2);
 assert.equal(glowCount(), 0, 'fully deployed plasma starts uncharged');
 chargingShip.updateVisual(0);
 assert.equal(effects.length, 0, 'startup charge does not create a muzzle flash');
-chargingShip.updateModules(0.5);
+const firstRecharge = indicators[0].rechargeDelay;
+chargingShip.updateModules(firstRecharge);
 assert.equal(glowCount(), 1, 'plasma charges its first indicator only after deployment');
-chargingShip.updateModules(chargingGun.chargeDuration - 0.501);
+chargingShip.updateModules(chargingGun.chargeDuration - firstRecharge - 0.001);
 assert.equal(glowCount(), 3, 'the barrel stays dark just before startup charging completes');
 chargingShip.updateModules(0.001);
 assert.equal(glowCount(), 4, 'fully charged plasma adds a barrel glow without holding fire');
@@ -1687,7 +1733,7 @@ assert.deepEqual(
 );
 assert.equal(glowCount(), 0, 'discharged indicators have no glow');
 for (let index = 0; index < 3; index++) {
-  chargingShip.fireWeapons(0.499);
+  chargingShip.fireWeapons(indicators[index].rechargeDelay - (indicators[index - 1]?.rechargeDelay ?? 0) - 0.001);
   assert.equal(
     plasmaShots(),
     1,
@@ -1704,7 +1750,7 @@ for (let index = 0; index < 3; index++) {
   assert.deepEqual(
     indicatorColors(),
     indicators.map((_, i) => colors.cyan[i <= index ? 2 : 0]),
-    'one indicator recharges every half second',
+    'one indicator recharges at each configured boundary',
   );
   assert.equal(
     glowCount(),
@@ -1712,7 +1758,7 @@ for (let index = 0; index < 3; index++) {
     'each recharge restores only its indicator glow',
   );
 }
-chargingShip.fireWeapons(chargingGun.fireInterval - 1.5);
+chargingShip.fireWeapons(chargingGun.fireInterval - indicators.at(-1).rechargeDelay);
 assert.equal(glowCount(), 4, 'the barrel glow returns only when the full firing cooldown completes');
 controlShip(chargingShip, { ...playerInput, fire: true }, []);
 chargingShip.fireWeapons(0);
@@ -2198,7 +2244,7 @@ for (const production of [false, true]) {
           }
 
           if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return 'export const unlockAudio=()=>{};export const playSound=()=>{};export const updateThrusterSound=()=>{};';
+            return 'export const soundCalls=[];export const unlockAudio=()=>{};export const playSound=(...args)=>soundCalls.push(args);export const updateThrusterSound=()=>{};';
           }
         },
       },

@@ -1,0 +1,17 @@
+// Test data: intentionally independent of playable module tuning.
+import { renderingLayers } from '../../../rendering-layers';
+import type { ModuleSpec } from '../../types';
+
+export const examplePowerPlant = {
+  icon: './power-plant.svg',
+  description: 'Synthetic module for mechanics tests; excluded from gameplay.',
+  weight: 2,
+  name: 'Example Power Plant',
+  behavior: 'powerPlant',
+  health: 100,
+  price: 750,
+  powerGenerated: 6.4,
+  powerCapacity: 64,
+  zIndex: renderingLayers.modulesAboveShipHull,
+  model: [] as Extract<ModuleSpec, { behavior: 'powerPlant' }>['model'],
+} satisfies ModuleSpec;

@@ -13,9 +13,14 @@ import { testBuildPlugin } from '../support/build-plugin.ts';
 const scenario = `
 import assert from 'node:assert/strict';
 import { TestAudioContext } from '${process.cwd()}/tests/support/audio-context.ts';
-import { continuousSound, playSound, ramp, tone, updateThrusterSound as updateEngineSound } from '${process.cwd()}/src/client/audio/sound.ts';
+import { continuousSound, playSound, ramp, tone, updateAutogunSound, updateThrusterSound as updateEngineSound } from '${process.cwd()}/src/client/audio/sound.ts';
+import uiEffects from '${process.cwd()}/src/specs/sounds/ui.ts';
+import engineSettings from '${process.cwd()}/src/specs/sounds/engine.ts';
+import hornDrillSettings from '${process.cwd()}/src/specs/sounds/horn-drill.ts';
+import { renderEffectBuffer, renderContinuousBuffer, renderLoopBuffer, resolveSoundEffect } from '${process.cwd()}/src/client/audio/synthesis.ts';
 import { HornDrill } from '${process.cwd()}/src/client/objects/modules/horn-drill.ts';
 import { updateHornDrillSounds } from '${process.cwd()}/src/client/audio/update-horn-drill-sounds.ts';
+import { createAutogunSoundUpdater, updateAutogunSounds } from '${process.cwd()}/src/client/audio/update-autogun-sounds.ts';
 import { remoteSoundVolume } from '${process.cwd()}/src/client/audio/remote-sound-volume.ts';
 import { presentWorldSounds } from '${process.cwd()}/src/client/audio/present-world-sounds.ts';
 import { updateThrusterSounds } from '${process.cwd()}/src/client/audio/update-thruster-sounds.ts';
@@ -38,7 +43,7 @@ continuousSound(0, 1);
 assert.equal(TestAudioContext.instances.length, 0, 'preloaded looped audio waits for a gesture');
 
 const beep = tone();
-assert.equal(beep.buffer.getChannelData(0).length, 1470, 'one cached cycle of the chopped 30 Hz horn drill');
+assert.equal(beep.buffer.getChannelData(0).length, 1455, 'one cached cycle of the chopped 30 Hz horn drill');
 assert.equal(beep.playbackRate.value, 0.4);
 assert.equal(beep.starts, 1, 'a tone plays as soon as it is made');
 assert.equal(beep.gain.value, 0, 'a tone starts silent');
@@ -240,6 +245,316 @@ assert.equal(restartedEngine.stops, 1, 'unloading a remote ship retires its engi
 updateThrusterSounds({ crafts: [] });
 assert.equal(localEngine.stops, 1, 'removing the local ship retires its engine too');
 
+// Compact source specs and editor-resolved controls generate identical samples.
+const compactTone = { volume: .1, attack: 10, decay: 100, frequency: 440 };
+assert.deepEqual(resolveSoundEffect(compactTone), {
+  ...compactTone, cutoff: 0, endFrequency: 440, highpass: 0,
+  waveform: 'sine', noiseSeed: 0, phaseOffset: 0, pulseWidth: .5, delay: 0, hold: 0, sustain: .01, release: 0,
+  attackCurve: 'linear', decayCurve: 'exponential', releaseCurve: 'exponential',
+  pitchDuration: compactTone.attack + compactTone.decay, pitchCurve: 'linear',
+  modulationRate: 0, modulationDepth: 0,
+  fmRatio: 0, fmDepth: 0, partials: [], partialRatio: 1,
+  endCutoff: 0, filterDuration: compactTone.attack + compactTone.decay,
+  filterCurve: 'linear', endHighpass: 0, resonance: 0, ring: 50,
+  gainPoints: [], gainPositions: [], endResonance: 0, resonancePoints: [], pitchPoints: [], lowpassOrder: 1,
+}, 'all omitted properties resolve consistently, including dependent defaults');
+assert.deepEqual(
+  renderEffectBuffer({context, layers: [compactTone]}).getChannelData(0),
+  renderEffectBuffer({context, layers: [resolveSoundEffect(compactTone)]}).getChannelData(0),
+  'omitted tonal defaults match the fully resolved editor settings',
+);
+const compactNoise = { volume: .2, attack: 10, decay: 100, cutoff: 1000 };
+const phaseTone = renderEffectBuffer({context, layers: [compactTone]}).getChannelData(0);
+const invertedTone = renderEffectBuffer({context, layers: [{...compactTone, phaseOffset: .5}]}).getChannelData(0);
+assert(phaseTone.every((sample, i) => Math.abs(sample + invertedTone[i]) < 1e-6), 'half a cycle inverts the tonal carrier without moving its envelope');
+const wrappedTone = renderEffectBuffer({context, layers: [{...compactTone, phaseOffset: 1}]}).getChannelData(0);
+assert(phaseTone.every((sample, i) => Math.abs(sample - wrappedTone[i]) < 1e-6), 'a full cycle preserves the carrier');
+const previousRandom = Math.random;
+Math.random = () => .75;
+const compactNoiseSamples = renderEffectBuffer({context, layers: [compactNoise]}).getChannelData(0);
+const resolvedNoiseSamples = renderEffectBuffer({context, layers: [resolveSoundEffect(compactNoise)]}).getChannelData(0);
+Math.random = previousRandom;
+assert.deepEqual(compactNoiseSamples, resolvedNoiseSamples, 'noise requires no frequency properties');
+assert(compactNoiseSamples.every(Number.isFinite) && compactNoiseSamples.some(sample => sample !== 0), 'compact noise stays audible and finite');
+
+for (const waveform of ['noise', 'crackle']) {
+  const seeded = {...compactNoise, waveform, frequency: 4000, noiseSeed: 12345};
+  const first = renderEffectBuffer({context, layers: [seeded]}).getChannelData(0);
+  Math.random = () => { throw new Error('seeded layers must not consume shared randomness'); };
+  try {
+    assert.deepEqual(renderEffectBuffer({context, layers: [seeded]}).getChannelData(0), first, 'seeded noise repeats independently of global randomness');
+    assert.notDeepEqual(renderEffectBuffer({context, layers: [{...seeded, noiseSeed: 54321}]}).getChannelData(0), first, 'different seeds produce different noise grains');
+    const mixed = renderEffectBuffer({context, layers: [{...seeded, volume: 0, decay: 3}, seeded]}).getChannelData(0);
+    assert.deepEqual(mixed, first, 'another layer and its duration do not shift the seeded grain');
+  } finally {
+    Math.random = previousRandom;
+  }
+}
+
+const render = (effect) => renderEffectBuffer({context, layers: [effect]}).getChannelData(0);
+
+const waveforms = ['sine', 'triangle', 'square', 'pulse', 'sawtooth', 'noise', 'crackle'];
+const curves = ['linear', 'exponential', 'ease-in', 'ease-out'];
+const extended = {volume: .3, frequency: 440, attack: 2, decay: 2, hold: 20, sustain: .6, release: 2};
+for (const waveform of waveforms) {
+  const samples = render({...extended, waveform, pulseWidth: .2});
+  assert(samples.every(Number.isFinite) && samples.some(sample => sample !== 0), 'every oscillator shape renders audible finite samples');
+  assert.equal(samples[0], 0);
+  assert.equal(samples.at(-1), 0, 'release ends in silence');
+}
+assert.deepEqual(render({...extended, waveform: 'square'}), render({...extended, waveform: 'pulse', pulseWidth: .5}), 'square is the 50 percent pulse shape');
+assert.notDeepEqual(render({...extended, waveform: 'pulse', pulseWidth: .2}), render({...extended, waveform: 'pulse', pulseWidth: .8}), 'pulse width changes the wave shape');
+for (const pulseWidth of [0, 1]) {
+  assert(render({...extended, waveform: 'pulse', pulseWidth}).every(sample => Math.abs(sample) < 1e-6), 'extreme pulse widths stay finite and DC centered');
+}
+const pulse = render({volume: 1, waveform: 'pulse', pulseWidth: .2, frequency: 1000, attack: 0, decay: 0, hold: 100, sustain: 1});
+assert(Math.abs(pulse.reduce((sum, sample) => sum + sample, 0) / pulse.length) < .005, 'asymmetric pulse has no sustained DC offset');
+
+const delayedEffect = {...extended, waveform: 'triangle', endFrequency: 710};
+const withoutDelay = render(delayedEffect);
+const withDelay = render({...delayedEffect, delay: 10});
+assert.equal(withDelay.length, withoutDelay.length + 441, 'delay is measured in milliseconds');
+assert(withDelay.slice(0, 441).every(sample => sample === 0), 'delay inserts silence before the oscillator starts');
+assert.deepEqual(withDelay.slice(441), withoutDelay, 'delayed oscillators start with the same phase and envelope');
+
+const crackle = render({volume: 1, waveform: 'crackle', frequency: 2000, attack: 0, decay: 0, hold: 500, sustain: 1});
+const impulses = crackle.filter(sample => sample !== 0).length;
+assert(impulses > 800 && impulses < 1200, 'crackle frequency sets impulses per second');
+const rung = {volume: 1, frequency: 1000, attack: 0, decay: 0, hold: 50, sustain: 1};
+const energy = (samples) => samples.reduce((sum, sample) => sum + sample * sample, 0);
+assert.equal(render({...rung, resonance: 1000, ring: 40}).length, render(rung).length + 1764, 'ring extends the layer so the resonance can decay');
+assert(energy(render({...rung, resonance: 1000})) > 10 * energy(render({...rung, resonance: 3000})), 'resonance emphasizes nearby frequencies');
+const ringTail = (ring) => { const samples = render({...rung, resonance: 1000, ring}); return energy(samples.slice(2205, 2205 + 441)) / energy(samples.slice(0, 2205)); };
+assert(ringTail(80) > 2 * ringTail(20), 'longer rings sustain after the input stops');
+for (const ring of [0.1, 0.6, 1]) {
+  assert(render({...rung, resonance: 1000, ring}).every(Number.isFinite), 'short rings stay finite');
+}
+
+const stages = {volume: 1, waveform: 'triangle', frequency: 0, attack: 10, decay: 10, hold: 10, sustain: .4, release: 10, decayCurve: 'linear', releaseCurve: 'linear'};
+const envelopeSamples = render(stages);
+assert.equal(envelopeSamples[441], 1, 'attack reaches full volume before decay');
+assert(Math.abs(envelopeSamples[882] - .4) < 1e-6, 'decay reaches the sustain level');
+assert(Math.abs(envelopeSamples[1102] - .4) < 1e-6, 'hold keeps the sustain level');
+assert(envelopeSamples[1543] < .21 && envelopeSamples[1543] > .19, 'release fades from sustain toward silence');
+assert.equal(envelopeSamples.at(-1), 0);
+const attackMidpoints = new Map();
+for (const curve of curves) {
+  const attack = render({...stages, attack: 20, decay: 0, hold: 20, sustain: 1, release: 0, attackCurve: curve});
+  attackMidpoints.set(curve, attack[441]);
+  assert.equal(attack[882], 1, 'every attack curve reaches its endpoint');
+  for (const sustain of [0, .3, 1]) {
+    const samples = render({...stages, sustain, attackCurve: curve, decayCurve: curve, releaseCurve: curve});
+    assert(samples.every(sample => Number.isFinite(sample) && sample >= 0 && sample <= 1), 'all envelope curves support zero and nonzero endpoints');
+    assert.equal(samples.at(-1), 0);
+  }
+  const zero = render({volume: 1, frequency: 0, attack: 0, decay: 0, hold: 0, release: 0, attackCurve: curve, decayCurve: curve, releaseCurve: curve, pitchDuration: 0, pitchCurve: curve, filterDuration: 0, filterCurve: curve});
+  assert.equal(zero.length, 1);
+  assert(zero.every(sample => sample === 0), 'all-zero durations render a finite silent buffer');
+}
+assert.equal(attackMidpoints.get('linear'), .5);
+assert.equal(attackMidpoints.get('ease-in'), .25);
+assert.equal(attackMidpoints.get('ease-out'), .75);
+assert(attackMidpoints.get('exponential') < .1, 'exponential attack has a distinct gradual onset');
+
+const sweep = {volume: .3, waveform: 'sine', frequency: 100, endFrequency: 1000, attack: 0, decay: 0, hold: 60, sustain: 1};
+assert.deepEqual(render({...sweep, pitchDuration: 0}), render({...sweep, frequency: 1000}), 'zero pitch duration immediately selects the endpoint');
+const crossings = (samples, start, end) => samples.slice(start + 1, end).filter((sample, index) => sample > 0 && samples[start + index] <= 0).length;
+for (const pitchCurve of curves) {
+  const samples = render({...sweep, pitchDuration: 10, pitchCurve});
+  const count = crossings(samples, 882, 1764);
+  assert(count >= 19 && count <= 21, 'pitch stays at the endpoint after its independent sweep duration');
+  assert(render({...sweep, frequency: 0, endFrequency: 0, pitchDuration: 0, pitchCurve}).every(sample => sample === 0), 'pitch curves handle zero endpoints without NaN');
+}
+assert.notDeepEqual(render({...sweep, pitchCurve: 'linear'}), render({...sweep, pitchCurve: 'exponential'}), 'pitch curves change the sweep independently of the envelope');
+
+const filteredEffect = {...sweep, frequency: 4000, endFrequency: 4000};
+const bypass = render(filteredEffect);
+const rms = (samples) => Math.sqrt(samples.reduce((sum, sample) => sum + sample * sample, 0) / samples.length);
+for (const filterCurve of curves) {
+  const closed = render({...filteredEffect, cutoff: 0, endCutoff: 70, filterDuration: 10, filterCurve});
+  assert(rms(closed.slice(882, 1764)) < rms(bypass.slice(882, 1764)) / 10, 'explicit tonal oscillators support low-pass filter sweeps');
+  const open = render({...filteredEffect, cutoff: 70, endCutoff: 0, filterDuration: 10, filterCurve});
+  assert.deepEqual(open.slice(882), bypass.slice(882), 'zero low-pass endpoint opens the filter fully');
+  const highOpen = render({...filteredEffect, highpass: 2000, endHighpass: 0, filterDuration: 10, filterCurve});
+  assert.deepEqual(highOpen.slice(882), bypass.slice(882), 'zero high-pass endpoint bypasses without retaining DC state');
+  assert(closed.every(Number.isFinite) && open.every(Number.isFinite) && highOpen.every(Number.isFinite), 'filter curves stay finite through zero endpoints');
+  const instant = render({...filteredEffect, cutoff: 70, endCutoff: 0, highpass: 2000, endHighpass: 0, filterDuration: 0, filterCurve});
+  assert.deepEqual(instant, bypass, 'zero filter duration selects final cutoff values immediately');
+}
+const noiseWithoutFilter = render({...extended, waveform: 'noise', cutoff: 0});
+assert(noiseWithoutFilter.every(Number.isFinite) && noiseWithoutFilter.some(sample => sample !== 0), 'noise can be selected with its low-pass filter disabled');
+const fractionalDuration = {...extended, waveform: 'sine', attack: 20, decay: 200, hold: 60, release: 80, endFrequency: 1380, cutoff: 70, endCutoff: 0, highpass: 50, endHighpass: 0};
+const fullDuration = fractionalDuration.attack + fractionalDuration.decay + fractionalDuration.hold + fractionalDuration.release;
+assert.deepEqual(render({...fractionalDuration, pitchDuration: fullDuration + 5e-10, filterDuration: fullDuration - 5e-10}), render(fractionalDuration), 'near-equal dependent sweep durations retain identical sample clocks');
+
+// Layers start together, retain independent durations, and use the same mix in gameplay.
+const shortLayer = { volume: .3, frequency: 300, attack: 10, decay: 30, cutoff: 0, endFrequency: 600, highpass: 0 };
+const longLayer = { volume: .2, frequency: 900, attack: 20, decay: 80, cutoff: 0, endFrequency: 500, highpass: 0 };
+const shortSamples = renderEffectBuffer({context, layers: [shortLayer]}).getChannelData(0);
+const longSamples = renderEffectBuffer({context, layers: [longLayer]}).getChannelData(0);
+const mixedSamples = renderEffectBuffer({context, layers: [shortLayer, longLayer]}).getChannelData(0);
+assert.equal(mixedSamples.length, longSamples.length, 'mix lasts until the longest layer ends');
+for (let i = 0; i < mixedSamples.length; i++) {
+  assert(Math.abs(mixedSamples[i] - ((shortSamples[i] || 0) + longSamples[i])) < 1e-7, 'every layer begins at the same sample');
+}
+const originalUiLayers = [...uiEffects];
+uiEffects.splice(0, uiEffects.length, shortLayer, longLayer);
+context.currentTime += 1;
+const beforeLayers = context.sources.length;
+playSound(8, { volume: .25 });
+assert.equal(context.sources.length, beforeLayers + 1, 'layered event uses one reusable premixed voice');
+assert.deepEqual(lastVoice().assignedSamples, mixedSamples, 'gameplay uses the editor synthesis and all event layers');
+assert.equal(lastVoice().destination.gain.value, .25, 'distance scales the entire layered event');
+uiEffects.splice(0, uiEffects.length, ...originalUiLayers);
+const silentSamples = renderEffectBuffer({context, layers: []}).getChannelData(0);
+assert(silentSamples.length && silentSamples.every(sample => sample === 0), 'empty layer list renders a finite silent buffer');
+for (const timing of [{ attack: 0, decay: 100 }, { attack: 100, decay: 0 }, { attack: 0, decay: 0 }]) {
+  const samples = renderEffectBuffer({context, layers: [{ ...shortLayer, ...timing, highpass: 22050 }]}).getChannelData(0);
+  assert(samples.every(Number.isFinite), 'zero envelope times and the largest high-pass cutoff stay finite');
+}
+const beforeInvalid = context.sources.length;
+playSound(-1);
+playSound(1000);
+assert.equal(context.sources.length, beforeInvalid, 'unknown event IDs do not create voices');
+for (const kind of ['engine', 'hornDrill']) {
+  const settings = kind === 'engine' ? engineSettings : hornDrillSettings;
+  const changed = { ...settings, duration: 10, frequency: 100 };
+  const samples = renderContinuousBuffer({context, kind, settings: changed}).getChannelData(0);
+  assert.equal(samples.length, 441, 'continuous duration controls its generated buffer');
+  assert(samples.every(Number.isFinite) && samples.some(sample => sample !== 0), 'edited continuous sounds remain audible and finite');
+}
+
+// Playback tuning comes from the saved data, including envelope timing.
+const originalEngine = { ...engineSettings };
+Object.assign(engineSettings, { volume: .25, basePitch: 1.1, revRange: .7, idleVolume: .4, ramp: 500 });
+const editedTone = tone(1);
+assert.equal(editedTone.playbackRate.value, 1.1, 'engine starts at the configured pitch before its first ramp');
+editedTone.stop();
+updateThrusterSound(1, .5);
+const editedEngine = lastVoice();
+assert(Math.abs(editedEngine.gain.value - .1875) < 1e-8, 'engine applies edited volume and idle gain');
+assert(Math.abs(editedEngine.playbackRate.value - 1.45) < 1e-8, 'engine applies edited base pitch and rev range');
+assert.equal(editedEngine.gain.events[0][3], .1, 'engine uses its edited fade duration');
+updateThrusterSound(0);
+Object.assign(engineSettings, originalEngine);
+const originalDrill = { ...hornDrillSettings };
+Object.assign(hornDrillSettings, { basePitch: .6, activeVolume: .7, bitingVolume: 1.1, activePitch: 1.3, bitingPitch: .8, ramp: 250 });
+const editedDrillTone = tone();
+assert.equal(editedDrillTone.playbackRate.value, .6, 'drill starts at its edited base pitch');
+editedDrillTone.stop();
+updateHornDrillSounds({crafts: [remoteCraft]});
+const editedDrill = lastVoice();
+assert.equal(editedDrill.gain.value, .7, 'active drill uses its edited gain');
+assert.equal(editedDrill.playbackRate.value, 1.3, 'active drill uses its edited pitch');
+assert.equal(editedDrill.gain.events[0][3], .05, 'drill uses its edited fade duration');
+remoteSegment.biting = true;
+updateHornDrillSounds({crafts: [remoteCraft]});
+assert.equal(lastVoice(), editedDrill, 'edited biting parameters retain the active voice');
+assert.equal(editedDrill.gain.value, 1.1, 'biting drill uses its edited gain');
+assert.equal(editedDrill.playbackRate.value, .8, 'biting drill uses its edited pitch');
+updateHornDrillSounds({crafts: []});
+Object.assign(hornDrillSettings, originalDrill);
+
+// Loop seams retain energy, and a motor does not restart for each click.
+{
+  const buffer = renderLoopBuffer({context, layers:[{volume:.1, attack:50, decay:900, release:50, sustain:1, waveform:'noise', noiseSeed:123}]});
+  const samples = buffer.getChannelData(0);
+  assert(samples.every(Number.isFinite));
+  const energy = (start, end) => samples.slice(start,end).reduce((sum,v)=>sum+v*v,0)/(end-start);
+  const ratio = energy(0,4410)/energy(4410,8820);
+  assert(ratio > .8 && ratio < 1.2, 'crossfade does not periodically dip or swell white noise');
+  context.currentTime += 10;
+  const start = context.currentTime;
+  let active = updateAutogunSound(undefined, {level:1,speed:.25,interval:.1,id:91,by:2});
+  const motor = active.motor;
+  assert.equal(motor.loop, true);
+  const count = context.sources.length;
+  context.currentTime = start + .1;
+  active = updateAutogunSound(active, {level:.5,speed:.25,interval:.1,id:91,by:2});
+  assert.equal(context.sources.length,count,'slow rotation waits between clicks');
+  assert.equal(active.motor,motor,'level changes reuse the motor');
+  context.currentTime = start + .37;
+  active = updateAutogunSound(active, {level:1,speed:.25,interval:.1,id:91,by:2});
+  const click = lastVoice();
+  assert(Math.abs(click.startTimes[0]-(start+.4))<1e-8,'click uses audio-clock look-ahead');
+  playSound('autogun-fire',{id:91,by:2,time:start+.4});
+  assert.equal(lastVoice().startTimes[0],click.startTimes[0],'fire and rotation click can start together');
+  assert.notEqual(lastVoice().buffer,click.buffer);
+  context.currentTime = start + .46;
+  active = updateAutogunSound(active,{level:1,speed:1,interval:.1,id:91,by:2});
+  const next = lastVoice();
+  assert(Math.abs(next.startTimes[0]-(start+.5))<1e-8,'spin-up shortens the interval without changing click pitch');
+  assert.equal(next.playbackRate.value,1);
+  assert.equal(next.buffer,click.buffer);
+  const beforeRepeat = context.sources.length;
+  playSound('autogun-fire',{id:91,by:2});
+  assert.equal(context.sources.length,beforeRepeat,'scheduling a future click cannot expire another sound cooldown early');
+  context.currentTime = start + .56;
+  active = updateAutogunSound(active,{level:1,speed:1,interval:.1,id:91,by:2});
+  const pending = lastVoice();
+  assert(Math.abs(pending.startTimes[0]-(start+.6))<1e-8,'exactly 100 ms repeats survive debouncing');
+  active = updateAutogunSound(active,{level:.5,speed:0,id:91,by:2});
+  assert.equal(pending.stops,1,'stopping rotation cancels its queued click');
+  assert.equal(motor.stops,0,'stopping clicks does not interrupt the motor');
+  context.currentTime = start + 5;
+  const beforeGap = context.sources.length;
+  active = updateAutogunSound(active,{level:1,speed:1,interval:.1,id:91,by:2});
+  assert.equal(context.sources.length,beforeGap+1,'a long frame does not replay missed clicks');
+  active = updateAutogunSound(active,{level:0});
+  assert.equal(active,undefined);
+  assert.equal(motor.stops,1);
+  assert(motor.stopTimes[0]>context.currentTime,'motor fades before stopping');
+}
+// Mount identities survive replacement; spin-down and cleanup retain no voices.
+{
+  context.currentTime += 10;
+  const gun = {definitionId:'autogun',chargeCooldown:1,chargeDuration:1,dischargeDuration:1,activationDuration:.5,fireInterval:.2};
+  const part = {active:1,activationProgress:.5};
+  const craft = {id:701,dead:false,dockedTo:0,mounts:[{health:1,module:gun}],segmentsAtMount:()=>[part,part]};
+  const update = (dt=.016) => updateAutogunSounds({crafts:[craft],dt});
+  const count = context.sources.length;
+  update(); const motor = lastVoice();
+  assert.equal(context.sources.length,count+1,'multiple barrel segments share one motor');
+  assert.equal(motor.gain.value,.1171875,'motor fades in while the mount deploys');
+  craft.mounts[0].module={...gun};
+  update(); assert.equal(lastVoice(),motor,'reconciliation retains the voice');
+  part.activationProgress=1; craft.mounts[0].module.chargeCooldown=0;
+  update(); assert.equal(motor.gain.value,1.5625);
+  part.active=0; update(.25);
+  assert(Math.abs(motor.gain.value-1.23046875)<1e-8,'spin-down lowers level gradually');
+  part.active=1; craft.mounts[0].module.chargeCooldown=.5; update();
+  assert.equal(motor.stops,0,'reversing activation retains the motor');
+  craft.dockedTo=1; update(); assert.equal(motor.stops,1,'docking retires autogun audio');
+  craft.dockedTo=0; update(); const resumed=lastVoice();
+  context.state='suspended';
+  updateAutogunSounds({crafts:[],dt:.1});
+  assert.equal(resumed.stops,1,'removal while suspended cannot leave an orphaned loop');
+  context.state='running';
+}
+// Preview and world updaters must not retire or reuse each other's voices.
+{
+  context.currentTime += 10;
+  const gun = {definitionId:'autogun',chargeCooldown:1,chargeDuration:1,dischargeDuration:1,activationDuration:.5,fireInterval:.2};
+  const part = {active:1,activationProgress:.5};
+  const craft = {id:702,dead:false,dockedTo:0,mounts:[{health:1,module:gun}],segmentsAtMount:()=>[part]};
+  const preview = createAutogunSoundUpdater();
+  updateAutogunSounds({crafts:[craft],dt:.016});
+  const worldMotor = lastVoice();
+  preview({crafts:[craft],dt:.016});
+  const previewMotor = lastVoice();
+  assert.notEqual(previewMotor,worldMotor,'preview owns its own motor');
+  preview({crafts:[],dt:0});
+  assert.equal(previewMotor.stops,1,'closing the preview retires its motor');
+  assert.equal(worldMotor.stops,0,'closing the preview does not stop world audio');
+  preview({crafts:[craft],dt:.016});
+  const replacement = lastVoice();
+  updateAutogunSounds({crafts:[],dt:0});
+  assert.equal(worldMotor.stops,1);
+  assert.equal(replacement.stops,0,'world cleanup does not stop preview audio');
+  preview({crafts:[],dt:0});
+  assert.equal(replacement.stops,1);
+}
+
 // Every effect is audible, finite, filled before assignment, cached and debounced.
 for (const effect of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
   context.currentTime += 1;
@@ -278,7 +593,7 @@ for (const production of [false, true]) {
 
           if (
             id === './sound-loader' &&
-            /\/src\/client\/audio\/(?:update-horn-drill-sounds|update-thruster-sounds|present-world-sounds)\.ts$/.test(
+            /\/src\/client\/audio\/(?:update-horn-drill-sounds|update-thruster-sounds|update-autogun-sounds|present-world-sounds)\.ts$/.test(
               importer || '',
             )
           ) {
@@ -339,7 +654,7 @@ console.log(
   'Tones, ramps and horn drill start/stop passed, including production mangling.',
 );
 
-// Exercise volume forwarding through the real loader and a separate audio chunk.
+// Exercise the real loader with audio and tuning emitted as separate chunks.
 const directory = await mkdtemp(join(tmpdir(), 'sound-loader-'));
 const loaderEntry = `${process.cwd()}/src/__sound_loader_test.ts`;
 const loaderContextId = `${process.cwd()}/src/__sound_loader_context.ts`;
@@ -361,23 +676,112 @@ const loaderBundle = await rolldown({
           return `
 import assert from 'node:assert/strict';
 import { TestAudioContext } from '${loaderContextId}';
-import { preloadSound, unlockAudio, playSound, updateThrusterSound } from './client/audio/sound-loader';
+import { preloadSound, playNavigationSound, playSound, updateThrusterSound, updateAutogunSound } from './client/audio/sound-loader';
+import uiNavUp from './specs/sounds/ui-nav-up';
+import uiNavDown from './specs/sounds/ui-nav-down';
+import uiNavNeutral from './specs/sounds/ui-nav-neutral';
+import uiNavSelect from './specs/sounds/ui-nav-select';
+import uiNavUnselect from './specs/sounds/ui-nav-unselect';
+import acquireTarget from './specs/sounds/acquire-target';
+import chosen0 from './specs/sounds/lose-target';
+import chosen1 from './specs/sounds/wormhole-in';
+import chosen2 from './specs/sounds/wormhole-out';
+import chosen3 from './specs/sounds/jump-gate-open';
+import chosen4 from './specs/sounds/main-menu-close';
+import chosen5 from './specs/sounds/main-menu-open';
+import chosen6 from './specs/sounds/chat-message';
+import chosen7 from './specs/sounds/autogun-fire';
+import chosen8 from './specs/sounds/autogun-ammo-explode';
+import chosen9 from './specs/sounds/railgun-ready';
+import chosen10 from './specs/sounds/plasma-accelerator-fire';
+import chosen11 from './specs/sounds/plasma-accelerator-ammo-explode';
+import { renderEffectBuffer } from './client/audio/synthesis';
+import engineSettings from './specs/sounds/engine';
+import hornDrillSettings from './specs/sounds/horn-drill';
 export async function check() {
-  await preloadSound();
   assert.equal(TestAudioContext.instances.length, 0);
-  await unlockAudio();
-  playSound(0, { volume: .25 });
+  const previousRandom = Math.random;
+  Math.random = () => .75;
+  try {
+    playNavigationSound(-1);
+    assert.equal(TestAudioContext.instances.length, 1, 'first menu move opens audio before the chunk loads');
+    await preloadSound();
+    await Promise.resolve();
+    const context = TestAudioContext.instances[0];
+    playNavigationSound(1);
+    playNavigationSound(0);
+    playNavigationSound(0);
+    const navigation = context.sources.splice(0);
+    assert.equal(navigation.length, 4, 'each menu move plays a cue, including rapid repeats');
+    for (const [index, layers] of [uiNavUp, uiNavDown, uiNavNeutral].entries()) {
+      assert.deepEqual(navigation[index].assignedSamples, renderEffectBuffer({context, layers}).getChannelData(0));
+    }
+    assert.equal(navigation[2].buffer, navigation[3].buffer, 'repeat moves reuse the navigation buffer');
+    playNavigationSound('select');
+    playNavigationSound('unselect');
+    playNavigationSound('unselect');
+    const selections = context.sources.splice(0);
+    assert.equal(selections.length, 3, 'select and unselect play through the real loader, including rapid repeats');
+    for (const [index, layers] of [uiNavSelect, uiNavUnselect].entries()) {
+      assert.deepEqual(selections[index].assignedSamples, renderEffectBuffer({context, layers}).getChannelData(0));
+    }
+    assert.equal(selections[1].buffer, selections[2].buffer, 'repeated unselects reuse the navigation buffer');
+    for (const [name, layers] of [['lose-target', chosen0], ['wormhole-in', chosen1], ['wormhole-out', chosen2], ['jump-gate-open', chosen3], ['main-menu-close', chosen4], ['main-menu-open', chosen5], ['chat-message', chosen6], ['autogun-fire', chosen7], ['autogun-ammo-explode', chosen8], ['railgun-ready', chosen9], ['plasma-accelerator-fire', chosen10], ['plasma-accelerator-ammo-explode', chosen11]]) {
+      playSound(name);
+      assert.deepEqual(context.sources.pop().assignedSamples, renderEffectBuffer({context, layers}).getChannelData(0), name);
+    }
+  } finally {
+    Math.random = previousRandom;
+  }
   const context = TestAudioContext.instances[0];
+  context.state = 'suspended';
+  let finishResume;
+  context.resume = () => new Promise((resolve) => { finishResume = resolve; });
+  playNavigationSound(0);
+  assert.equal(context.sources.pop()?.starts, 1, 'a menu move queues audio before resume settles');
+  context.state = 'running';
+  finishResume();
+  playSound(0, { volume: .25 });
   assert.equal(context.sources[0].destination.gain.value, .25);
   context.currentTime += 1;
   playSound(0);
   assert.equal(context.sources[1].destination.gain.value, 1);
   assert.equal(context.sources[0].buffer, context.sources[1].buffer);
+  engineSettings.volume = .25;
   const engine = updateThrusterSound(undefined, { power: 1, load: 1, volume: .5 });
-  assert(Math.abs(engine.gain.value - .36) < 1e-8);
+  assert(Math.abs(engine.gain.value - .18) < 1e-8, 'loader audio shares tuning with the separate data chunk');
   assert(Math.abs(engine.playbackRate.value - 1.9) < 1e-8);
   updateThrusterSound(engine, { power: 0 });
   assert.equal(engine.stops, 1);
+  assert.equal(hornDrillSettings.activePitch, .95);
+  const active = updateAutogunSound(undefined,{level:.5,speed:1,interval:.1,id:777,by:1});
+  assert(active.motor.loop, 'autogun motor crosses the separately emitted lazy boundary');
+  context.currentTime += .08;
+  const activeAgain=updateAutogunSound(active,{level:.5,speed:1,interval:.1,id:777,by:1});
+  assert.equal(activeAgain.motor,active.motor);
+  assert(activeAgain.clickSource,'autogun click schedules through the real loader');
+  updateAutogunSound(activeAgain,{level:0});
+  assert.equal(active.motor.stops,1);
+
+  const originalRandom = Math.random;
+  Math.random = () => .75;
+  try {
+    context.currentTime += 1;
+    const count = context.sources.length;
+    playSound('acquire-target', {id: 42});
+    const acquired = context.sources.at(-1);
+    assert.equal(context.sources.length, count + 1, 'named targeting cue plays through the real lazy loader');
+    assert.deepEqual(acquired.assignedSamples, renderEffectBuffer({context, layers: acquireTarget}).getChannelData(0), 'targeting plays the selected procedural spec');
+    playSound('acquire-target', {id: 43});
+    assert.equal(context.sources.length, count + 2, 'rapid acquisition of a different target is audible');
+    assert.equal(context.sources.at(-1).buffer, acquired.buffer, 'target acquisitions reuse the cached mix');
+    context.state = 'suspended';
+    playSound('acquire-target', {id: 44});
+    assert.equal(context.sources.length, count + 2, 'target acquisition respects suspended audio');
+    context.state = 'running';
+  } finally {
+    Math.random = originalRandom;
+  }
 }`.replace(/assert\.(\w+)/g, (_, method) => `Reflect.get(assert, '${method}')`);
         }
       },
@@ -396,14 +800,14 @@ try {
     chunkFileNames: '[name]-[hash].mjs',
   });
 
-  assert.equal(output.filter((item) => item.type === 'chunk').length, 2);
+  assert.equal(output.filter((item) => item.type === 'chunk').length, 3);
   const { check } = await import(
     pathToFileURL(join(directory, 'entry.mjs')).href
   );
 
   await check();
   console.log(
-    'Sound volume passed through the separately emitted production loader.',
+    'Sound volume and shared tuning passed through separately emitted production chunks.',
   );
 } finally {
   await loaderBundle.close();

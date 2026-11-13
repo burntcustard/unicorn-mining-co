@@ -1,3 +1,5 @@
+import { senderColor } from '../sender-color';
+import { playSound } from '../../audio/sound-loader';
 import './chat.css';
 import html from './chat.html?raw';
 import { createScreen, query, ui } from './ui';
@@ -13,13 +15,6 @@ import { jumpGateSpec } from '../../../specs/jump-gate';
 import { jumpGateDialog } from '../../../specs/dialog/jump-gate';
 import { namedSeed } from '../../utilities/seed-hash';
 import * as Vec from '../../utilities/vector';
-
-const senderColors = new Map([
-  ['owner', '#ff0'],
-  ['friendly', '#3f7'],
-  ['admin', '#4df'],
-  ['hostile', '#f44'],
-]);
 
 /**
  * Gate conversations and received messages share one chronological chat history.
@@ -128,7 +123,7 @@ export const createChat = ({
     });
   });
 
-  ui.element.append(panel);
+  ui.hudElement.append(panel);
   input.addEventListener('focus', () => onTyping(true));
   input.addEventListener('blur', () => onTyping(false));
 
@@ -184,6 +179,7 @@ export const createChat = ({
         }
 
         if (!message.text) return;
+        playSound('chat-message');
 
         if (
           pending &&
@@ -210,12 +206,12 @@ export const createChat = ({
         entries.push({ message, channel: message.channel, element: line });
       });
 
-      panel.hidden = !shown;
+      if (panel.hidden === shown) panel.hidden = !shown;
       const ship = network.world.entities.get(network.shipId!);
 
       const pirate = network.world.entities.get(cargoDemand!);
 
-      cargoAction.hidden =
+      const cargoHidden =
         channel !== 0 ||
         !pirate ||
         pirate.dead ||
@@ -223,21 +219,37 @@ export const createChat = ({
         ship.dead ||
         !!ship.dockedTo ||
         !!ship.transitTime;
-      release.disabled =
-        cargoAction.hidden ||
+
+      if (cargoAction.hidden !== cargoHidden) cargoAction.hidden = cargoHidden;
+      const releaseDisabled =
+        cargoHidden ||
         !ship?.cargoContents?.some(
           (object: GameObject) =>
             object.item &&
             (object.rounds === undefined ||
               object.rounds === object.item.rounds),
         );
-      releaseKey.textContent = defaultKeybindings.cargoRelease.keys
+
+      if (release.disabled !== releaseDisabled) {
+        release.disabled = releaseDisabled;
+      }
+
+      const cargoKeys = defaultKeybindings.cargoRelease.keys
         .map(keyLabel)
         .join(' / ');
-      releaseMode.hidden = defaultKeybindings.cargoRelease.mode !== 'hold';
-      releaseMode.textContent = bindingModeLabel(
-        defaultKeybindings.cargoRelease.mode,
-      );
+
+      if (releaseKey.textContent !== cargoKeys) {
+        releaseKey.textContent = cargoKeys;
+      }
+
+      const modeHidden = defaultKeybindings.cargoRelease.mode !== 'hold';
+
+      if (releaseMode.hidden !== modeHidden) releaseMode.hidden = modeHidden;
+      const modeLabel = bindingModeLabel(defaultKeybindings.cargoRelease.mode);
+
+      if (releaseMode.textContent !== modeLabel) {
+        releaseMode.textContent = modeLabel;
+      }
 
       if (pending) {
         const gate = pending.message;
@@ -290,17 +302,21 @@ export const createChat = ({
             }
           }
 
-          query(button, 'kbd').textContent = accessKeys;
+          const key = query(button, 'kbd');
+
+          if (key.textContent !== accessKeys) key.textContent = accessKeys;
 
           if (message === target && !button.disabled) access = button;
         } else {
-          query(element, 'strong').style.setProperty(
-            '--sender-color',
-            message.sender === network.displayName &&
-              !['admin', 'owner'].includes(message.senderRole)
-              ? '#e6f'
-              : senderColors.get(message.senderRole) || '#fff',
+          const sender = query(element, 'strong');
+          const color = senderColor(
+            message.senderRole,
+            message.sender === network.displayName,
           );
+
+          if (sender.style.getPropertyValue('--sender-color') !== color) {
+            sender.style.setProperty('--sender-color', color);
+          }
         }
       });
 
@@ -362,13 +378,14 @@ export const createChat = ({
       const nodes = entries
         .filter((entry) => entry.channel === channel)
         .map((entry) => entry.element);
-      const scrollTop = log.scrollTop;
-      const atBottom = log.scrollHeight - scrollTop - log.clientHeight < 4;
 
       if (
         nodes.length !== log.children.length ||
         nodes.some((node, i) => node !== log.children[i])
       ) {
+        const scrollTop = log.scrollTop;
+        const atBottom = log.scrollHeight - scrollTop - log.clientHeight < 4;
+
         log.replaceChildren(...nodes);
         log.hidden = !nodes.length;
 

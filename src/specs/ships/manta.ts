@@ -1,4 +1,5 @@
 import { colors } from '../colors';
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec, HullSegmentSpecification } from './types';
 
 const cyanWing = (side: number) => [
@@ -64,6 +65,7 @@ const cyanHitbox = [
 export const manta: ShipSpec = {
   name: 'Manta',
   npcOnly: true,
+  price: 0,
   fuelCapacity: 160,
   cargoSpace: 0,
   drag: 0.56,
@@ -71,7 +73,7 @@ export const manta: ShipSpec = {
   radius: 110,
   turnRate: 2.8,
   initialLoadout: [
-    { mount: 0, module: 'powerPlant' },
+    { mount: 0, module: 'powerPlant2V' },
     { mount: 1, module: 'thrusterSingleSm', shades: colors.yellow },
     { mount: 2, module: 'thrusterSingleSm', shades: colors.yellow },
   ],
@@ -80,7 +82,7 @@ export const manta: ShipSpec = {
       core: true,
       health: 90,
       shades: colors.white,
-      mounts: [[{ x: 12, y: 0, fits: ['powerPlant'] }]],
+      mounts: [[{ x: 12, y: 0, fits: powerPlantIdsBySize[2] }]],
       points: [
         [35, 0],
         [24, -8],

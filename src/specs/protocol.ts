@@ -14,6 +14,8 @@ export const controlMessageIds = {
   sounds: 11,
   gateAccess: 12,
   chat: 13,
+  hangar: 14,
+  sectorMap: 15,
 } as const satisfies Record<string, number>;
 
 export const dockActionIds = {
@@ -77,6 +79,10 @@ export const binaryFieldIds = {
   blockedBeams: 45,
   hostile: 46,
   npcState: 47,
+  packedPosition: 54,
+  packedVelocity: 55,
+  packedRotation: 56,
+  packedSpin: 57,
 } as const satisfies Record<string, number>;
 
 export const entityKindIds = {
@@ -88,4 +94,5 @@ export const entityKindIds = {
   projectile: 5,
   jumpGate: 6,
   wormhole: 7,
+  navBeacon: 8,
 } as const satisfies Record<string, number>;

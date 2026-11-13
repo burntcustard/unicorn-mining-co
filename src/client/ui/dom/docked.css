@@ -1,4 +1,8 @@
 @layer components {
+  :root {
+    --dock-inspector-max-width: 480px;
+  }
+
   .hud:has(> .dock-screen:not([hidden]))::before {
     background-color: var(--ui-dock);
   }
@@ -28,7 +32,7 @@
     grid-template-rows: 72px minmax(0, 1fr);
     grid-template-columns: minmax(390px, 440px) minmax(240px, 1fr) minmax(
         400px,
-        480px
+        var(--dock-inspector-max-width)
       );
   }
 
@@ -39,6 +43,23 @@
 
   [data-sidebar] {
     grid-column: 1;
+  }
+
+  .dock-hangar .dock-workspace {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .dock-hangar .dock-inspector {
+    grid-row: 1;
+  }
+
+  .dock-hangar .dock-center {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  [data-owned-ships] .dock-row-text:not(small) {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   [data-trade-stock],
@@ -99,21 +120,6 @@
     }
   }
 
-  .dock-row + .dock-row {
-    /* margin-top: -2px; */
-
-    /* &:before {
-      z-index: -1;
-      position: absolute;
-      top: 0;
-      left: var(--ui-border-width);
-      right: var(--ui-border-width);
-      content: '';
-      background: var(--ui-line);
-      height: var(--ui-border-width);
-    } */
-  }
-
   .dock-row-text,
   .dock-trade-name::after {
     transform: translateY(0.05em);
@@ -163,6 +169,10 @@
     max-height: 100%;
   }
 
+  [data-description] {
+    white-space: pre-line;
+  }
+
   [data-detail-preview] {
     width: 160px;
     height: 160px;
@@ -193,6 +203,33 @@
     border-top: 2px solid var(--ui-line);
   }
 
+  .dock-sale-values {
+    grid-template-columns: 1fr auto;
+    row-gap: 12px;
+  }
+
+  .dock-offer {
+    text-decoration: underline;
+    text-decoration-thickness: 0.05em;
+    text-underline-offset: 0.15em;
+    animation: dock-offer-flash 0.8s ease-in-out infinite alternate;
+  }
+
+  @keyframes dock-offer-flash {
+    from {
+      text-decoration-color: transparent;
+    }
+
+    to {
+      text-decoration-color: currentColor;
+    }
+  }
+
+  .dock-sale-total {
+    border-top: 2px solid var(--ui-line);
+    padding-top: 12px;
+  }
+
   .dock-launch-icon {
     width: 28px;
     height: 28px;
@@ -201,7 +238,7 @@
   }
 
   .dock-footer
-    button:is(
+    button:enabled:is(
       :hover:not(:where(.dock-keyboard *)),
       :focus-visible:not(:where(.dock-pointer *))
     )
@@ -222,7 +259,10 @@
   }
 
   .dock-screen:has([data-tab='trade'][aria-current='page']) .dock-workspace {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(400px, 480px);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(
+        400px,
+        var(--dock-inspector-max-width)
+      );
     grid-template-rows: minmax(0, 1fr);
   }
 
@@ -232,9 +272,7 @@
 
   .dock-trade-table {
     grid-template-columns: minmax(0, 1fr) max-content max-content;
-
-    /* Reserve two row steps, including the heading and shared border. */
-    margin-top: calc(var(--ui-row-height) - 2 * var(--ui-border-width));
+    margin-top: var(--ui-row-height);
   }
 
   .dock-trade-heading {
@@ -291,7 +329,7 @@
     text-overflow: ellipsis;
   }
 
-  .dock-trade-row:is(
+  .dock-trade-row:not(:disabled, [aria-disabled='true']):is(
       :hover:not(:where(.dock-keyboard *)),
       :focus-visible:not(:where(.dock-pointer *))
     )

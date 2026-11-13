@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-func recordEntity(e simulation.Entity) map[string]any {
+func recordEntity(e simulation.Entity, thrusterStats bool) map[string]any {
 	o := e.Base()
 	var health any
 
@@ -60,6 +60,13 @@ func recordEntity(e simulation.Entity) map[string]any {
 		r["storedPower"] = s.StoredPower
 		r["thrusterPower"] = s.ThrusterPower
 		r["systemsPower"] = s.SystemsPower
+
+		if thrusterStats {
+			r["fuel"] = s.Fuel
+			r["forwardThrust"] = s.ForwardThrust()
+			r["rotationalThrust"] = s.RotationalThrust()
+			r["maxSpeed"] = s.MaxSpeed()
+		}
 	}
 
 	return r
@@ -151,7 +158,13 @@ func TestTypeScriptGameplay(t *testing.T) {
 				}
 
 				id := int64(i + 1)
-				ship := objects.CreatePlayerShip(world, objects.Properties{ID: &id, PlayerID: &id, Position: position, Rotation: rotation})
+				shipType := ""
+
+				if scenario.Name == "moth-thrusters" {
+					shipType = "moth"
+				}
+
+				ship := objects.CreatePlayerShip(world, objects.Properties{ID: &id, PlayerID: &id, Position: position, Rotation: rotation, DefinitionID: shipType})
 				simulation.AddEntity(world, ship)
 				moduleID := int64(-2000)
 
@@ -162,6 +175,15 @@ func TestTypeScriptGameplay(t *testing.T) {
 				if scenario.Engine != "" {
 					ship.Fit(modules.Create(scenario.Engine, simulation.ObjectProperties{ID: &moduleID}, catalog), nil)
 					ship.Launch()
+				}
+
+				if scenario.Name == "moth-thrusters" {
+					ship.Fit(modules.Create("thrusterDualLg", simulation.ObjectProperties{ID: &moduleID}, catalog), ship.Mounts()[8])
+					medium, large := catalog.ModuleSpecs["thrusterDualMd"], catalog.ModuleSpecs["thrusterDualLg"]
+
+					if ship.ForwardThrust() != (medium.ForwardThrust+large.ForwardThrust)/2 || ship.RotationalThrust() != (medium.RotationalThrust+large.RotationalThrust)/2 {
+						t.Fatal("mixed thrusters should average their forward and rotational thrust")
+					}
 				}
 
 				if scenario.Name == "power" {
@@ -211,6 +233,28 @@ func TestTypeScriptGameplay(t *testing.T) {
 			snapshot := 0
 
 			for tick := 0; tick < scenario.Ticks; tick++ {
+				if scenario.Name == "moth-thrusters" && tick == 40 {
+					entity, _ := world.Entities.Get(1)
+					ship := entity.(*objects.Ship)
+
+					for _, mount := range ship.Mounts() {
+						if mount.Module != nil && mount.Module.ModuleBase().Type == "thrusterDualMd" {
+							objects.Damage(mount.Hull, 10000)
+							break
+						}
+					}
+				}
+
+				if scenario.Name == "moth-thrusters" && tick == 41 {
+					entity, _ := world.Entities.Get(1)
+					ship := entity.(*objects.Ship)
+					large := catalog.ModuleSpecs["thrusterDualLg"]
+
+					if ship.ForwardThrust() != large.ForwardThrust/2 || ship.RotationalThrust() != large.RotationalThrust/2 {
+						t.Fatal("losing a thruster hull should leave half of the remaining engine's thrust")
+					}
+				}
+
 				if scenario.Name == "power" && (tick == 60 || tick == 120) {
 					entity, _ := world.Entities.Get(1)
 					engineDemand := entity.(*objects.Ship).Engine().ModuleBase().Spec.PowerActivated
@@ -235,7 +279,7 @@ func TestTypeScriptGameplay(t *testing.T) {
 						input.Thrust = 1
 					}
 
-					if scenario.Name == "flight" {
+					if scenario.Name == "flight" || scenario.Name == "moth-thrusters" {
 						if tick%180 < 60 {
 							input.Turn = -1
 						} else if tick%180 < 120 {
@@ -264,7 +308,9 @@ func TestTypeScriptGameplay(t *testing.T) {
 
 					entities := []any{}
 
-					world.Entities.ForEach(func(e simulation.Entity, _ int64) { entities = append(entities, recordEntity(e)) })
+					world.Entities.ForEach(func(e simulation.Entity, _ int64) {
+						entities = append(entities, recordEntity(e, scenario.Name == "moth-thrusters"))
+					})
 
 					recorded := []any{}
 
@@ -282,5 +328,71 @@ func TestTypeScriptGameplay(t *testing.T) {
 				t.Fatal("unread snapshots")
 			}
 		})
+	}
+}
+
+func TestAsteroidDebrisLootContacts(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(1, catalog)
+	world.ItemTypes = objects.ItemTypes(catalog)
+	outline := &simulation.ShapeOutline{Points: []simulation.Point{{-18, -12}, {18, -12}, {0, 24}}}
+	parent := simulation.CreateAsteroid(world, simulation.AsteroidProperties{Contents: []int{0}, ShapeOutline: outline, Health: new(0.0), Position: Vec.Create(4, 5), Velocity: Vec.Create(-2, 9), Rotation: 0.7, Spin: 0.2})
+	simulation.AddEntity(world, parent)
+	events := []protocol.SimulationEvent{}
+	parent.Fracture(nil, 7, &events, world)
+	var item *objects.Item
+	debris := []*simulation.Asteroid{}
+
+	for _, entity := range world.Entities.Values() {
+		if loot, ok := entity.(*objects.Item); ok {
+			item = loot
+		} else if asteroid, ok := entity.(*simulation.Asteroid); ok {
+			debris = append(debris, asteroid)
+		}
+	}
+
+	if item == nil || len(debris) != 3 {
+		t.Fatal("triangle destruction must release loot and leave three corner debris bodies")
+	}
+
+	controlWorld := simulation.CreateWorld(1, catalog)
+	control := objects.NewItem("diamond", simulation.ObjectProperties{World: controlWorld, Position: item.Position, Velocity: item.Velocity, Rotation: item.Rotation, Spin: item.Spin}, catalog)
+	simulation.AddEntity(controlWorld, control)
+	controlCollisions := NewGameCollisions(catalog)
+	controlCollisions.CapturePoses(controlWorld.Entities)
+	controlCollisions.Step(controlWorld.Entities, catalog.Simulation.SimulationStep, &[]protocol.SimulationEvent{})
+	collisions := NewGameCollisions(catalog)
+	collisions.CapturePoses(world.Entities)
+	contacts := collisions.Step(world.Entities, catalog.Simulation.SimulationStep, &events)
+
+	for _, contact := range contacts {
+		if contact.Collider.Owner == item || contact.Other.Owner == item {
+			t.Fatal("the central hole must leave room for the released item")
+		}
+	}
+
+	if item.Position != control.Position || item.Velocity != control.Velocity || item.Health != control.Health || item.Spin != control.Spin {
+		t.Fatal("loot released into the central hole must retain its motion and health")
+	}
+
+	item.Position = debris[0].Position
+	item.Velocity = debris[0].Velocity
+	collisions.CapturePoses(world.Entities)
+	contacts = collisions.Step(world.Entities, catalog.Simulation.SimulationStep, &events)
+	touched := false
+
+	for _, contact := range contacts {
+		if contact.Collider.Owner == item || contact.Other.Owner == item {
+			touched = true
+		}
+	}
+
+	if !touched {
+		t.Fatal("items must still collide normally with corner debris")
 	}
 }

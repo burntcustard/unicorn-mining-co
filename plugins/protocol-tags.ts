@@ -47,6 +47,7 @@ export const protocolTags = [
   'wormhole',
   'gateAccess',
   'chat',
+  'navBeacon',
 ];
 
 /**

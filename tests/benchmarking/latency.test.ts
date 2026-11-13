@@ -87,7 +87,7 @@ test('production binding exposure preserves imports, exports, and deferred impor
 test('latency CLI defaults to four-client healthy-link production measurement', () => {
   const options = parseLatencyOptions([]);
 
-  assert.equal(options.url, 'http://localhost:3000/');
+  assert.equal(options.url, 'http://localhost:3002/');
   assert.equal(options.networkPermission, 'loopback-network');
   assert.equal(options.scenario, 'both');
   assert.equal(options.target, 'local');
@@ -256,7 +256,7 @@ test('shared protocol runtime emits a usable codec and the ordinary catalog', as
 
     for (const [ship, mount, x] of [
       ['mustang', 4, 46],
-      ['arrow', 6, 56],
+      ['arrow', 7, 56],
       ['crotus', 0, 56],
     ] as const) {
       const definition = runtime.catalog.ships[ship];
@@ -273,7 +273,7 @@ test('shared protocol runtime emits a usable codec and the ordinary catalog', as
       );
     }
 
-    assert.deepEqual(runtime.catalog.ships.arrow.mounts[6], [
+    assert.deepEqual(runtime.catalog.ships.arrow.mounts[7], [
       'hornDrill',
       'autogun',
       'laser',

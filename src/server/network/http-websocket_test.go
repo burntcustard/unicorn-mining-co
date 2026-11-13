@@ -118,3 +118,53 @@ func TestProductionOriginRejected(t *testing.T) {
 		t.Fatalf("status %d", response.Code)
 	}
 }
+
+func TestWebSocketOrigins(t *testing.T) {
+	for _, production := range []bool{false, true} {
+		for _, origin := range []string{"http://localhost:3000", "http://localhost:3002", "http://localhost:3105", "http://127.0.0.1:3003", "http://[::1]:3004", "https://example.com", "http://evil.example:3002", "http://localhost.evil.example:3002", "http://localhost:3002/path", "http://user@localhost:3002", "null"} {
+			t.Run(fmt.Sprintf("%t/%s", production, origin), func(t *testing.T) {
+				allowed := origin == "https://example.com" || (!production && (origin == "http://localhost:3000" || origin == "http://localhost:3002" || origin == "http://localhost:3105" || origin == "http://127.0.0.1:3003" || origin == "http://[::1]:3004"))
+
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					socket, err := Upgrade(w, r, production)
+
+					if err == nil {
+						socket.Terminate()
+					}
+				}))
+
+				defer server.Close()
+				conn, err := net.Dial("tcp", strings.TrimPrefix(server.URL, "http://"))
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				defer conn.Close()
+				_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+				_, err = fmt.Fprintf(conn, "GET /game-socket HTTP/1.1\r\nHost: example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nOrigin: %s\r\n\r\n", origin)
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				response, err := http.ReadResponse(bufio.NewReader(conn), nil)
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				defer response.Body.Close()
+				expected := http.StatusBadRequest
+
+				if allowed {
+					expected = http.StatusSwitchingProtocols
+				}
+
+				if response.StatusCode != expected {
+					t.Fatalf("status %d, want %d", response.StatusCode, expected)
+				}
+			})
+		}
+	}
+}

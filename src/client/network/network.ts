@@ -3,7 +3,7 @@ import { Wormhole } from '../objects/wormhole';
 import { Projectile } from '../objects/projectile';
 import { type WeaponId } from '../../specs/modules';
 import * as Vec from '../utilities/vector';
-import { type PlayerInput } from '../protocol/input';
+import { emptyPlayerInput, type PlayerInput } from '../protocol/input';
 import { playerInput } from '../input/input';
 import { moduleControls } from '../objects/control-ship';
 import { player, syncPaintUnlocks } from '../player';
@@ -12,7 +12,10 @@ import {
   decodeServerControl,
   isPlayerToken,
 } from '../protocol/binary-control';
-import { decodeBinarySnapshot } from '../protocol/binary-snapshot';
+import {
+  decodeBinarySnapshot,
+  mergeModuleStates,
+} from '../protocol/binary-snapshot';
 import { type SimulationEvent } from '../protocol/events';
 import { type WorldSound } from '../protocol/sounds';
 import {
@@ -29,6 +32,7 @@ import { GameObject } from '../objects/game-object';
 import { Craft } from '../objects/craft';
 import { Ship } from '../objects/ship';
 import { Station } from '../objects/station';
+import { NavBeacon } from '../objects/nav-beacon';
 import { createShip } from '../objects/create-ship';
 import { createWreckage } from '../objects/create-wreckage';
 import { type SimulationWorld } from '../simulation/world';
@@ -40,6 +44,9 @@ import { simulationStep } from '../../specs/simulation';
 import { setCraftActionDispatcher } from './craft-actions';
 import { type CraftAction } from '../protocol/network';
 import { shadesOf } from '../../specs/colors';
+import { hangarState, setHangarActionDispatcher } from './hangar-actions';
+import { type HangarAction } from '../protocol/network';
+import { shipSpecsById } from '../../specs/ships';
 
 const asteroidRecords = new WeakMap<Asteroid, ReplicatedEntity>();
 
@@ -152,7 +159,11 @@ const makeEntity = ({
 
   const wreckage = entity.wreckage;
 
-  if (entity.kind !== 'ship' && entity.kind !== 'station') {
+  if (
+    entity.kind !== 'ship' &&
+    entity.kind !== 'station' &&
+    entity.kind !== 'navBeacon'
+  ) {
     throw new Error('Unknown replicated entity kind');
   }
 
@@ -170,24 +181,27 @@ const makeEntity = ({
       : previous instanceof Craft &&
           previous.definitionId === entity.definitionId &&
           !previous.decay &&
-          ((entity.kind === 'station' && previous instanceof Station) ||
+          ((entity.kind === 'navBeacon' && previous instanceof NavBeacon) ||
+            (entity.kind === 'station' && previous instanceof Station) ||
             (entity.kind === 'ship' && previous instanceof Ship))
         ? previous
-        : entity.kind === 'station'
-          ? new Station({
-              ...common,
-              cargoContents: [],
-              stationType:
-                entity.definitionId as import('../../specs/stations').StationId,
-              world,
-              ...(entity.shades && { shades: shadesOf(entity.shades) }),
-            })
-          : createShip(world, {
-              ...common,
-              shipType:
-                entity.definitionId as import('../../specs/ships').ShipId,
-              ...(entity.shades && { shades: shadesOf(entity.shades) }),
-            }),
+        : entity.kind === 'navBeacon'
+          ? new NavBeacon({ ...common, world })
+          : entity.kind === 'station'
+            ? new Station({
+                ...common,
+                cargoContents: [],
+                stationType:
+                  entity.definitionId as import('../../specs/stations').StationId,
+                world,
+                ...(entity.shades && { shades: shadesOf(entity.shades) }),
+              })
+            : createShip(world, {
+                ...common,
+                shipType:
+                  entity.definitionId as import('../../specs/ships').ShipId,
+                ...(entity.shades && { shades: shadesOf(entity.shades) }),
+              }),
     common,
     {
       ...(entity.fuel !== undefined && { fuel: entity.fuel }),
@@ -234,6 +248,8 @@ const makeEntity = ({
 
 export class NetworkClient {
   displayName = '';
+  mapMarkers: import('../protocol/network').MapMarker[] = [];
+  mapReady = false;
   asteroidPositions: Vec.Value[] = [];
   readonly authenticated: Promise<void>;
   private resolveAuthenticated!: () => void;
@@ -249,6 +265,7 @@ export class NetworkClient {
   private dockSequence = 0;
   private dockIds = new Map<number, number>();
   private pendingDockActions: { sequence: number; action: CraftAction }[] = [];
+  private hangarListPending = false;
   connected = false;
   private entityRecords = new Map<number, ReplicatedEntity>();
   readonly events: SimulationEvent[] = [];
@@ -264,6 +281,7 @@ export class NetworkClient {
     { type: 'load' | 'snapshot' }
   >;
   private pendingTime = 0;
+  private changingDockedShip = false;
   playerId?: number;
   private prediction: PredictionManager;
   readonly ready: Promise<void>;
@@ -274,7 +292,7 @@ export class NetworkClient {
   get shipDestroyed() {
     const ship = this.world.entities.get(this.shipId!);
 
-    return this.connected && (!ship || ship.dead);
+    return this.connected && (ship ? ship.dead : !this.changingDockedShip);
   }
   get shipStranded() {
     const ship = this.world.entities.get(this.shipId!);
@@ -288,11 +306,16 @@ export class NetworkClient {
     this.send({ type: 'chat', channel, text });
   }
 
+  sectorMap(position: Vec.Value) {
+    this.send({ type: 'sectorMap', position });
+  }
+
   requestGateAccess(gateId: number) {
     this.send({ type: 'gateAccess', gateId });
   }
 
   shipId?: number;
+  ownedShips?: Ship[];
   snapshotReceivedAt = 0;
   private socket!: WebSocket;
   spawnPosition = Vec.create();
@@ -396,6 +419,8 @@ export class NetworkClient {
       tick: this.serverTick,
     });
 
+    this.changingDockedShip = false;
+
     if (!this.pendingDockActions.length) this.dockIds.clear();
 
     if (message.type === 'load') {
@@ -428,6 +453,7 @@ export class NetworkClient {
     this.socket = socket;
     this.welcomed = false;
     socket.binaryType = 'arraybuffer';
+    const handshakeTimer = setTimeout(() => socket.close(), 15000);
 
     socket.onopen = () => {
       const storedToken = localStorage.getItem('playerToken');
@@ -437,7 +463,10 @@ export class NetworkClient {
         localStorage.removeItem('playerToken');
       }
 
-      this.send({ playerToken, type: this.deferred ? 'prepare' : 'hello' });
+      this.send({
+        playerToken,
+        type: this.deferred ? 'prepare' : 'hello',
+      });
     };
 
     socket.onmessage = ({ data }) => {
@@ -455,13 +484,21 @@ export class NetworkClient {
             : decodeServerControl(bytes);
 
         this.receive({ message });
-      } catch {
+
+        if (this.welcomed) clearTimeout(handshakeTimer);
+      } catch (error) {
+        // @ifdef DEBUG
+        console.error('Could not process game server message:', error);
+        // @endif
         socket.close(1007, 'Invalid server message');
       }
     };
 
     socket.onclose = ({ code, reason }) => {
+      clearTimeout(handshakeTimer);
+
       if (this.socket !== socket) return;
+
       this.connected = false;
       this.pendingProfile?.reject(
         new Error('Connection lost. Please try again.'),
@@ -560,6 +597,35 @@ export class NetworkClient {
   }
 
   private receive({ message }: { message: ServerMessage }) {
+    if (message.type === 'hangar') {
+      if (
+        message.shipsForSale.some((offer) => !shipSpecsById.has(offer.ship))
+      ) {
+        throw new Error('Unknown hangar ship');
+      }
+
+      this.ownedShips = message.ships.map((entity) => {
+        const ship = makeEntity({ entity, world: this.world });
+
+        if (!(ship instanceof Ship)) throw new Error('Invalid hangar ship');
+        return ship;
+      });
+
+      if (this.player === player) {
+        hangarState.busy = false;
+        hangarState.error = message.error;
+        hangarState.shipsForSale = message.shipsForSale;
+      }
+
+      return;
+    }
+
+    if (message.type === 'sectorMap') {
+      this.mapMarkers = message.mapMarkers;
+      this.mapReady = true;
+      return;
+    }
+
     if (message.type === 'sounds') {
       if (this.connected) this.sounds.push(...message.sounds);
       return;
@@ -591,7 +657,10 @@ export class NetworkClient {
     }
 
     if (message.type === 'welcome') {
+      this.changingDockedShip = false;
       this.snapshotReceivedAt = 0;
+      this.mapMarkers = [];
+      this.mapReady = false;
       this.asteroidPositions = [];
       this.chatMessages = this.chatMessages.filter(
         ({ channel }) => channel === 1,
@@ -605,6 +674,15 @@ export class NetworkClient {
       this.dockSequence = this.acknowledgedDockSequence = 0;
       this.dockIds.clear();
       this.pendingDockActions.length = 0;
+      this.hangarListPending = false;
+      this.ownedShips = undefined;
+
+      if (this.player === player) {
+        hangarState.busy = false;
+        hangarState.error = '';
+        hangarState.shipsForSale = undefined;
+      }
+
       this.world.entities.clear();
       this.world.players.clear();
       this.world.nextEntityId = 1;
@@ -646,11 +724,17 @@ export class NetworkClient {
     }
 
     if (message.type === 'respawn') {
+      const previous = this.world.entities.get(this.shipId!);
+
+      this.changingDockedShip = Boolean(previous?.dockedTo && !previous.dead);
+      this.mapMarkers = [];
+      this.mapReady = false;
       this.asteroidPositions = [];
       this.shipId = message.shipId;
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
       this.world.players.get(this.playerId!)!.shipId = message.shipId;
+      this.pendingDockActions.length = 0;
       return;
     }
 
@@ -683,6 +767,8 @@ export class NetworkClient {
 
     message.fullEntities = message.fullEntities.map((record) => {
       const previous = this.entityRecords.get(record.id);
+
+      mergeModuleStates(record, previous);
       const full = { ...previous, ...record } as ReplicatedEntity;
 
       Object.entries(record).forEach(([key, value]) => {
@@ -701,6 +787,10 @@ export class NetworkClient {
     this.entityRecords.forEach((_, id) => {
       if (!visible.has(id)) this.entityRecords.delete(id);
     });
+
+    if (this.hangarListPending) {
+      this.sendHangarAction({ command: 'LIST', shipId: 0, value: '' });
+    }
 
     // Receipt acknowledges decoded deltas, independent of render cadence.
     // The server can now replace skipped ticks with its latest state.
@@ -737,7 +827,7 @@ export class NetworkClient {
     if (!this.connected) return;
 
     this.prediction.recordInput({
-      input,
+      input: this.ownedShips?.length === 0 ? emptyPlayerInput() : input,
       offset: (performance.now() - this.inputTickStartedAt) / 1000,
       send: (message) => this.send({ ...message, type: 'input' }),
     });
@@ -745,6 +835,24 @@ export class NetworkClient {
 
   requestRespawn() {
     if (this.shipDestroyed || this.shipStranded) this.send({ type: 'respawn' });
+  }
+
+  sendHangarAction(action: HangarAction) {
+    if (!this.connected || this.socket.readyState !== WebSocket.OPEN) {
+      hangarState.busy = false;
+      hangarState.error = 'Not connected to the server.';
+      return;
+    }
+
+    if (action.command === 'LIST') {
+      const ship = this.entityRecords.get(this.shipId!);
+
+      this.hangarListPending = !ship?.dockedTo || Boolean(ship.launching);
+
+      if (this.hangarListPending) return;
+    }
+
+    this.send({ type: 'hangar', ...action });
   }
 
   private send(message: ClientMessage) {
@@ -833,7 +941,7 @@ export class NetworkClient {
     if (!this.connected || this.playerId === undefined) return;
 
     const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
-      input,
+      input: this.ownedShips?.length === 0 ? emptyPlayerInput() : input,
       send: (message) => this.send({ ...message, type: 'input' }),
     };
 
@@ -986,6 +1094,7 @@ export const network = new NetworkClient({
   url: `${socketProtocol}//${location.host}/game-socket`,
 });
 
+setHangarActionDispatcher((action) => network.sendHangarAction(action));
 setCraftActionDispatcher((ship, action) =>
   network.applyCraftAction(ship, action),
 );

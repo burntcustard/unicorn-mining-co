@@ -30,6 +30,9 @@ type DockAction struct {
 }
 
 type Control struct {
+	Position       specs.Vector
+	HangarCommand  string
+	ShipID         int64
 	GateID         uint64
 	Channel        byte
 	Text           string
@@ -43,7 +46,19 @@ type Control struct {
 	Dock           DockAction
 }
 
+type MapMarker struct {
+	Kind                                  string
+	ID                                    int64
+	Position                              specs.Vector
+	Radius                                float64
+	Name, DefinitionID, Color, SenderRole string
+}
+
 type ServerControl struct {
+	MapMarkers                   []MapMarker
+	ShipsForSale                 []specs.ShipOffer
+	HangarShips                  *Snapshot
+	HangarError                  string
 	CargoDemand                  *int64
 	Channel                      byte
 	Sender, SenderRole, Text     string
@@ -59,7 +74,10 @@ type ServerControl struct {
 	Spawn                        specs.Vector
 }
 
-type writer struct{ data []byte }
+type writer struct {
+	data        []byte
+	moduleDelta *ModuleDelta
+}
 
 func ValidDisplayName(value string) bool {
 	return utf8.ValidString(value) && utf8.RuneCountInString(value) <= 16
@@ -231,6 +249,41 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 	r := reader{data: data, offset: 4}
 
 	switch int(data[3]) {
+	case ids.ControlMessageIDs["sectorMap"]:
+		message.Type = "sectorMap"
+		var err error
+		message.Position.X, err = r.number()
+
+		if err != nil {
+			return Control{}, err
+		}
+
+		message.Position.Y, err = r.number()
+
+		if err != nil {
+			return Control{}, err
+		}
+
+	case ids.ControlMessageIDs["hangar"]:
+		message.Type = "hangar"
+		var err error
+		message.HangarCommand, err = r.name()
+
+		if err != nil {
+			return Control{}, err
+		}
+
+		message.ShipID, err = r.signed()
+
+		if err != nil {
+			return Control{}, err
+		}
+
+		message.Text, err = r.name()
+
+		if err != nil {
+			return Control{}, err
+		}
 	case ids.ControlMessageIDs["profile"]:
 		var err error
 		message.Type = "profile"
@@ -252,7 +305,7 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 			return Control{}, ErrControl
 		}
 
-		if present == 1 {
+		if present&1 != 0 {
 			message.PlayerToken, err = r.uuid()
 
 			if err != nil {
@@ -507,6 +560,62 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 }
 
 func EncodeServerControl(message ServerControl, ids specs.Protocol) ([]byte, error) {
+	if message.Type == "sectorMap" {
+		w := controlWriter(ids.ControlMessageIDs["sectorMap"])
+		w.unsigned(uint64(len(message.MapMarkers)))
+		kinds := map[string]byte{"field": 0, "station": 1, "ship": 2, "jumpGate": 3, "wormhole": 4}
+
+		for _, marker := range message.MapMarkers {
+			kind, ok := kinds[marker.Kind]
+
+			if !ok {
+				return nil, ErrControl
+			}
+
+			w.byte(kind)
+			w.signed(marker.ID)
+			w.number(marker.Position.X)
+			w.number(marker.Position.Y)
+			w.number(marker.Radius)
+
+			for _, value := range []string{marker.Name, marker.DefinitionID, marker.Color} {
+				if err := w.text(value); err != nil {
+					return nil, err
+				}
+			}
+
+			if marker.Kind == "ship" {
+				if err := w.text(marker.SenderRole); err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		return w.data, nil
+	}
+
+	if message.Type == "hangar" && message.HangarShips != nil && message.Credits != nil {
+		w := controlWriter(ids.ControlMessageIDs["hangar"])
+		w.unsigned(message.ShipID)
+		w.number(*message.Credits)
+
+		if err := w.text(message.HangarError); err != nil {
+			return nil, err
+		}
+
+		w.unsigned(uint64(len(message.ShipsForSale)))
+
+		for _, offer := range message.ShipsForSale {
+			if err := w.name(offer.Ship); err != nil {
+				return nil, err
+			}
+
+			w.number(offer.Price)
+		}
+
+		return AppendSnapshot(w.data, *message.HangarShips, ids)
+	}
+
 	if message.Type == "chat" {
 		if message.Channel > 1 {
 			return nil, ErrControl

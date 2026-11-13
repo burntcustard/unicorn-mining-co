@@ -1,5 +1,5 @@
 <div
-  class="hud-modules ui-controls grid gap-2 uppercase text-outline text-secondary"
+  class="hud-modules grid gap-2 uppercase text-outline text-secondary"
   hidden
 ></div>
 <div class="hud-stores grid" hidden>
@@ -133,6 +133,36 @@
   </div>
 </div>
 <div class="hud-map ui-card border-full" hidden>
+  <div class="hud-map-toolbar">
+    <div class="hud-map-zoom" inert>
+      <button
+        class="ui-control"
+        type="button"
+        data-map-zoom-in
+        aria-label="Zoom map in"
+      >
+        <kbd class="flex-none">+</kbd>
+      </button>
+      <button
+        class="ui-control"
+        type="button"
+        data-map-zoom-out
+        aria-label="Zoom map out"
+      >
+        <kbd class="flex-none">-</kbd>
+      </button>
+    </div>
+    <button
+      class="ui-control flex items-center gap-3"
+      type="button"
+      data-map-toggle
+      aria-label="Toggle map"
+      aria-expanded="false"
+      aria-pressed="false"
+    >
+      <kbd class="flex-none" data-map-key>Tab</kbd>
+    </button>
+  </div>
   <canvas
     height="300"
     role="img"

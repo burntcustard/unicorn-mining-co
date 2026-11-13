@@ -1,7 +1,7 @@
 import { game } from '../../game';
 import { shapePath } from '../../utilities/drawing';
 import { drawBeam } from '../../utilities/lighting';
-import { traceBeam, litPath } from '../../utilities/prism';
+import { traceBeam, litPath, filteredPaths } from '../../utilities/prism';
 import { Module, type ModuleRenderOptions } from './module';
 import { type ModuleSpec } from '../../../specs/modules/types';
 
@@ -42,7 +42,7 @@ class SearchLightModule extends Module {
     }
 
     if (!segment.activationProgress) return;
-    const beam = segment.prism || traceBeam(pose, segment, scenery);
+    const beam = segment.prism || traceBeam(pose, segment, scenery, craft);
     const points = segment.points;
     const outline = typeof points === 'function' ? points(segment) : points;
     let cached = paths.get(points);
@@ -65,16 +65,25 @@ class SearchLightModule extends Module {
 
     super.render({
       segment,
-      draw: () =>
-        drawBeam({
+      draw: () => {
+        const options = {
           ctx: game.ctx,
           path: cached.path,
-          color: segment.shades[2],
           reach: this.reach,
           spread: this.spread,
           activationProgress: segment.activationProgress,
+        };
+
+        drawBeam({
+          ...options,
+          color: segment.shades[2],
           lit: litPath(beam),
-        }),
+        });
+
+        filteredPaths(beam).forEach((lit, color) => {
+          drawBeam({ ...options, color, lit });
+        });
+      },
     });
   }
 }

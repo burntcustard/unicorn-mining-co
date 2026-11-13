@@ -34,7 +34,13 @@ function advanceBenchmarkMenu() {
   );
 
   if (play && !play.disabled && play.getClientRects().length) {
-    play.click();
+    play.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        isPrimary: true,
+        button: 0,
+      }),
+    );
   }
 }
 

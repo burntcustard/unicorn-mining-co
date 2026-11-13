@@ -19,7 +19,7 @@ WORLD_SEED = '25'
 DATABASE_PATH = '/data/world.sqlite'
 BACKUP_DIRECTORY = '/data/backups'
 # Budget Go-managed memory below VM RAM, leaving room for the OS and file mappings.
-GOMEMLIMIT = '300MiB'
+GOMEMLIMIT = '600MiB'
 
 [[mounts]]
 source = 'game_data'
@@ -41,9 +41,8 @@ method = 'GET'
 path = '/healthz'
 
 [[vm]]
-# Shared quota is pooled: two vCPUs provide 0.125 CPU in total,
-# or 6.25% average utilization across the machine's two vCPUs.
-memory = '512mb'
+# Shared CPU quota is pooled across the machine's vCPUs.
+memory = '1gb'
 cpu_kind = 'shared'
-cpus = 2
-memory_mb = 512
+cpus = 4
+memory_mb = 1024

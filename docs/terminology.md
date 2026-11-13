@@ -4,6 +4,8 @@
 
 **asteroid segment** - One destructible piece of an asteroid, with its own shape, health, and contents.
 
+**asteroid debris** - Small triangular fragments created when a detached asteroid segment is destroyed. They decay unless holding an item and do not subdivide further.
+
 **benchmark case** - One measured configuration in a benchmark suite, such as a rendering scenario in one browser or a server workload with one player count.
 
 **benchmark suite** - A group of benchmark cases run together with common measurement settings.
@@ -14,7 +16,7 @@
 
 **burst balance** - Accumulated CPU time available for temporary usage above a shared server's sustained quota. Benchmark settings restarts can discard this balance.
 
-**buy** - A docked action that pays credits for a new module or item. Trade puts purchases in cargo contents; Outfitting buys and equips a module on a compatible empty mount in one action. It is the opposite of selling.
+**buy** - A docked action that pays credits for a ship, module, or item. Hangar adds a fully fueled ship with its standard loadout and immediately pilots it. Trade puts purchases in cargo contents; Outfitting buys and equips a module on a compatible empty mount in one action. It is the opposite of selling.
 
 **cadence** - The timing of recurring snapshots or frames, including their rate and the gaps between them.
 
@@ -66,7 +68,7 @@
 
 **fuel capacity** - The maximum liters (L) of fuel a ship can hold, defined by its ship spec.
 
-**fuel usage** - A thruster module's full forward-thrust consumption in liters per second (L/s). Turning alone uses half this rate; forward thrust with turning uses the forward rate. Coasting and docking use no fuel. Below 5% capacity, speed and turn rate are halved and fuel usage is one quarter of normal.
+**fuel usage** - A thruster module's full forward-thrust consumption in liters per second (L/s). A ship consumes the combined fuel usage of its working thrusters. Turning alone uses half this rate; forward thrust with turning uses the forward rate. Coasting and docking use no fuel. Below 5% capacity, speed and turn rate are halved and fuel usage is one quarter of normal.
 
 **refuel** - A station overview action that fills the ship's fuel tank, charging for the missing liters at the shared fuel price, rounded up to whole unicredits.
 
@@ -84,6 +86,8 @@
 
 **hull** - The structural body of a craft or jump gate, made from hull segments rather than fitted modules.
 
+**hangar** - The station tab for managing owned ships and buying ships. Owned ships are accessible at every station, including multiple instances of the same model. Each station instance has its own `shipsForSale` array of ship IDs and complete purchase prices, initialized from its spec and sent by the server when using the Hangar. A ship spec's `price` is the bare hull value; standard fitted modules are added to the station's purchase price. Selling returns the full hull, current fitted module, and cargo values, without depreciation for damage. Custom ship names contain 1 to 16 characters and do not change the player's profile name.
+
 **hull segment** - One structural piece of a craft's or jump gate's hull. It has its own shape and health and may carry a mount.
 
 **input acknowledgment** - Server confirmation that it consumed a particular player input sequence, carried in a snapshot. Its arrival does not identify the exact wall-clock time when the server applied the input.
@@ -100,7 +104,7 @@
 
 **latency trial** - One actor input event and its measured responses. The three observers remain paired within that trial rather than counting as three independent input events.
 
-**light beam** - The visible cone projected by an active search light, from its lens to the first asteroid it meets or the end of its reach.
+**light beam** - The visible cone projected by an active search light, from its lens to the first physical object it meets or the end of its reach.
 
 **lightweight protocol client** - A benchmark client that uses the normal binary game protocol without running a browser or renderer.
 
@@ -225,7 +229,7 @@ Module and effect specs author durations and delays in milliseconds. Module cons
 
 **throttling** - The host scheduler withholding CPU time after a shared server exhausts its quota and burst balance. Memory pressure can cause separate stalls even without CPU throttling.
 
-**thruster** - A module used to propel a craft.
+**thruster** - A module used to propel a craft. A ship's forward and rotational thrust are the sums from its working thrusters divided by the number of thruster-capable mounts in its original hull plan. Empty mounts and mounts on destroyed hull segments still count.
 
 **flare** - A visual effect that expresses craft thrust. A thruster flare may appear larger, smaller, or not be visible at all, depending on its associated thruster's activation status.
 

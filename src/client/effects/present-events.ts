@@ -1,3 +1,6 @@
+import { plasmaExplosion } from '../../specs/effects/plasma-explosion';
+import { autogunExplosion } from '../../specs/effects/autogun-explosion';
+import { playSound } from '../audio/sound-loader';
 import { type SimulationEvent } from '../protocol/events';
 import { sprayDamage } from './shrapnel';
 import { addEffect } from './effect';
@@ -25,6 +28,12 @@ export const presentEvents = ({
 
   events.forEach((event) => {
     if (event.type === 'explosion') {
+      if (event.effect === autogunExplosion) {
+        playSound('autogun-ammo-explode', { id: event.objectId });
+      } else if (event.effect === plasmaExplosion) {
+        playSound('plasma-accelerator-ammo-explode', { id: event.objectId });
+      }
+
       addEffect({
         effect: event.effect,
         position: event.position,

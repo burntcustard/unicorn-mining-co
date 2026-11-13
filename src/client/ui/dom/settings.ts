@@ -17,6 +17,8 @@ import {
   saveRenderer,
   nativeHud,
   saveNativeHud,
+  hideUi,
+  saveHideUi,
   backdropBlur,
   saveBackdropBlur,
 } from './graphics';
@@ -44,6 +46,7 @@ export const createSettings = () => {
     const row = document.createElement('div');
 
     row.className = 'flex items-center justify-between gap-6 py-2 uppercase';
+    row.setAttribute('data-action-group', '');
     const text = document.createElement('span');
 
     text.textContent = label;
@@ -52,7 +55,7 @@ export const createSettings = () => {
     button.className = 'ui-button text-center';
 
     button.addEventListener(
-      'click',
+      'ui-press',
       () => {
         capture = i;
         prompt.textContent = `Press a new key for ${label}.`;
@@ -85,7 +88,7 @@ export const createSettings = () => {
             : 'Press to toggle on or off';
 
         choice.addEventListener(
-          'click',
+          'ui-press',
           () => {
             binding.mode = mode;
             saveBindings();
@@ -120,7 +123,17 @@ export const createSettings = () => {
   dialog.addEventListener(
     'keydown',
     (event) => {
-      if (capture < 0) return;
+      if (capture < 0 || event.key === 'Enter') return;
+
+      if (
+        event.key === 'Control' ||
+        event.key === 'Meta' ||
+        ((event.ctrlKey || event.metaKey) &&
+          ['-', '+', '=', '0'].includes(event.key))
+      ) {
+        return;
+      }
+
       event.stopPropagation();
 
       if (event.repeat) {
@@ -128,7 +141,7 @@ export const createSettings = () => {
         return;
       }
 
-      if (['Tab', 'Enter', 'Escape'].includes(event.key)) return;
+      if (['Tab', 'Escape'].includes(event.key)) return;
       event.preventDefault();
       const key = event.key.toLowerCase();
 
@@ -166,6 +179,10 @@ export const createSettings = () => {
     { signal: screen.signal },
   );
 
+  query(dialog, 'button').addEventListener('ui-press', () => dialog.close(), {
+    signal: screen.signal,
+  });
+
   dialog.addEventListener(
     'close',
     () => {
@@ -178,12 +195,12 @@ export const createSettings = () => {
     { signal: screen.signal },
   );
 
-  query(screen.element, '[data-back]').addEventListener('click', ui.back, {
+  query(screen.element, '[data-back]').addEventListener('ui-press', ui.back, {
     signal: screen.signal,
   });
 
   query(screen.element, '[data-reset]').addEventListener(
-    'click',
+    'ui-press',
     () => {
       capture = -1;
       resetBindings();
@@ -206,7 +223,7 @@ export const createSettings = () => {
 
   tabs.forEach(({ button }, index) => {
     button.addEventListener(
-      'click',
+      'ui-press',
       () => {
         status.textContent = '';
 
@@ -240,6 +257,14 @@ export const createSettings = () => {
         { signal: screen.signal },
       );
     });
+
+  const hide = query<HTMLInputElement>(screen.element, '[data-hide-ui]');
+
+  hide.checked = hideUi;
+
+  hide.addEventListener('change', () => saveHideUi(hide.checked), {
+    signal: screen.signal,
+  });
 
   const blur = query<HTMLInputElement>(screen.element, '[data-backdrop-blur]');
 

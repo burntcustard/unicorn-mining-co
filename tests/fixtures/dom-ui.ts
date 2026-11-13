@@ -8,16 +8,31 @@ import { player } from '../../src/client/player.ts';
 import { init } from '../../src/client/core.ts';
 import { game } from '../../src/client/game.ts';
 import { ui, updateNotification } from '../../src/client/ui/dom/ui.ts';
+import { hideUi, saveHideUi } from '../../src/client/ui/dom/graphics';
 import { syncDockedUi } from '../../src/client/ui/dom/docked-loader.ts';
 import { setCraftActionDispatcher } from '../../src/client/network/craft-actions.ts';
+import {
+  hangarState,
+  setHangarActionDispatcher,
+} from '../../src/client/network/hangar-actions';
+import { shipSpecsById, type ShipId } from '../../src/specs/ships';
+import { stationSpecsById } from '../../src/specs/stations';
 import { Station } from '../../src/client/objects/station.ts';
 import { Item } from '../../src/client/objects/item.ts';
-import { autogunAmmo, diamond } from '../../src/specs/items';
+import {
+  amethyst,
+  autogunAmmo,
+  diamond,
+  gold,
+  opal,
+} from '../../src/specs/items';
 import { pirateDialog } from '../../src/specs/dialog/pirate';
 import { cloneEntity } from '../../src/client/simulation/world-state';
 import {
   Autogun,
+  AutogunTurret,
   Laser,
+  PlasmaAccelerator,
   SearchLight,
 } from '../../src/client/objects/modules/index.ts';
 import { paintColors } from '../../src/specs/colors.ts';
@@ -129,9 +144,49 @@ export const checkChat = () => {
   const tabs = panel.querySelectorAll<HTMLButtonElement>('.chat-tabs button');
 
   chat.update(undefined, true);
+
+  const observer = new MutationObserver(() => {});
+
+  observer.observe(panel, {
+    attributes: true,
+    characterData: true,
+    childList: true,
+    subtree: true,
+  });
+
+  let layoutReads = 0;
+
+  for (const property of ['scrollTop', 'scrollHeight', 'clientHeight']) {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      property,
+    )!;
+
+    Object.defineProperty(log, property, {
+      configurable: true,
+      get() {
+        layoutReads++;
+        return descriptor.get!.call(log);
+      },
+      set: descriptor.set
+        ? (value) => descriptor.set!.call(log, value)
+        : undefined,
+    });
+  }
+
+  chat.update(undefined, true);
+  const idleWithoutLayoutOrMutations =
+    layoutReads === 0 && !observer.takeRecords().length;
+
+  observer.disconnect();
+
+  for (const property of ['scrollTop', 'scrollHeight', 'clientHeight']) {
+    delete (log as unknown as Record<string, unknown>)[property];
+  }
+
   const gridPlacement =
-    panel.parentElement === ui.element &&
-    getComputedStyle(ui.element).display === 'grid' &&
+    panel.parentElement === ui.hudElement &&
+    getComputedStyle(ui.hudElement).display === 'grid' &&
     getComputedStyle(panel).getPropertyValue(' position '.trim()) === 'static';
   const release = panel.querySelector<HTMLButtonElement>('.cargo-release')!;
   const releaseRequiresCargo = release.disabled;
@@ -445,7 +500,7 @@ export const checkChat = () => {
   const originalAccessKeys = defaultKeybindings.requestGateAccess.keys;
   const moduleStyle =
     retryAccess.classList.contains('flex') &&
-    retryAccess.parentElement!.classList.contains('ui-controls') &&
+    retryAccess.classList.contains('ui-control') &&
     retryAccess.querySelector('kbd')!.textContent ===
       originalAccessKeys.join(' / ');
 
@@ -660,6 +715,7 @@ export const checkChat = () => {
   return Object.fromEntries([
     ...Object.entries(checkGateBeams()),
     ['gridPlacement', gridPlacement],
+    ['idleWithoutLayoutOrMutations', idleWithoutLayoutOrMutations],
     ['releaseRequiresCargo', releaseRequiresCargo],
     ['releaseRequiresDemand', releaseRequiresDemand],
     ['publicDemandIsNotPersonal', publicDemandIsNotPersonal],
@@ -740,7 +796,165 @@ setCraftActionDispatcher((ship, action) =>
   ship.applyDockAction(action, player),
 );
 
+setHangarActionDispatcher(({ command, shipId, value }) => {
+  const ship = player.ships.find((ship) => ship.id === shipId);
+
+  if (command === 'BUY' || command === 'SPECIAL') {
+    const offer = stationSpecsById
+      .get('corral-5')!
+      .shipsForSale.find((offer) => offer.ship === value)!;
+
+    const ship = createPlayerShip(player.ship.world!, {
+      shipType: value as ShipId,
+    });
+
+    const previous = player.ship;
+
+    ship.dockedTo = station.id;
+
+    if (command === 'SPECIAL') {
+      player.credits = 0;
+      player.ships.splice(0, player.ships.length, ship);
+    } else {
+      player.credits -= offer.price;
+      player.ships.unshift(ship);
+    }
+
+    player.berth = undefined;
+
+    if (!player.ships.includes(previous)) previous.remove();
+  } else if (ship) {
+    if (command === 'RENAME') ship.name = value;
+
+    if (command === 'PILOT') {
+      player.ships = [ship, ...player.ships.filter((owned) => owned !== ship)];
+    }
+
+    if (command === 'SELL') {
+      player.credits +=
+        shipSpecsById.get((ship.definitionId || 'mustang') as ShipId)!.price +
+        ship.mounts.reduce(
+          (sum, mount) => sum + (mount.module ? mount.module.price : 0),
+          0,
+        ) +
+        ship.cargoContents.reduce(
+          (sum, object) => sum + (object.price || 0),
+          0,
+        ) -
+        ship.repairCost() -
+        ship.mounts.reduce((sum, mount) => sum + ship.repairCost(mount), 0) -
+        ship.refuelCost;
+      player.ships = player.ships.filter((owned) => owned !== ship);
+
+      if (!player.ships.length) {
+        ship.mounts.forEach((mount) => {
+          if (mount.module) ship.fit(0, mount);
+        });
+
+        ship.cargoContents = [];
+        player.berth = ship;
+      }
+    }
+
+    if (command === 'REFUEL') {
+      ship.applyDockAction({ action: 'refuel' }, player);
+    }
+
+    if (command === 'PAINT') {
+      ship.applyDockAction({ action: 'paint', paint: Number(value) }, player);
+    }
+
+    if (command === 'REPAIR') {
+      ship.applyDockAction({ action: 'repair' }, player);
+
+      ship.mounts.forEach((mount, index) => {
+        if (mount.module) {
+          ship.applyDockAction(
+            { action: 'repair', mount: index, moduleId: mount.module.id },
+            player,
+          );
+        }
+      });
+    }
+  }
+
+  hangarState.busy = false;
+});
+
+export const hangarTestState = () => [
+  player.ships.map((ship) => [ship.id, ship.name]),
+  player.ships.length ? player.ship.id : 0,
+  player.credits,
+];
+
+export const fundHangar = () => {
+  player.credits = 100000;
+  ui.current.update();
+};
+
+export const impoverishHangar = () => {
+  player.credits = 123;
+  player.ship.fuel = 0;
+  ui.current.update();
+};
+
+export const hangarStatus = (busy: boolean, error = '') => {
+  hangarState.busy = busy;
+  hangarState.error = error;
+  ui.current.update();
+};
+
+export const damageHangarShip = () => {
+  const ship = player.ship;
+
+  ship.fuel = 1;
+  const health = ship.hullHealth;
+
+  health[0] = 2;
+  ship.hullHealth = health;
+  ship.mounts.find((mount) => mount.module)!.health = 1;
+  ui.current.update();
+  return (
+    ship.repairCost() +
+    ship.mounts.reduce((sum, mount) => sum + ship.repairCost(mount), 0) +
+    ship.refuelCost
+  );
+};
+
 export const dock = () => syncDockedUi({ ship: player.ship, available: true });
+
+export const reopenDock = () => {
+  ui.clear();
+  syncDockedUi({ ship: player.ship, available: true });
+};
+
+export const ammoShip = () => {
+  const ship = createPlayerShip(player.ship.world!, { shipType: 'courser' });
+
+  addEntity(ship.world!, ship);
+  ship.dockedTo = station.id;
+  player.ships.unshift(ship);
+  player.credits = 10000;
+  station.cargoContents.push(new Item(autogunAmmo));
+  reopenDock();
+};
+
+export const alternateAmmo = () => {
+  const ammo = { ...autogunAmmo, resource: 999, price: 7 };
+  const cannon = player.ship.mounts[0].module;
+
+  if (!cannon) throw new Error('Cannon not fitted');
+
+  cannon.ammo = ammo;
+  station.cargoContents.push(new Item(ammo));
+  ui.current.update();
+};
+
+export const ammoState = () => [
+  player.credits,
+  player.ship.cargoContents.map((object) => object.resource),
+];
+
 export const inspect = () => [
   player.credits,
   player.ship.cargoContents.length,
@@ -769,6 +983,28 @@ export const replaceTradeCargo = () => {
 export const tradeCargo = () => {
   player.ship.cargoContents.push(new Item(diamond));
   ui.current.update();
+};
+
+export const tradeNavigationLayout = () => {
+  const cargo = player.ship.cargoContents;
+  const stock = station.cargoContents;
+
+  player.ship.cargoContents = [
+    new Item(gold),
+    new Item(opal),
+    new Laser(),
+    new Item(autogunAmmo),
+  ];
+  station.cargoContents = [amethyst, diamond, gold, opal, autogunAmmo].map(
+    (spec) => new Item(spec),
+  );
+  ui.current.update();
+
+  return () => {
+    player.ship.cargoContents = cargo;
+    station.cargoContents = stock;
+    ui.current.update();
+  };
 };
 
 export const damage = () => {
@@ -895,6 +1131,102 @@ export const damageHull = () => {
 };
 
 export const hullHealth = () => player.ship.hullHealth;
+
+export const showroomActivation = async () => {
+  const { Ship } = await import('../../src/client/objects/ship');
+  // oxlint-disable-next-line typescript/unbound-method
+  const activate = Ship.prototype.setSegmentActive;
+  const states: [boolean, boolean, number][] = [];
+  const before = JSON.stringify(player.ship.moduleStates);
+
+  Ship.prototype.setSegmentActive = function (segment, active) {
+    states.push([
+      Boolean(segment.hull),
+      segment.module.definitionId === 'searchLight',
+      active,
+    ]);
+    activate.call(this, segment, active);
+  };
+
+  try {
+    document.querySelector('[data-key="offer:arrow"]').dispatchEvent(
+      new CustomEvent('ui-press', {
+        bubbles: true,
+        detail: new KeyboardEvent('keydown', { key: 'Enter' }),
+      }),
+    );
+
+    return [
+      states.some(([hull, light, active]) => !hull && !light && active === 1),
+      states.every(
+        ([hull, light, active]) => active === (hull || light ? 0 : 1),
+      ),
+      states.some(([, light]) => light),
+      before === JSON.stringify(player.ship.moduleStates),
+    ];
+  } finally {
+    Ship.prototype.setSegmentActive = activate;
+  }
+};
+
+export const shipThumbnailRendering = async () => {
+  const { renderingLayers } = await import('../../src/specs/rendering-layers');
+  const { Ship } = await import('../../src/client/objects/ship');
+  const { default: shipPreview } =
+    await import('../../src/client/ui/dom/ship-preview');
+  const target = document.createElement('canvas');
+  const source = player.ship;
+  const before = JSON.stringify([source.rotation, source.moduleStates]);
+  const context = game.ctx;
+  const scale = game.scale;
+  // oxlint-disable-next-line typescript/unbound-method
+  const render = Ship.prototype.render;
+  const rotations: number[] = [];
+  const flares: number[] = [];
+  const inactive: number[] = [];
+  let glow = false;
+
+  target.style.width = target.style.height = '48px';
+  document.body.append(target);
+
+  Ship.prototype.render = function (options) {
+    rotations.push(this.rotation);
+    glow ||=
+      options?.zIndex === renderingLayers.glowBelowShips ||
+      options?.zIndex === renderingLayers.glowAboveShips;
+
+    this.segments.forEach((segment) => {
+      (segment.flareSize ? flares : inactive).push(segment.activationProgress);
+    });
+
+    render.call(this, options);
+  };
+
+  try {
+    shipPreview.shipThumbnail(target, source);
+    const calls = rotations.length;
+    const image = target.toDataURL();
+
+    shipPreview.shipThumbnail(target, source);
+    const cached = calls === rotations.length;
+
+    target.style.width = target.style.height = '64px';
+    shipPreview.shipThumbnail(target, source);
+    return [
+      calls > 0 && rotations.every((rotation) => rotation === -Math.PI / 4),
+      cached,
+      image !== target.toDataURL(),
+      before === JSON.stringify([source.rotation, source.moduleStates]),
+      game.ctx === context && game.scale === scale,
+      flares.length > 0 && flares.every((progress) => progress === 1),
+      inactive.every((progress) => progress === 0),
+      !glow,
+    ];
+  } finally {
+    Ship.prototype.render = render;
+    target.parentElement.removeChild(target);
+  }
+};
 
 export const previewEquivalence = async () => {
   const { default: shipPreview } =
@@ -1062,6 +1394,7 @@ export const itemPreviewFraming = async () => {
 
 export const previewOcclusion = async () => {
   const { Ship } = await import('../../src/client/objects/ship');
+  const { renderingLayers } = await import('../../src/specs/rendering-layers');
   const { default: shipPreview } =
     await import('../../src/client/ui/dom/ship-preview');
   const target = document.createElement('canvas');
@@ -1090,12 +1423,12 @@ export const previewOcclusion = async () => {
 
     ctx.resetTransform();
 
-    if (zIndex === 2 && selectedModule) {
+    if (zIndex === renderingLayers.modulesBelowShipHull && selectedModule) {
       ctx.fillStyle = '#f0f';
       ctx.fillRect(8, 8, 32, 32);
     }
 
-    if (zIndex === 4) {
+    if (zIndex === renderingLayers.shipHull) {
       if (hull(0)) {
         ctx.fillStyle = '#0f0';
         ctx.fillRect(20, 8, 12, 32);
@@ -1112,7 +1445,7 @@ export const previewOcclusion = async () => {
       }
     }
 
-    if (zIndex === 5 && selectedModule) {
+    if (zIndex === renderingLayers.modulesAboveShipHull && selectedModule) {
       ctx.fillStyle = '#0ff';
       ctx.fillRect(20, 34, 12, 6);
     }
@@ -1142,6 +1475,189 @@ export const previewOcclusion = async () => {
   }
 };
 
+export const moduleLineWidths = async () => {
+  const { Module } = await import('../../src/client/objects/modules/module');
+  const { examplePowerPlant } =
+    await import('../../src/specs/modules/core/power-plants/example-power-plant');
+
+  const shades = ['#111', '#222', '#fff'];
+
+  const part = {
+    outline: true,
+    points: [
+      [0, 0],
+      [10, 0],
+      [0, 10],
+    ],
+    lines: [
+      [
+        [1, 1],
+        [5, 1],
+      ],
+    ],
+  };
+
+  const spec = { ...examplePowerPlant, shades, model: [part] };
+  const module = new Module({ shades });
+  const normal = Module.createModel(spec);
+
+  const custom = Module.createModel({
+    ...spec,
+    model: [{ ...part, lineWidth: 1.25 }],
+  });
+
+  const context = document.createElement('canvas').getContext('2d')!;
+  const previous = game.ctx;
+  const widths: number[] = [];
+
+  context.lineWidth = 4;
+
+  context.stroke = () => {
+    widths.push(context.lineWidth);
+  };
+
+  game.ctx = context;
+
+  try {
+    module.render({ segment: normal[0], markingsRotation: 0 });
+    const inherited = widths.splice(0);
+
+    module.render({ segment: custom[0], markingsRotation: 0 });
+    return [inherited, widths, context.lineWidth];
+  } finally {
+    game.ctx = previous;
+  }
+};
+
+export const previewInsideHull = async () => {
+  const { Ship } = await import('../../src/client/objects/ship');
+  const { renderingLayers } = await import('../../src/specs/rendering-layers');
+  const { default: shipPreview } =
+    await import('../../src/client/ui/dom/ship-preview');
+  const { moduleTypesById } = await import('../../src/client/objects/modules');
+  const source = createPlayerShip(createWorld());
+  const mount = source.mounts.findIndex(
+    ({ module }) => module && module.definitionId === 'powerPlant2V',
+  );
+  const hull = source.hullSegments.indexOf(source.mounts[mount].hull.module);
+  const target = document.createElement('canvas');
+  const descriptors = Object.getOwnPropertyDescriptors(Ship.prototype);
+  const request = window.requestAnimationFrame;
+  let draw: FrameRequestCallback;
+
+  target.style.width = target.style.height = '64px';
+  document.body.append(target);
+
+  window.requestAnimationFrame = (callback) => {
+    draw = callback;
+    return 0;
+  };
+
+  Ship.prototype.render = function ({ zIndex } = {}) {
+    const ctx = game.ctx;
+    const sameHullModule = this.segments.some(
+      (segment) =>
+        segment.mount &&
+        segment.mount.hull.module === this.hullSegments[hull] &&
+        segment.module.definitionId !== 'powerPlant2V',
+    );
+    const otherHullModule = this.segments.some(
+      (segment) =>
+        segment.mount && segment.mount.hull.module !== this.hullSegments[hull],
+    );
+
+    ctx.resetTransform();
+
+    if (
+      zIndex === renderingLayers.modulesInsideShipHull &&
+      this.segments.some(
+        (segment) =>
+          segment.mount && segment.module.definitionId === 'powerPlant2V',
+      )
+    ) {
+      ctx.fillStyle = '#f00';
+      ctx.fillRect(8, 8, 24, 32);
+    }
+
+    if (
+      zIndex === renderingLayers.shipHull &&
+      this.segments.some(
+        (segment) => segment.hull && segment.module !== this.hullSegments[hull],
+      )
+    ) {
+      ctx.fillStyle = '#00f';
+      ctx.fillRect(28, 16, 8, 8);
+    }
+
+    if (
+      zIndex === renderingLayers.shipHull &&
+      this.segments.some(
+        (segment) => segment.hull && segment.module === this.hullSegments[hull],
+      )
+    ) {
+      ctx.fillStyle = '#0f0';
+      ctx.fillRect(20, 8, 20, 32);
+    }
+
+    if (zIndex === renderingLayers.modulesBelowShipHull && sameHullModule) {
+      ctx.fillStyle = '#0ff';
+      ctx.fillRect(44, 24, 8, 8);
+    }
+
+    if (zIndex === renderingLayers.modulesAboveShipHull) {
+      if (sameHullModule) {
+        ctx.fillStyle = '#00f';
+        ctx.fillRect(44, 44, 8, 8);
+      }
+
+      if (otherHullModule) {
+        ctx.fillStyle = '#f0f';
+        ctx.fillRect(52, 8, 8, 8);
+      }
+    }
+  };
+
+  const preview = shipPreview.createShipPreview(target);
+  const pixels = () =>
+    [
+      [12, 12],
+      [24, 12],
+      [38, 12],
+      [46, 26],
+      [46, 46],
+      [54, 12],
+      [30, 18],
+    ].map(([x, y]) =>
+      Array.from(target.getContext('2d').getImageData(x, y, 1, 1).data),
+    );
+
+  try {
+    preview.update(source, { hull, mount });
+    draw(16);
+    const selected = pixels();
+
+    source.fit(0, source.mounts[mount]);
+
+    preview.update(source, {
+      hull,
+      mount,
+      candidate: moduleTypesById.get('powerPlant2V'),
+    });
+
+    draw(32);
+    const candidate = pixels();
+
+    preview.update(source, { hull });
+    draw(48);
+    return [selected, candidate, pixels()];
+  } finally {
+    preview.destroy();
+    Object.defineProperties(Ship.prototype, descriptors);
+    window.requestAnimationFrame = request;
+    document.body.removeChild(target);
+  }
+};
+
 export const setFuel = (fuel: number, credits: number) => {
   player.ship.fuel = fuel;
   player.credits = credits;
@@ -1151,6 +1667,176 @@ export const setFuel = (fuel: number, credits: number) => {
 export const fuelState = () => [player.ship.fuel, player.credits];
 
 export const notification = (message: string) => updateNotification(message);
+
+export const checkNotifications = () => {
+  const note = ui.element.querySelector<HTMLElement>('.ui-notification')!;
+  const previousMessage = note.hidden ? '' : note.textContent!;
+  const previousHideUi = hideUi;
+  const previousHudHidden = ui.hudElement.hidden;
+  const checks: Record<string, boolean> = {};
+
+  try {
+    ui.hudElement.hidden = true;
+    saveHideUi(false);
+    updateNotification('DIAMOND SOLD - CYAN UNLOCKED');
+    checks['visible while the docked screen hides the in-game HUD'] =
+      Boolean(ui.current?.element.getClientRects().length) &&
+      note.parentElement === ui.element &&
+      note.getClientRects().length > 0 &&
+      getComputedStyle(note).opacity === '1' &&
+      note.textContent === 'DIAMOND SOLD - CYAN UNLOCKED';
+    saveHideUi(true);
+    checks[
+      'Hide UI makes the notification transparent without removing its text'
+    ] =
+      getComputedStyle(note).opacity === '0' &&
+      !note.hidden &&
+      note.textContent === 'DIAMOND SOLD - CYAN UNLOCKED' &&
+      getComputedStyle(ui.current!.element).opacity === '1';
+    saveHideUi(false);
+    checks[
+      'turning Hide UI off restores the active notification while docked'
+    ] =
+      ui.hudElement.hidden &&
+      note.getClientRects().length > 0 &&
+      getComputedStyle(note).opacity === '1';
+    updateNotification('');
+    checks['expiration still hides the notification'] =
+      note.hidden && note.getClientRects().length === 0;
+    return checks;
+  } finally {
+    ui.hudElement.hidden = previousHudHidden;
+    saveHideUi(previousHideUi);
+    updateNotification(previousMessage);
+  }
+};
+
+export const previewAutogunAudio = async () => {
+  const { Ship } = await import('../../src/client/objects/ship');
+  const { default: shipPreview } =
+    await import('../../src/client/ui/dom/ship-preview');
+  const { preloadSound, unlockAudio } =
+    await import('../../src/client/audio/sound-loader');
+
+  await preloadSound();
+  await unlockAudio();
+
+  const target = document.createElement('canvas');
+  const request = window.requestAnimationFrame;
+  const cancel = window.cancelAnimationFrame;
+  // oxlint-disable-next-line typescript/unbound-method
+  const start = AudioBufferSourceNode.prototype.start;
+  // oxlint-disable-next-line typescript/unbound-method
+  const stop = AudioBufferSourceNode.prototype.stop;
+  const frames = new Map<number, FrameRequestCallback>();
+  const started: AudioBufferSourceNode[] = [];
+  const stopped: AudioBufferSourceNode[] = [];
+  let nextFrame = 0;
+  let time = 0;
+
+  target.style.width = target.style.height = '128px';
+  document.body.append(target);
+
+  window.requestAnimationFrame = (callback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  };
+
+  window.cancelAnimationFrame = (id) => {
+    frames.delete(id);
+  };
+
+  AudioBufferSourceNode.prototype.start = function (...args) {
+    started.push(this);
+    return start.apply(this, args);
+  };
+
+  AudioBufferSourceNode.prototype.stop = function (...args) {
+    stopped.push(this);
+    return stop.apply(this, args);
+  };
+
+  const draw = (count: number) => {
+    for (let index = 0; index < count; index++) {
+      const pending = [...frames.values()];
+
+      frames.clear();
+      time += 16;
+      pending.forEach((callback) => callback(time));
+    }
+  };
+
+  const source = new Ship();
+  const gunMount = source.mounts.findIndex(({ fits }) =>
+    fits.includes(Autogun),
+  );
+  const turretMount = source.mounts.findIndex(({ fits }) =>
+    fits.includes(AutogunTurret),
+  );
+  let preview = shipPreview.createShipPreview(target);
+
+  try {
+    source.fit(new Autogun(), source.mounts[gunMount]);
+    preview.update(source, { mount: gunMount });
+    draw(110);
+    const fittedMotor = started.find((node) => node.loop);
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    draw(1);
+    const fittedClick = started.some((node) => !node.loop);
+
+    source.fit(0, source.mounts[gunMount]);
+    preview.update(source, { mount: turretMount, candidate: AutogunTurret });
+    draw(110);
+    const candidateMotor = started.filter((node) => node.loop).at(-1);
+    const fittedStopped = !!fittedMotor && stopped.includes(fittedMotor);
+
+    target.style.display = 'none';
+    draw(1);
+    const hiddenStopped = !!candidateMotor && stopped.includes(candidateMotor);
+
+    target.style.display = '';
+    preview.update(source, { mount: turretMount, candidate: AutogunTurret });
+    draw(2);
+    const resumedMotor = started.filter((node) => node.loop).at(-1);
+
+    preview.update(source, { mount: -1 });
+    const unselectedStopped = !!resumedMotor && stopped.includes(resumedMotor);
+
+    preview.update(source, { mount: turretMount, candidate: AutogunTurret });
+    draw(2);
+    const reselectedMotor = started.filter((node) => node.loop).at(-1);
+
+    preview.destroy();
+    const destroyed = !!reselectedMotor && stopped.includes(reselectedMotor);
+    const beforePlasma = started.filter((node) => !node.loop).length;
+
+    preview = shipPreview.createShipPreview(target);
+    preview.update(source, { mount: gunMount, candidate: PlasmaAccelerator });
+    draw(220);
+    const plasmaBeeps = started.filter((node) => !node.loop).length;
+
+    return [
+      !!fittedMotor,
+      fittedClick,
+      fittedStopped,
+      !!candidateMotor && candidateMotor !== fittedMotor,
+      hiddenStopped,
+      !!resumedMotor && resumedMotor !== candidateMotor,
+      unselectedStopped,
+      !!reselectedMotor && reselectedMotor !== resumedMotor,
+      destroyed,
+      plasmaBeeps > beforePlasma,
+    ];
+  } finally {
+    preview.destroy();
+    AudioBufferSourceNode.prototype.start = start;
+    AudioBufferSourceNode.prototype.stop = stop;
+    window.requestAnimationFrame = request;
+    window.cancelAnimationFrame = cancel;
+    document.body.removeChild(target);
+  }
+};
 
 export const previewStability = async () => {
   const { Ship } = await import('../../src/client/objects/ship');
@@ -1296,14 +1982,16 @@ export const previewStability = async () => {
 
 export const checkHud = () => {
   let toggled: unknown;
+  let now = 0;
 
   const hud = createHud({
+    now: () => now,
     onToggle: (Type) => {
       toggled = Type;
     },
   });
 
-  const element = ui.element;
+  const element = ui.hudElement;
   const panels = Array.from(
     element.querySelectorAll<HTMLElement>(
       ':scope > :is(.hud-modules, .hud-stores, .hud-sector, .hud-credits, .hud-target, .hud-map)',
@@ -1326,12 +2014,86 @@ export const checkHud = () => {
   const text = (selector: string) =>
     element.querySelector(selector)?.textContent;
 
-  hud.update(options);
+  const update = (value: Parameters<typeof hud.update>[0]) => {
+    now += 50;
+    hud.update(value);
+  };
+
+  update(options);
   const readouts =
     text('[data-credits]') === '1,998$' &&
     text('[data-pilot]') === 'Pilot' &&
     text('[data-sector]') === 'Patroclus' &&
     text('[data-coordinates]') === '     0\u2009/\u20090     ';
+
+  hud.update({ ...options, credits: 1 });
+  const coalescedStart = text('[data-credits]') === '1,998$';
+
+  now += 33;
+  hud.update({ ...options, credits: 2 });
+  const coalescedBeforeDeadline = text('[data-credits]') === '1,998$';
+
+  now++;
+  hud.update({ ...options, credits: 42 });
+  const coalescedInstruments =
+    coalescedStart &&
+    coalescedBeforeDeadline &&
+    text('[data-credits]') === '42$';
+
+  now += 32;
+  hud.update({ ...options, credits: 46 });
+  const phaseBeforeDeadline = text('[data-credits]') === '42$';
+
+  now++;
+  hud.update({ ...options, credits: 47 });
+  const phasePreserved =
+    phaseBeforeDeadline && text('[data-credits]') === '47$';
+
+  const mutations = new MutationObserver(() => {});
+
+  mutations.observe(element, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
+
+  now += 100;
+  hud.update({ ...options, credits: 47 });
+  const unchangedDom = mutations.takeRecords().length === 0;
+
+  mutations.disconnect();
+
+  hud.update({ ...options, shown: false });
+  hud.update({ ...options, credits: 43 });
+  const refreshedOnShow = text('[data-credits]') === '43$';
+
+  hud.update({ ...options, credits: 44, sectorName: 'Acamas' });
+  const refreshedOnSectorChange =
+    text('[data-credits]') === '44$' && text('[data-sector]') === 'Acamas';
+
+  const replacementShip = createPlayerShip(createWorld(), { id: ship.id + 1 });
+
+  hud.update({
+    ...options,
+    ship: replacementShip,
+    credits: 45,
+    sectorName: 'Acamas',
+  });
+
+  const refreshedOnShipChange = text('[data-credits]') === '45$';
+
+  hud.update({
+    ...options,
+    ship: replacementShip,
+    target: undefined,
+    sectorName: 'Acamas',
+  });
+
+  const immediateTargetClear =
+    element.querySelector<HTMLElement>('.hud-target')!.hidden;
+
+  update(options);
 
   const alignedHudHeadings = [
     ['.hud-sector', '.hud-credits'],
@@ -1360,7 +2122,7 @@ export const checkHud = () => {
     [-12345678, 123],
   ].map(([x, y]) => {
     Vec.setXY(ship.position, x, y);
-    hud.update(options);
+    update(options);
     const node = coordinates.firstChild!;
     const slash = node.textContent!.indexOf('/');
     const range = document.createRange();
@@ -1391,7 +2153,7 @@ export const checkHud = () => {
   );
 
   Vec.set(ship.position, previousPosition);
-  hud.update(options);
+  update(options);
 
   const details = {
     ['target name: ' + text('[data-name]')]: text('[data-name]') === 'Diamond',
@@ -1477,7 +2239,7 @@ export const checkHud = () => {
   const solidStorage = getComputedStyle(storageFill).boxShadow === 'none';
 
   ship.storedPower = ship.powerCapacity / 2;
-  hud.update(options);
+  update(options);
   const streamingPower =
     storageFill.style.width === '50%' &&
     text('[data-power-label]') ===
@@ -1522,7 +2284,7 @@ export const checkHud = () => {
     getComputedStyle(netReadout).getPropertyValue('--ui-color');
 
   ship.storedPower = 0;
-  hud.update(options);
+  update(options);
   const emptyStorage =
     storageFill.style.width === '0%' &&
     text('[data-power-label]') === `0/${Math.round(ship.powerCapacity)}` &&
@@ -1534,7 +2296,7 @@ export const checkHud = () => {
       getComputedStyle(usageReadout).getPropertyValue('--ui-color');
 
   ship.storedPower = storedPower;
-  hud.update(options);
+  update(options);
   const consumption = Number(meter.getAttribute('aria-valuenow'));
   const powerScale = meter.getAttribute('aria-valuemax');
   const generated = ship.mounts.reduce(
@@ -1613,7 +2375,7 @@ export const checkHud = () => {
 
   ship.fuelCapacity += 100;
   ship.cargoSpace += 4;
-  hud.update(options);
+  update(options);
   const capacityGrowth =
     fuelBar.getBoundingClientRect().width > fuelWidth &&
     text('[data-cargo-capacity]') === String(cargoCapacity + 4) &&
@@ -1622,7 +2384,7 @@ export const checkHud = () => {
 
   ship.fuelCapacity = fuelCapacity * 10;
   ship.cargoSpace = cargoCapacity * 10;
-  hud.update(options);
+  update(options);
   const largeCapacityReadout =
     text('[data-cargo-capacity]') === String(cargoCapacity * 10) &&
     fuelBar.children.length === 8 &&
@@ -1634,18 +2396,18 @@ export const checkHud = () => {
 
   ship.fuelCapacity = fuelCapacity;
   ship.cargoSpace = 0;
-  hud.update(options);
+  update(options);
   const emptyCargoCapacity =
     text('[data-cargo-current]') === '0' &&
     text('[data-cargo-capacity]') === '0';
 
   ship.cargoSpace = cargoCapacity;
-  hud.update(options);
+  update(options);
   const fullLabel = element.querySelector<HTMLElement>('[data-cargo-full]')!;
   const initiallyNotFull = fullLabel.hidden;
 
   ship.cargoContents = Array.from({ length: cargoCapacity }, () => target);
-  hud.update(options);
+  update(options);
   const cargoFull =
     initiallyNotFull &&
     !fullLabel.hidden &&
@@ -1653,7 +2415,7 @@ export const checkHud = () => {
     getComputedStyle(fullLabel).animationName !== 'none';
 
   ship.cargoContents = [];
-  hud.update(options);
+  update(options);
   const cargoFullCleared = fullLabel.hidden;
   const tooltips =
     text('#hud-fuel-tooltip')?.includes(
@@ -1671,17 +2433,17 @@ export const checkHud = () => {
 
   ship.fuel = ship.fuelCapacity / 2;
   ship.cargoContents.push(target);
-  hud.update(options);
+  update(options);
   const storeUpdates =
     filledFuelSegments() === 4 && text('[data-cargo-current]') === '1';
 
   ship.fuel = ship.fuelCapacity / 8 + 0.01;
-  hud.update(options);
+  update(options);
   const aboveReserve =
     filledFuelSegments() === 2 && !fuelBar.classList.contains('hud-fuel-low');
 
   ship.fuel = ship.fuelCapacity / 8;
-  hud.update(options);
+  update(options);
   const reserveWarning =
     aboveReserve &&
     filledFuelSegments() === 1 &&
@@ -1689,13 +2451,13 @@ export const checkHud = () => {
     getComputedStyle(fuelBar.firstElementChild!).animationName !== 'none';
 
   ship.fuel = 0;
-  hud.update(options);
+  update(options);
   const emptyFuel =
     filledFuelSegments() === 0 && fuelBar.classList.contains('hud-fuel-low');
 
   ship.fuel = originalFuel;
   ship.cargoContents.pop();
-  hud.update(options);
+  update(options);
   const fuelRecovered = !fuelBar.classList.contains('hud-fuel-low');
   const sharedRoot =
     panels.length === 6 &&
@@ -1710,7 +2472,7 @@ export const checkHud = () => {
   const naturalCase = getComputedStyle(element).textTransform === 'none';
 
   ship.fly(1, 0);
-  hud.update(options);
+  update(options);
   const constantThrusterPower =
     Number(meter.getAttribute('aria-valuenow')) === consumption;
 
@@ -1733,7 +2495,7 @@ export const checkHud = () => {
     if (segment.module instanceof SearchLight) segment.active = 1;
   });
 
-  hud.update({ ...options, sectorName: 'Hippokoon' });
+  update({ ...options, sectorName: 'Hippokoon' });
   const animations = meter.getAnimations({ subtree: true });
 
   animations.forEach((animation) => {
@@ -1775,14 +2537,16 @@ export const checkHud = () => {
       ) < 0.1,
   );
 
-  const wholePixelPower =
-    Math.abs(meter.getBoundingClientRect().width - Number(powerScale) * 30) <
-      0.1 &&
-    usageParts.every((part) => {
-      const width = part.getBoundingClientRect().width;
+  const stores = meter.closest<HTMLElement>('.hud-stores')!;
+  const storesWidth = stores.getBoundingClientRect().width;
+  const fullMeterWidth = meter.getBoundingClientRect().width;
+  const originalWidth = stores.style.width;
 
-      return Math.abs(width - Math.round(width)) < 0.02;
-    });
+  stores.style.width = `${storesWidth - 40}px`;
+  const responsivePower =
+    Math.abs(meter.getBoundingClientRect().width - fullMeterWidth + 40) < 0.1;
+
+  stores.style.width = originalWidth;
 
   const matchingDividers = usageParts.every(
     (part) =>
@@ -1804,7 +2568,7 @@ export const checkHud = () => {
   const enginePower = ship.engine.powerActivated;
 
   ship.engine.powerActivated = Number(powerScale) * 3;
-  hud.update(options);
+  update(options);
   meter
     .getAnimations({ subtree: true })
     .forEach((animation) => animation.finish());
@@ -1815,7 +2579,9 @@ export const checkHud = () => {
   const clippedPower =
     Number(meter.getAttribute('aria-valuenow')) > Number(powerScale) &&
     meter.getAttribute('aria-valuemax') === powerScale &&
-    meterBox.width === meterWidth &&
+    meterBox.width > 0 &&
+    meterBox.width <= meterWidth &&
+    stores.getBoundingClientRect().width === storesWidth &&
     getComputedStyle(meter).overflowX === 'clip' &&
     getComputedStyle(meter).overflowY === ' visible '.trim() &&
     usageParts.some(
@@ -1831,7 +2597,7 @@ export const checkHud = () => {
     document.elementFromPoint(markerX, meterBox.bottom + 2) === meter;
 
   ship.engine.powerActivated = enginePower;
-  hud.update({ ...options, sectorName: 'Hippokoon' });
+  update({ ...options, sectorName: 'Hippokoon' });
   const activeKey = element.querySelector(
     '.hud-modules > button[aria-pressed="true"] > kbd',
   )!;
@@ -1849,19 +2615,19 @@ export const checkHud = () => {
     targetLabel: 'JUMP GATE\nPatroclus\u2009→\u2009Acamas',
   });
 
-  hud.update({ ...options, target: gate });
+  update({ ...options, target: gate });
   const gateRoute =
     text('[data-name]') === gate.name &&
     text('[data-description]') === gate.targetLabel!.split('\n').at(-1) &&
     !element.querySelector<HTMLElement>('[data-description]')!.hidden;
 
   gate.position.x = 1000;
-  hud.update({ ...options, target: gate });
+  update({ ...options, target: gate });
   const gateApproach =
     text('[data-description]') === 'Move closer to request access';
 
   gate.position.x = 0;
-  hud.update({ ...options, target: gate });
+  update({ ...options, target: gate });
   const gateApproachCleared =
     text('[data-description]') === gate.targetLabel!.split('\n').at(-1);
 
@@ -1872,7 +2638,7 @@ export const checkHud = () => {
     new Wormhole(),
     ship,
   ].every((target) => {
-    hud.update({ ...options, target });
+    update({ ...options, target });
     const canvas = element.querySelector<HTMLCanvasElement>(
       '.hud-target-icon canvas',
     );
@@ -1885,17 +2651,17 @@ export const checkHud = () => {
     return pixels.some((value, index) => index % 4 === 3 && value > 0);
   });
 
-  hud.update({ ...options, target: undefined, shown: false });
+  update({ ...options, target: undefined, shown: false });
   const hidden =
     panels.every((panel) => !panel.getClientRects().length) &&
     element.getClientRects().length > 0;
 
   const noHiddenOpacity = panels.every((panel) => !panel.style.opacity);
 
-  hud.update({ ...options, target: undefined });
+  update({ ...options, target: undefined });
   const cleared = element.querySelector<HTMLElement>('.hud-target')!.hidden;
 
-  hud.update(options);
+  update(options);
   const visibleWithoutOverrides = panels.every(
     (panel) =>
       !panel.hidden &&
@@ -1906,8 +2672,85 @@ export const checkHud = () => {
 
   hud.destroy();
 
+  const mapRequests: number[] = [];
+
+  const mapHud = createHud({
+    now: () => now,
+    onMapView: () => mapRequests.push(now),
+  });
+
+  const updateMap = (
+    time: number,
+    mapReady: boolean,
+    sectorName = 'Patroclus',
+  ) => {
+    now = time;
+    mapHud.update({ ...options, sectorName, mapReady });
+  };
+
+  updateMap(0, false);
+  updateMap(999, false);
+  const initialMapRequest = mapRequests.length === 1;
+
+  updateMap(1000, false);
+  const retryMapRequest = mapRequests.length === 2;
+
+  updateMap(1001, true);
+  updateMap(5000, true);
+  const settledMapStopsPolling = mapRequests.length === 2;
+
+  mapHud.toggleMap();
+  updateMap(5000, true);
+  const expandedMapRequestsImmediately = mapRequests.length === 3;
+  const mapCanvas =
+    element.querySelector<HTMLCanvasElement>('.hud-map canvas')!;
+  const mapRangeLabel = mapCanvas.getAttribute('aria-label');
+
+  mapHud.zoomMap(1);
+  const zoomedMapLabel = mapCanvas.getAttribute('aria-label');
+
+  element.querySelector<HTMLButtonElement>('[data-map-zoom-out]')!.click();
+  const mapZoomWorks =
+    zoomedMapLabel !== mapRangeLabel &&
+    mapCanvas.getAttribute('aria-label') === mapRangeLabel;
+
+  updateMap(5249, true);
+  const expandedMapWaits = mapRequests.length === 3;
+
+  updateMap(5250, true);
+  const expandedMapPolls = mapRequests.length === 4;
+
+  mapHud.toggleMap();
+  updateMap(8000, true);
+  const collapsedMapStopsPolling = mapRequests.length === 4;
+
+  mapHud.toggleMap();
+  updateMap(8000, true);
+  const reopenedMapRequestsImmediately = mapRequests.length === 5;
+
+  mapHud.toggleMap();
+  updateMap(8001, false);
+  updateMap(9000, false);
+  const resetMapRetries = mapRequests.length === 6;
+
+  updateMap(9001, false);
+  const resetMapRetryInterval = mapRequests.length === 7;
+
+  updateMap(9002, true);
+  updateMap(9003, false, 'Acamas');
+  const changedSectorRequestsImmediately = mapRequests.length === 8;
+
+  mapHud.destroy();
+
   return Object.fromEntries([
     ['readouts', readouts],
+    ['coalescedInstruments', coalescedInstruments],
+    ['phasePreserved', phasePreserved],
+    ['unchangedDom', unchangedDom],
+    ['refreshedOnShow', refreshedOnShow],
+    ['refreshedOnSectorChange', refreshedOnSectorChange],
+    ['refreshedOnShipChange', refreshedOnShipChange],
+    ['immediateTargetClear', immediateTargetClear],
     ['alignedHudHeadings', alignedHudHeadings],
     ['stableCoordinates', stableCoordinates],
     ['expandingCoordinates', expandingCoordinates],
@@ -1955,7 +2798,7 @@ export const checkHud = () => {
     ['constantThrusterPower', constantThrusterPower],
     ['animatedUsage', animatedUsage],
     ['settledUsage', settledUsage],
-    ['wholePixelPower', wholePixelPower],
+    ['responsivePower', responsivePower],
     ['matchingDividers', matchingDividers],
     ['travel', travel],
     ['gateRoute', gateRoute],
@@ -1964,6 +2807,18 @@ export const checkHud = () => {
     ['noHiddenOpacity', noHiddenOpacity],
     ['visibleWithoutOverrides', visibleWithoutOverrides],
     ['cleared', cleared],
+    ['initialMapRequest', initialMapRequest],
+    ['retryMapRequest', retryMapRequest],
+    ['settledMapStopsPolling', settledMapStopsPolling],
+    ['expandedMapRequestsImmediately', expandedMapRequestsImmediately],
+    ['mapZoomWorks', mapZoomWorks],
+    ['expandedMapWaits', expandedMapWaits],
+    ['expandedMapPolls', expandedMapPolls],
+    ['collapsedMapStopsPolling', collapsedMapStopsPolling],
+    ['reopenedMapRequestsImmediately', reopenedMapRequestsImmediately],
+    ['resetMapRetries', resetMapRetries],
+    ['resetMapRetryInterval', resetMapRetryInterval],
+    ['changedSectorRequestsImmediately', changedSectorRequestsImmediately],
     ...Object.entries(details),
   ]);
 };

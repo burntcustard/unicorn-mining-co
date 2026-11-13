@@ -1,3 +1,4 @@
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 const rearX = -28.4;
@@ -12,20 +13,17 @@ const junctionY = 16.5 + (33 - 16.5) * 0.34;
 
 export const kestrel = {
   name: 'Kestrel',
+  price: 6200,
   fuelCapacity: 155,
   cargoSpace: 18,
   drag: 0.42,
   mass: 12,
   radius: 73,
-  turnRate: 2.6,
+  turnRate: 1.2,
   initialLoadout: [
     {
-      mount: 0,
-      module: 'shieldGeneratorLg',
-    },
-    {
       mount: 1,
-      module: 'powerPlant',
+      module: 'powerPlant3V',
     },
     {
       mount: 2,
@@ -44,10 +42,6 @@ export const kestrel = {
       module: 'cargoHatch',
     },
     {
-      mount: 6,
-      module: 'autogunTurret',
-    },
-    {
       mount: 7,
       module: 'hornDrill',
     },
@@ -58,10 +52,6 @@ export const kestrel = {
     {
       mount: 9,
       module: 'cargoHatch',
-    },
-    {
-      mount: 10,
-      module: 'autogunTurret',
     },
   ],
   hullSegments: [
@@ -86,7 +76,7 @@ export const kestrel = {
           {
             x: -8.6,
             y: 0,
-            fits: ['powerPlant'],
+            fits: powerPlantIdsBySize[3],
           },
         ],
       ],

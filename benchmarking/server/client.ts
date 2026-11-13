@@ -26,10 +26,12 @@ import {
   type SnapshotTrafficMessage,
 } from '../utilities/snapshot-traffic-metrics.ts';
 import {
+  advanceSurvey,
   isOrdinaryAmmoItem,
   miningAreaContains,
   miningApproach,
   miningDrillSafe,
+  surveyTravelRoute,
   miningTargetContained,
   obstacleSafeRoute,
   obstacleRadius,
@@ -39,11 +41,13 @@ import {
   spreadCorridorDeviation,
   spreadRemainingDistance,
   weaponForClient,
+  weaponAmmoPacks,
   weaponClearAhead,
   weaponStagingControls,
   workloadControls,
   type ProtocolWorkload,
   type SpreadCorridor,
+  type SurveySearch,
 } from './workloads.ts';
 
 /*
@@ -111,6 +115,9 @@ export class ProtocolClient {
   tickAt = 0;
   inputLead = 0;
   sequence = 0;
+  private snapshotInputSequence = -1;
+  private surveyHoldTick = Infinity;
+  private surveyHoldSequence = Infinity;
   acknowledgedDock = 0;
   dockSequence = 0;
   lastInput = neutralInput();
@@ -324,6 +331,7 @@ export class ProtocolClient {
 
         this.tick = message.serverTick;
         this.tickAt = at;
+        this.snapshotInputSequence = message.acknowledgedSequence ?? -1;
         this.inputLead = message.inputLead ?? this.inputLead;
         this.credits = message.credits ?? this.credits;
 
@@ -346,6 +354,11 @@ export class ProtocolClient {
         if (message.type === 'load') this.entities.clear();
 
         for (const record of message.fullEntities) {
+          this.options.runtime.mergeModuleStates(
+            record,
+            this.entities.get(record.id),
+          );
+
           const entity = {
             ...this.entities.get(record.id),
             ...record,
@@ -445,6 +458,21 @@ export class ProtocolClient {
 
   get ship() {
     return this.entities.get(this.shipId);
+  }
+
+  markSurveyHold() {
+    this.surveyHoldTick = this.tick;
+    this.surveyHoldSequence = this.sequence;
+  }
+
+  get miningSurveySettled() {
+    return (
+      !!this.ship &&
+      this.tick > this.surveyHoldTick &&
+      this.snapshotInputSequence >= this.surveyHoldSequence &&
+      Vec.length(this.ship.velocity || Vec.create()) < 5 &&
+      Math.abs(this.ship.spin) < 0.04
+    );
   }
 
   get miningAsteroid() {
@@ -1012,7 +1040,7 @@ export class ProtocolClient {
     );
   }
 
-  async equipWeapon() {
+  async equipWeapon(seconds: number) {
     await this.dock();
     const weapon = weaponForClient(this.options.index);
 
@@ -1059,16 +1087,25 @@ export class ProtocolClient {
         'A fresh benchmark autogun ship must start with no ammunition',
       );
 
-      await this.craftAction(
-        { action: 'buyAmmo' },
-        () => this.ammo === before + catalog.ammoRounds,
-      );
+      const packs = weaponAmmoPacks({
+        seconds,
+        rounds: catalog.ammoRounds,
+        fireInterval: catalog.modules.autogun.fireInterval,
+      });
+
+      for (let index = 0; index < packs; index++) {
+        await this.craftAction(
+          { action: 'buyAmmo' },
+          () => this.ammo === before + (index + 1) * catalog.ammoRounds,
+        );
+      }
+
       const items = this.ship.cargoContents.filter((item) => 'rounds' in item);
 
-      assert.equal(items.length, 1, 'Buy exactly one ordinary ammunition item');
+      assert.equal(items.length, packs, 'Buy the required ammunition items');
       assert(
-        isOrdinaryAmmoItem(items[0], catalog),
-        'The normal purchased ammunition item must contain exactly200 rounds',
+        items.every((item) => isOrdinaryAmmoItem(item, catalog)),
+        'Every purchased ammunition item must be a full ordinary pack',
       );
     }
 
@@ -1197,8 +1234,12 @@ export class ProtocolClient {
                   !weaponClearAhead({
                     ship: this.ship,
                     entities: [entity],
-                    distance: 500,
-                  }),
+                    distance: entity.kind === 'ship' ? 1200 : 500,
+                  }) ||
+                  (entity.kind === 'ship' &&
+                    entity.id !== this.ship.id &&
+                    Vec.distance(this.ship.position, entity.position) <=
+                      this.ship.radius + entity.radius + 120),
               )
               .map((entity) => ({
                 id: entity.id,
@@ -1784,6 +1825,7 @@ async function workerMain() {
   let workload: ProtocolWorkload;
   let phase: 'idle' | 'hold' | 'fanout' | 'workload' = 'idle';
   const heldClients = new Set<ProtocolClient>();
+  const surveySearches = new Map<ProtocolClient, SurveySearch>();
 
   const waitingInput = {
     ...neutralInput(),
@@ -1815,11 +1857,22 @@ async function workerMain() {
   let previousTimer = performance.now();
   let maximumRss = process.memoryUsage().rss;
   const loop = monitorEventLoopDelay({ resolution: 1 });
+  let preparationCpu = process.cpuUsage();
+  let preparationCpuAt = performance.now();
+  let preparationTimerGapMs = 0;
 
   loop.enable();
 
   const timer = setInterval(() => {
     const now = performance.now();
+    const timerSeconds = Math.min(0.1, (now - previousTimer) / 1000);
+
+    if (!measuredAt) {
+      preparationTimerGapMs = Math.max(
+        preparationTimerGapMs,
+        now - previousTimer,
+      );
+    }
 
     if (measuredAt && !measuredEnd) {
       timerGaps.push(now - previousTimer);
@@ -1851,6 +1904,29 @@ async function workerMain() {
       }
 
       const entities = [...client.entities.values()];
+      let survey = surveySearches.get(client);
+
+      if (
+        (workload === 'module' || workload === 'spread') &&
+        phase === 'fanout'
+      ) {
+        if (!survey) {
+          survey = {
+            origin: Vec.clone(client.ship.position),
+            activeSeconds: 0,
+            headingOffset: 0,
+          };
+
+          surveySearches.set(client, survey);
+        }
+
+        advanceSurvey({
+          state: survey,
+          position: client.ship.position,
+          seconds: timerSeconds,
+        });
+      }
+
       const partner = clients.find(
         (peer) => peer.options.index === (client.options.index ^ 1),
       )?.ship;
@@ -1871,6 +1947,8 @@ async function workerMain() {
           mining: miningEnabled,
           firing: firingEnabled,
           fanout: phase === 'fanout',
+          surveyHeadingOffset: survey?.headingOffset,
+          surveyRecovery: survey?.recovering,
           spreadCorridor: client.spreadCorridor,
         }),
       );
@@ -1924,7 +2002,7 @@ async function workerMain() {
         );
 
         assert(client, `Missing client ${message.index}`);
-        await client.equipWeapon();
+        await client.equipWeapon(message.options.seconds);
         client.retainLoadout();
         result = client.diagnostics();
       } else if (message.command === 'launch') {
@@ -1943,11 +2021,80 @@ async function workerMain() {
         for (const client of clients) {
           heldClients.add(client);
           client.input(heldInput(client));
+
+          if (workload === 'module') client.markSurveyHold();
         }
       } else if (message.command === 'preparationProgress') {
-        result = clients.map((client) => {
+        const now = performance.now();
+        const used = process.cpuUsage(preparationCpu);
+        const elapsedMs = now - preparationCpuAt;
+
+        const generator = {
+          pid: process.pid,
+          elapsedMs,
+          cpuPercentOfOneCore: (used.user + used.system) / 10 / elapsedMs,
+          rssBytes: process.memoryUsage().rss,
+          eventLoopDelayMs: {
+            p99: loop.percentile(99) / 1e6,
+            max: loop.max / 1e6,
+          },
+          maximumInputTimerGapMs: preparationTimerGapMs,
+        };
+
+        preparationCpu = process.cpuUsage();
+        preparationCpuAt = now;
+        preparationTimerGapMs = 0;
+
+        // A delayed progress request must not erase measurement samples.
+        if (!measuredAt) loop.reset();
+
+        const progress = clients.map((client) => {
           const diagnostic = client.diagnostics();
           const mining = diagnostic.mining;
+          const ship = client.ship;
+          const entities = [...client.entities.values()];
+
+          const survey =
+            workload === 'module' && !client.miningAnchor && ship
+              ? {
+                  route: surveyTravelRoute({
+                    ship,
+                    index: client.options.index,
+                    players: client.options.players,
+                    entities,
+                    headingOffset: surveySearches.get(client)?.headingOffset,
+                  }),
+                  search: surveySearches.get(client),
+                  velocity: ship.velocity,
+                  rotation: ship.rotation,
+                  spin: ship.spin,
+                  thrust: ship.thrust,
+                  turn: ship.turn,
+                  held: heldClients.has(client),
+                  nearby: entities
+                    .filter(
+                      (entity) =>
+                        entity.id !== ship.id &&
+                        ['asteroid', 'station', 'ship'].includes(entity.kind) &&
+                        Vec.distance(entity.position, ship.position) <
+                          obstacleRadius(entity) + ship.radius + 500,
+                    )
+                    .toSorted(
+                      (a, b) =>
+                        Vec.distance(a.position, ship.position) -
+                        obstacleRadius(a) -
+                        (Vec.distance(b.position, ship.position) -
+                          obstacleRadius(b)),
+                    )
+                    .slice(0, 8)
+                    .map((entity) => ({
+                      id: entity.id,
+                      kind: entity.kind,
+                      position: entity.position,
+                      radius: obstacleRadius(entity),
+                    })),
+                }
+              : undefined;
 
           return {
             index: client.options.index,
@@ -1960,9 +2107,12 @@ async function workerMain() {
             sizedNondecayingRocks: mining?.sizedNondecayingAsteroids,
             blocking: mining?.route?.obstacle,
             blocked: mining?.route?.blocked,
+            survey,
             position: client.ship?.position,
           };
         });
+
+        result = { clients: progress, generator };
       } else if (
         message.command === 'fanout' ||
         message.command === 'workload'
@@ -1981,24 +2131,17 @@ async function workerMain() {
       } else if (message.command === 'diagnostics') {
         result = clients.map((client) => client.diagnostics());
       } else if (message.command === 'miningCandidates') {
-        // Reserve a checked route from rest, rather than drifting off it while turning.
-        result = await Promise.all(
-          clients.map(async (client) => {
-            await client.until(
-              () =>
-                Vec.length(client.ship.velocity || Vec.create()) < 5 &&
-                Math.abs(client.ship.spin) < 0.04,
-              'The survey ship did not settle before reserving its approach',
-              message.timeoutMs,
-            );
-
-            return proposeMiningTargets({
+        // Only reserve checked routes from rest. A ship still settling remains
+        // held while other unassigned ships continue their survey.
+        result = clients
+          .filter((client) => client.miningSurveySettled)
+          .map((client) =>
+            proposeMiningTargets({
               index: client.options.index,
               ship: client.ship,
               entities: [...client.entities.values()],
-            });
-          }),
-        );
+            }),
+          );
       } else if (message.command === 'spreadCandidates') {
         result = clients.map((client) =>
           proposeSpreadCorridors({

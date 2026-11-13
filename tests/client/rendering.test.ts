@@ -1,3 +1,5 @@
+import '../support/ignore-handshake-timeout.ts';
+
 /* global Buffer, process */
 import { readFileSync } from 'node:fs';
 import { rolldown } from 'rolldown';
@@ -26,6 +28,7 @@ import { crotus } from '${root}/src/specs/ships/crotus.ts';
 import { Ship } from '${root}/src/client/objects/ship.ts';
 import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import { Station } from '${root}/src/client/objects/station.ts';
+import { NavBeacon } from '${root}/src/client/objects/nav-beacon.ts';
 import {
   moduleTypesById,
   SearchLight,
@@ -91,6 +94,21 @@ init();
     assert.equal(ship.dead, false);
     assert.equal(ship.stranded, false);
   }
+}
+
+// Beacons hydrate as craft without acquiring ship or station behavior.
+{
+  const world = createWorld();
+  const record = {kind: 'navBeacon', id: 98765, radius: 36,
+    position: Vec.create(), rotation: 0, spin: 0};
+  const beacon = makeEntity({entity: record, world});
+  assert(beacon instanceof NavBeacon);
+  assert(beacon instanceof Craft);
+  assert(!(beacon instanceof Ship));
+  assert(!(beacon instanceof Station));
+  assert.equal(beacon.segments.length, 12);
+  assert.equal(beacon.hitbox().filter(collider => collider.physics !== false).length, 11);
+  assert.equal(makeEntity({entity: record, world, previous: beacon}), beacon);
 }
 
 // Gate safety state survives wire hydration, prediction, and authoritative reset.
@@ -1075,7 +1093,9 @@ for (const fragment of [
 }
 let revealed = 0;
 const litRock = {
+  id: 12345,
   scenery: true,
+  physics: true,
   segments: [{}],
   position: Vec.add(remote.position, Vec.create(60)),
   rotation: 0,
@@ -1094,6 +1114,7 @@ const litRock = {
     },
   ],
 };
+Object.setPrototypeOf(litRock, Asteroid.prototype);
 const remotePose = { position: Vec.create(900, 800), rotation: 0.3 };
 litRock.position = Vec.add(
   remotePose.position,
@@ -1101,9 +1122,11 @@ litRock.position = Vec.add(
 );
 const unlitRock = {
   ...litRock,
+  id: 12346,
   position: Vec.add(remotePose.position, Vec.create(0, 200)),
   renderContents: [{ render() { assert.fail('buried cargo outside the traced light is not drawn'); } }],
 };
+Object.setPrototypeOf(unlitRock, Asteroid.prototype);
 const remotePrediction = cloneEntity({ entity: remote });
 const predictedLamp = remotePrediction.segments.find(
   (segment) => segment.module instanceof SearchLight,
@@ -1152,6 +1175,14 @@ assert.equal(
   2,
   'predicted light can reveal cargo while the base sprite is stale',
 );
+const predictedRock = Object.assign(Object.create(Asteroid.prototype), litRock);
+revealBuriedItems({
+  sprites: [remote, litRock, unlitRock],
+  scenery: [predictedRock, unlitRock],
+  predicted: new Map([[remote.id, remotePrediction]]),
+  poses: new Map([[remote.id, remotePose]]),
+});
+assert.equal(revealed, 3, 'a predicted rock reveals the displayed rock contents');
 const before = gradients;
 // Global layers must put either ship's horn drill behind both hulls, irrespective
 // of the order the two craft entered the renderer.
@@ -1535,6 +1566,64 @@ for (const [index, stage] of packet.drillingStages.entries()) {
     assert.equal(loot[0].velocity.y, 2);
   }
 }
+for (const contents of [[], [0]]) {
+  const world = createWorld();
+  const rock = addEntity(world, createAsteroid(world, {
+    contents,
+    resource: 1,
+    health: 0,
+    shapeOutline: [[-120, -80], [120, -80], [0, 160]],
+  }));
+  rock.fracture({ by: 1, events: [], world });
+  const debris = [...world.entities.values()];
+  assert.equal(debris.length, 4);
+
+  for (const part of debris) {
+    const record = {
+      kind: 'asteroid',
+      id: part.id,
+      position: part.position,
+      velocity: part.velocity,
+      rotation: part.rotation,
+      spin: part.spin,
+      mass: part.mass,
+      radius: part.radius,
+      health: part.health,
+      maxHealth: part.maxHealth,
+      contents: part.contents,
+      resource: part.resource,
+      shapeOutline: part.shapeOutline,
+      decay: part.decay,
+    };
+    const hydrated = makeEntity({ entity: record, world });
+    const predicted = cloneEntity({ entity: hydrated });
+    predicted.decay = undefined;
+    applyEntity({ entity: predicted, server: hydrated });
+
+    for (const copy of [hydrated, predicted]) {
+      assert.equal(copy.decay, part.decay, 'debris decay survives hydration and reconciliation');
+      assert.equal(copy.health, part.health);
+      assert.equal(copy.segments, undefined, 'replicated debris remains terminal');
+      assert.deepEqual(copy.contents, part.contents);
+      assert.equal(copy.decaying, !part.contents.length);
+
+      if (part.contents.length) {
+        copy.update(60);
+        assert.equal(copy.health, part.health, 'replicated retained items prevent decay');
+      }
+
+      copy.addToScene();
+      draws.length = 0;
+      copy.render();
+      assert.equal(draws[0].style, '#22113399', 'debris keeps the parent material');
+      copy.health = 0;
+      const count = [...world.entities.values()].filter((entity) => entity instanceof Asteroid).length;
+      copy.fracture({ by: 1, events: [], world });
+      assert([...world.entities.values()].filter((entity) => entity instanceof Asteroid).length <= count,
+        'replicated debris never subdivides again');
+    }
+  }
+}
 for (const direct of [false, true]) {
   const miningWorld = createWorld();
   const rock = addEntity(
@@ -1603,16 +1692,22 @@ for (const direct of [false, true]) {
       );
     };
     const drops = release();
-    assert.equal(drops.length, before.length);
+    const retained = [...miningWorld.entities.values()].filter(
+      (entity) => entity instanceof Asteroid && entity.decay && entity.contents.length,
+    );
+    const released = before.filter((item) =>
+      !retained.some((part) => part.contents.includes(item.resource)),
+    );
+    assert.equal(drops.length, released.length);
     drops.forEach((item, index) => {
-      assert.equal(item.resource, before[index].resource);
+      assert.equal(item.resource, released[index].resource);
       assert(
-        Vec.distance(item.position, before[index].position) < 1e-7,
+        Vec.distance(item.position, released[index].position) < 1e-7,
         'released items keep the rendered position',
       );
       assert.equal(
         item.rotation,
-        before[index].rotation,
+        released[index].rotation,
         'released items keep the rendered rotation',
       );
       assert(

@@ -6,6 +6,7 @@ export const searchLight = {
   icon: './search-light.svg',
   description: 'Illuminate nearby space and reveal resources inside asteroids.',
   behavior: 'searchLight',
+  weight: 1,
   name: 'Search Light',
   health: 10,
   power: 0.3,

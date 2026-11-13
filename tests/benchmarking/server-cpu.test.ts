@@ -11,20 +11,25 @@ import {
   replicatedAsteroidHealth,
 } from '../../benchmarking/server/client.ts';
 import {
+  advanceSurvey,
   proposeMiningTargets,
+  proposeSpreadCorridors,
+  reserveSpreadCorridors,
   reserveMiningTargets,
   isOrdinaryAmmoItem,
   miningAreaContains,
   miningAimPosition,
   miningApproach,
+  surveyTravelRoute,
   obstacleSafeTarget,
   obstacleSafeRoute,
   obstacleRadius,
   weaponForClient,
-  weaponMeasurementLimit,
+  weaponAmmoPacks,
   weaponClearAhead,
   weaponStagingControls,
   workloadControls,
+  type SurveySearch,
 } from '../../benchmarking/server/workloads.ts';
 import {
   selectServerCpuCases,
@@ -91,9 +96,32 @@ assert.deepEqual(
 );
 
 assert.equal(
-  weaponMeasurementLimit({ rounds: 200, fireInterval: 200 }),
-  35,
-  'One standard item supports30 seconds and a5-second reserve without additional ammunition',
+  weaponAmmoPacks({ seconds: 30, rounds: 200, fireInterval: 160 }),
+  2,
+  'The current firing rate needs two packs for the default measurement',
+);
+assert.equal(
+  weaponAmmoPacks({ seconds: 26.99, rounds: 200, fireInterval: 160 }),
+  1,
+  'One pack suffices just below the measurement and reserve boundary',
+);
+assert.equal(
+  weaponAmmoPacks({ seconds: 27, rounds: 200, fireInterval: 160 }),
+  2,
+  'Exact exhaustion at the reserve boundary requires another pack',
+);
+assert.equal(
+  weaponAmmoPacks({ seconds: 60, rounds: 200, fireInterval: 160 }),
+  3,
+  'Longer measurements provision enough full packs for the reserve',
+);
+assert.equal(
+  weaponAmmoPacks({ seconds: 30, rounds: 200, fireInterval: 200 }),
+  1,
+);
+assert.equal(
+  weaponAmmoPacks({ seconds: 35, rounds: 200, fireInterval: 200 }),
+  2,
 );
 
 assert.deepEqual(
@@ -222,6 +250,46 @@ assert(
   redockedConvoy.measurementReady('spread', []),
   'Temporary braking at the warmup boundary does not replace the measured flight-displacement gate',
 );
+
+const surveyPilot = Object.assign(Object.create(ProtocolClient.prototype), {
+  shipId: ship.id,
+  entities: new Map([[ship.id, { ...ship, velocity: Vec.create() }]]),
+  tick: 100,
+  sequence: 7,
+  snapshotInputSequence: 6,
+}) as ProtocolClient;
+
+surveyPilot.markSurveyHold();
+assert(!surveyPilot.miningSurveySettled, 'A pre-hold snapshot is not enough');
+surveyPilot.tick++;
+assert(
+  !surveyPilot.miningSurveySettled,
+  'A newer snapshot must also acknowledge the hold input',
+);
+Object.assign(surveyPilot, { snapshotInputSequence: 7 });
+assert(
+  surveyPilot.miningSurveySettled,
+  'An acknowledged settled ship can propose',
+);
+surveyPilot.ship.velocity = Vec.create(5, 0);
+assert(
+  !surveyPilot.miningSurveySettled,
+  'A moving ship must continue settling',
+);
+surveyPilot.ship.velocity = Vec.create();
+surveyPilot.ship.spin = 0.04;
+assert(
+  !surveyPilot.miningSurveySettled,
+  'A turning ship must continue settling',
+);
+surveyPilot.ship.spin = 0;
+surveyPilot.markSurveyHold();
+assert(
+  !surveyPilot.miningSurveySettled,
+  'An unchanged neutral input still needs a snapshot after the next hold',
+);
+surveyPilot.tick++;
+assert(surveyPilot.miningSurveySettled);
 
 const bouncingPair = [0, 1].map(
   (index) =>
@@ -369,7 +437,7 @@ for (const miner of surveyPair) {
   assert.equal(input.thrust, 0, 'Turn before resuming outward survey thrust');
 }
 
-const surveyThroughAsteroids = workloadControls({
+const surveyAroundAsteroid = workloadControls({
   workload: 'module',
   index: 0,
   players: 32,
@@ -380,21 +448,42 @@ const surveyThroughAsteroids = workloadControls({
       ...ship,
       id: 99,
       kind: 'asteroid',
-      position: Vec.add(ship.position, Vec.create(100, 0)),
+      position: Vec.add(ship.position, Vec.create(300, 0)),
       radius: 100,
     },
   ],
   fanout: true,
 });
 
-assert.equal(surveyThroughAsteroids.turn, 0);
+assert.notEqual(
+  surveyAroundAsteroid.turn,
+  0,
+  'Mining discovery steers around an asteroid in the outward flight path',
+);
 assert.equal(
-  surveyThroughAsteroids.thrust,
-  1,
-  'Peer avoidance preserves ordinary outward flight through asteroid fields',
+  surveyAroundAsteroid.thrust,
+  0,
+  'Turn before entering the obstacle',
 );
 
 const overspeedSurvey = workloadControls({
+  workload: 'module',
+  index: 0,
+  players: 32,
+  elapsed: 0,
+  ship: { ...ship, velocity: Vec.create(150, 0) },
+  entities: [],
+  fanout: true,
+});
+
+assert.equal(
+  overspeedSurvey.turn,
+  0,
+  'An aligned survey ship keeps its outward heading at speed',
+);
+assert.equal(overspeedSurvey.thrust, 1, 'Aligned survey uses full thrust');
+
+const clearSurvey = workloadControls({
   workload: 'module',
   index: 0,
   players: 32,
@@ -404,12 +493,339 @@ const overspeedSurvey = workloadControls({
   fanout: true,
 });
 
-assert.equal(
-  overspeedSurvey.turn,
-  0,
-  'An aligned survey ship keeps its outward heading after overshooting speed',
+assert.equal(clearSurvey.thrust, 1, 'Clear survey routes can accelerate');
+
+// A selected corridor can unnecessarily block a later ship even when the
+// selected ship has another individually clear corridor.
+const spreadLane = (index: number, x: number, y: number, heading: number) => ({
+  index,
+  start: Vec.create(x, y),
+  heading,
+  length: 1000,
+  speed: 38,
+});
+
+const flexibleSpread = {
+  index: 0,
+  position: Vec.create(0, 0),
+  radius: 40,
+  candidates: [spreadLane(0, 0, 0, 0), spreadLane(0, 0, 0, Math.PI / 2)],
+};
+
+const blockedSpread = {
+  index: 1,
+  position: Vec.create(600, -500),
+  radius: 40,
+  candidates: [
+    spreadLane(1, 600, -500, Math.PI / 2),
+    spreadLane(1, 600, -500, Math.PI / 4),
+  ],
+};
+
+const repairedSpread = reserveSpreadCorridors({
+  proposals: [flexibleSpread, blockedSpread],
+});
+
+assert.deepEqual(
+  repairedSpread.map(({ index, heading }) => ({ index, heading })),
+  [
+    { index: 0, heading: Math.PI / 2 },
+    { index: 1, heading: Math.PI / 2 },
+  ],
+  'A previously selected ship can use a checked alternative to make room',
 );
-assert.equal(overspeedSurvey.thrust, 0, 'Survey speed overshoot coasts');
+
+assert.equal(
+  reserveSpreadCorridors({
+    proposals: [
+      { ...flexibleSpread, candidates: flexibleSpread.candidates.slice(0, 1) },
+      { ...blockedSpread, candidates: blockedSpread.candidates.slice(0, 1) },
+    ],
+  }).length,
+  1,
+  'Crossing routes remain rejected when no checked alternative exists',
+);
+
+// A spread pilot repeatedly thrust into this asteroid throughout fanout.
+const trappedSpreadShip = {
+  ...ship,
+  id: 23,
+  position: Vec.create(-3635.406, 1994.604),
+  rotation: -1.738,
+};
+
+const trappedSpreadRocks = [
+  [-3656.245, 1839.874, 171.7],
+  [-3508.313, 1979.941, 50.8],
+  [-3533.13, 1926.643, 44.53],
+].map(([x, y, radius], index) => ({
+  ...ship,
+  id: 100 + index,
+  kind: 'asteroid' as const,
+  position: Vec.create(x, y),
+  radius,
+}));
+
+const trappedSpreadSearch: SurveySearch = {
+  origin: Vec.clone(trappedSpreadShip.position),
+  activeSeconds: 0,
+  headingOffset: 0,
+};
+
+assert.equal(
+  proposeSpreadCorridors({
+    ship: trappedSpreadShip,
+    index: 23,
+    players: 32,
+    entities: trappedSpreadRocks,
+    stations: {},
+    speed: 38.125,
+  }).candidates.length,
+  0,
+  'The normal spread corridor clearance rejects the trapped starting pose',
+);
+
+const spreadSurvey = {
+  workload: 'spread' as const,
+  index: 23,
+  players: 32,
+  elapsed: 0,
+  ship: trappedSpreadShip,
+  entities: trappedSpreadRocks,
+  fanout: true,
+};
+
+const beforeSpreadRecovery = workloadControls(spreadSurvey);
+
+assert.equal(
+  beforeSpreadRecovery.thrust,
+  1,
+  'Spread keeps its old survey before a stall',
+);
+
+advanceSurvey({
+  state: trappedSpreadSearch,
+  position: trappedSpreadShip.position,
+  seconds: 15,
+});
+
+assert(
+  trappedSpreadSearch.recovering,
+  'A stalled spread survey activates recovery',
+);
+
+const spreadEscape = surveyTravelRoute({
+  ship: trappedSpreadShip,
+  index: 23,
+  players: 32,
+  entities: trappedSpreadRocks,
+  headingOffset: trappedSpreadSearch.headingOffset,
+});
+
+assert(!spreadEscape.blocked, 'The existing survey route finds an escape');
+assert(
+  Vec.distance(spreadEscape.target, trappedSpreadRocks[0].position) >
+    Vec.distance(trappedSpreadShip.position, trappedSpreadRocks[0].position),
+  'The checked escape increases clearance from the blocking asteroid',
+);
+
+const trappedSpreadControls = workloadControls({
+  ...spreadSurvey,
+  surveyRecovery: trappedSpreadSearch.recovering,
+  surveyHeadingOffset: trappedSpreadSearch.headingOffset,
+});
+
+assert.notEqual(trappedSpreadControls.turn, 0);
+assert.equal(trappedSpreadControls.thrust, 0, 'Turn away before thrusting');
+
+trappedSpreadSearch.headingOffset = (7 * Math.PI) / 4;
+
+advanceSurvey({
+  state: trappedSpreadSearch,
+  position: trappedSpreadShip.position,
+  seconds: 15,
+});
+
+assert.equal(trappedSpreadSearch.headingOffset, 0);
+assert(
+  trappedSpreadSearch.recovering,
+  'Recovery stays active after the heading wraps',
+);
+
+const surveySearch = {
+  origin: Vec.create(0, 0),
+  activeSeconds: 0,
+  headingOffset: 0,
+};
+
+advanceSurvey({
+  state: surveySearch,
+  position: Vec.create(500, 0),
+  seconds: 15,
+});
+
+assert.equal(
+  surveySearch.headingOffset,
+  0,
+  'A moving survey keeps its heading',
+);
+
+advanceSurvey({
+  state: surveySearch,
+  position: Vec.create(510, 10),
+  seconds: 14,
+});
+
+assert.equal(
+  surveySearch.headingOffset,
+  0,
+  'A short pause does not change heading',
+);
+
+advanceSurvey({
+  state: surveySearch,
+  position: Vec.create(510, 10),
+  seconds: 1,
+});
+
+assert.equal(
+  surveySearch.headingOffset,
+  Math.PI / 4,
+  'A trapped survey changes heading',
+);
+
+// A ship held a valid assignment until late in preparation, then circled a
+// dense asteroid cluster. Respond after 15 active survey seconds, excluding
+// the time it spends held between survey pulses.
+const delayedSurvey = {
+  origin: Vec.create(-10851.703, -727.89),
+  activeSeconds: 0,
+  headingOffset: 0,
+};
+
+advanceSurvey({
+  state: delayedSurvey,
+  position: Vec.create(-10920.054, -625.436),
+  seconds: 15,
+});
+
+assert.equal(delayedSurvey.headingOffset, Math.PI / 4);
+
+const rotatedSurvey = surveyTravelRoute({
+  ship,
+  index: 0,
+  players: 32,
+  entities: [],
+  headingOffset: surveySearch.headingOffset,
+});
+
+assert(
+  rotatedSurvey.target.y > ship.position.y,
+  'The new heading directs the survey away from its old route',
+);
+
+const surveyObstacle = {
+  ...ship,
+  id: 99,
+  kind: 'asteroid' as const,
+  position: Vec.add(ship.position, Vec.create(300, 0)),
+  radius: 100,
+};
+
+const surveyRoute = surveyTravelRoute({
+  ship,
+  index: 0,
+  players: 32,
+  entities: [surveyObstacle],
+});
+
+const thrustNearObstacle = workloadControls({
+  workload: 'module',
+  index: 0,
+  players: 32,
+  elapsed: 0,
+  ship: {
+    ...ship,
+    velocity: Vec.create(110, 0),
+    rotation: Math.atan2(
+      surveyRoute.target.y - ship.position.y,
+      surveyRoute.target.x - ship.position.x,
+    ),
+    spin: 0,
+  },
+  entities: [surveyObstacle],
+  fanout: true,
+});
+
+assert(surveyRoute.obstacle, 'The nearby asteroid is in survey lookahead');
+assert.equal(
+  thrustNearObstacle.thrust,
+  1,
+  'Aligned survey thrusts along a checked detour',
+);
+
+// Recorded 32-player survey: the usual mirrored waypoint alternated across
+// this asteroid, sending the last unassigned ship back and forth.
+const oscillatingSurveyShip = {
+  ...ship,
+  id: 9,
+  position: Vec.create(-3916.787, 12815.941),
+};
+
+const oscillatingSurveyRocks = [
+  [-4107, 12861, 59.3989],
+  [-3898, 12565, 70.4274],
+  [-3918, 13210, 160.8399],
+  [-3566, 12929, 58.8912],
+  [-4300, 12927, 62.0334],
+  [-3562, 13188, 57.3075],
+  [-3517, 12492, 56.5513],
+  [-3376, 12890, 55.9725],
+].map(([x, y, radius], index) => ({
+  ...ship,
+  id: 100 + index,
+  kind: 'asteroid' as const,
+  position: Vec.create(x, y),
+  radius,
+}));
+
+const forwardSurvey = surveyTravelRoute({
+  ship: oscillatingSurveyShip,
+  index: 9,
+  players: 32,
+  entities: oscillatingSurveyRocks,
+});
+
+const forwardHeading = Vec.create(
+  Math.cos((9 * Math.PI) / 16),
+  Math.sin((9 * Math.PI) / 16),
+);
+
+assert.equal(forwardSurvey.routeChoice, 'forward-detour');
+assert(
+  Vec.dot(
+    Vec.subtract(forwardSurvey.target, oscillatingSurveyShip.position),
+    forwardHeading,
+  ) > 0,
+  'An available checked step advances instead of repeating the backward detour',
+);
+
+for (const obstacle of oscillatingSurveyRocks) {
+  const start = Vec.subtract(oscillatingSurveyShip.position, obstacle.position);
+  const step = Vec.subtract(
+    forwardSurvey.target,
+    oscillatingSurveyShip.position,
+  );
+  const t = Math.max(
+    0,
+    Math.min(1, -Vec.dot(start, step) / Vec.lengthSquared(step)),
+  );
+
+  assert(
+    Vec.length(Vec.addScaled(start, step, t)) >= obstacle.radius + 60,
+    'The forward survey step clears every recorded obstacle',
+  );
+}
 
 const stationSurveyShip = {
   ...ship,
@@ -1004,6 +1420,197 @@ assert(
     Vec.distance(insideShip.position, detourRock.position),
 );
 
+const trappedSurveyShip = {
+  ...ship,
+  position: Vec.create(-3398.243847846985, 2906.489433825016),
+};
+
+const trappedSurveyRocks = [
+  {
+    ...detourRock,
+    id: 201,
+    position: Vec.create(-3613, 2936),
+    radius: 164.48722976,
+  },
+  {
+    ...detourRock,
+    id: 202,
+    position: Vec.create(-3133, 2836),
+    radius: 214.87213604,
+  },
+];
+
+const trappedSurveyEscape = obstacleSafeRoute({
+  ship: trappedSurveyShip,
+  target: Vec.add(trappedSurveyShip.position, Vec.create(0, -4000)),
+  entities: trappedSurveyRocks,
+  asteroidMargin: 20,
+  checkDetours: true,
+  lookahead: 500,
+});
+
+assert.equal(trappedSurveyEscape.routeChoice, 'overlap-escape');
+
+for (const rock of trappedSurveyRocks) {
+  assert(
+    Vec.distance(trappedSurveyEscape.target, rock.position) >
+      Vec.distance(trappedSurveyShip.position, rock.position),
+    'The escape increases clearance from both overlapping safety margins',
+  );
+}
+
+const singleOverlapShip = {
+  ...ship,
+  position: Vec.create(-3944.5829796791077, 11357.597515761852),
+};
+
+const singleOverlapRocks = [
+  {
+    ...detourRock,
+    id: 203,
+    position: Vec.create(-4047, 11332),
+    radius: 52.60702018,
+  },
+  {
+    ...detourRock,
+    id: 204,
+    position: Vec.create(-3796, 11407),
+    radius: 69.8665852,
+  },
+  {
+    ...detourRock,
+    id: 205,
+    position: Vec.create(-3739, 11213),
+    radius: 70.70821724,
+  },
+];
+
+const singleOverlapEscape = obstacleSafeRoute({
+  ship: singleOverlapShip,
+  target: Vec.add(singleOverlapShip.position, Vec.create(1531, 3696)),
+  entities: singleOverlapRocks,
+  asteroidMargin: 20,
+  checkDetours: true,
+  lookahead: 500,
+});
+
+assert.equal(singleOverlapEscape.routeChoice, 'overlap-escape');
+assert.deepEqual(singleOverlapEscape.initialOverlapIds, [203]);
+assert(
+  Vec.distance(singleOverlapEscape.target, singleOverlapRocks[0].position) >
+    Vec.distance(singleOverlapShip.position, singleOverlapRocks[0].position),
+);
+
+// A recorded survey ship was surrounded by three overlapping padded asteroid
+// circles. No direction increased clearance from all three simultaneously.
+const paddedTrapShip = {
+  ...ship,
+  position: Vec.create(-2451.4968526363373, 2520.002206683159),
+};
+
+const paddedTrapRocks = [
+  [-2674.0033, 2506.9975, 170.2125],
+  [-2407.1329, 2611.957, 44.426],
+  [-2414.1025, 2482.621, 44.426],
+  [-2332.9306, 2664.559, 46.4958],
+  [-2229.312, 2535.194, 155.528],
+  [-2495, 2067, 172.812],
+  [-3129.668, 2827.796, 211.323],
+].map(([x, y, radius], index) => ({
+  ...detourRock,
+  id: 300 + index,
+  position: Vec.create(x, y),
+  radius,
+}));
+
+const paddedTrapEscape = surveyTravelRoute({
+  ship: paddedTrapShip,
+  index: 25,
+  players: 32,
+  entities: paddedTrapRocks,
+});
+
+assert.equal(paddedTrapEscape.routeChoice, 'padding-recovery');
+
+assert(
+  obstacleSafeRoute({
+    ship: paddedTrapShip,
+    target: Vec.add(paddedTrapShip.position, Vec.create(4000, 0)),
+    entities: paddedTrapRocks,
+    asteroidMargin: 20,
+    checkDetours: true,
+  }).blocked,
+  'Non-survey routing does not use the relaxed padding recovery',
+);
+
+for (const rock of paddedTrapRocks) {
+  const offset = Vec.subtract(paddedTrapShip.position, rock.position);
+  const step = Vec.subtract(paddedTrapEscape.target, paddedTrapShip.position);
+  const start = Vec.length(offset);
+  const physical = rock.radius + paddedTrapShip.radius;
+  const padded = physical + 20;
+  const along = Math.max(
+    0,
+    Math.min(1, -Vec.dot(offset, step) / Vec.lengthSquared(step)),
+  );
+  const nearest = Vec.length(Vec.addScaled(offset, step, along));
+
+  if (start < physical) {
+    assert(
+      Vec.dot(offset, step) >= 0,
+      'Recover outward from an existing hull overlap',
+    );
+  } else {
+    assert(nearest >= (start < padded ? physical : padded) - 1e-6);
+  }
+}
+
+const localDetourShip = { ...ship, position: Vec.create() };
+const localDetourRocks = [
+  { ...detourRock, id: 206, position: Vec.create(62, 71), radius: 30 },
+  { ...detourRock, id: 207, position: Vec.create(-56, -142), radius: 92 },
+];
+
+const localDetour = obstacleSafeRoute({
+  ship: localDetourShip,
+  target: Vec.create(4000, 0),
+  entities: localDetourRocks,
+  asteroidMargin: 20,
+  checkDetours: true,
+  preferForward: true,
+  lookahead: 500,
+});
+
+assert.deepEqual(localDetour.initialOverlapIds, []);
+assert.equal(localDetour.routeChoice, 'local-detour');
+
+assert(
+  obstacleSafeRoute({
+    ship: localDetourShip,
+    target: Vec.create(4000, 0),
+    entities: localDetourRocks,
+    asteroidMargin: 20,
+    checkDetours: true,
+    lookahead: 500,
+  }).blocked,
+  'Non-survey callers retain their existing conservative route',
+);
+
+for (const rock of localDetourRocks) {
+  const step = Vec.subtract(localDetour.target, localDetourShip.position);
+  const offset = Vec.subtract(localDetourShip.position, rock.position);
+  const along = Math.max(
+    0,
+    Math.min(1, -Vec.dot(offset, step) / Vec.lengthSquared(step)),
+  );
+
+  assert(
+    Vec.length(Vec.addScaled(offset, step, along)) >=
+      rock.radius + localDetourShip.radius + 20,
+    'The short local detour clears each obstacle along its entire segment',
+  );
+}
+
 const constrainedRoute = obstacleSafeRoute({
   ship: { ...ship, position: Vec.create() },
   target: Vec.create(1000, 0),
@@ -1220,6 +1827,50 @@ const hiddenBehindRock = {
   radius: 150,
 };
 
+// Candidate discovery needs only the planner's direct-route decision. Check
+// that its short-circuit agrees with the complete detour planner for short
+// routes, crossings, tangencies, initial overlaps, and nearby peer ships.
+for (const distance of [0, 10, 100, 1000]) {
+  for (const x of [-200, -80, 0, 80, 400, 1000]) {
+    for (const y of [-220, -200, -160, -120, 0, 120, 160, 200, 220]) {
+      for (const kind of ['asteroid', 'station', 'ship'] as const) {
+        const target = Vec.create(distance, 0);
+
+        const options = {
+          ship: miningShip,
+          target,
+          entities: [
+            { ...assignedAsteroid, id: 71, kind, position: Vec.create(x, y) },
+            { ...assignedAsteroid, id: 72, position: Vec.create(300, 180) },
+          ],
+          avoidShips: true,
+          asteroidMargin: 20,
+        };
+
+        for (const excludedId of [undefined, 71, 72]) {
+          const full = obstacleSafeRoute({
+            ...options,
+            excludedId,
+            checkDetours: true,
+          });
+
+          const direct = obstacleSafeRoute({
+            ...options,
+            excludedId,
+            directOnly: true,
+          });
+
+          assert.equal(
+            direct.target === target && !direct.blocked,
+            full.target === target && !full.blocked,
+            `Direct route decision differs for ${kind} at ${x},${y} with target ${distance} and excluded ${excludedId}`,
+          );
+        }
+      }
+    }
+  }
+}
+
 const proposal = proposeMiningTargets({
   index: 0,
   ship: miningShip,
@@ -1338,6 +1989,75 @@ assert.equal(
   'Global reservations reject shared IDs and overlapping hull contact poses, choosing another real proposed approach',
 );
 assert.equal(firstReservation.length, 1, 'Reservation input remains unchanged');
+
+// In a recorded 32-player preparation, client 18's new proposal displaced
+// client 19 after the latter had held this same asteroid for several minutes.
+const contestedRock = {
+  asteroidId: 1110309064,
+  asteroidRadius: 143.01278944,
+  anchor: Vec.create(-10749, 783),
+};
+
+const earlierOwner = {
+  index: 19,
+  position: Vec.create(-8923.8424, 111.1078),
+  radius: 40,
+  wholeRocks: 2,
+  candidates: [
+    {
+      ...contestedRock,
+      contact: Vec.create(-10577.2549, 719.7758),
+      distance: 1761.888,
+    },
+  ],
+};
+
+const newContender = {
+  index: 18,
+  position: Vec.create(-10188.4957, 1344.0642),
+  radius: 40,
+  wholeRocks: 11,
+  candidates: [
+    {
+      ...contestedRock,
+      contact: Vec.create(-10619.655, 912.4742),
+      distance: 610.056,
+    },
+  ],
+};
+
+const preferredOwner = new Map([[19, contestedRock.asteroidId]]);
+
+const preserved = reserveMiningTargets({
+  proposals: [newContender, earlierOwner],
+  preferred: preferredOwner,
+});
+
+assert.deepEqual(
+  preserved.map((target) => target.index),
+  [19],
+);
+assert.deepEqual(preserved[0].position, earlierOwner.position);
+assert.deepEqual(preserved[0].contact, earlierOwner.candidates[0].contact);
+
+assert.deepEqual(
+  reserveMiningTargets({
+    proposals: [newContender, { ...earlierOwner, candidates: [] }],
+    preferred: preferredOwner,
+  }).map((target) => target.index),
+  [18],
+  'A preference cannot retain a candidate that is no longer clear',
+);
+
+assert.deepEqual(
+  reserveMiningTargets({
+    proposals: [earlierOwner],
+    reserved: [{ ...preserved[0], index: 18 }],
+    preferred: preferredOwner,
+  }).map((target) => target.index),
+  [18],
+  'A preference cannot bypass compatibility with an existing reservation',
+);
 
 assert.equal(
   reserveMiningTargets({
@@ -1854,7 +2574,10 @@ const staged = weaponStagingControls({
   ship: beyondOldTarget,
   index: 1,
   players: 4,
-  entities: [station],
+  entities: [
+    station,
+    { ...station, kind: 'asteroid', position: Vec.create(0, 10110) },
+  ],
 });
 
 assert(staged.ready && staged.clear);
@@ -1874,18 +2597,23 @@ assert.equal(
   'A clear ship physically coasts to a settled speed',
 );
 
-const blockedStage = weaponStagingControls({
-  ship: beyondOldTarget,
-  index: 1,
-  players: 4,
-  entities: [{ ...assignedAsteroid, position: Vec.create(0, 9200) }],
-});
+for (const position of [Vec.create(37, 10110), Vec.create(-176.8, 9018.7)]) {
+  const peer = { ...ship, id: 88, position };
 
-assert(!blockedStage.ready && !blockedStage.clear);
-assert(
-  blockedStage.input.turn || blockedStage.input.thrust,
-  'Blocked staging resumes ordinary obstacle-aware navigation instead of parking permanently',
-);
+  const blockedStage = weaponStagingControls({
+    ship: beyondOldTarget,
+    index: 1,
+    players: 4,
+    entities: [peer],
+  });
+
+  assert(weaponClearAhead({ ship: beyondOldTarget, entities: [peer] }));
+  assert(!blockedStage.ready && !blockedStage.clear);
+  assert(
+    blockedStage.input.turn || blockedStage.input.thrust,
+    'Blocked staging resumes ordinary obstacle-aware navigation instead of parking permanently',
+  );
+}
 
 const recoveringWeapon = workloadControls({
   workload: 'weapon',

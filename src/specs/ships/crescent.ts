@@ -1,4 +1,5 @@
 import { colors } from '../colors';
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec, HullSegmentSpecification } from './types';
 
 const crystalRise = Math.sqrt(3) * 2.5;
@@ -64,6 +65,7 @@ const wingHitboxes = [
 export const crescent: ShipSpec = {
   name: 'Crescent',
   npcOnly: true,
+  price: 0,
   fuelCapacity: 180,
   cargoSpace: 0,
   drag: 0.56,
@@ -71,7 +73,7 @@ export const crescent: ShipSpec = {
   radius: 72,
   turnRate: 2.2,
   initialLoadout: [
-    { mount: 0, module: 'powerPlant' },
+    { mount: 0, module: 'powerPlant2V' },
     { mount: 1, module: 'thrusterSingleSm', shades: colors.violet },
     { mount: 2, module: 'thrusterSingleSm', shades: colors.violet },
   ],
@@ -80,7 +82,7 @@ export const crescent: ShipSpec = {
       core: true,
       health: 100,
       shades: colors.yellow,
-      mounts: [[{ x: 0, y: 0, fits: ['powerPlant'] }]],
+      mounts: [[{ x: 0, y: 0, fits: powerPlantIdsBySize[2] }]],
       points: [
         [12, 0],
         [0, 11],

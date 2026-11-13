@@ -1,0 +1,28 @@
+import { thruster } from './thruster';
+import type { ModuleSpec } from '../../types';
+
+export const thrusterDualLg = {
+  ...thruster,
+  weight: 6,
+  name: 'Dual Thruster lg',
+  health: 22,
+  power: 2.4,
+  powerActivated: 2.4,
+  price: 575,
+  fuelUsage: 0.06,
+  forwardThrust: 19,
+  rotationalThrust: 20,
+  offset: 10.5,
+  model: [
+    {
+      outline: true,
+      flareSize: 5,
+      thrusterNozzleSide: -1,
+    },
+    {
+      outline: true,
+      flareSize: 5,
+      thrusterNozzleSide: 1,
+    },
+  ],
+} satisfies ModuleSpec;

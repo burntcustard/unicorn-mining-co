@@ -1,3 +1,4 @@
+import { navBeaconSpec } from '../src/specs/nav-beacon';
 import { jumpGateSpec, jumpGateHull } from '../src/specs/jump-gate';
 import { wormholeSpec } from '../src/specs/wormhole';
 import { portalSpec } from '../src/specs/portal';
@@ -57,6 +58,7 @@ import {
 import { motion } from '../src/specs/local-movement';
 import { flight } from '../src/specs/control-ship';
 import { simulationStep } from '../src/specs/simulation';
+import { asteroidDebris } from '../src/specs/asteroid';
 import { startingCredits } from '../src/specs/player';
 import { updateTiers } from '../src/specs/update-tier';
 import { maxCatchUpTicks } from '../src/specs/game-session';
@@ -77,6 +79,7 @@ import {
 } from '../src/specs/region-generation';
 
 const simulation = {
+  asteroidDebris,
   physics,
   linearSlop,
   contactSpeedThreshold,
@@ -106,6 +109,7 @@ const catalog = {
   wormholeSpec,
   portalSpec,
   jumpGateHull,
+  navBeaconSpec,
   sectorNames,
   sectorGeneration,
   startingSectorId,
@@ -136,7 +140,13 @@ const catalog = {
     ]),
   ),
   stationSpecs,
-  protocol: { binaryFieldIds, controlMessageIds, dockActionIds, entityKindIds },
+  protocol: {
+    binaryFieldIds,
+    controlMessageIds,
+    dockActionIds,
+    entityKindIds,
+    modulePalettes: Object.values(colors),
+  },
   simulation,
   regionGeneration,
 };

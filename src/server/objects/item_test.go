@@ -121,7 +121,20 @@ func TestAsteroidDropsItems(t *testing.T) {
 		t.Fatal("destroyed asteroid was not removed")
 	}
 
-	drops := world.Entities.Values()
+	drops := []simulation.Entity{}
+	debris := []*simulation.Asteroid{}
+
+	for _, entity := range world.Entities.Values() {
+		if asteroid, ok := entity.(*simulation.Asteroid); ok {
+			debris = append(debris, asteroid)
+		} else {
+			drops = append(drops, entity)
+		}
+	}
+
+	if len(debris) != 3 {
+		t.Fatalf("got %d debris triangles, want 3 around the item hole", len(debris))
+	}
 
 	if len(drops) != len(contents) {
 		t.Fatalf("got %d drops, want %d", len(drops), len(contents))
@@ -145,7 +158,7 @@ func TestAsteroidDropsItems(t *testing.T) {
 		t.Fatalf("got events %#v, want %#v", events, want)
 	}
 
-	if asteroid.Fracture(nil, 7, &events, world) || len(world.Entities.Values()) != len(drops) || !reflect.DeepEqual(events, want) {
+	if asteroid.Fracture(nil, 7, &events, world) || len(world.Entities.Values()) != len(drops)+len(debris) || !reflect.DeepEqual(events, want) {
 		t.Fatal("repeated fracture duplicated drops or events")
 	}
 }

@@ -13,11 +13,68 @@ import { renderText } from '../../src/client/ui/text';
 import { setSizing } from '../../src/client/ui/set-sizing';
 import { withAlpha } from '../../src/client/utilities/color';
 import {
+  beginBeams,
+  drawBeam,
+  endBeams,
+} from '../../src/client/utilities/lighting';
+import {
   beginSurfaces,
   endSurfaces,
 } from '../../src/client/utilities/composited-surface';
 
 const createPath = () => new DrawingPath();
+
+export const checkBeamComposition = () => {
+  const previous = { canvas: game.canvas, ctx: game.ctx, scale: game.scale };
+  const canvas = document.createElement('canvas');
+
+  canvas.width = canvas.height = 100;
+  document.body.append(canvas);
+  game.canvas = canvas;
+  game.ctx = canvas.getContext('2d')!;
+  game.scale = 1;
+
+  try {
+    const path = new Path2D();
+
+    path.rect(0, -10, 100, 20);
+
+    const options = {
+      ctx: game.ctx,
+      path,
+      lit: path,
+      color: '#fff',
+      reach: 100,
+      spread: 10,
+      activationProgress: 1,
+    };
+
+    beginBeams();
+    game.ctx.translate(0, 50);
+    drawBeam(options);
+    const surface = document.querySelector<HTMLCanvasElement>('.world-beams')!;
+    const paint = surface.getContext('2d')!;
+    const single = Array.from(paint.getImageData(40, 50, 1, 1).data);
+
+    drawBeam(options);
+    const overlap = Array.from(paint.getImageData(40, 50, 1, 1).data);
+
+    game.ctx.translate(-10, 0);
+    options.activationProgress = 0.4;
+    drawBeam(options);
+    const dimOverlap = Array.from(paint.getImageData(40, 50, 1, 1).data);
+    const style = getComputedStyle(surface);
+
+    return [single, overlap, dimOverlap, style.mixBlendMode, style.opacity];
+  } finally {
+    endBeams();
+    const surface = document.querySelector('.world-beams');
+
+    if (surface) surface.parentNode?.removeChild(surface);
+    canvas.parentNode?.removeChild(canvas);
+    Object.assign(game, previous);
+  }
+};
 
 export const checkHudText = async () => {
   await document.fonts.load('16px Gemetric');

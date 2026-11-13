@@ -57,7 +57,7 @@ assert.deepEqual(
   },
 );
 
-const socket = new page.WebSocket('ws://localhost:3000');
+const socket = new page.WebSocket('ws://localhost:3002');
 const received: Buffer[] = [];
 let listenerCount = 0;
 let opened = false;

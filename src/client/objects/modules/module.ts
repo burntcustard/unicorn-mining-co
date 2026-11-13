@@ -23,6 +23,7 @@ export interface ModuleRenderOptions {
   craft?: Craft;
   scenery?: GameObject[];
   pose?: Pose;
+  markingsRotation?: number;
 }
 
 export class Module extends GameObject {
@@ -83,7 +84,7 @@ export class Module extends GameObject {
     return shade < 0 ? color : shades[shade];
   }
 
-  render({ segment, points, draw }: ModuleRenderOptions) {
+  render({ segment, points, draw, markingsRotation }: ModuleRenderOptions) {
     super.render({
       draw: () => {
         if (draw) {
@@ -125,9 +126,14 @@ export class Module extends GameObject {
           segment.shapeOutline ? linesPath(segment.shapeOutline) : shape,
         );
 
-        if (segment.turretBase && segment.lines) {
+        const lineRotation = segment.turretBase
+          ? this.aimRotation
+          : markingsRotation;
+
+        if (lineRotation !== undefined && segment.lines) {
           ctx.save();
-          ctx.rotate(this.aimRotation);
+          ctx.rotate(lineRotation);
+          ctx.lineWidth = segment.lineWidth ?? ctx.lineWidth;
           ctx.stroke(linesPath(segment.lines));
           ctx.restore();
         }

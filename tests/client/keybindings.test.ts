@@ -32,109 +32,44 @@ try {
     1,
     'telemetry uses an otherwise unused default key',
   );
-  const legacy = defaults.bindingEntries
-    .slice(0, -3)
-    .map(([, binding]) => [...binding.keys]);
 
-  legacy[0] = ['q'];
-  localStorage.setItem('unicorn-controls', JSON.stringify(legacy));
-  const migrated = await loadBindings('legacy');
+  assert.deepEqual(defaults.defaultKeybindings.sectorMap, {
+    keys: ['Tab'],
+    mode: 'press',
+  });
 
-  assert.deepEqual(
-    migrated.bindingEntries.slice(0, -3).map(([, binding]) => binding.keys),
-    legacy,
-    'adding targeting preserves old saved bindings',
-  );
-  assert.deepEqual(migrated.defaultKeybindings.targetNext.keys, ['t']);
-  assert.deepEqual(migrated.defaultKeybindings.fpsCounter.keys, ['f']);
-  migrated.defaultKeybindings.targetNext.keys = ['n'];
-  localStorage.setItem(
-    'unicorn-controls',
-    JSON.stringify(
-      migrated.bindingEntries.slice(0, -2).map(([, binding]) => binding.keys),
-    ),
-  );
-  const withTargeting = await loadBindings('with-targeting');
-
-  assert.deepEqual(withTargeting.defaultKeybindings.targetNext.keys, ['n']);
-  assert.deepEqual(
-    withTargeting.defaultKeybindings.fpsCounter.keys,
-    ['f'],
-    'adding the FPS shortcut preserves saved targeting and flight bindings',
-  );
-  withTargeting.defaultKeybindings.fpsCounter.keys = ['v'];
-  withTargeting.saveBindings();
-  localStorage.setItem(
-    'unicorn-controls',
-    JSON.stringify(
-      withTargeting.bindingEntries
-        .slice(0, -1)
-        .map(([, binding]) => binding.keys),
-    ),
-  );
+  defaults.defaultKeybindings.forwardThrust.keys = ['q'];
+  defaults.defaultKeybindings.targetNext.keys = ['n'];
+  defaults.defaultKeybindings.requestGateAccess.keys = ['g'];
+  defaults.defaultKeybindings.searchLight.mode = 'hold';
+  defaults.defaultKeybindings.hornDrill.mode = 'toggle';
+  defaults.defaultKeybindings.cargoRelease.keys = ['j'];
+  defaults.defaultKeybindings.sectorMap.keys = ['m'];
+  defaults.saveBindings();
   const reloaded = await loadBindings('reloaded');
 
-  assert.deepEqual(
-    reloaded.defaultKeybindings.fpsCounter.keys,
-    ['v'],
-    'FPS binding survives reload',
-  );
-  assert.deepEqual(
-    reloaded.defaultKeybindings.targetNext.keys,
-    ['n'],
-    'target binding survives reload',
-  );
   assert.deepEqual(reloaded.defaultKeybindings.forwardThrust.keys, ['q']);
-  assert.deepEqual(reloaded.defaultKeybindings.requestGateAccess.keys, ['r']);
-  reloaded.defaultKeybindings.requestGateAccess.keys = ['g'];
-  reloaded.saveBindings();
-  const withAccess = await loadBindings('with-access');
+  assert.deepEqual(reloaded.defaultKeybindings.targetNext.keys, ['n']);
+  assert.deepEqual(reloaded.defaultKeybindings.requestGateAccess.keys, ['g']);
+  assert.deepEqual(reloaded.defaultKeybindings.cargoRelease.keys, ['j']);
+  assert.deepEqual(reloaded.defaultKeybindings.sectorMap.keys, ['m']);
+  assert.equal(reloaded.defaultKeybindings.searchLight.mode, 'hold');
+  assert.equal(reloaded.defaultKeybindings.hornDrill.mode, 'toggle');
+  assert.equal(reloaded.defaultKeybindings.requestGateAccess.mode, 'press');
+  assert.deepEqual(reloaded.bindingModes, ['hold', 'toggle']);
 
-  assert.deepEqual(withAccess.defaultKeybindings.requestGateAccess.keys, ['g']);
-  assert.deepEqual(withAccess.defaultKeybindings.fpsCounter.keys, ['v']);
-  withAccess.defaultKeybindings.cargoRelease.mode = 'press';
-  withAccess.defaultKeybindings.cargoRelease.keys = ['j'];
-  withAccess.defaultKeybindings.searchLight.mode = 'hold';
-  withAccess.saveBindings();
-  const withModes = await loadBindings('with-modes');
+  const invalid = JSON.parse(localStorage.getItem('unicorn-controls')!);
 
-  assert.equal(
-    withModes.defaultKeybindings.cargoRelease.mode,
-    'hold',
-    'saved module Press settings migrate to Hold',
-  );
-  assert.deepEqual(withModes.bindingModes, ['hold', 'toggle']);
-  assert.equal(
-    withModes.defaultKeybindings.hornDrill.mode,
-    'toggle',
-    'saved Toggle IDs stay compatible',
-  );
-  assert.equal(withModes.defaultKeybindings.searchLight.mode, 'hold');
-  assert.deepEqual(withModes.defaultKeybindings.cargoRelease.keys, ['j']);
-  withModes.defaultKeybindings.telemetry.keys = ['z'];
-  withModes.saveBindings();
-  const withTelemetry = await loadBindings('with-telemetry');
+  invalid[0][1] = 2;
+  localStorage.setItem('unicorn-controls', JSON.stringify(invalid));
+  const rejected = await loadBindings('invalid');
 
-  assert.deepEqual(withTelemetry.defaultKeybindings.telemetry.keys, ['z']);
-  withTelemetry.resetBindings();
-  assert.deepEqual(withTelemetry.defaultKeybindings.telemetry.keys, ['v']);
-  withModes.resetBindings();
-  assert.equal(withModes.defaultKeybindings.cargoRelease.mode, 'hold');
-  assert.equal(withModes.defaultKeybindings.searchLight.mode, 'toggle');
-  assert.deepEqual(withModes.defaultKeybindings.cargoRelease.keys, ['h']);
-  withAccess.resetBindings();
-  assert.deepEqual(withAccess.defaultKeybindings.requestGateAccess.keys, ['r']);
+  assert.deepEqual(rejected.defaultKeybindings.forwardThrust.keys, ['ArrowUp']);
   reloaded.resetBindings();
-  assert.deepEqual(
-    reloaded.defaultKeybindings.fpsCounter.keys,
-    ['f'],
-    'reset restores the default FPS key',
-  );
-  assert.deepEqual(
-    reloaded.defaultKeybindings.targetNext.keys,
-    ['t'],
-    'reset restores the default target key',
-  );
+  assert.deepEqual(reloaded.defaultKeybindings.forwardThrust.keys, ['ArrowUp']);
+  assert.deepEqual(reloaded.defaultKeybindings.targetNext.keys, ['t']);
+  assert.deepEqual(reloaded.defaultKeybindings.sectorMap.keys, ['Tab']);
+  assert.equal(reloaded.defaultKeybindings.searchLight.mode, 'toggle');
 } finally {
   if (saved === null) {
     localStorage.removeItem('unicorn-controls');

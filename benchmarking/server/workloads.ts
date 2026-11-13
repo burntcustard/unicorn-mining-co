@@ -36,15 +36,15 @@ export const isOrdinaryAmmoItem = (
 export const weaponForClient = (index: number): ProtocolWeapon =>
   (['none', 'plasmaAccelerator', 'autogun', 'laser'] as const)[index % 4];
 
-export const weaponMeasurementLimit = ({
+export const weaponAmmoPacks = ({
+  seconds,
   rounds,
   fireInterval,
-  reserveSeconds = 5,
 }: {
+  seconds: number;
   rounds: number;
   fireInterval: number;
-  reserveSeconds?: number;
-}) => (rounds * fireInterval) / 1000 - reserveSeconds;
+}) => Math.floor(((seconds + 5) * 1000) / fireInterval / rounds) + 1;
 
 export const weaponStagingControls = ({
   ship,
@@ -58,15 +58,23 @@ export const weaponStagingControls = ({
   entities: ReplicatedEntity[];
 }) => {
   const angle = (index * Math.PI * 2) / players;
+
   const clear =
     !ship.dockedTo &&
     !ship.launching &&
     Math.abs(wrappedAngle(angle - ship.rotation)) < 0.25 &&
     weaponClearAhead({ ship, entities, distance: 500 }) &&
-    entities.every(
-      (entity) =>
-        entity.kind !== 'station' ||
-        Vec.distance(ship.position, entity.position) > entity.radius + 350,
+    weaponClearAhead({
+      ship,
+      entities: entities.filter((entity) => entity.kind === 'ship'),
+      distance: 1200,
+    }) &&
+    entities.every((entity) =>
+      entity.kind === 'ship' && entity.id !== ship.id
+        ? Vec.distance(ship.position, entity.position) >
+          ship.radius + entity.radius + 120
+        : entity.kind !== 'station' ||
+          Vec.distance(ship.position, entity.position) > entity.radius + 350,
     );
 
   return {
@@ -348,7 +356,30 @@ export const reserveSpreadCorridors = ({
 }: {
   proposals: SpreadCorridorProposal[];
 }) => {
-  const selected: { corridor: SpreadCorridor; radius: number }[] = [];
+  const selected: {
+    corridor: SpreadCorridor;
+    proposal: SpreadCorridorProposal;
+  }[] = [];
+
+  const unassigned: SpreadCorridorProposal[] = [];
+  const end = (corridor: SpreadCorridor) =>
+    Vec.addScaled(
+      corridor.start,
+      Vec.create(Math.cos(corridor.heading), Math.sin(corridor.heading)),
+      corridor.length,
+    );
+  const separated = (
+    candidate: SpreadCorridor,
+    radius: number,
+    other: (typeof selected)[number],
+  ) =>
+    segmentDistanceSquared(
+      candidate.start,
+      end(candidate),
+      other.corridor.start,
+      end(other.corridor),
+    ) >=
+    (radius + other.proposal.radius + 2 * spreadLateralAllowance + 100) ** 2;
 
   for (const proposal of proposals.toSorted(
     (a, b) => a.candidates.length - b.candidates.length || a.index - b.index,
@@ -357,37 +388,51 @@ export const reserveSpreadCorridors = ({
       continue;
     }
 
-    const corridor = proposal.candidates.find((candidate) => {
-      const end = Vec.addScaled(
-        candidate.start,
-        Vec.create(Math.cos(candidate.heading), Math.sin(candidate.heading)),
-        candidate.length,
+    const corridor = proposal.candidates.find((candidate) =>
+      selected.every((other) => separated(candidate, proposal.radius, other)),
+    );
+
+    if (corridor) {
+      selected.push({ corridor, proposal });
+    } else {
+      unassigned.push(proposal);
+    }
+  }
+
+  // One alternative for a blocking ship can make room without moving either ship.
+  for (const proposal of unassigned) {
+    if (selected.some(({ corridor }) => corridor.index === proposal.index)) {
+      continue;
+    }
+
+    for (const corridor of proposal.candidates) {
+      const blockers = selected.filter(
+        (other) => !separated(corridor, proposal.radius, other),
       );
 
-      return selected.every((other) => {
-        const otherEnd = Vec.addScaled(
-          other.corridor.start,
-          Vec.create(
-            Math.cos(other.corridor.heading),
-            Math.sin(other.corridor.heading),
+      if (blockers.length !== 1) continue;
+
+      const blocker = blockers[0];
+
+      const alternative = blocker.proposal.candidates.find(
+        (candidate) =>
+          separated(candidate, blocker.proposal.radius, {
+            corridor,
+            proposal,
+          }) &&
+          selected.every(
+            (other) =>
+              other === blocker ||
+              separated(candidate, blocker.proposal.radius, other),
           ),
-          other.corridor.length,
-        );
+      );
 
-        return (
-          segmentDistanceSquared(
-            candidate.start,
-            end,
-            other.corridor.start,
-            otherEnd,
-          ) >=
-          (proposal.radius + other.radius + 2 * spreadLateralAllowance + 100) **
-            2
-        );
-      });
-    });
+      if (!alternative) continue;
 
-    if (corridor) selected.push({ corridor, radius: proposal.radius });
+      blocker.corridor = alternative;
+      selected.push({ corridor, proposal });
+      break;
+    }
   }
 
   return selected.map(({ corridor }) => corridor);
@@ -420,6 +465,8 @@ export const obstacleSafeRoute = ({
   avoidShips = false,
   asteroidMargin = 80,
   checkDetours = false,
+  directOnly = false,
+  preferForward = false,
   lookahead = Infinity,
   bounds,
 }: {
@@ -430,6 +477,8 @@ export const obstacleSafeRoute = ({
   avoidShips?: boolean;
   asteroidMargin?: number;
   checkDetours?: boolean;
+  directOnly?: boolean;
+  preferForward?: boolean;
   lookahead?: number;
   bounds?: { position: Vec.Value; radius: number };
 }) => {
@@ -526,7 +575,7 @@ export const obstacleSafeRoute = ({
       side,
     });
 
-  if (!checkDetours) {
+  if (!checkDetours && !directOnly) {
     const destination = waypoint();
 
     return withinBounds(destination)
@@ -539,7 +588,7 @@ export const obstacleSafeRoute = ({
         };
   }
 
-  const rejectionFor = (destination: Vec.Value) => {
+  const rejectionFor = (destination: Vec.Value, recoverPadding = false) => {
     const step = Vec.subtract(destination, ship.position);
     const lengthSquared = Vec.lengthSquared(step);
 
@@ -553,7 +602,16 @@ export const obstacleSafeRoute = ({
         circle.entity.position,
       );
 
-      if (startDistance < circle.clearance ** 2) {
+      const physicalClearance = circle.radius + ship.radius;
+      const clearance =
+        recoverPadding &&
+        circle.entity.kind === 'asteroid' &&
+        startDistance < circle.clearance ** 2 &&
+        startDistance >= physicalClearance ** 2
+          ? physicalClearance
+          : circle.clearance;
+
+      if (startDistance < clearance ** 2) {
         // A ship already inside a safety margin may escape outward, but no
         // checked segment may carry it deeper into that existing overlap.
         return !(
@@ -569,7 +627,7 @@ export const obstacleSafeRoute = ({
 
       return (
         Vec.lengthSquared(Vec.addScaled(relative, step, along)) <
-        circle.clearance ** 2 - 1e-6
+        clearance ** 2 - 1e-6
       );
     };
   };
@@ -578,6 +636,12 @@ export const obstacleSafeRoute = ({
     withinBounds(destination) &&
     Vec.distanceSquared(destination, ship.position) > 16 ** 2 &&
     !circles.some(rejectionFor(destination));
+
+  if (directOnly) {
+    return clears(target)
+      ? { target }
+      : { target: Vec.clone(ship.position), obstacle, blocked: true };
+  }
 
   const initialOverlapIds = circles
     .filter(
@@ -625,12 +689,102 @@ export const obstacleSafeRoute = ({
 
   const safe = candidates.find((candidate) => clears(candidate.position));
 
+  // A checked detour can still point behind the desired survey direction.
+  // Recomputing that waypoint as the ship moves can send it back and forth
+  // across the same obstacle. Prefer a short checked step with forward
+  // progress when one exists; retain the normal detour when it does not.
+  const forwardStep =
+    preferForward &&
+    safe &&
+    Vec.dot(Vec.subtract(safe.position, ship.position), direction) <= 0
+      ? Array.from({ length: 64 }, (_, index) => {
+          const angle = (index * Math.PI * 2) / 64;
+
+          return Vec.addScaled(
+            ship.position,
+            Vec.create(Math.cos(angle), Math.sin(angle)),
+            60,
+          );
+        })
+          .filter(
+            (position) =>
+              Vec.dot(Vec.subtract(position, ship.position), direction) > 0 &&
+              clears(position),
+          )
+          .toSorted(
+            (a, b) =>
+              Vec.distanceSquared(a, target) - Vec.distanceSquared(b, target),
+          )[0]
+      : undefined;
+
+  // Nearby obstacles can block every usual waypoint even when a short local
+  // step is clear. During survey, try those steps outside safety margins too;
+  // the same checks prevent moving deeper into any existing overlap.
+  const localEscape =
+    !safe && (initialOverlapIds.length > 0 || preferForward)
+      ? Array.from({ length: 64 }, (_, index) => {
+          const angle = (index * Math.PI * 2) / 64;
+
+          return Vec.addScaled(
+            ship.position,
+            Vec.create(Math.cos(angle), Math.sin(angle)),
+            60,
+          );
+        })
+          .toSorted(
+            (a, b) =>
+              Vec.distanceSquared(a, target) - Vec.distanceSquared(b, target),
+          )
+          .find(clears)
+      : undefined;
+
+  // Opposing existing asteroid margins can leave no direction that increases
+  // clearance from every circle. For survey recovery only, allow a short step
+  // through padding already occupied, while still avoiding physical hulls and
+  // refusing to enter any new padded overlap. Existing physical overlaps must
+  // still be escaped outward.
+  const paddingRecovery =
+    preferForward && !safe && !localEscape && initialOverlapIds.length
+      ? Array.from({ length: 64 }, (_, index) => {
+          const angle = (index * Math.PI * 2) / 64;
+
+          return Vec.addScaled(
+            ship.position,
+            Vec.create(Math.cos(angle), Math.sin(angle)),
+            30,
+          );
+        })
+          .toSorted(
+            (a, b) =>
+              Vec.distanceSquared(a, target) - Vec.distanceSquared(b, target),
+          )
+          .find(
+            (position) =>
+              withinBounds(position) &&
+              !circles.some(rejectionFor(position, true)),
+          )
+      : undefined;
+
   return {
-    target: safe?.position || Vec.clone(ship.position),
+    target:
+      forwardStep ||
+      safe?.position ||
+      localEscape ||
+      paddingRecovery ||
+      Vec.clone(ship.position),
     obstacle,
-    routeChoice: safe?.kind || 'blocked',
+    routeChoice: forwardStep
+      ? 'forward-detour'
+      : safe?.kind ||
+        (localEscape
+          ? initialOverlapIds.length
+            ? 'overlap-escape'
+            : 'local-detour'
+          : paddingRecovery
+            ? 'padding-recovery'
+            : 'blocked'),
     initialOverlapIds,
-    blocked: !safe,
+    blocked: !safe && !localEscape && !paddingRecovery,
   };
 };
 
@@ -748,7 +902,7 @@ export const proposeMiningTargets = ({
           excludedId: asteroid.id,
           avoidShips: true,
           asteroidMargin: 20,
-          checkDetours: true,
+          directOnly: true,
         });
 
         if (route.target !== asteroid.position || route.blocked) return [];
@@ -779,14 +933,18 @@ export const proposeMiningTargets = ({
 
 /*
  * Reserve unique real rocks and clear ship contact poses, starting with the
- * most constrained client. Earlier batches retain their actual reached poses.
+ * most constrained client. Previous provisional choices are preferred only
+ * when proposed again from the client's current position. Earlier batches
+ * retain their actual reached poses.
  */
 export const reserveMiningTargets = ({
   proposals,
   reserved = [],
+  preferred = new Map<number, number>(),
 }: {
   proposals: MiningProposal[];
   reserved?: MiningTarget[];
+  preferred?: ReadonlyMap<number, number>;
 }) => {
   const targets = reserved.slice();
 
@@ -812,12 +970,32 @@ export const reserveMiningTargets = ({
     );
   };
 
-  for (const proposal of proposals.toSorted(
-    (a, b) => a.candidates.length - b.candidates.length || a.index - b.index,
-  )) {
+  const preferredCandidate = (proposal: MiningProposal) =>
+    proposal.candidates.find(
+      (candidate) => candidate.asteroidId === preferred.get(proposal.index),
+    );
+
+  for (const proposal of proposals.toSorted((a, b) => {
+    const aPreferred = Boolean(preferredCandidate(a));
+    const bPreferred = Boolean(preferredCandidate(b));
+
+    return (
+      Number(bPreferred) - Number(aPreferred) ||
+      a.candidates.length - b.candidates.length ||
+      a.index - b.index
+    );
+  })) {
     if (targets.some((target) => target.index === proposal.index)) continue;
 
-    const candidate = proposal.candidates.find((candidate) =>
+    const previous = preferredCandidate(proposal);
+    const choices = previous
+      ? [
+          previous,
+          ...proposal.candidates.filter((candidate) => candidate !== previous),
+        ]
+      : proposal.candidates;
+
+    const candidate = choices.find((candidate) =>
       targets.every((target) => {
         const clearance = proposal.radius + target.shipRadius + 120;
         const route = Vec.subtract(candidate.contact, proposal.position);
@@ -1082,6 +1260,72 @@ export const miningDrillSafe = ({
   );
 };
 
+export type SurveySearch = {
+  origin: Vec.Value;
+  activeSeconds: number;
+  headingOffset: number;
+  recovering?: boolean;
+};
+
+/*
+ * Keep a survey heading until movement stalls. Cycling a bounded selection of
+ * headings then lets a ship leave a local obstacle trap without changing its
+ * normal controls or the target-separation checks.
+ */
+export const advanceSurvey = ({
+  state,
+  position,
+  seconds,
+}: {
+  state: SurveySearch;
+  position: Vec.Value;
+  seconds: number;
+}) => {
+  state.activeSeconds += seconds;
+
+  if (state.activeSeconds < 15) return;
+
+  if (Vec.distanceSquared(state.origin, position) < 200 ** 2) {
+    state.recovering = true;
+    state.headingOffset = (state.headingOffset + Math.PI / 4) % (Math.PI * 2);
+  }
+
+  state.origin = Vec.clone(position);
+  state.activeSeconds = 0;
+};
+
+export const surveyTravelRoute = ({
+  ship,
+  index,
+  players,
+  entities,
+  headingOffset = 0,
+}: {
+  ship: ReplicatedEntity;
+  index: number;
+  players: number;
+  entities: ReplicatedEntity[];
+  headingOffset?: number;
+}) => {
+  const heading = (index * Math.PI * 2) / players + headingOffset;
+  const destination = Vec.addScaled(
+    ship.position,
+    Vec.create(Math.cos(heading), Math.sin(heading)),
+    4000,
+  );
+
+  return obstacleSafeRoute({
+    ship,
+    target: stationSafeTarget({ ship, target: destination, entities }),
+    entities,
+    avoidShips: true,
+    asteroidMargin: 20,
+    checkDetours: true,
+    preferForward: true,
+    lookahead: 500,
+  });
+};
+
 export const workloadControls = ({
   workload,
   index,
@@ -1097,6 +1341,8 @@ export const workloadControls = ({
   mining = true,
   firing = true,
   fanout = false,
+  surveyHeadingOffset = 0,
+  surveyRecovery = false,
   spreadCorridor,
 }: {
   workload: ProtocolWorkload;
@@ -1113,6 +1359,8 @@ export const workloadControls = ({
   mining?: boolean;
   firing?: boolean;
   fanout?: boolean;
+  surveyHeadingOffset?: number;
+  surveyRecovery?: boolean;
   spreadCorridor?: SpreadCorridor;
 }): PlayerInput => {
   if (!fanout && workload === 'spread') {
@@ -1132,20 +1380,14 @@ export const workloadControls = ({
     );
 
     const outwardRoute =
-      fanout && workload === 'module'
-        ? obstacleSafeRoute({
+      fanout &&
+      (workload === 'module' || (workload === 'spread' && surveyRecovery))
+        ? surveyTravelRoute({
             ship,
-            target: stationSafeTarget({
-              ship,
-              target: destination,
-              entities,
-            }),
-            entities: entities.filter(
-              (entity) => entity.kind === 'station' || entity.kind === 'ship',
-            ),
-            avoidShips: true,
-            checkDetours: true,
-            lookahead: 500,
+            index,
+            players,
+            entities,
+            headingOffset: surveyHeadingOffset,
           })
         : undefined;
 
@@ -1164,7 +1406,7 @@ export const workloadControls = ({
               target.y - ship.position.y,
               target.x - ship.position.x,
             ),
-            thrust: Vec.length(ship.velocity || Vec.create()) < 100,
+            thrust: true,
           })
         : !fanout && workload === 'weapon'
           ? firing

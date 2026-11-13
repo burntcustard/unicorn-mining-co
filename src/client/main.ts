@@ -1,3 +1,4 @@
+import { playSound } from './audio/sound-loader';
 import { ui } from './ui/dom/ui';
 import { createMainMenu } from './ui/dom/main-menu';
 import { graphics, restoreGraphics } from './ui/dom/graphics';
@@ -15,8 +16,9 @@ const loadGameplay = async () =>
 
 const renderSky = () => {
   if (gameplay) return;
-  const width = Math.trunc(innerWidth * graphics[3]);
-  const height = Math.trunc(innerHeight * graphics[3]);
+  const resolution = graphics[3] * (devicePixelRatio || 1);
+  const width = Math.trunc(innerWidth * resolution);
+  const height = Math.trunc(innerHeight * resolution);
 
   if (skyCanvas.width !== width || skyCanvas.height !== height) {
     skyCanvas.width = canvas.width = width;
@@ -38,7 +40,7 @@ const renderSky = () => {
   background.renderBackground(
     skyCanvas,
     skyCanvas.getContext('2d')!,
-    (Math.min(innerWidth, innerHeight) / 1080) * graphics[3],
+    (Math.min(innerWidth, innerHeight) / 1080) * resolution,
   );
 };
 
@@ -58,7 +60,9 @@ const navigate = async (destination: string) => {
   if (destination === 'saves') ui.push(screens.createSaves());
 };
 
-const showMainMenu = () =>
+const showMainMenu = () => {
+  if (gameplay?.running) playSound('main-menu-open');
+
   ui.push(
     createMainMenu({
       running: Boolean(gameplay?.running),
@@ -76,6 +80,7 @@ const showMainMenu = () =>
               onSave: async (displayName) => {
                 await gameplay.createProfile(displayName);
                 await gameplay.start();
+                playSound('main-menu-close');
                 ui.clear();
               },
             }),
@@ -85,10 +90,12 @@ const showMainMenu = () =>
         }
 
         await gameplay.start();
+        playSound('main-menu-close');
         ui.clear();
       },
     }),
   );
+};
 
 window.addEventListener('keydown', (event) => {
   // A held key repeats; only a fresh press should take another step.

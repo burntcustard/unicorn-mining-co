@@ -100,7 +100,7 @@ func TestShipIsStrandedOnlyAfterLosingEveryThrusterHull(t *testing.T) {
 	definition.HullSegments = slices.Clone(definition.HullSegments)
 	definition.HullSegments[0].Core = true
 	definition.HullSegments[3].Mounts = append(slices.Clone(definition.HullSegments[3].Mounts), []specs.MountPoint{{X: 0, Y: 0, Fits: []string{"thrusterSingleSm"}}})
-	definition.InitialLoadout = []specs.InitialModule{{Mount: 0, Module: "cannonSm"}, {Mount: 1, Module: "thrusterSingleSm"}, {Mount: 2, Module: "powerPlant"}, {Mount: 3, Module: "cargoHatchPair"}, {Mount: 4, Module: "thrusterSingleSm"}, {Mount: 5, Module: "cannonSm"}}
+	definition.InitialLoadout = []specs.InitialModule{{Mount: 0, Module: "cannonSm"}, {Mount: 1, Module: "thrusterSingleSm"}, {Mount: 2, Module: "powerPlant2V"}, {Mount: 3, Module: "cargoHatchPair"}, {Mount: 4, Module: "thrusterSingleSm"}, {Mount: 5, Module: "cannonSm"}}
 	catalog.ShipSpecs["courser"] = definition
 	world := simulation.CreateWorld(25, catalog)
 	ship := CreatePlayerShip(world, Properties{DefinitionID: "courser", PlayerID: new(int64(1))})

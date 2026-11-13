@@ -36,11 +36,36 @@ contact handling belongs to `Craft`, so the history is not restricted to station
 The players table uses `WITHOUT ROWID`, so its UUID key is also its storage key.
 Dates, playtime and credits are integers. The ship record contains its object ID,
 spec ID, integer `[x,y]` position, heading, optional paint/docking/death
-state, hull health values, fuel, fitted modules, and cargo. Modules contain an ID, type,
-mount, health, optional paint and firing cooldown, and active/activation-progress
-pairs. Cargo contains its identity, type and condition, plus message contents or
-remaining ammunition rounds where needed. Saves use the current item and module
-IDs and mount layout; renamed IDs and retired layouts are not translated.
+state, hull health values, fuel, stored power, fitted modules, and cargo. Modules
+contain an ID, type, mount, health, optional paint and firing cooldown, and
+active/activation-progress pairs. Cargo contains its identity, type and
+condition, plus message contents or remaining ammunition rounds where needed.
+Saves use the current item and module IDs and mount layout; renamed IDs and
+retired layouts are not translated.
+The active ship record also holds an optional custom `name` and `storedShips`
+array containing the other owned ships in the same format. The array is omitted
+when there are no stored ships. Stored ships are available at every station but
+do not participate in world simulation. Ship names default to the hull model,
+independently of the player's display name.
+
+Selling the last ship saves `noShip` on an inert docked berth record, retaining
+the station and camera position without granting ownership of that hull.
+The server rejects launching, respawning, and craft actions from that berth;
+the client also suppresses flight controls so prediction cannot undock it.
+Reconnecting restores the berth's station location and opens the Hangar even
+without an owned ship; buying a ship replaces the berth.
+All docked tabs remain accessible without a ship. Ship services and outfitting
+are unavailable, and market stock remains visible with purchases disabled until
+the player buys a ship.
+Stations selling Mustangs offer a recovery purchase when credits plus the net
+sale value of the entire fleet (including cargo and fitted modules) cannot
+cover the station's regular Mustang price. This purchase consumes all remaining
+credits and owned ships/items and supplies a new standard Mustang, without a
+confirmation dialog. Eligibility is checked by the server.
+Hangar transactions, names, equipment, cargo, and
+credits are captured together by the ordinary player save path.
+Ship sale payouts include the hull, fitted modules, and cargo value minus the
+cost to fully repair the hull and fitted modules and refill the fuel tank.
 Credits are stored only in their SQL column. Shapes, physics constants, velocity,
 spin, movement parents, flight inputs and RNG state are not saved for player
 ships. Specs rebuild those defaults, and ships resume stationary. Partial
@@ -103,14 +128,18 @@ removed before any save was submitted needs no SQL deletion. Submitted records
 remain tracked before commit, so a later deletion cannot be lost behind an
 in-flight creation.
 
-World projectiles and objects with positive `Decay` are temporary and are not
-saved. This includes fading asteroid pieces and craft wreckage. They continue
+World projectiles and objects actively losing health through `Decay` are temporary
+and are not saved. This includes empty asteroid debris and craft wreckage.
+Asteroid debris containing an item is protected from decay and remains saved,
+including its terminal breakup state, until mined away. Detached asteroid
+segments, including empty ones, do not decay and remain saved; destroying a
+detached triangle replaces it with four debris triangles, or three corner triangles
+when items are released into a central hole. Temporary objects continue
 to simulate normally while the server runs; their damage to permanent objects
 still follows the ordinary save rules. Permanent items, ships, stations,
-asteroids, player state, and cargo contents remain saved. Old temporary world
-rows are discarded on restore and queued for removal from SQLite. If an object
-was saved before becoming temporary, its old record is deleted; generated
-objects retain deletion tombstones so procedural generation cannot recreate them.
+asteroids, player state, and cargo contents remain saved. If an object was saved
+before becoming temporary, its old record is deleted; generated objects retain
+deletion tombstones so procedural generation cannot recreate them.
 
 Unexpected process failure can rewind ordinary gameplay, including credits,
 cargo, purchases, equipment, movement, and damage, to its last committed state.
@@ -154,17 +183,19 @@ even when no players are connected.
 The database has one owner: another game server using the same
 file fails with a lock error rather than overwriting live state.
 
-The seed and a digest of generation rules are checked on startup. Appending
-new items to the catalog accepts saves from any earlier prefix of that catalog;
-existing resource IDs must keep their current names and order. Weapon definitions
-can also be added without resetting the world. Older restored ships and cargo keep
-their saved contents; newly defined items or weapons are available through their
-normal gameplay creation or purchase paths. The next world save records the
-current digest while preserving player and entity records. Changing
-`WORLD_SEED` or generation rules requires a fresh world database; an incompatible
-database never silently creates a fresh world.
+New players on non-production servers start with 99,999 credits for testing ships
+and equipment. Production players start with 2,000 credits. Existing saved
+balances are preserved in both environments.
 
-New stations start with 300 autogun ammo packs. Saved stations restore their
+The seed and a digest of generation rules are checked on startup. The digest
+includes sector generation, sector names, region generation, region size, and
+the ordered item IDs, so changing any of them requires a fresh world database.
+Weapon definitions are not included in the digest. Restoring a record with an
+unknown definition or invalid equipment fails instead of discarding it.
+Changing `WORLD_SEED` also requires a fresh database; an incompatible database
+never silently creates a fresh world.
+
+New stations start with 300 projectile ammo packs. Saved stations restore their
 inventory as saved, including partial or empty ammo supplies.
 
 ## Fly deployment

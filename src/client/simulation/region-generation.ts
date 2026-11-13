@@ -227,6 +227,22 @@ const acceptedFeature = ({
   return crowded ? undefined : candidate;
 };
 
+/**
+ * Generate the field in one feature cell without generating nearby regions.
+ */
+export const generateFieldCell = ({
+  worldSeed,
+  sector,
+  cell,
+}: {
+  worldSeed: number;
+  sector?: Sector;
+  cell: Vec.Value;
+}) =>
+  acceptedFeature({ worldSeed, sector, cell, kind: fieldFeature }) as
+    | Field
+    | undefined;
+
 type FeatureBounds = {
   worldSeed: number;
   sector?: Sector;

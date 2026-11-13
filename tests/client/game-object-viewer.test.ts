@@ -7,13 +7,17 @@ const entryId = `${root}/src/__game_object_viewer_test.ts`;
 const scenario = `
 import assert from 'node:assert/strict';
 import { Ship } from '${root}/src/client/objects/ship.ts';
+import { NavBeacon } from '${root}/src/client/objects/nav-beacon.ts';
+import { renderingLayers } from '${root}/src/specs/rendering-layers.ts';
 import { CannonSm, Laser } from '${root}/src/client/objects/modules/index.ts';
 import { colors } from '${root}/src/specs/colors.ts';
 
 let frame;
 let now = performance.now();
 const noop = () => {};
-const ctx = new Proxy({ createRadialGradient: () => ({ addColorStop: noop }) }, { get: (target, key) => target[key] ?? noop });
+let glowCircles = 0;
+const glowAlphas = [];
+const ctx = new Proxy({ arc: () => { glowCircles++; glowAlphas.push(ctx.globalAlpha); }, createRadialGradient: () => ({ addColorStop: noop }), createLinearGradient: () => ({ addColorStop: noop }), createPattern: () => ({ setTransform: noop }) }, { get: (target, key) => target[key] ?? noop });
 class Element {
   children = [];
   dataset = {};
@@ -166,7 +170,37 @@ assert.equal(visibleBeams(laserMounts[0]), 1);
 assert.equal(visibleBeams(laserMounts[1]), 0);
 window.onpagehide();
 assert.equal(visibleBeams(laserMounts[0]), 0);
-console.log('Preview buttons independently fire duplicate cannons and lasers, repeat while held, and release on focus loss');
+const typeSelect = elements.get('#object-type');
+typeSelect.value = 'navBeacon';
+elements.get('.viewer-controls').onchange({ target: typeSelect });
+assert(viewer.previewObject instanceof NavBeacon, 'the nav beacon category uses the game craft model');
+assert.equal(elements.get('#spec').children[0].textContent, 'Nav Beacon');
+assert.equal(elements.get('#source').textContent, 'src/specs/nav-beacon.ts');
+assert.equal(elements.get('#module-controls').hidden, true);
+Object.defineProperty(performance, 'now', { value: () => 0, configurable: true });
+glowCircles = 0;
+glowAlphas.length = 0;
+viewer.previewObject.render({ zIndex: renderingLayers.glowAboveShips });
+assert.equal(glowCircles, 5, 'the center and four antenna tips glow');
+const initialGlow = [...glowAlphas];
+assert(new Set(initialGlow).size > 1, 'beacon lights pulse independently');
+const antennae = viewer.previewObject.segments.filter(segment => viewer.previewObject.hullSegments.indexOf(segment.module) >= 4);
+assert.equal(antennae.length, 8);
+assert(antennae.every(segment => segment.zIndex === renderingLayers.modulesBelowShipHull), 'antennae render below the hull');
+glowAlphas.length = 0;
+new NavBeacon({ id: viewer.previewObject.id + 1 }).render({ zIndex: renderingLayers.glowAboveShips });
+assert.notDeepEqual(glowAlphas, initialGlow, 'different beacons have different pulse phases');
+Object.defineProperty(performance, 'now', { value: () => 500, configurable: true });
+glowAlphas.length = 0;
+viewer.previewObject.render({ zIndex: renderingLayers.glowAboveShips });
+assert.notDeepEqual(glowAlphas, initialGlow, 'the beacon glows pulse with time');
+const tip = viewer.previewObject.segments.find(segment => segment.module === viewer.previewObject.hullSegments[8]);
+tip.health = 0;
+glowCircles = 0;
+viewer.previewObject.render({ zIndex: renderingLayers.glowAboveShips });
+assert.equal(glowCircles, 4, 'a damaged antenna tip stops glowing');
+advance();
+console.log('Viewer controls and nav beacon preview work');
 `;
 
 const bundle = await rolldown({

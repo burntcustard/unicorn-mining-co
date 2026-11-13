@@ -27,6 +27,31 @@ func hullAt(ship *Ship, index int) *simulation.Segment {
 	return nil
 }
 
+func TestAlienShipPower(t *testing.T) {
+	for _, id := range []string{"crescent", "crystal", "manta"} {
+		t.Run(id, func(t *testing.T) {
+			ship, _ := npcShipFixture(id)
+			ship.Fly(1, 1)
+			ship.Firing = true
+
+			if ship.PowerCapacity() <= 0 || ship.StoredPower != ship.PowerCapacity() {
+				t.Fatal("alien ship must start with a charged power plant")
+			}
+
+			if ship.PowerGeneration() < ship.PowerUsage() {
+				t.Fatal("power plant must support the ship's engines and weapon")
+			}
+
+			ship.StoredPower = 0
+			ship.UpdatePower(1)
+
+			if ship.ThrusterPower != 1 || ship.SystemsPower != 1 || ship.ForwardThrust() <= 0 {
+				t.Fatal("alien ship must operate on its plant without stored power")
+			}
+		})
+	}
+}
+
 func TestCrescentEssentialSides(t *testing.T) {
 	for _, side := range []int{1, 2} {
 		ship, _ := npcShipFixture("crescent")

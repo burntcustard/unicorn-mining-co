@@ -8,6 +8,7 @@ export const plasmaAccelerator = {
   icon: './plasma-accelerator.svg',
   description: 'Launch a charged plasma projectile.',
   behavior: 'weapon',
+  weight: 1,
   name: 'Plasma Accelerator',
   health: 0,
   healthActivated: 20,
@@ -18,10 +19,10 @@ export const plasmaAccelerator = {
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   activationDuration: 700,
-  chargeDuration: 2000,
+  chargeDuration: 3000,
   retractionDistance: 17,
   damage: 10,
-  fireInterval: 2000,
+  fireInterval: 3000,
   muzzleFlash: plasmaMuzzleFlash,
   recoil: 30,
   projectile: {
@@ -47,7 +48,7 @@ export const plasmaAccelerator = {
     {
       outline: false,
       color: colors.violet[0],
-      rechargeDelay: 2000,
+      rechargeDelay: 3000,
       rechargeColor: colors.violet[0],
       glow: {
         offset: [9, 0],
@@ -83,7 +84,7 @@ export const plasmaAccelerator = {
     {
       outline: false,
       color: colors.violet[2],
-      rechargeDelay: 500,
+      rechargeDelay: 750,
       rechargeColor: colors.violet[0],
       glow: {
         radius: 5,
@@ -104,7 +105,7 @@ export const plasmaAccelerator = {
     {
       outline: false,
       color: colors.violet[2],
-      rechargeDelay: 1000,
+      rechargeDelay: 1500,
       rechargeColor: colors.violet[0],
       glow: {
         radius: 5,
@@ -125,7 +126,7 @@ export const plasmaAccelerator = {
     {
       outline: false,
       color: colors.violet[2],
-      rechargeDelay: 1500,
+      rechargeDelay: 2250,
       rechargeColor: colors.violet[0],
       glow: {
         radius: 5,

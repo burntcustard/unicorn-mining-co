@@ -1,3 +1,4 @@
+import { JumpGate } from './objects/jump-gate';
 import { createHud } from './ui/dom/hud';
 import { createTelemetry } from './ui/dom/telemetry';
 import { portalSpec } from '../specs/portal';
@@ -30,15 +31,9 @@ import {
 } from './input/input';
 import { defaultKeybindings } from './input/keybindings';
 import { network } from './network/network';
-import {
-  camera,
-  centerCamera,
-  followTarget,
-  zoomCamera,
-  holeZoom,
-} from './camera';
+import { camera, centerCamera, followTarget, holeZoom } from './camera';
 
-import { revealBuriedItems } from './utilities/lighting';
+import { beginBeams, endBeams, revealBuriedItems } from './utilities/lighting';
 import { adoptPlayerShip, player, readSlate, updatePlayer } from './player';
 import { renderSparks, updateSparks } from './effects/shrapnel';
 import { renderEffects, updateEffects } from './effects/effect';
@@ -54,12 +49,14 @@ import { game } from './game';
 
 import { Item } from './objects/item';
 import { beginSurfaces, endSurfaces } from './utilities/composited-surface';
+import { beginSpectra, endSpectra } from './utilities/prism';
 
-import { preloadSound, unlockAudio } from './audio/sound-loader';
+import { playSound, preloadSound, unlockAudio } from './audio/sound-loader';
 import { updateHornDrillSounds } from './audio/update-horn-drill-sounds';
 import { remoteSoundVolume } from './audio/remote-sound-volume';
 import { presentWorldSounds } from './audio/present-world-sounds';
 import { updateThrusterSounds } from './audio/update-thruster-sounds';
+import { updateAutogunSounds } from './audio/update-autogun-sounds';
 import { renderUI } from './ui/ui';
 import { toggleFps } from './ui/fps';
 import { Targeting } from './ui/targeting';
@@ -80,7 +77,7 @@ let gameStarted = false;
 const targeting = new Targeting();
 
 const telemetry = createTelemetry({
-  element: ui.element,
+  element: ui.hudElement,
   readSample: () => ({
     world: network.world,
     shipId: network.shipId,
@@ -99,6 +96,7 @@ const updateTargetInput = () => {
 };
 
 const hud = createHud({
+  onMapView: (position) => network.sectorMap(position),
   onToggle: (Type) => {
     if (
       ui.current ||
@@ -175,14 +173,18 @@ window.addEventListener('ui-graphics', () => {
   gameStarted || renderSky();
 });
 
-window.addEventListener('ui-navigation', () => {
+const syncNavigation = () => {
+  ui.hudElement.hidden = Boolean(ui.current);
   setMenuInput(Boolean(ui.current));
 
   if (ui.current) {
     pointerPosition = undefined;
     targeting.hover();
   }
-});
+};
+
+syncNavigation();
+window.addEventListener('ui-navigation', syncNavigation);
 
 const pointerView = {
   position: Vec.create(),
@@ -230,12 +232,6 @@ canvas.addEventListener('pointerleave', () => {
   targeting.hover();
 });
 
-window.addEventListener('keydown', (event) => {
-  if (!ui.current) zoomCamera(game, event);
-
-  if (event.defaultPrevented && !gameStarted) renderSky();
-});
-
 const regionalObjects = new Map<number, SimulationObject>();
 
 let stationMarkers: { position: Vec.Value; radius: number }[] = [];
@@ -272,15 +268,21 @@ const refreshReplication = () => {
   });
 };
 
+let ownedShips: Ship[] | undefined;
+
 const syncPlayerShip = () => {
   const ship = network.world.entities.get(network.shipId!);
 
   if (!(ship instanceof Ship)) return;
 
-  if (player.ship !== ship) {
-    refreshReplication();
-    adoptPlayerShip({ ship });
-    centerCamera(game, ship);
+  const changed = player.ship !== ship;
+
+  if (changed || ownedShips !== network.ownedShips) {
+    if (changed) refreshReplication();
+    adoptPlayerShip({ ship, ownedShips: network.ownedShips });
+    ownedShips = network.ownedShips;
+
+    if (changed) centerCamera(game, ship);
   }
 };
 
@@ -357,6 +359,22 @@ bindAction(defaultKeybindings.fpsCounter, (event) => {
   toggleFps();
 });
 
+bindAction(defaultKeybindings.sectorMap, (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  event.preventDefault();
+  hud.toggleMap();
+});
+
+for (const [binding, direction] of [
+  [defaultKeybindings.mapZoomIn, 1],
+  [defaultKeybindings.mapZoomOut, -1],
+] as const) {
+  bindAction(binding, (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    hud.zoomMap(direction);
+  });
+}
+
 bindAction(defaultKeybindings.telemetry, (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
   event.preventDefault();
@@ -369,8 +387,16 @@ bindDebug(game);
 
 game.camera = camera;
 
+let previousFrameAt = 0;
+let previousTransit = 0;
+const gateOpening = new Map<number, number>();
+
 const gameLoop = GameLoop({
   render: ({ dt, now }) => {
+    const renderStartedAt = performance.now();
+    const frameTime = previousFrameAt ? now - previousFrameAt : 0;
+
+    previousFrameAt = now;
     const predicted = network.predictFrame({ now });
     const ownShots = network.predictedShots.filter(
       ({ projectile }) => projectile.playerId === network.playerId,
@@ -388,6 +414,32 @@ const gameLoop = GameLoop({
     const renderedShip =
       predictedViewShip instanceof Ship ? predictedViewShip : viewShip;
     const playerPose = remotePoses.get(viewShip.id) || renderedShip;
+    const ownShip = predicted.entities.get(network.shipId);
+    const transit =
+      ownShip instanceof Ship ? Math.sign(ownShip.transitTime) : 0;
+
+    if (transit && transit !== previousTransit) {
+      playSound(transit < 0 ? 'wormhole-in' : 'wormhole-out');
+    }
+
+    previousTransit = transit;
+
+    for (const [id, entity] of predicted.entities) {
+      if (entity.kind !== 'jumpGate') continue;
+      const gate = entity as JumpGate;
+      const previous = gateOpening.get(id);
+
+      if (previous !== undefined && gate.openingTarget > previous) {
+        playSound('jump-gate-open', { id });
+      }
+
+      gateOpening.set(id, gate.openingTarget);
+    }
+
+    for (const id of gateOpening.keys()) {
+      if (!predicted.entities.has(id)) gateOpening.delete(id);
+    }
+
     const transitPortal = renderedShip.transitTime
       ? predicted.entities.get(renderedShip.transitGate)
       : undefined;
@@ -416,6 +468,8 @@ const gameLoop = GameLoop({
     const focus = playerPose.position;
 
     beginSurfaces();
+    beginBeams();
+    beginSpectra();
 
     ctx.save();
     ctx.scale(scale, scale);
@@ -481,6 +535,14 @@ const gameLoop = GameLoop({
           : craft;
       });
 
+    const lightObjects = activeSprites.map((object) => {
+      const prediction = predicted.entities.get(object.id);
+
+      return prediction && prediction.constructor === object.constructor
+        ? prediction
+        : object;
+    });
+
     // Craft layers are global: a station floor can sit under every ship while
     // its hull and roof sit over them. Thruster glows sit above flares, below hulls.
     for (const zIndex of Object.values(renderingLayers)) {
@@ -488,7 +550,7 @@ const gameLoop = GameLoop({
         .filter((object) => object.scenery && object.zIndex === zIndex)
         .forEach((object) => {
           object.render({ pose: remotePoses.get(object.id) });
-          // A loose leaf cannot be split any smaller, so its cargo stays in view.
+          // A detached segment keeps its contents in view until it breaks apart.
           object.segments ||
             object.renderContents?.forEach((item: SimulationObject) =>
               item.render(),
@@ -503,7 +565,7 @@ const gameLoop = GameLoop({
           // @endif
           revealBuriedItems({
             sprites: visibleSprites,
-            scenery: activeSprites,
+            scenery: lightObjects,
             predicted: predicted.entities,
             poses: remotePoses,
           });
@@ -522,14 +584,18 @@ const gameLoop = GameLoop({
 
       renderedCrafts.forEach((craft) => {
         craft.render({
-          scenery: activeSprites,
+          scenery: lightObjects,
+          poses: remotePoses,
           zIndex,
           pose: remotePoses.get(craft.id),
         });
       });
+
+      if (zIndex === renderingLayers.stationFloor) endSpectra(ctx);
     }
 
     endSurfaces();
+    endBeams();
 
     visibleSprites.forEach(
       (object) =>
@@ -621,9 +687,12 @@ const gameLoop = GameLoop({
         credits: player.credits,
         displayName: network.displayName,
         sectorName: network.sectorName,
+        worldSeed: network.worldSeed,
+        mapReady: network.mapReady,
         target: targeting.target,
         objects: game.sprites,
         asteroidPositions: network.asteroidPositions,
+        mapMarkers: network.mapMarkers,
         poses: remotePoses,
         shown:
           gameStarted &&
@@ -642,7 +711,26 @@ const gameLoop = GameLoop({
       Vec.set(camera, baseCamera);
     }
 
-    telemetry.update({ now: performance.now() });
+    telemetry.update({
+      now: performance.now(),
+      readPresentation: () => {
+        const transform = new DOMMatrix()
+          .scale(scale, scale)
+          .translate(focus.x - camera.x, focus.y - camera.y)
+          .scale(zoom, zoom)
+          .translate(-focus.x, -focus.y);
+        const target = targeting.target;
+
+        return {
+          frameTime,
+          renderTime: performance.now() - renderStartedAt,
+          canvas: game.canvas,
+          transform,
+          playerPose,
+          targetPose: target && (remotePoses.get(target.id) || target),
+        };
+      },
+    });
   },
   update: ({ dt, now }) => {
     updateEffects(dt * 1000);
@@ -722,6 +810,7 @@ const gameLoop = GameLoop({
     player.ship.updateVisual(dt);
     updateHornDrillSounds({ crafts: game.crafts, volume: craftSoundVolume });
     updateThrusterSounds({ crafts: game.crafts, volume: craftSoundVolume });
+    updateAutogunSounds({ crafts: game.crafts, dt, volume: craftSoundVolume });
 
     activeSprites.forEach(
       (sprite) => !sprite.dead && !sprite.networked && sprite.update(dt),

@@ -153,7 +153,15 @@ export function installNPCCamera({
       value && typeof get(value, 'started') === 'boolean' && get(value, 'ship'),
   );
 
-  document.querySelector<HTMLButtonElement>('[data-action="play"]')?.click();
+  document
+    .querySelector<HTMLButtonElement>('[data-action="play"]')
+    ?.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        isPrimary: true,
+        button: 0,
+      }),
+    );
 
   const game = refs.find(
     (value) =>

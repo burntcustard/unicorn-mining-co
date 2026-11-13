@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,67 +22,18 @@ import (
 
 const fixtureID = "12345678-9abc-4def-8012-3456789abcde"
 
-func TestGenerationDigestCompatibility(t *testing.T) {
+func TestGenerationDigestTracksCatalog(t *testing.T) {
 	catalog, err := specs.Load()
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	previous := catalog
-	previous.ItemIDs = previous.ItemIDs[:5]
-	previousDigest := GenerationDigest(previous)
+	baseline := GenerationDigest(catalog)
+	catalog.ItemIDs = append(append([]string{}, catalog.ItemIDs...), "new-resource")
 
-	for _, saved := range []string{previousDigest, GenerationDigest(catalog)} {
-		if !CompatibleGenerationDigest(catalog, saved) {
-			t.Fatal("unchanged generation rejected after item addition")
-		}
-	}
-
-	extended := catalog
-	extended.ItemIDs = append(append([]string{}, catalog.ItemIDs...), "new-resource", "another-resource")
-	extended.ModuleIDs = append(append([]string{}, catalog.ModuleIDs...), "new-weapon")
-
-	for _, savedItems := range []int{5, len(catalog.ItemIDs), len(extended.ItemIDs) - 1} {
-		savedCatalog := extended
-		savedCatalog.ItemIDs = extended.ItemIDs[:savedItems]
-
-		if !CompatibleGenerationDigest(extended, GenerationDigest(savedCatalog)) {
-			t.Fatal("adding multiple items or a weapon must not require resetting existing saves", savedItems)
-		}
-	}
-
-	if !CompatibleGenerationDigest(extended, previousDigest) {
-		t.Fatal("restoring an older backup must remain possible after further item additions")
-	}
-
-	for _, name := range []string{"rules", "region size", "item order", "item name", "unknown digest"} {
-		t.Run(name, func(t *testing.T) {
-			changed := catalog
-			saved := []string{previousDigest, GenerationDigest(catalog)}
-
-			switch name {
-			case "rules":
-				changed.RegionGeneration.MixedItemChance += 0.1
-			case "region size":
-				changed.Simulation.RegionSize++
-			case "item order":
-				changed.ItemIDs = append([]string{}, catalog.ItemIDs...)
-				changed.ItemIDs[0], changed.ItemIDs[1] = changed.ItemIDs[1], changed.ItemIDs[0]
-			case "item name":
-				changed.ItemIDs = append([]string{}, catalog.ItemIDs...)
-				changed.ItemIDs[5] = "other-ammo"
-				saved = []string{GenerationDigest(catalog)}
-			case "unknown digest":
-				saved = []string{"unknown"}
-			}
-
-			for _, digest := range saved {
-				if CompatibleGenerationDigest(changed, digest) {
-					t.Fatal("incompatible world accepted")
-				}
-			}
-		})
+	if GenerationDigest(catalog) == baseline {
+		t.Fatal("new resource did not change generation digest")
 	}
 }
 
@@ -421,7 +373,7 @@ func TestFailedTransactionRetriedAtomically(t *testing.T) {
 	assertEntityRecord(batch.Entities[1].State)
 }
 
-func TestRejectCorruptionAndFutureSchema(t *testing.T) {
+func TestRejectCorruptionAndUnsupportedSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 
 	if err := os.WriteFile(path, []byte("not a database"), 0600); err != nil {
@@ -433,26 +385,34 @@ func TestRejectCorruptionAndFutureSchema(t *testing.T) {
 		t.Fatal("corrupt database accepted")
 	}
 
-	os.Remove(path)
-	db, err := sql.Open("sqlite", path)
+	for _, version := range []int{6, 999} {
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
 
-	if err != nil {
-		t.Fatal(err)
+		db, err := sql.Open("sqlite", path)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := db.Exec(fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		if store, err := Open(path, ""); err == nil {
+			store.Close(context.Background())
+			t.Fatalf("unsupported database schema %d accepted", version)
+		}
 	}
 
-	if _, err := db.Exec("PRAGMA user_version=999"); err != nil {
-		t.Fatal(err)
-	}
-
-	db.Close()
-
-	if s, err := Open(path, ""); err == nil {
-		s.Close(context.Background())
-		t.Fatal("future database schema accepted")
-	}
 }
 
-func TestPlayerModerationMigration(t *testing.T) {
+func TestPlayerModerationPersistence(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	store, err := Open(path, "")
 
@@ -460,43 +420,8 @@ func TestPlayerModerationMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	batch := fixtureBatch(t)
-	batch.Players[0].DisplayName = "Existing Pilot"
-
-	if err := store.save(context.Background(), batch); err != nil {
-		t.Fatal(err)
-	}
-
-	store.Close(context.Background())
-	db, err := sql.Open("sqlite", path)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := db.Exec("ALTER TABLE players DROP COLUMN role; ALTER TABLE players DROP COLUMN banned; PRAGMA user_version=6;"); err != nil {
-		t.Fatal(err)
-	}
-
-	db.Close()
-	store, err = Open(path, "")
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	defer store.Close(context.Background())
-	saved, err := store.Load(25)
-
-	if err != nil || len(saved.Players) != 1 {
-		t.Fatal("migration lost the existing player", err)
-	}
-
-	p := saved.Players[0]
-
-	if p.Role != RoleUser || p.Banned || p.DisplayName != batch.Players[0].DisplayName || p.Credits != batch.Players[0].Credits || !reflect.DeepEqual(p.Ship, batch.Players[0].Ship) {
-		t.Fatal("migration changed player data or failed to apply defaults")
-	}
+	batch := fixtureBatch(t)
 
 	for _, role := range []PlayerRole{RoleAdmin, RoleOwner, RoleUser} {
 		batch.Players[0].Role = role

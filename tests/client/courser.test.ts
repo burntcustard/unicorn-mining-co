@@ -66,8 +66,8 @@ assert.equal(shots().length, 2, 'each cannon fires only once within a second');
 ship.fireWeapons(1 / 120);
 assert.equal(shots().length, 4, 'both cannons fire again one second later');
 assert.equal(ammo.rounds, rounds - 4);
-assert(shots().every(shot => shot.radius === moduleSpecs.autogun.projectile.radius && shot.health === moduleSpecs.autogun.damage));
-assert(shots().every(shot => shot.velocity.x === moduleSpecs.autogun.projectile.speed && shot.velocity.y === 0));
+assert(shots().every(shot => shot.radius === moduleSpecs.cannonSm.projectile.radius && shot.health === moduleSpecs.cannonSm.damage));
+assert(shots().every(shot => shot.velocity.x === moduleSpecs.cannonSm.projectile.speed && shot.velocity.y === 0));
 const checkpoint = new EntityState(ship);
 controlShip(ship, { ...playerInput, autogunActive: false, fire: true }, []);
 ship.fireWeapons(1);
@@ -155,22 +155,16 @@ for (const mount of guns) {
   ship.fit(0, mount);
 }
 ship.cargoContents = ship.cargoContents.filter(object => !(object instanceof CannonSm));
-for (const mount of guns) {
-  assert.deepEqual(fitsOf(ship, mount), [], 'empty cannon mounts offer no station purchase');
+for (const [mount, Type] of [[guns[0], CannonSm], [ship.mounts[3], CargoHatchPair]]) {
+  if (mount.module) assert(ship.applyDockAction({ action: 'sell', objectIds: [mount.module.id] }, player));
+  assert(fitsOf(ship, mount).includes(Type), 'stations offer replacements for empty mounts');
+  assert(ship.applyDockAction({ action: 'buy', module: moduleTypes.indexOf(Type), mount: ship.mounts.indexOf(mount) }, player));
+  const replacement = mount.module;
+  assert(replacement instanceof Type);
+  assert(ship.applyDockAction({ action: 'sell', objectIds: [replacement.id] }, player));
+  assert(station.cargoContents.includes(replacement), 'sold modules become station stock');
+  assert(ship.applyDockAction({ action: 'buyStock', objectIds: [replacement.id] }, player));
 }
-const cannon = new CannonSm();
-ship.cargoContents.push(cannon);
-assert.deepEqual(fitsOf(ship, guns[0]), [cannon], 'owned cannons can still be equipped');
-for (const mount of [undefined, ship.mounts.indexOf(guns[0])]) {
-  assert.equal(ship.applyDockAction({ action: 'buy', module: moduleTypes.indexOf(CannonSm), mount }, player), undefined);
-}
-assert.equal(player.credits, 10000);
-assert(ship.applyDockAction({ action: 'sell', objectIds: [cannon.id] }, player));
-assert(!station.cargoContents.includes(cannon), 'sold cannons never become station stock');
-station.cargoContents.push(cannon);
-const credits = player.credits;
-assert.equal(ship.applyDockAction({ action: 'buyStock', objectIds: [cannon.id] }, player), undefined);
-assert.equal(player.credits, credits);
 
 for (const shipType of ['mustang','arrow','crotus','courser']) {
   const testWorld = createWorld();
@@ -200,7 +194,7 @@ for (const shipType of ['mustang','arrow','crotus','courser']) {
   assert(testShip.dead && !testShip.stranded,'full destruction ends the stranded state');
 }
 
-console.log('Courser controls, cannon cadence, paired hatch collection and station restrictions passed');
+console.log('Courser controls, cannon cadence, paired hatch collection and station purchases passed');
 `;
 
 const entryId = `${process.cwd()}/src/__courser_test.ts`;

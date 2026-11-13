@@ -95,6 +95,14 @@
     }
   }
 
+  .hud-overlay {
+    display: grid;
+    grid-area: 1 / 1 / -1 / -1;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+    gap: inherit;
+  }
+
   .hud > :is(.ui-main, .ui-backdrop) {
     position: absolute;
     inset: 0;
@@ -126,6 +134,14 @@
     border: var(--ui-border-width) solid var(--ui-line);
     background: var(--ui-panel);
     backdrop-filter: var(--ui-backdrop-filter, blur(4px));
+  }
+
+  .ui-focus-panel:focus-visible {
+    outline: var(--ui-border-width) solid var(--ui-color);
+    outline-offset: calc(-1 * var(--ui-border-width));
+    box-shadow:
+      0 0 8px rgb(from var(--ui-color) r g b / 0.2),
+      inset 0 0 8px rgb(from var(--ui-color) r g b / 0.2);
   }
 
   /* Fullscreen surfaces already blur the world behind their cards. */
@@ -287,6 +303,7 @@
     }
 
     &[aria-pressed='true'] {
+      z-index: 1;
       color: #fff;
 
       &:before {
@@ -297,7 +314,7 @@
 
     &:hover:not(:disabled),
     &:focus-visible {
-      z-index: 1;
+      z-index: 2;
       color: #fff;
       transition: color 0.05s;
 
@@ -314,10 +331,34 @@
     }
   }
 
-  .ui-controls {
+  .ui-button-toggle {
+    display: grid;
+    place-items: center;
+
+    & > span {
+      grid-area: 1 / 1;
+    }
+
+    & > [aria-hidden='true'] {
+      opacity: 0;
+    }
+  }
+
+  .ui-control {
     user-select: none;
 
-    & > button[aria-pressed='true'] > kbd {
+    &:focus-visible {
+      outline: none;
+    }
+
+    & kbd {
+      transition:
+        color 0.1s,
+        border-color 0.1s,
+        box-shadow 0.1s;
+    }
+
+    &[aria-pressed='true'] > kbd {
       background: linear-gradient(var(--ui-color), var(--ui-color)) center /
         calc(100% - 6px) calc(100% - 6px) no-repeat var(--ui-panel);
       color: #000;
@@ -325,14 +366,23 @@
       -webkit-text-stroke-width: 0;
     }
 
-    & > button:enabled:is(:hover, :focus-visible) {
+    &:enabled:is(:hover, :focus-visible) {
       color: #fff;
     }
 
-    &
-      > button:enabled:not([aria-pressed='true']):is(:hover, :focus-visible)
-      kbd {
+    &:enabled:not([aria-pressed='true']):is(:hover, :focus-visible) kbd {
       color: #fff;
+    }
+
+    &:enabled:is(:hover, :focus-visible) kbd {
+      border-color: #fff;
+      box-shadow:
+        0 0 8px rgb(from #fff r g b / 0.2),
+        inset 0 0 8px rgb(from #fff r g b / 0.2);
+      transition:
+        color 0.05s,
+        border-color 0.05s,
+        box-shadow 0.05s;
     }
   }
 
@@ -404,12 +454,19 @@
   }
 
   .ui-input {
-    min-height: 44px;
+    min-height: 32px;
     min-width: 0;
-    padding: 10px;
+    padding-block: 4px;
+    padding-inline: 8px;
     background: none;
     border: 2px solid var(--ui-line);
     color: inherit;
+    font-family: system-ui, sans-serif;
+
+    &:focus-visible {
+      border-color: var(--ui-color);
+      outline: none;
+    }
   }
 
   .ui-surface input[type='checkbox'] {
@@ -531,11 +588,6 @@
       &[aria-pressed='true'] {
         background: unset;
         color: inherit;
-      }
-
-      &:is(:focus-visible, :hover) {
-        position: relative;
-        z-index: 1;
       }
     }
   }

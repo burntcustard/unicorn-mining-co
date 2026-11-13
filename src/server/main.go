@@ -148,6 +148,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if !production {
+		catalog.StartingCredits = 99999
+	}
+
 	if value := os.Getenv("PORT"); value != "" {
 		port, err = strconv.Atoi(value)
 
@@ -209,22 +213,27 @@ func main() {
 		return previous.Stop(ctx)
 	}
 
+	// Claim the maintenance socket before opening the world or accepting players.
+	// A second local watcher must not start and then tear down a game while an
+	// existing maintenance service owns this database.
+	if err := os.MkdirAll(filepath.Dir(databasePath), 0700); err != nil {
+		log.Fatal(err)
+	}
+
+	maintenanceServer.mutex.Lock()
+
+	if err := maintenanceServer.serve(); err != nil {
+		maintenanceServer.mutex.Unlock()
+		log.Fatal(err)
+	}
+
 	if err := maintenanceServer.startGame(); err != nil {
 		log.Printf("Game unavailable: %v; live maintenance remains available", err)
 	} else {
 		maintenanceServer.running = true
 	}
 
-	if err := maintenanceServer.serve(); err != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-		defer cancel()
-
-		if maintenanceServer.running {
-			err = errors.Join(err, maintenanceServer.stopGame(ctx))
-		}
-
-		log.Fatal(err)
-	}
+	maintenanceServer.mutex.Unlock()
 
 	stopped := make(chan os.Signal, 1)
 	signal.Notify(stopped, os.Interrupt, syscall.SIGTERM)

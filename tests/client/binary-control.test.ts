@@ -26,6 +26,7 @@ for (const bytes of [
 }
 
 const controls: ClientMessage[] = [
+  { type: 'sectorMap', position: { x: -12500.25, y: 62000.5 } },
   { type: 'gateAccess', gateId: 2 ** 45 },
   { type: 'chat', channel: 0, text: 'Hello 🦄 <script> sector' },
   { type: 'chat', channel: 1, text: '🦄'.repeat(240) },
@@ -245,6 +246,47 @@ for (const message of [
   }
 }
 
+const mapMessage = {
+  type: 'sectorMap' as const,
+  mapMarkers: (
+    ['field', 'station', 'ship', 'jumpGate', 'wormhole'] as const
+  ).map((kind, id) => ({
+    kind,
+    id,
+    position: { x: -12000.25, y: 62000.5 },
+    radius: kind === 'field' ? 3500 : 0,
+    name: 'Pilot 🦄',
+    definitionId: kind === 'station' ? 'corral-6' : '',
+    color: '#4df',
+    ...(kind === 'ship' ? { senderRole: 'admin' } : {}),
+  })),
+};
+
+const mapPacket = encodeServerControl(mapMessage);
+
+assert.deepEqual(decodeServerControl(mapPacket), mapMessage);
+assert.deepEqual(
+  decodeServerControl(
+    encodeServerControl({ type: 'sectorMap', mapMarkers: [] }),
+  ),
+  { type: 'sectorMap', mapMarkers: [] },
+);
+
+for (const packet of [
+  mapPacket.slice(0, -1),
+  Uint8Array.from([...mapPacket, 0]),
+  changedMapKind(),
+]) {
+  assert.throws(() => decodeServerControl(packet));
+}
+
+function changedMapKind() {
+  const packet = mapPacket.slice();
+
+  packet[5] = 255;
+  return packet;
+}
+
 const hello = encodeClientMessage({ type: 'hello', playerToken: null });
 const activity = encodeClientMessage({ type: 'activity' });
 
@@ -286,7 +328,7 @@ for (const invalid of [
   changed(hello, 0, 0),
   changed(hello, 2, 2),
   changed(hello, 3, 255),
-  changed(hello, 4, 2), // invalid token marker
+  changed(hello, 4, 4), // unknown hello capability
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
@@ -332,6 +374,10 @@ assert.throws(
 );
 
 assert.throws(() => decodeServerControl(hello), /Invalid binary control/);
+assert.throws(
+  () => decodeClientMessage(Uint8Array.from([0x55, 0x43, 1, 0, 4])),
+  /Invalid binary control/,
+);
 assert.throws(
   () =>
     decodeServerControl(

@@ -7,6 +7,7 @@ import {
   warmTint,
   shadeTint,
   glowBlur,
+  beamOverlap,
 } from '../../specs/lighting';
 
 import { colors } from '../../specs/colors';
@@ -32,6 +33,41 @@ type BeamImages = {
 
 const beamImages = new WeakMap<Path2D, BeamImages>();
 let revealSurface: HTMLCanvasElement;
+let beamSurface: HTMLCanvasElement | undefined;
+let beamPaint: CanvasRenderingContext2D | undefined;
+
+// Beams share an opaque black surface. Screen adds a little light on overlap;
+// lighten then keeps an individual beam at its full strength.
+export const beginBeams = () => {
+  if (!game.canvas?.isConnected) return;
+  beamSurface ||= document.createElement('canvas');
+  const canvas = beamSurface;
+
+  if (
+    canvas.width !== game.canvas.width ||
+    canvas.height !== game.canvas.height
+  ) {
+    canvas.width = game.canvas.width;
+    canvas.height = game.canvas.height;
+  }
+
+  if (!canvas.isConnected) {
+    canvas.className = 'world-beams';
+    canvas.setAttribute('aria-hidden', 'true');
+    game.canvas.before(canvas);
+  }
+
+  beamPaint = canvas.getContext('2d')!;
+  beamPaint.resetTransform();
+  beamPaint.globalCompositeOperation = 'source-over';
+  beamPaint.globalAlpha = 1;
+  beamPaint.fillStyle = '#000';
+  beamPaint.fillRect(0, 0, canvas.width, canvas.height);
+};
+
+export const endBeams = () => {
+  beamPaint = undefined;
+};
 
 interface LitShape {
   // Facing angle and center in the craft's local frame.
@@ -360,7 +396,9 @@ export const drawBeam = ({
     beamImages.set(path, cached);
   }
 
-  let image = cached.images.get(color);
+  const combined = !!beamPaint && ctx === game.ctx;
+  const key = combined ? `${color}/combined` : color;
+  let image = cached.images.get(key);
 
   if (!image) {
     const canvas = document.createElement('canvas');
@@ -368,6 +406,12 @@ export const drawBeam = ({
 
     canvas.width = Math.ceil(reach * scale + padding * 2);
     canvas.height = Math.ceil(spread * 2 * scale + padding * 2);
+
+    if (combined) {
+      paint.fillStyle = '#000';
+      paint.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
     paint.translate(padding, spread * scale + padding);
     paint.scale(scale, scale);
     const gradient = paint.createLinearGradient(0, 0, reach, 0);
@@ -382,14 +426,14 @@ export const drawBeam = ({
     paint.shadowColor = color;
     paint.fillStyle = gradient;
     paint.fill(path);
-    cached.images.set(color, canvas);
+    cached.images.set(key, canvas);
     image = canvas;
     const entry = cached;
 
     createImageBitmap(canvas)
       .then((bitmap) => {
         if (beamImages.get(path) === entry) {
-          entry.images.set(color, bitmap);
+          entry.images.set(key, bitmap);
         } else {
           bitmap.close();
         }
@@ -397,20 +441,48 @@ export const drawBeam = ({
       .catch(() => {});
   }
 
-  ctx.save();
+  const paint = combined ? beamPaint! : ctx;
+
+  paint.save();
+
+  if (paint !== ctx) {
+    const matrix = ctx.getTransform();
+
+    paint.setTransform(
+      matrix.a,
+      matrix.b,
+      matrix.c,
+      matrix.d,
+      matrix.e,
+      matrix.f,
+    );
+    paint.globalCompositeOperation = 'screen';
+    paint.filter = `brightness(${activationProgress})`;
+  }
+
   // The cone says how wide the beam is and the trace says how far it got, so
   // one is filled through the other
-  ctx.clip(lit);
-  ctx.globalAlpha = activationProgress * 0.5;
+  paint.clip(lit);
+  paint.globalAlpha = combined ? beamOverlap : activationProgress * 0.5;
 
-  ctx.drawImage(
-    image,
-    -padding / scale,
-    -spread - padding / scale,
-    image.width / scale,
-    image.height / scale,
-  );
-  ctx.restore();
+  const draw = () =>
+    paint.drawImage(
+      image,
+      -padding / scale,
+      -spread - padding / scale,
+      image.width / scale,
+      image.height / scale,
+    );
+
+  draw();
+
+  if (combined) {
+    paint.globalCompositeOperation = 'lighten';
+    paint.globalAlpha = 1;
+    draw();
+  }
+
+  paint.restore();
 };
 
 // Both local and remote beams reveal the contents of rock they cross.
@@ -448,11 +520,17 @@ export const revealBuriedItems = ({
         return;
       }
 
-      const beam = lamp.prism || traceBeam(pose, lamp, scenery);
+      const beam = lamp.prism || traceBeam(pose, lamp, scenery, craft, poses);
       const bounds = insideBounds(beam);
 
       const items = asteroids
-        .filter((asteroid) => !beam.objects || beam.objects.includes(asteroid))
+        .filter(
+          (asteroid) =>
+            !beam.objects ||
+            beam.objects.some(
+              (object: GameObject) => object.id === asteroid.id,
+            ),
+        )
         .flatMap((asteroid) => asteroid.renderContents as GameObject[])
         .filter((item) => {
           if (!item.position || !item.radius) return true;

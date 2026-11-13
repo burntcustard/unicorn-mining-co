@@ -8,6 +8,7 @@ import { colors, paintColors } from '../specs/colors';
 import { type Shades } from './types';
 
 export const player = {
+  berth: undefined as Ship | undefined,
   credits: startingCredits,
   ships: [
     new Ship({
@@ -18,7 +19,7 @@ export const player = {
   ],
   // The first owned ship is the one the player is currently piloting.
   get ship() {
-    return this.ships[0];
+    return this.ships[0] || this.berth!;
   },
   unlockedPaints: [...paintColors] as Shades[],
   visitedStations: new Set<number>(),
@@ -117,7 +118,13 @@ export const updatePlayer = (dt: number) => {
   }
 };
 
-export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
+export const adoptPlayerShip = ({
+  ship,
+  ownedShips,
+}: {
+  ship: Ship;
+  ownedShips?: Ship[];
+}) => {
   const previous = player.ship;
 
   if (previous !== ship) previous.remove();
@@ -126,7 +133,17 @@ export const adoptPlayerShip = ({ ship }: { ship: Ship }) => {
   ship.docked = previous.docked;
 
   ship.networked = 1;
-  player.ships[0] = ship;
+
+  if (ownedShips) {
+    const ships = ownedShips.some((owned) => owned.id === ship.id)
+      ? [ship, ...ownedShips.filter((owned) => owned.id !== ship.id)]
+      : ownedShips;
+
+    player.ships.splice(0, player.ships.length, ...ships);
+    player.berth = player.ships.length ? undefined : ship;
+  } else {
+    player.ships[0] = ship;
+  }
 
   if (!game.sprites.includes(ship)) ship.add();
 };

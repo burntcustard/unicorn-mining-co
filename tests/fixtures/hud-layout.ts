@@ -11,6 +11,10 @@ import * as Vec from '../../src/client/utilities/vector';
 
 let clear = () => {};
 
+let completeMap = () => {};
+
+let refresh = (_shown: boolean) => {};
+
 /**
  * Static HUD scenes for comparing layout and pixels across structural changes.
  * No game loop, server state, or elapsed animation time enters these captures.
@@ -55,26 +59,72 @@ export const showHudLayout = (mode: number) => {
 
   const selected = mode ? target : undefined;
 
-  hud.update({
-    ship,
-    target: selected,
-    credits: 1998,
-    displayName: 'Test Pilot',
-    sectorName: 'Patroclus',
-    objects: [ship, target],
-    asteroidPositions: [],
-    poses: new Map(),
-    shown: mode !== 4,
-  });
+  const updateHud = (mapReady: boolean, shown = mode !== 4) =>
+    hud.update({
+      ship,
+      target: selected,
+      credits: 1998,
+      displayName: 'Test Pilot',
+      sectorName: 'Patroclus',
+      worldSeed: 25,
+      mapReady,
+      objects: [ship, target],
+      asteroidPositions: [],
+      mapMarkers: [
+        {
+          kind: 'ship',
+          id: 2002,
+          position: Vec.create(5000, -47000),
+          radius: 0,
+          name: 'Other Pilot',
+          definitionId: '',
+          color: '#3f7',
+        },
+        {
+          kind: 'station',
+          id: 2003,
+          position: Vec.create(7000, -41000),
+          radius: 0,
+          name: '',
+          definitionId: 'corral-6',
+          color: '',
+        },
+        {
+          kind: 'jumpGate',
+          id: 2004,
+          position: Vec.create(-6000, -51000),
+          radius: 0,
+          name: '',
+          definitionId: '',
+          color: '',
+        },
+        {
+          kind: 'wormhole',
+          id: 2005,
+          position: Vec.create(8000, -53000),
+          radius: 0,
+          name: '',
+          definitionId: '',
+          color: '',
+        },
+      ],
+      poses: new Map(),
+      shown,
+    });
 
+  updateHud(mode !== 7);
+  completeMap = () => updateHud(true);
+  refresh = (shown) => updateHud(true, shown);
   chat.update(selected, true);
+
+  if (mode === 6 || mode === 7) hud.toggleMap();
 
   if (mode === 3) {
     ship.localMovementParent = target.localMovementParent = station;
     ship.localMovementRate = target.localMovementRate = 0.5;
 
     const telemetry = createTelemetry({
-      element: ui.element,
+      element: ui.hudElement,
       readSample: () => ({
         world,
         shipId: ship.id,
@@ -85,12 +135,29 @@ export const showHudLayout = (mode: number) => {
     });
 
     telemetry.toggle();
-    telemetry.update({ now: 1000 });
+    const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
+
+    telemetry.update({
+      now: 1000,
+      readPresentation: () => ({
+        frameTime: 16.667,
+        renderTime: 1.25,
+        canvas,
+        transform: new DOMMatrix()
+          .scale(canvas.width / 1280, canvas.height / 900)
+          .translate(640 - ship.position.x, 450 - ship.position.y),
+        playerPose: { position: ship.position, rotation: ship.rotation + 0.1 },
+        targetPose: {
+          position: target.position,
+          rotation: target.rotation - 0.1,
+        },
+      }),
+    });
   }
 
   clear = () => {
     hud.destroy();
-    ui.element
+    ui.hudElement
       .querySelectorAll('.chat-panel, .hud-telemetry')
       .forEach((panel) => panel.parentNode!.removeChild(panel));
   };
@@ -141,10 +208,13 @@ export const hudLayoutBounds = () =>
     '.telemetry-target',
     '.telemetry-parent',
   ].map((selector) => {
-    const element = ui.element.querySelector(selector);
+    const element = ui.hudElement.querySelector(selector);
 
     if (!element) return [selector, null];
     const { x, y, width, height } = element.getBoundingClientRect();
 
     return [selector, x, y, width, height];
   });
+
+export const completeHudMap = () => completeMap();
+export const refreshHudLayout = (shown: boolean) => refresh(shown);

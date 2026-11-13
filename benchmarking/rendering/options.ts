@@ -9,6 +9,7 @@ export function parseRenderingOptions({ args }: { args: string[] }) {
       browser: { type: 'string', default: 'chrome' },
       scenario: { type: 'string', default: 'all' },
       seconds: { type: 'string', default: '30' },
+      'cpu-throttle': { type: 'string', default: '1' },
       output: { type: 'string' },
       help: { type: 'boolean', default: false },
     },
@@ -16,6 +17,7 @@ export function parseRenderingOptions({ args }: { args: string[] }) {
 
   const browser = values.browser;
   const seconds = Number(values.seconds);
+  const cpuThrottle = Number(values['cpu-throttle']);
   const selected = values.scenario.split(',');
   const chosen = selected.includes('all') ? [...scenarios] : selected;
 
@@ -25,6 +27,14 @@ export function parseRenderingOptions({ args }: { args: string[] }) {
 
   if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 600) {
     throw new Error('Capture between 1 and 600 seconds per scenario');
+  }
+
+  if (!Number.isFinite(cpuThrottle) || cpuThrottle < 1) {
+    throw new Error('CPU throttle must be a finite rate of at least 1');
+  }
+
+  if (browser !== 'chrome' && cpuThrottle !== 1) {
+    throw new Error('CPU throttling requires Chrome');
   }
 
   if (
@@ -39,6 +49,7 @@ export function parseRenderingOptions({ args }: { args: string[] }) {
   return {
     browser,
     seconds,
+    cpuThrottle,
     output: values.output || `benchmarking/_local/gameplay-${browser}.json`,
     scenarios: [...new Set(chosen)],
     help: values.help,

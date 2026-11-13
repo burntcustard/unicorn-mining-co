@@ -4,6 +4,7 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 
@@ -58,6 +59,8 @@ func main() {
 		}
 
 		switch command.Kind {
+		case "disconnect":
+			session.Disconnect(socket)
 		case "setup":
 			session.Receive(protocol.Control{Type: "hello"}, socket)
 			player, _ := session.World.Players.Get(1)
@@ -104,7 +107,7 @@ func main() {
 			message, err := protocol.DecodeClientControl(data, catalog.Protocol, catalog.Simulation.SimulationStep)
 
 			if err != nil {
-				panic(err)
+				panic(fmt.Errorf("decode %s control %x (%d bytes): %w", command.Kind, data[:min(4, len(data))], len(data), err))
 			}
 
 			session.Receive(message, socket)

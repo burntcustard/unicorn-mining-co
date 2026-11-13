@@ -2,7 +2,7 @@
 
 Run one suite at a time. The NPC collection command builds and starts its own
 services; other suites require `npm run build` first. Local benchmarks use the
-normal frontend and Go server on ports 3000/3001. Captures are saved in
+normal frontend and Go server on ports 3002/3001. Captures are saved in
 `benchmarking/_local/`, including partial results when a run fails.
 
 | Suite                | Command                                       |
@@ -38,6 +38,12 @@ isolated worlds; networked cases start a fresh page. Normal graphics, HUD,
 audio and the FPS display stay active. Measurement defaults to 30 seconds;
 `--seconds N` changes it.
 Armed fixtures use one ordinary 200-round ammo item per ship that needs it.
+
+For a diagnostic comparison on a simulated slower main thread, Chrome accepts
+`--cpu-throttle N` (for example, `--cpu-throttle 4`). The rate is recorded in
+the report; the default is 1, with no throttling. This uses Chrome's CPU
+throttling while retaining the real display cadence and unchanged scenarios.
+Compare runs with the same rate and report them separately from normal results.
 
 The pirate case uses a local compiler fixture. Prepare it, then start the Go
 watcher with the printed overlay setting on its normal port:
@@ -133,7 +139,7 @@ The preparation command runs `benchmarking/npc/fixture.ts`; the suite entry is
 
 ```sh
 npm run benchmark:npc:prepare -- /tmp/unicorn-npc-benchmark
-GOMEMLIMIT=300MiB GOFLAGS=-overlay=/tmp/unicorn-npc-benchmark/overlay.json npm run dev:server
+GOMEMLIMIT=600MiB GOFLAGS=-overlay=/tmp/unicorn-npc-benchmark/overlay.json npm run dev:server
 npm run benchmark:npc -- --scenario all --output benchmarking/_local/npc.json
 npm run benchmark:npc -- --scenario all --watch --browser chrome --output benchmarking/_local/npc-watch.json
 ```
@@ -144,7 +150,7 @@ restore the normal budget-matched watcher afterward. This fixture is local only.
 Stop the existing watcher itself before starting its replacement, including a
 watcher running in another terminal or in the background. A second server cannot
 open the same world database. Wait for the fixture server's listening message on
-port 3001 before running the suite, and keep Vite running on port 3000.
+port 3001 before running the suite, and keep Vite running on port 3002.
 The runner checks the server's memory settings, overlay, and frontend before
 opening Chrome. Failures print the cause and report path in the terminal.
 Reset the local world once before the complete comparison session as required
@@ -154,7 +160,7 @@ The NPC cases supplement the unchanged normal CPU workload matrix. All seven
 default to 15 seconds of warmup, a 30-second measurement limit and three
 repetitions, alternating case order. The five CPU scenes keep fixed measurement
 windows; collection scenes stop on docking and record their actual elapsed time
-and end reason. The runner checks `GOMEMLIMIT=300MiB` and
+and end reason. The runner checks `GOMEMLIMIT=600MiB` and
 `GOGC=100`, records the same process/machine CPU counters as the standard suite,
 and restores CPU affinity after completion or interruption. Server CPU and
 generator counters are recorded once for the continuous suite under
@@ -192,14 +198,14 @@ station discovery, so its timings are not comparable to the former private
 discovery-only benchmark.
 
 ```sh
-GOMEMLIMIT=300MiB GOMAXPROCS=2 GOEXPERIMENT=simd go test ./benchmarking/npc -run '^$' -bench '^Benchmark(Collection|CollectorDispatch)' -benchmem
+GOMEMLIMIT=600MiB GOMAXPROCS=2 GOEXPERIMENT=simd go test ./benchmarking/npc -run '^$' -bench '^Benchmark(Collection|CollectorDispatch)' -benchmem
 ```
 
 For a short collection-only CPU profile, retain the same stock mechanics and
 memory budget and sample complete physical trips rather than stationary steering:
 
 ```sh
-GOMEMLIMIT=300MiB GOGC=100 GOMAXPROCS=2 GOEXPERIMENT=simd go test ./benchmarking/npc -run '^$' -bench '^BenchmarkCollection$' -benchtime=1x -benchmem -cpuprofile /tmp/npc-collection.cpu -o /tmp/npc-collection.test
+GOMEMLIMIT=600MiB GOGC=100 GOMAXPROCS=2 GOEXPERIMENT=simd go test ./benchmarking/npc -run '^$' -bench '^BenchmarkCollection$' -benchtime=1x -benchmem -cpuprofile /tmp/npc-collection.cpu -o /tmp/npc-collection.test
 go tool pprof -top /tmp/npc-collection.test /tmp/npc-collection.cpu
 ```
 
@@ -218,7 +224,7 @@ observations, alter player controls, or remove debris.
 
 ```sh
 node benchmarking/npc/collector-cleanup-overlay.ts /tmp/unicorn-collector-cleanup
-GOMEMLIMIT=300MiB GOFLAGS=-overlay=/tmp/unicorn-collector-cleanup/overlay.json COLLECTOR_CLEANUP_TELEMETRY="$PWD/benchmarking/_local/collector-cleanup/mining-telemetry.jsonl" npm run dev:server
+GOMEMLIMIT=600MiB GOFLAGS=-overlay=/tmp/unicorn-collector-cleanup/overlay.json COLLECTOR_CLEANUP_TELEMETRY="$PWD/benchmarking/_local/collector-cleanup/mining-telemetry.jsonl" npm run dev:server
 node benchmarking/npc/collector-mining-run.ts --mining-seconds 150
 node benchmarking/npc/collector-cleanup-analysis.ts benchmarking/_local/collector-cleanup/mining-telemetry.jsonl benchmarking/_local/collector-cleanup/mining-analysis.json
 ```
@@ -293,7 +299,7 @@ checkpoint before loading it; it never opens that source world for writing.
 After generating the deterministic overlay above, run:
 
 ```sh
-GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOMAXPROCS=2 \
+GOMEMLIMIT=600MiB GOEXPERIMENT=simd GOMAXPROCS=2 \
 UNICORN_COLLECTOR_REPLAY_DB="$PWD/benchmarking/_local/collector-cleanup/checkpoint/world.sqlite" \
 UNICORN_COLLECTOR_REPLAY_COHORT="$PWD/benchmarking/_local/collector-cleanup/cohort-in-range.json" \
 UNICORN_COLLECTOR_REPLAY_OUTPUT="$PWD/benchmarking/_local/collector-cleanup/replay.json" \
@@ -336,8 +342,9 @@ Start extensive local testing with `npm run reset-world:local` while the Go
 watcher is stopped, then restart it before the matrix. Live benchmarks use the
 existing world.
 
-For comparisons with the current live Go memory budget, start the normal local
-watcher as `GOMEMLIMIT=300MiB npm run dev:server`. Keep the default `GOGC=100`.
+After deploying the configured Go memory budget, start the normal local watcher
+for budget-matched comparisons as `GOMEMLIMIT=600MiB npm run dev:server`. Keep
+the default `GOGC=100`.
 The benchmark's `--cores 2` controls CPU affinity only; it does not set memory.
 Verify `serverCores.runtimeEnvironment` in the capture before qualifying a
 budget-matched result.
@@ -367,8 +374,9 @@ client health. Local results include isolated Go-process CPU and busy CPU on the
 selected logical CPUs; Fly machine CPU includes its OS. Compare matching scopes,
 core counts and runtime settings, alongside delivered snapshot rates. Match the
 deployed `GOGC` and `GOMEMLIMIT` values locally. An unset `GOGC` uses Go's default
-100; Fly specifies a `300MiB` Go memory budget for its 512 MiB machine. Check
-Fly's CPU balance and quota throttling when interpreting live results: settings
+100; the Fly configuration specifies a `600MiB` Go memory budget for a 1 GiB
+machine. Verify the live settings if that configuration has not yet been
+deployed. Check Fly's CPU balance and quota throttling when interpreting live results: settings
 restarts can discard accrued burst credit. Local core affinity does not emulate
 Fly's shared CPU quota.
 

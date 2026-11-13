@@ -16,3 +16,5 @@ benchmark suite and gameplay timing unchanged when evaluating CPU savings.
 
 Match the live Go memory budget in local CPU comparisons and verify the recorded
 runtime environment. The benchmark's `--cores` flag changes affinity, not memory.
+
+For procedural sound design, analysis, and sound-editor iteration, follow the [sound-design skill](.agents/skills/sound-design/SKILL.md).

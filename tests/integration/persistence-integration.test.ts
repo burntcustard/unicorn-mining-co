@@ -165,7 +165,7 @@ try {
   address = await start('development');
   const developer = await join(address, null);
 
-  assert.equal(developer.credits, 2000);
+  assert.equal(developer.credits, 99999);
   const existing = await join(address, first.token);
 
   assert.equal(existing.credits, first.credits);

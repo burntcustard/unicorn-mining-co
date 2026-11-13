@@ -1,4 +1,5 @@
 import { colors } from '../colors';
+import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec, HullSegmentSpecification } from './types';
 
 const junction = [104, 0];
@@ -53,6 +54,7 @@ const sideCrystals = [-1, 1].map((side) => {
 export const crystal: ShipSpec = {
   name: 'Crystal',
   npcOnly: true,
+  price: 0,
   fuelCapacity: 140,
   cargoSpace: 0,
   drag: 0.56,
@@ -73,7 +75,7 @@ export const crystal: ShipSpec = {
     powerFiring: 4.2,
   },
   initialLoadout: [
-    { mount: 0, module: 'powerPlant' },
+    { mount: 0, module: 'powerPlant2V' },
     { mount: 1, module: 'thrusterSingleSm', shades: colors.violet },
   ],
   hullSegments: [
@@ -83,7 +85,7 @@ export const crystal: ShipSpec = {
       health: 110,
       shades: colors.white,
       mounts: [
-        [{ x: -14, y: 0, fits: ['powerPlant'] }],
+        [{ x: -14, y: 0, fits: powerPlantIdsBySize[2] }],
         [{ x: -36, y: 0, fits: ['thrusterSingleSm'] }],
       ],
       points: [

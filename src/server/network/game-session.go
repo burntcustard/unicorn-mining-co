@@ -70,9 +70,14 @@ func (q *queuedInputs) lateOffset(index, previous int, step float64) float64 {
 }
 
 type playerRecord struct {
+	storedShips                                     []*objects.Ship
+	noShip                                          bool
+	hangarPending                                   bool
+	hangarError                                     string
 	pirateAfter                                     uint64
 	sectorID                                        string
 	travelledTick                                   uint64
+	mapAt                                           time.Time
 	chatAt                                          time.Time
 	gateAccess                                      *gateAccessRequest
 	arrivalMessage                                  *protocol.ServerControl
@@ -302,7 +307,6 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 
 		if player.profile.DisplayName == "" {
 			player.profile.DisplayName = message.DisplayName
-			player.ship.Name = player.profile.DisplayName
 			s.assignInitialOwner()
 			s.requirePlayerCommit(player)
 			s.flushChanges()
@@ -323,6 +327,10 @@ func (s *GameSession) Receive(message protocol.Control, socket SessionSocket) {
 	}
 
 	switch message.Type {
+	case "sectorMap":
+		s.sectorMapView(player, message.Position)
+	case "hangar":
+		s.hangar(player, message)
 	case "gateAccess":
 		s.requestGateAccess(player, int64(message.GateID))
 	case "chat":
@@ -657,6 +665,11 @@ func (s *GameSession) sendSnapshot(p *playerRecord, view *ReplicationView, batch
 		s.sendControl(socket, protocol.ServerControl{Type: "progress", UnlockedPaints: &mask, Credits: &p.profile.Credits})
 	}
 
+	if p.hangarPending {
+		p.hangarPending = false
+		s.sendHangar(p)
+	}
+
 	if socket.BufferedBytes() > MaxSocketBuffer {
 		socket.Terminate()
 		return
@@ -786,10 +799,6 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	s.updatePlayerActivity(p)
 	p.profilePending = false
 
-	if p.profile.DisplayName != "" {
-		p.ship.Name = p.profile.DisplayName
-	}
-
 	p.playedAt = time.Time{}
 	s.playersBySocket[socket] = p
 	p.snapshotSequence = 0
@@ -825,6 +834,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 	s.requirePlayerCommit(p)
 	s.flushChanges()
 	p.welcomePending = true
+	p.hangarPending = len(p.storedShips) > 0 || p.noShip
 
 	if message.Type == "hello" {
 		s.play(p)
@@ -869,6 +879,10 @@ func (s *GameSession) sendWelcome(p *playerRecord) {
 }
 
 func (s *GameSession) respawn(p *playerRecord) {
+	if p.noShip {
+		return
+	}
+
 	if s.World.Entities.Has(p.shipID) && (p.ship.Engine() != nil && p.ship.Fuel > 0 || p.ship.DockedTo != nil && *p.ship.DockedTo != 0 || p.ship.Launching != 0) {
 		return
 	}
@@ -893,10 +907,6 @@ func (s *GameSession) respawn(p *playerRecord) {
 	id := station.Base().ID
 	ship.DockedTo = &id
 
-	if p.profile.DisplayName != "" {
-		ship.Name = p.profile.DisplayName
-	}
-
 	simulation.AddEntity(s.World, ship)
 	simulation.AddPlayer(s.World, simulation.Player{ID: p.playerID, ShipID: ship.ID, Credits: &p.profile.Credits})
 	p.ship = ship
@@ -911,11 +921,16 @@ func (s *GameSession) respawn(p *playerRecord) {
 	}
 
 	p.respawnPending = true
+	p.hangarPending = true
 	p.needsLoad = true
 	s.sendSnapshot(p, nil, nil)
 }
 
 func (s *GameSession) input(message protocol.Control, p *playerRecord) {
+	if p.noShip {
+		message.Input = protocol.Input{}
+	}
+
 	lead := int64(message.Tick) - int64(s.World.Tick)
 	p.inputLead = lead
 	p.hasInputLead = true
@@ -951,6 +966,13 @@ func (s *GameSession) input(message protocol.Control, p *playerRecord) {
 }
 
 func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
+	if p.noShip {
+		p.hangarError = "Buy or pilot a ship first."
+		p.hangarPending = true
+		s.sendSnapshot(p, nil, nil)
+		return
+	}
+
 	p.progressPending = true
 	accepted := false
 
@@ -991,6 +1013,8 @@ func (s *GameSession) dock(message protocol.Control, p *playerRecord) {
 	if ship.DockedTo == nil {
 		return
 	}
+
+	p.hangarPending = true
 
 	// Requests sent before a module sale is acknowledged still use its ship ID.
 	// These aliases are private to this connection and expire when acknowledged.

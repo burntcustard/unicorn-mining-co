@@ -8,7 +8,7 @@ import {
   exampleShield,
   exampleLargeShield,
 } from '../../src/specs/modules/utility/example-shield';
-import { examplePowerPlant } from '../../src/specs/modules/core/example-power-plant';
+import { examplePowerPlant } from '../../src/specs/modules/core/power-plants/example-power-plant';
 import {
   exampleThruster,
   exampleTripleThruster,
@@ -18,7 +18,7 @@ import {
   exampleDualThruster,
   exampleLargeDualThruster,
   exampleExtraLargeDualThruster,
-} from '../../src/specs/modules/core/example-thruster';
+} from '../../src/specs/modules/core/thrusters/example-thruster';
 import type { ModuleId } from '../../src/specs/modules';
 import type { ModuleSpec } from '../../src/specs/modules/types';
 
@@ -96,7 +96,7 @@ export const exampleModuleEntries: [ModuleId, ModuleSpec][] = [
   ['searchLight', exampleSearchLight],
   ['shieldGeneratorSm', exampleShield],
   ['shieldGeneratorMd', exampleLargeShield],
-  ['powerPlant', examplePowerPlant],
+  ['powerPlant2V', examplePowerPlant],
   ['thrusterSingleMd', exampleThruster],
   ['thrusterSingleSm', exampleSmallThruster],
   ['thrusterTriple', exampleTripleThruster],

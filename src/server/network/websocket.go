@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -80,7 +81,10 @@ func headerHas(value, token string) bool {
 // Upgrade accepts the same path and origins as the former Node listener.
 func Upgrade(w http.ResponseWriter, r *http.Request, production bool) (*WebSocket, error) {
 	origin := r.Header.Get("Origin")
-	local := !production && (origin == "http://localhost:3000" || origin == "http://127.0.0.1:3000")
+	parsedOrigin, originError := url.Parse(origin)
+	local := !production && originError == nil && parsedOrigin.Scheme == "http" &&
+		parsedOrigin.User == nil && parsedOrigin.Path == "" && parsedOrigin.RawQuery == "" && parsedOrigin.Fragment == "" &&
+		(parsedOrigin.Hostname() == "localhost" || parsedOrigin.Hostname() == "127.0.0.1" || parsedOrigin.Hostname() == "::1")
 	key, validKey := acceptKey(r.Header.Get("Sec-WebSocket-Key"))
 
 	if r.Method != http.MethodGet || r.URL.RequestURI() != "/game-socket" ||

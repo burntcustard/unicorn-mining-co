@@ -26,6 +26,11 @@ func TestTypeScriptSectors(t *testing.T) {
 				Region      Vec.Vector
 				Description protocol.RegionDescription
 			}
+			FieldSamples []struct {
+				SectorID string
+				From, To Vec.Vector
+				Fields   []protocol.FieldDescription
+			}
 			Densities []struct {
 				SectorID string
 				Position Vec.Vector
@@ -79,6 +84,14 @@ func TestTypeScriptSectors(t *testing.T) {
 					want, _ := json.Marshal(sample.Description)
 					t.Fatalf("seed %d sector %s region %+v differs\ngot %s\nwant %s", fixture.WorldSeed, sample.SectorID, sample.Region, got, want)
 				}
+			}
+		}
+
+		for _, sample := range fixture.FieldSamples {
+			actual := generators[sample.SectorID].GenerateFields(fixture.WorldSeed, sample.From, sample.To)
+
+			if !reflect.DeepEqual(actual, sample.Fields) {
+				t.Fatalf("seed %d sector %s field outlines differ in %+v to %+v", fixture.WorldSeed, sample.SectorID, sample.From, sample.To)
 			}
 		}
 

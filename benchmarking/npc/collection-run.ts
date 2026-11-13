@@ -21,6 +21,7 @@ import { parseNPCOptions } from './options.ts';
 
 const execute = promisify(execFile);
 const repository = fileURLToPath(new URL('../..', import.meta.url));
+const frontendPort = 3002;
 
 export const collectionArguments = (args: string[]) => [
   '--scenario',
@@ -133,7 +134,7 @@ async function belongsTo(pid: number, ancestor: number) {
 
 async function inspectServices(root: string) {
   const [front, back, entries] = await Promise.all([
-    listeners(3000),
+    listeners(frontendPort),
     listeners(3001),
     readdir('/proc'),
   ]);
@@ -141,7 +142,7 @@ async function inspectServices(root: string) {
   if (front.length) {
     assert(
       isNPCService(await localProcess(front[0]), root, 'frontend'),
-      'Port 3000 is occupied by a different service; leave it running and free the normal game port before benchmarking.',
+      `Port ${frontendPort} is occupied by a different service; leave it running and free the normal game port before benchmarking.`,
     );
   }
 
@@ -394,8 +395,8 @@ async function readyService(
         `Another process took port ${port}; see ${owned.log}`,
       );
 
-      if (port === 3000) {
-        const response = await fetch('http://localhost:3000/', {
+      if (port === frontendPort) {
+        const response = await fetch(`http://localhost:${frontendPort}/`, {
           signal: AbortSignal.timeout(1000),
         }).catch((): null => null);
 
@@ -534,7 +535,7 @@ export async function runCollectionSession(args: string[]) {
       NODE_ENV: 'development',
       DATABASE_PATH: relative(root, report.database),
       BACKUP_DIRECTORY: resolve(directory, 'backups'),
-      GOMEMLIMIT: '300MiB',
+      GOMEMLIMIT: '600MiB',
       GOGC: '100',
       GOEXPERIMENT: 'simd',
       GOFLAGS: '',
@@ -590,15 +591,15 @@ export async function runCollectionSession(args: string[]) {
     );
 
     if (!previous.frontend) {
-      await stage('Starting Vite on port 3000…');
+      await stage(`Starting Vite on port ${frontendPort}…`);
       await readyService(
         await start('npm', ['run', 'dev', '--', '--strictPort'], 'frontend'),
-        3000,
+        frontendPort,
         controller.signal,
       );
     } else {
       await stage(
-        `Reusing this checkout's Vite PID ${previous.frontend} on port 3000.`,
+        `Reusing this checkout's Vite PID ${previous.frontend} on port ${frontendPort}.`,
       );
     }
 

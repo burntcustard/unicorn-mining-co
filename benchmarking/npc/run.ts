@@ -21,6 +21,7 @@ import { loadProtocolRuntime } from '../utilities/protocol-runtime.ts';
 import {
   formatNPCCollection,
   readNPCReport,
+  retryEarlyCollection,
   serializeNPCReport,
   summarizeNPCCollection,
 } from './report.ts';
@@ -51,7 +52,7 @@ const displayNames: Record<string, string> = {
   'collection-finch': 'Gather Finch',
 };
 
-const url = 'http://localhost:3000/';
+const url = 'http://localhost:3002/';
 const output = resolve(options.output);
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-npc-protocol-'));
 const cancellation = new AbortController();
@@ -60,6 +61,13 @@ const interrupt = () =>
 
 process.once('SIGINT', interrupt);
 process.once('SIGTERM', interrupt);
+
+type NPCResult = {
+  scenario: string;
+  repetition: number;
+  seed: number | null;
+  authoritativeCollection: Awaited<ReturnType<typeof readNPCReport>> | null;
+};
 
 const report = {
   benchmark: 'npc-behavior',
@@ -90,16 +98,13 @@ const report = {
   protocolRuntimeSha256: null as string | null,
   fixture: null as { directory: string; items: number } | null,
   setup:
-    'A nonphysical view anchor streams the normal Go simulation without a player ship. Collection scenes use paired seeded layouts and stock hulls with the shared collector policy and Pilot. They end on docking or the capture limit; the five collector CPU scenes retain fixed windows. Concurrent collection cases use separate copies of the same sector. CPU and generator counters cover the continuous suite, including between-run preparation and finalization; they are not per-NPC costs. Watch mode mirrors each stream without another connection.',
+    'A nonphysical view anchor streams the normal Go simulation without a player ship. Collection scenes use paired seeded layouts and stock hulls with the shared collector policy and Pilot. They end on docking or the capture limit; the five collector CPU scenes retain fixed windows. Concurrent collection cases use separate copies of the same sector. CPU and generator counters cover the continuous suite, including between-run preparation, rejected early-completion attempts and finalization; they are not per-NPC costs. Single-lane collector cases allow up to three attempts if all pickups occur before capture; concurrent cases remain strict. Watch mode mirrors each stream without another connection.',
   serverCores: null as
     | Awaited<ReturnType<typeof limitServerCores>>['metadata']
     | null,
-  results: [] as {
-    scenario: string;
-    repetition: number;
-    seed: number | null;
-    authoritativeCollection: Awaited<ReturnType<typeof readNPCReport>> | null;
-  }[],
+  results: [] as NPCResult[],
+  rejectedAttempts: [] as NPCResult[],
+  pendingResults: [] as NPCResult[],
   summary: [] as ReturnType<typeof summarizeNPCCollection>,
   complete: false,
   error: null as string | null,
@@ -145,7 +150,7 @@ try {
 
   let pid: number;
 
-  const restart = `GOMEMLIMIT=300MiB GOFLAGS=-overlay=${overlay} npm run dev:server`;
+  const restart = `GOMEMLIMIT=600MiB GOFLAGS=-overlay=${overlay} npm run dev:server`;
 
   try {
     pid = await localServerPid();
@@ -175,7 +180,7 @@ try {
     : null;
 
   if (
-    environment.GOMEMLIMIT !== '300MiB' ||
+    environment.GOMEMLIMIT !== '600MiB' ||
     (environment.GOGC ?? '100') !== '100' ||
     runningOverlay !== overlay
   ) {
@@ -191,7 +196,7 @@ try {
     assert(response.ok);
   } catch {
     throw new Error(
-      'The game frontend is unavailable on port 3000. Start npm run dev -- --strictPort in another terminal, keeping the NPC fixture watcher running.',
+      'The game frontend is unavailable on port 3002. Start npm run dev -- --strictPort in another terminal, keeping the NPC fixture watcher running.',
     );
   }
 
@@ -493,7 +498,7 @@ try {
         client: traffic,
       };
 
-      report.results.push(result);
+      report.pendingResults.push(result);
       await save();
       assert(
         traffic.snapshots > 0 &&
@@ -513,7 +518,10 @@ try {
         start: captureStart,
         end: captureEnd,
         seed: collection ? seed : undefined,
+        allowEarlyCompletion: options.concurrency === 1,
       });
+
+      if (result.authoritativeCollection.completedBeforeCapture) return result;
 
       if (docked) {
         assert(
@@ -548,6 +556,8 @@ try {
         }
       }
 
+      report.pendingResults.splice(report.pendingResults.indexOf(result), 1);
+      report.results.push(result);
       await save();
 
       console.log(
@@ -573,7 +583,17 @@ try {
     lanes.map(async ({ queue }, lane) => {
       try {
         for (let job = queue.shift(); job; job = queue.shift()) {
-          await runCase(job, lane);
+          await retryEarlyCollection({
+            run: () => runCase(job, lane),
+            record: async (rejected) => {
+              report.pendingResults.splice(
+                report.pendingResults.indexOf(rejected),
+                1,
+              );
+              report.rejectedAttempts.push(rejected);
+              await save();
+            },
+          });
         }
       } catch (error) {
         barrier.reject(error);

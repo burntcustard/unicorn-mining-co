@@ -478,3 +478,38 @@ assert.deepEqual(
   [colors.green[2], colors.cyan[2]],
   'remote and player ship markers match their hull paint, including hostile ships',
 );
+
+const station = object(101, 'station', 200, { definitionId: 'corral-6' });
+const dockingShip = object(102, 'ship', 200, { shades: colors.green });
+
+for (const dockedTo of [station.id, undefined]) {
+  ship.dockedTo = dockingShip.dockedTo = dockedTo;
+  contacts.length = 0;
+  fillColors.length = 0;
+  strokes.length = 0;
+
+  renderMinimap({
+    ctx,
+    ship,
+    objects: [ship, station, dockingShip],
+    poses: new Map(),
+    target: dockingShip,
+  });
+
+  assert.equal(
+    contacts.length,
+    dockedTo ? 2 : 3,
+    'the station stays visible while docked ships disappear and undocked ships return',
+  );
+  assert.deepEqual(
+    fillColors,
+    dockedTo ? [] : [colors.green[2], colors.cyan[2]],
+    'both remote and player ship icons are hidden only while docked',
+  );
+  assert.equal(
+    strokes.some(({ color }) => color === '#e6f'),
+    !dockedTo,
+    'a docked ship also loses its target highlight',
+  );
+  assert.equal(depth, 0, 'docking preserves balanced canvas transforms');
+}

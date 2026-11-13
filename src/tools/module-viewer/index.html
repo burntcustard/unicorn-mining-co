@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Module Viewer · Unicorn Mining Co.</title>
+  </head>
+  <body>
+    <div class="viewer-controls" role="complementary">
+      <header>
+        <p class="text-muted text-xs">UNICORN MINING CO.</p>
+        <h1 class="text-lg my-4">Module Viewer</h1>
+      </header>
+      <label class="mt-4 mb-2" for="category">Category</label>
+      <select class="text-xs" id="category"></select>
+      <label class="mt-4 mb-2" for="folder">Subfolder</label>
+      <select class="text-xs" id="folder"></select>
+      <fieldset class="my-4">
+        <legend>View</legend>
+        <label class="mt-4 mb-2">
+          <input id="models" type="checkbox" />
+          Preview models
+        </label>
+      </fieldset>
+    </div>
+    <main class="module-viewer-main ui-surface">
+      <div id="modules" class="module-viewer-grid"></div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

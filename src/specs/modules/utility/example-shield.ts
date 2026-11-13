@@ -7,6 +7,7 @@ export const exampleShield = {
   icon: './shield.svg',
   description: 'Synthetic shield for mechanics tests.',
   behavior: 'shieldGenerator',
+  weight: 1,
   name: 'Example Shield',
   health: 40,
   healthActivated: 100,

@@ -1,20 +1,31 @@
 import { powerParts } from './power';
+import {
+  modulePowerMarkup,
+  moduleThrusterMarkup,
+  moduleWeaponDps,
+  moduleWeaponMarkup,
+} from './module-details';
 import html from './docked.html?raw';
 import './docked.css';
 import pentagon from '../icons/corral-5.svg?raw';
 import hexagon from '../icons/corral-6.svg?raw';
-import { createScreen, query, ui } from './ui';
+import {
+  createScreen,
+  focusMenuTarget,
+  menuRowFilter,
+  nextMenuButton,
+  query,
+  ui,
+} from './ui';
 import { player, paintUnlocked, unlockPaint } from '../../player';
 import { paintColors } from '../../../specs/colors';
 import { type Craft } from '../../objects/craft';
 import { type ItemSpec } from '../../../specs/items/types';
-import { autogunAmmo } from '../../../specs/items';
 import { Module, moduleMaximumHealth } from '../../objects/modules/module';
-import { moduleTypes, SearchLight, PowerPlant } from '../../objects/modules';
+import { moduleTypes, SearchLight } from '../../objects/modules';
 import { fitsOf, cargoMenuEntriesOf } from '../docked-model';
 import {
   applyCraftAction,
-  buyAmmo,
   refuelShip,
   removeModule,
   repairHullSegment,
@@ -25,15 +36,21 @@ import {
   moduleCategoryIds,
 } from '../../../specs/modules/categories';
 import { icons } from '../icons';
-import { shipIcon } from './ship-icon';
 import { type Mount } from '../../types';
 import { reconcileRows } from '../../utilities/reconcile-rows';
+import { playNavigationSound } from '../../audio/sound-loader';
+import { applyHangarAction, hangarState } from '../../network/hangar-actions';
+import { Ship } from '../../objects/ship';
+import { Item } from '../../objects/item';
+import { shipSpecsById, type ShipId } from '../../../specs/ships';
+import { Station } from '../../objects/station';
+import { moduleTypesById } from '../../objects/modules';
 
 const tabContent = new Map([
   [
     'overview',
     {
-      title: 'Ship overview',
+      title: 'Station overview',
       description: 'Inspect your ship, trade cargo, or prepare for launch.',
     },
   ],
@@ -53,11 +70,11 @@ const tabContent = new Map([
     },
   ],
   [
-    'services',
+    'hangar',
     {
-      title: 'Services',
+      title: 'Hangar',
       description:
-        'Repair your hull and fitted modules, or change your hull paint.',
+        'Select an owned ship to manage it, or choose a ship to buy.',
     },
   ],
 ]);
@@ -73,7 +90,7 @@ const createDocked = () => {
   );
 
   const selection = {
-    tab: 'overview',
+    tab: player.ships.length ? 'overview' : 'hangar',
     key: '',
     inspected: '',
     candidate: '',
@@ -86,6 +103,60 @@ const createDocked = () => {
   let structure = '';
   let currentItem: Module | typeof Module | ItemSpec;
   let currentKey = '';
+  let hangarPaint = false;
+  let dialogShipId = 0;
+  let purchaseShipIds: number[] | undefined;
+  const saleDialog = query<HTMLDialogElement>(root, '[data-ship-sale-dialog]');
+  const renameDialog = query<HTMLDialogElement>(
+    root,
+    '[data-ship-rename-dialog]',
+  );
+  const renameInput = query<HTMLInputElement>(root, '#ship-name');
+  const showroom = new Map<ShipId, Ship>();
+
+  const showroomShip = (id: ShipId) => {
+    let ship = showroom.get(id);
+
+    if (!ship) {
+      ship = new Ship({ shipType: id });
+      shipSpecsById
+        .get(id)
+        .initialLoadout.forEach(({ mount, module }) =>
+          ship.fit(new (moduleTypesById.get(module))(), ship.mounts[mount]),
+        );
+      showroom.set(id, ship);
+    }
+
+    return ship;
+  };
+
+  const selectedHangarShip = () =>
+    player.ships.find((ship) => selection.key === `owned:${ship.id}`);
+  const saleValues = (ship: Ship): [string, number][] => [
+    [
+      'Ship',
+      shipSpecsById.get((ship.definitionId || 'mustang') as ShipId).price,
+    ],
+    [
+      'Cargo',
+      ship.cargoContents.reduce((sum, object) => sum + (object.price || 0), 0),
+    ],
+    [
+      'Modules',
+      ship.mounts.reduce(
+        (sum, mount) => sum + (mount.module ? mount.module.price : 0),
+        0,
+      ),
+    ],
+    [
+      'Repairs',
+      -ship.repairCost() -
+        ship.mounts.reduce((sum, mount) => sum + ship.repairCost(mount), 0),
+    ],
+    ['Refueling', -ship.refuelCost],
+  ];
+  const salePrice = (ship: Ship) =>
+    saleValues(ship).reduce((sum, [, value]) => sum + value, 0);
 
   const setKeyboard = (keyboard: boolean) => {
     root.classList.toggle('dock-keyboard', keyboard);
@@ -126,9 +197,12 @@ const createDocked = () => {
   const energy = query(root, '.dock-energy');
   const loadout = query(root, '[data-loadout]');
   const detailPreview = query<HTMLCanvasElement>(root, '[data-detail-preview]');
+  const launchIcon = query<HTMLCanvasElement>(root, '.dock-launch-icon');
   const buttons = (element: ParentNode = root) =>
     [
-      ...element.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+      ...element.querySelectorAll<HTMLButtonElement>(
+        'button:not(:disabled, [aria-disabled="true"])',
+      ),
     ].filter((button) => button.getClientRects().length);
   const firstButton = (selector: string) => buttons(query(root, selector))[0];
   const activeTab = () =>
@@ -155,6 +229,19 @@ const createDocked = () => {
   };
 
   const drawThumbnails = () => {
+    shipPreview.shipThumbnail(launchIcon, player.ship);
+
+    root
+      .querySelectorAll<HTMLCanvasElement>('[data-ship-thumbnail]')
+      .forEach((element) => {
+        const key = element.closest('[data-key]').getAttribute('data-key');
+        const ship = key.startsWith('owned:')
+          ? player.ships.find((ship) => key === `owned:${ship.id}`)
+          : showroom.get(key.slice('offer:'.length) as ShipId);
+
+        if (ship) shipPreview.shipThumbnail(element, ship);
+      });
+
     loadout
       .querySelectorAll<HTMLCanvasElement>('[data-hull]')
       .forEach((element) =>
@@ -180,6 +267,8 @@ const createDocked = () => {
 
   thumbnailObserver.observe(loadout);
   thumbnailObserver.observe(detailPreview);
+  thumbnailObserver.observe(launchIcon);
+  thumbnailObserver.observe(query(root, '[data-hangar]'));
 
   const moduleRow = ({ mount, index }: { mount: Mount; index: number }) => {
     const module = mount.module;
@@ -237,6 +326,184 @@ const createDocked = () => {
     return element;
   });
 
+  const updateHangar = (station: Craft) => {
+    const offers =
+      hangarState.shipsForSale ||
+      (station instanceof Station ? station.shipsForSale : []);
+    const owned = selectedHangarShip();
+    const mustangOffer = offers.find((entry) => entry.ship === 'mustang');
+    const special =
+      mustangOffer &&
+      player.credits < mustangOffer.price &&
+      player.ships.reduce(
+        (sum, ship) => sum + salePrice(ship),
+        player.credits,
+      ) < mustangOffer.price;
+    const offer = offers.find(
+      (entry) => selection.key === `offer:${entry.ship}`,
+    );
+    let ship = owned;
+
+    if (offer) ship = showroomShip(offer.ship);
+
+    const rows = (entries: { key: string; ship: Ship; label: string }[]) =>
+      entries
+        .map(({ key, ship, label }) => {
+          const name = document.createElement('span');
+
+          name.className = 'dock-row-text';
+          name.textContent = ship.name;
+          return `<button class="ui-button dock-row flex items-center gap-2" data-key="${key}" aria-pressed="${selection.key === key}">
+          <canvas data-ship-thumbnail aria-hidden="true"></canvas>${name.outerHTML}<small class="dock-row-text ml-auto">${label}</small>
+        </button>`;
+        })
+        .join('');
+
+    setRows(
+      query(root, '[data-owned-ships]'),
+      player.ships.length
+        ? `<div class="dock-group uppercase text-sm">${rows(
+            player.ships.map((ship) => ({
+              key: `owned:${ship.id}`,
+              ship,
+              label: ship.id === player.ship.id ? 'PILOTING' : '',
+            })),
+          )}</div>`
+        : '<p class="text-muted mt-4">You do not own any ships.</p>',
+    );
+
+    setRows(
+      query(root, '[data-ships-for-sale]'),
+      offers
+        .map((offer) => {
+          const name = shipSpecsById.get(offer.ship).name;
+
+          showroomShip(offer.ship);
+
+          return `<button class="ui-button dock-row flex items-center gap-2" data-key="offer:${offer.ship}" aria-pressed="${selection.key === `offer:${offer.ship}`}">
+        <canvas data-ship-thumbnail aria-hidden="true"></canvas><span class="dock-row-text">${name}</span>${special && offer.ship === 'mustang' ? '<span class="dock-row-text ml-auto"><span class="dock-offer">SPECIAL OFFER</span>!</span>' : `<small class="dock-row-text ml-auto">${money(offer.price)}</small>`}
+      </button>`;
+        })
+        .join(''),
+    );
+
+    detail.hidden = false;
+    detail.style.setProperty('--ui-color', '#eef');
+    text('[data-location]', ship ? (owned ? 'Your ships' : station.name) : '');
+    query(root, '[data-location]').parentElement.hidden = !ship;
+    text(
+      '[data-category]',
+      ship
+        ? shipSpecsById.get((ship.definitionId || 'mustang') as ShipId).name
+        : '',
+    );
+    text('[data-title]', ship?.name || 'Hangar');
+    query(root, '[data-title]').hidden = false;
+    text(
+      '[data-description]',
+      ship
+        ? owned
+          ? ship.id === player.ship.id
+            ? 'Currently piloting this ship.'
+            : 'Available to pilot at any station.'
+          : ''
+        : tabContent.get('hangar').description,
+    );
+    query(root, '[data-description]').hidden = Boolean(offer);
+    text('[data-hangar-status]', hangarState.error);
+    query(root, '[data-hangar-status]').hidden = !hangarState.error;
+    query(root, '[data-hangar-stats]').hidden = !ship;
+    setHtml(
+      query(root, '[data-hangar-stats]'),
+      ship
+        ? `<dt>Hull</dt><dd>${health(ship.hullHealthTotal, ship.hullMaxHealth)}</dd>
+        <dt>Modules fitted</dt><dd>${ship.mounts.filter((mount) => mount.module).length}/${ship.mounts.length}</dd>
+        <dt>Cargo</dt><dd>${ship.cargoContents.length}/${ship.cargoSpace}</dd>
+        <dt>Fuel</dt><dd>${ship.fuel.toFixed(1)}/${ship.fuelCapacity} L</dd>`
+        : '',
+    );
+
+    [
+      '[data-detail-preview]',
+      '[data-health-panel]',
+      '[data-weight-panel]',
+      '[data-candidate-panel]',
+      '[data-weapon-stats]',
+      '[data-weapon-dps]',
+      '[data-module-power]',
+      '[data-thruster-stats]',
+      '[data-trade-price-panel]',
+      '[data-actions]',
+    ].forEach((selector) => {
+      query(root, selector).hidden = true;
+    });
+
+    const total = owned
+      ? owned.repairCost() +
+        owned.mounts.reduce((sum, mount) => sum + owned.repairCost(mount), 0)
+      : 0;
+
+    query(root, '[data-hangar-actions]').hidden = !ship;
+
+    root
+      .querySelectorAll<HTMLButtonElement>('[data-hangar-command]')
+      .forEach((button) => {
+        const command = button.getAttribute('data-hangar-command');
+
+        button.hidden =
+          command === 'SPECIAL'
+            ? !special || offer?.ship !== 'mustang'
+            : command === 'BUY'
+              ? !offer
+              : !owned || (command === 'PILOT' && owned.id === player.ship.id);
+        button.disabled =
+          hangarState.busy ||
+          (command === 'BUY' && player.credits < offer?.price) ||
+          (command === 'REPAIR' && (!total || player.credits < total)) ||
+          (command === 'REFUEL' &&
+            (!owned?.refuelCost || player.credits < owned.refuelCost));
+      });
+
+    text('[data-ship-buy-label]', buyLabel(offer?.price));
+    query(root, '[data-special-offer]').hidden =
+      !special || offer?.ship !== 'mustang';
+    text(
+      '[data-special-offer]',
+      `This offer allows you to rebuy a mustang with new modules, however it costs your remaining unicredits (${player.credits.toLocaleString('en-US')}) and will automatically sell any items and ships you currently own.`,
+    );
+    text('[data-ship-price]', money(offer?.price || 0));
+    text('[data-ship-repair]', money(total));
+    text('[data-ship-refuel]', money(owned?.refuelCost || 0));
+    text('[data-ship-sale]', `+${money(owned ? salePrice(owned) : 0)}`);
+    query(root, '[data-paint-panel]').hidden = !owned || !hangarPaint;
+    query(root, '[data-paint-heading]').hidden = false;
+    text('[data-paint-heading]', 'Hull paint');
+    query(root, '[data-paint-unsupported]').hidden = true;
+    query(root, '[data-paints]').hidden = false;
+
+    swatches.forEach((button, index) => {
+      button.disabled = hangarState.busy || !paintUnlocked(paintColors[index]);
+      button.setAttribute(
+        'aria-pressed',
+        String(owned?.shades === paintColors[index]),
+      );
+    });
+
+    query(root, '.dock-center').hidden = !ship;
+    energy.hidden = true;
+    query(root, '[data-fitting-preview]').hidden = true;
+
+    if (ship) {
+      preview.update(ship, {
+        hull: -1,
+        mount: -1,
+        active: offer ? 'all' : false,
+      });
+    }
+
+    drawThumbnails();
+  };
+
   const update = () => {
     const ship = player.ship;
     const mounts = ship.mounts;
@@ -246,6 +513,30 @@ const createDocked = () => {
       | undefined;
 
     if (!station) return;
+
+    const purchased = purchaseShipIds
+      ? player.ships.find((owned) => !purchaseShipIds.includes(owned.id))
+      : undefined;
+
+    if (purchased || hangarState.error) purchaseShipIds = undefined;
+
+    if (purchased && selection.tab === 'hangar') {
+      selection.key = selection.inspected = `owned:${purchased.id}`;
+      hangarPaint = false;
+      inDetails = true;
+      detailOrigin = () =>
+        root.querySelector<HTMLElement>(`[data-key="owned:${purchased.id}"]`);
+    }
+
+    if (
+      selection.tab === 'hangar' &&
+      selection.key.startsWith('owned:') &&
+      !selectedHangarShip()
+    ) {
+      selection.key = selection.inspected = '';
+      inDetails = false;
+      hangarPaint = false;
+    }
 
     const trading = selection.tab === 'trade';
     const cargo = cargoMenuEntriesOf(ship);
@@ -285,6 +576,17 @@ const createDocked = () => {
       station.name,
       station.moduleStates,
       station.cargoContents.map((object) => [object.id, object.health]),
+      player.ships.map((owned) => [
+        owned.id,
+        owned.name,
+        owned.hullHealth,
+        owned.fuel,
+        owned.shades,
+        owned.moduleStates,
+        owned.cargoContents.map((object) => [object.id, object.price]),
+      ]),
+      hangarState,
+      hangarPaint,
     ]);
 
     if (previousView === view) return;
@@ -300,10 +602,14 @@ const createDocked = () => {
 
     previousView = view;
     text('[data-back-label]', inDetails || selection.key ? 'Back' : 'Launch');
-    const launchIcon = query(root, '.dock-launch-icon');
-
-    launchIcon.hidden = Boolean(inDetails || selection.key);
-    setHtml(launchIcon, shipIcon(ship));
+    query<HTMLButtonElement>(root, '[data-launch]').disabled =
+      !player.ships.length && !inDetails && !selection.key;
+    launchIcon.hidden =
+      !player.ships.length || Boolean(inDetails || selection.key);
+    query(root, '[data-launch-unavailable]').hidden = !query<HTMLButtonElement>(
+      root,
+      '[data-launch]',
+    ).disabled;
 
     const hullIndexOf = (mountIndex: number) =>
       ship.hullSegments.indexOf(mounts[mountIndex]?.hull.module);
@@ -352,7 +658,9 @@ const createDocked = () => {
     text('[data-fuel]', `${ship.fuel.toFixed(1)}/${ship.fuelCapacity} L`);
     text('[data-fuel-price]', money(ship.refuelCost));
     query<HTMLButtonElement>(root, '[data-refuel]').disabled =
-      !ship.refuelCost || player.credits < ship.refuelCost;
+      !player.ships.length ||
+      !ship.refuelCost ||
+      player.credits < ship.refuelCost;
     text('[data-balance]', money(player.credits));
     text('[data-ship-name]', ship.name);
     const repairTotal =
@@ -361,9 +669,24 @@ const createDocked = () => {
 
     text('[data-repair-total]', money(repairTotal));
     query<HTMLButtonElement>(root, '[data-repair-all]').disabled =
-      !repairTotal || player.credits < repairTotal;
-    query<HTMLButtonElement>(root, '[data-service="repair"]').disabled =
-      !repairTotal || player.credits < repairTotal;
+      !player.ships.length || !repairTotal || player.credits < repairTotal;
+    query<HTMLButtonElement>(root, '[data-hull-paint]').disabled =
+      !player.ships.length;
+
+    for (const selector of ['[data-overview]', '[data-outfitting]']) {
+      for (const element of query(root, selector).children) {
+        (element as HTMLElement).hidden = element.hasAttribute(
+          'data-ship-required',
+        )
+          ? Boolean(player.ships.length)
+          : !player.ships.length;
+      }
+    }
+
+    query(root, '[data-market-disabled]').hidden =
+      !trading || Boolean(player.ships.length);
+    query(root, '[data-purchase-ship]').hidden =
+      selection.tab !== 'outfitting' || Boolean(player.ships.length);
     text(
       '[data-cargo-total]',
       `${ship.cargoContents.length}/${ship.cargoSpace}`,
@@ -384,13 +707,44 @@ const createDocked = () => {
         }
       });
 
-    query(root, '.dock-summary').hidden = trading;
-    query(root, '.dock-center').hidden = trading;
+    query(root, '.dock-summary').hidden =
+      !player.ships.length || trading || selection.tab === 'hangar';
+    query(root, '.dock-center').hidden = !player.ships.length || trading;
     query(root, '[data-trade-stock]').hidden = !trading;
 
-    ['overview', 'outfitting', 'trade', 'services'].forEach((tab) => {
+    ['overview', 'outfitting', 'trade', 'hangar'].forEach((tab) => {
       query(root, `[data-${tab}]`).hidden = tab !== selection.tab;
     });
+
+    query(root, '[data-hangar-actions]').hidden = true;
+    query(root, '[data-hangar-stats]').hidden = true;
+    query(root, '[data-hangar-status]').hidden = true;
+    energy.hidden = false;
+    text('[data-paint-heading]', 'Module paint');
+    root.classList.toggle('dock-hangar', selection.tab === 'hangar');
+
+    if (selection.tab === 'hangar') {
+      updateHangar(station);
+
+      if (purchased) {
+        (buttons(detail)[0] || detail).focus();
+      } else if (
+        focused &&
+        (!focused.isConnected ||
+          focused.disabled ||
+          !focused.getClientRects().length)
+      ) {
+        const available = buttons(focusGroup);
+
+        (
+          available[Math.min(Math.max(focusIndex, 0), available.length - 1)] ||
+          detailOrigin?.() ||
+          activeTab()
+        ).focus();
+      }
+
+      return;
+    }
 
     const nextStructure = JSON.stringify([
       hullHealth,
@@ -455,9 +809,9 @@ const createDocked = () => {
       entries
         .map(
           ([entry, count]) =>
-            `<button class="ui-button dock-row dock-trade-row" data-key="${kind}:${tradeKey(entry)}"
+            `<button class="ui-button dock-row dock-trade-row" ${!player.ships.length ? 'disabled' : ''} data-key="${kind}:${tradeKey(entry)}"
               style="--ui-color:${entry instanceof Module ? moduleCategories.get(entry.category).color : '#eef'}"
-              aria-disabled="${kind === 'shop' && (ship.cargoContents.length >= ship.cargoSpace || player.credits < entry.price)}"
+              aria-disabled="${!player.ships.length || (kind === 'shop' && (ship.cargoContents.length >= ship.cargoSpace || player.credits < entry.price))}"
               aria-label="${kind === 'cargo' ? 'Sell' : buyLabel(entry.price)} one ${entry.name} for ${money(entry.price || 0)}, supply ${count}">
               <span class="px-3 dock-trade-name flex gap-2" data-trade-action="${kind === 'cargo' ? 'SELL' : buyLabel(entry.price, 'BUY')}"><span class="dock-row-text">${entry.name}</span></span>
               <small class="px-3 text-right dock-trade-supply grid" aria-hidden="true"><span class="dock-row-text">${count.toLocaleString('en-US')}</span></small>
@@ -539,7 +893,16 @@ const createDocked = () => {
       paintHull
         ? 'Hull paint'
         : module
-          ? module.name
+          ? selection.tab === 'outfitting' && module.ammo
+            ? `${module.name} (AMMO:${ship.cargoContents.reduce(
+                (sum, entry) =>
+                  entry instanceof Item &&
+                  entry.resource === module.ammo.resource
+                    ? sum + (entry.rounds || 0)
+                    : sum,
+                0,
+              )})`
+            : module.name
           : item
             ? item.name
             : kind === 'hull'
@@ -552,15 +915,17 @@ const createDocked = () => {
       .textContent;
     text(
       '[data-description]',
-      paintHull
-        ? 'Choose a color for the entire hull.'
-        : item
-          ? item.description || ''
-          : kind === 'hull'
-            ? ''
-            : overview
-              ? tabContent.get(selection.tab).description
-              : 'Fit a compatible module from cargo or buy one from the station.',
+      !player.ships.length && selection.tab === 'outfitting'
+        ? 'No ship to outfit.'
+        : paintHull
+          ? 'Choose a color for the entire hull.'
+          : item
+            ? item.description || ''
+            : kind === 'hull'
+              ? ''
+              : overview
+                ? tabContent.get(selection.tab).description
+                : 'Fit a compatible module from cargo or buy one from the station.',
     );
     query(root, '[data-description]').hidden = !query(
       root,
@@ -596,24 +961,30 @@ const createDocked = () => {
           ? ship.repairCost(mount)
           : 0;
 
+    const weaponMarkup = module ? moduleWeaponMarkup(module) : '';
+
+    setHtml(query(root, '[data-weapon-stats]'), weaponMarkup);
+    query(root, '[data-weapon-stats]').hidden = !weaponMarkup;
     setHtml(
       query(root, '[data-module-power]'),
-      module && !trading
-        ? module.powerGenerated
-          ? `<h3 class="text-sm uppercase">Generation</h3><div class="text-color text-lg mt-4">${module.powerGenerated.toFixed(1)} MW</div><h3 class="text-sm uppercase mt-4">Storage</h3><div class="text-color text-lg mt-4">${(module.powerCapacity || 0).toFixed(1)} MJ</div>`
-          : `<h3 class="text-sm uppercase">Power consumption</h3><div class="flex items-center gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-color text-lg">${module.power.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-color text-lg">${module.powerActivated.toFixed(1)} MW</span></div>${module.powerFiring ? `<div><span class="block text-muted text-sm uppercase">Firing</span><span class="text-color text-lg">${module.powerFiring.toFixed(1)} MW</span></div>` : ''}${module.powerCharging ? `<div><span class="block text-muted text-sm uppercase">Charging</span><span class="text-color text-lg">${module.powerCharging.toFixed(1)} MW</span></div>` : ''}</div>`
-        : '',
+      module && !trading ? modulePowerMarkup(module) : '',
     );
-    query(root, '[data-module-power]').hidden = !module || trading;
-    text(
-      '[data-fuel-usage]',
-      module?.fuelUsage
-        ? `Fuel usage: ${(module.fuelUsage * 60).toFixed(1)} L/min`
-        : '',
+
+    query(root, '[data-module-power]').hidden =
+      !module || trading || Boolean(module.forwardThrust);
+    const dps = module ? moduleWeaponDps(module) : '';
+
+    query(root, '[data-weapon-dps]').hidden = !dps;
+    text('[data-dps]', dps);
+    setHtml(
+      query(root, '[data-thruster-stats]'),
+      module ? moduleThrusterMarkup(module, ship.turnRate) : '',
     );
-    query(root, '[data-fuel-usage]').hidden = !module?.fuelUsage;
+    query(root, '[data-thruster-stats]').hidden = !module?.forwardThrust;
+    query(root, '[data-weight-panel]').hidden = !module || trading;
+    text('[data-weight]', module ? `${module.weight} KG` : '');
     const owned = item instanceof Module;
-    const ammo = module?.ammo === autogunAmmo ? autogunAmmo : undefined;
+    const ammo = module?.ammo;
     const equipped = Boolean(mount?.module);
     const hasSpace = ship.cargoContents.length < ship.cargoSpace;
     const available = trading
@@ -622,7 +993,7 @@ const createDocked = () => {
           ...(kind === 'hull' || equipped ? ['FIX'] : []),
           ...(equipped ? ['REMOVE'] : []),
           ...(owned || kind === 'cargo' ? ['SELL'] : []),
-          ...(owned && ammo ? ['BUY_AMMO'] : []),
+          ...(ammo ? ['BUY_AMMO'] : []),
           ...(item && !owned && kind !== 'cargo' ? ['BUY'] : []),
           ...(owned && mount && !equipped ? ['EQUIP'] : []),
         ];
@@ -639,7 +1010,7 @@ const createDocked = () => {
           : action === 'BUY' || action === 'BUY_AMMO'
             ? (!hasSpace && (action === 'BUY_AMMO' || !mount || equipped)) ||
               (action === 'BUY_AMMO' &&
-                !stock.some(([entry]) => entry === ammo)) ||
+                !stock.some(([entry]) => entry.resource === ammo?.resource)) ||
               player.credits <
                 (action === 'BUY_AMMO' ? ammo?.price : item?.price)
             : action === 'REMOVE'
@@ -662,8 +1033,7 @@ const createDocked = () => {
     query(root, '[data-paint-panel]').hidden =
       trading || (!paintHull && !owned);
     query(root, '[data-paint-heading]').hidden = paintHull;
-    const paintUnsupported =
-      module instanceof SearchLight || module instanceof PowerPlant;
+    const paintUnsupported = module instanceof SearchLight;
 
     query(root, '[data-paint-unsupported]').hidden = !paintUnsupported;
     query(root, '[data-paints]').hidden = paintUnsupported;
@@ -706,11 +1076,17 @@ const createDocked = () => {
         moduleCategoryIds.indexOf(a.module.category) -
         moduleCategoryIds.indexOf(b.module.category),
     );
-    const idle = consumers.reduce((sum, entry) => sum + entry.module.power, 0);
+    const idle = consumers.reduce(
+      (sum, entry) => sum + (entry.module.power ?? 0),
+      0,
+    );
     const active = consumers.reduce(
       (sum, entry) =>
         sum +
-        Math.max(entry.module.powerActivated, entry.module.powerFiring || 0),
+        Math.max(
+          entry.module.powerActivated ?? 0,
+          entry.module.powerFiring ?? 0,
+        ),
       0,
     );
     const output = consumers.reduce(
@@ -733,8 +1109,8 @@ const createDocked = () => {
         entries: consumers.map(({ module, at }) => ({
           module,
           value: active
-            ? Math.max(module.powerActivated, module.powerFiring || 0)
-            : module.power,
+            ? Math.max(module.powerActivated ?? 0, module.powerFiring ?? 0)
+            : (module.power ?? 0),
           highlighted:
             previewHull < 0 ||
             (previewMount
@@ -795,7 +1171,7 @@ const createDocked = () => {
       const replacement =
         (mount && !mount.module && !selectedCandidate
           ? candidates.length
-            ? candidateList
+            ? buttons(candidateList)[0] || candidateList
             : detailOrigin?.()
           : undefined) ||
         available.find(
@@ -817,6 +1193,7 @@ const createDocked = () => {
   };
 
   const open = (tab: string) => {
+    hangarPaint = false;
     inDetails = false;
     footerOrigin = undefined;
     detailOrigin = undefined;
@@ -831,6 +1208,8 @@ const createDocked = () => {
     const key = element.getAttribute('data-key');
 
     if (!key) return;
+
+    if (selection.tab === 'hangar') return;
 
     if (element.closest('[data-candidates]')) {
       inspectedCandidate = key;
@@ -848,9 +1227,16 @@ const createDocked = () => {
     event,
   }: {
     element: HTMLElement;
-    event: MouseEvent;
+    event: PointerEvent | KeyboardEvent;
   }) => {
+    if (event.isTrusted) playNavigationSound('select');
+
     const key = element.getAttribute('data-key');
+
+    if (selection.tab === 'hangar' && key !== selection.key) {
+      hangarPaint = false;
+    }
+
     const candidate = element.closest('[data-candidates]');
 
     if (candidate) {
@@ -863,28 +1249,63 @@ const createDocked = () => {
 
     inspect(element);
     inDetails = true;
+    update();
 
-    if (!candidate || event.detail === 0) {
+    if (!candidate || event instanceof KeyboardEvent) {
       (key.startsWith('mount:') && !currentItem
         ? candidateList.getClientRects().length
-          ? candidateList
+          ? (event instanceof KeyboardEvent && buttons(candidateList)[0]) ||
+            candidateList
           : element
         : buttons(detail)[0] || detail
       ).focus();
     }
 
-    update();
-
     if (candidate) detail.scrollTop = 0;
   };
 
   const launch = () => {
+    if (!player.ships.length) {
+      query<HTMLDialogElement>(
+        root,
+        '[data-launch-unavailable-dialog]',
+      ).showModal();
+      return;
+    }
+
     player.ship.launchRequested = 1;
     ui.clear();
   };
 
   const back = () => {
+    const dialog = root.querySelector<HTMLDialogElement>('dialog[open]');
+
+    if (dialog) {
+      dialog.close();
+      return;
+    }
+
     if (!inDetails && !selection.key) return launch();
+    playNavigationSound('unselect');
+
+    if (
+      selection.tab === 'outfitting' &&
+      selection.key.startsWith('mount:') &&
+      selection.candidate
+    ) {
+      const candidate = buttons(candidateList).find(
+        (button) => button.getAttribute('data-key') === selection.candidate,
+      );
+
+      selection.candidate = '';
+      selection.inspected = selection.key;
+      inspectedCandidate = '';
+      inDetails = true;
+      (candidate || candidateList).focus();
+      update();
+      return;
+    }
+
     inDetails = false;
     const row =
       detailOrigin?.() ||
@@ -893,10 +1314,16 @@ const createDocked = () => {
       );
 
     selection.key = selection.candidate = '';
+    hangarPaint = false;
     inspectedCandidate = '';
     detailOrigin = undefined;
     selection.inspected = row?.getAttribute('data-key') || '';
-    (row || query<HTMLElement>(root, '[data-hull-paint]')).focus();
+    (
+      row ||
+      (selection.tab === 'hangar'
+        ? activeTab()
+        : query<HTMLElement>(root, '[data-hull-paint]'))
+    ).focus();
     update();
   };
 
@@ -920,6 +1347,46 @@ const createDocked = () => {
     });
   };
 
+  const validateShipName = () => {
+    const name = renameInput.value.trim();
+    const valid =
+      Array.from(name).length > 0 &&
+      Array.from(name).length <= 16 &&
+      !Array.from(name).some(
+        (character) =>
+          character.codePointAt(0) < 32 ||
+          (character.codePointAt(0) >= 127 && character.codePointAt(0) <= 159),
+      );
+
+    renameInput.setCustomValidity(
+      valid
+        ? ''
+        : 'Use a name from 1 to 16 characters, without control characters.',
+    );
+    return valid;
+  };
+
+  renameInput.addEventListener('input', validateShipName, {
+    signal: screen.signal,
+  });
+
+  query<HTMLFormElement>(root, '[data-ship-rename-form]').addEventListener(
+    'submit',
+    (event) => {
+      event.preventDefault();
+
+      if (!validateShipName()) {
+        renameInput.reportValidity();
+        return;
+      }
+
+      applyHangarAction('RENAME', dialogShipId, renameInput.value.trim());
+      renameDialog.close();
+      update();
+    },
+    { signal: screen.signal },
+  );
+
   window.addEventListener(
     'keydown',
     (event) => {
@@ -935,7 +1402,6 @@ const createDocked = () => {
       }
 
       const focused = root.querySelector<HTMLElement>(':focus');
-      const available = buttons();
       const horizontal =
         event.key === 'ArrowLeft' || event.key === 'ArrowRight';
       const vertical = event.key === 'ArrowUp' || event.key === 'ArrowDown';
@@ -946,6 +1412,7 @@ const createDocked = () => {
 
       if (event.key === 'Tab') {
         ui.element.classList.remove('ui-arrow-navigation');
+        const available = buttons();
         const index = available.indexOf(focused as HTMLButtonElement);
 
         if (
@@ -977,7 +1444,7 @@ const createDocked = () => {
       ui.element.classList.add('ui-arrow-navigation');
 
       if (!focused) {
-        activeTab().focus();
+        focusMenuTarget(activeTab(), event.key);
         return;
       }
 
@@ -985,52 +1452,62 @@ const createDocked = () => {
         event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1;
       const inTabs = focused.closest('.ui-tabs');
       const inSummary = focused.closest('.dock-summary');
+      const inDetail = focused.closest('.dock-detail');
       const inPaints = focused.closest('[data-paints]');
-      const inInspector = focused.closest('.dock-inspector');
+      const inCandidates = focused.closest('[data-candidates]');
       const footer = firstButton('.dock-footer');
-      const firstContent =
+      const firstContent = () =>
         firstButton('[data-sidebar]') ||
         firstButton('[data-trade-stock]') ||
         footer;
       let target: HTMLElement;
 
-      if (horizontal) {
-        const group = inTabs || inSummary || inPaints;
+      if (inDetail) {
+        if (horizontal) {
+          target = inPaints
+            ? nextMenuButton({ group: inPaints, direction })
+            : focused;
+        } else {
+          target =
+            nextMenuButton({
+              group: inDetail,
+              direction,
+              filter: menuRowFilter('[data-paints]'),
+            }) || focused;
+        }
+      } else if (vertical && inCandidates) {
+        target = nextMenuButton({ group: inCandidates, direction }) || focused;
+      } else if (horizontal) {
+        const group = inTabs || inSummary;
 
         if (group) {
-          const row = buttons(group);
-
-          target = row.at(
-            (row.indexOf(focused as HTMLButtonElement) + direction) %
-              row.length,
-          );
+          target = nextMenuButton({ group, direction });
         } else if (
           selection.tab === 'trade' &&
-          focused.closest(
-            '[data-trade-items], [data-stock-items], .dock-detail',
-          )
+          focused.closest('[data-trade-items], [data-stock-items]')
         ) {
           const columns = ['[data-trade-items]', '[data-stock-items]'].map(
-            (selector) => buttons(query(root, selector)),
+            (selector) =>
+              [...query(root, selector).querySelectorAll('.dock-trade-table')]
+                // Each heading and its preceding gap occupy two row positions.
+                .flatMap((table) => [null, null, ...buttons(table)]),
           );
-          const key = focused.getAttribute('data-key') || currentKey;
-          const from = key.startsWith('cargo:') ? 0 : 1;
           const to = direction < 0 ? 0 : 1;
+          const index = columns[1 - to].indexOf(focused as HTMLButtonElement);
 
-          if (from === to || !columns[to].length) return;
-          const index = columns[from].findIndex(
-            (button) => button.getAttribute('data-key') === key,
-          );
+          if (index >= 0) {
+            const rows = columns[to];
+            const at = Math.min(index, rows.length - 1);
 
-          target =
-            columns[to][Math.min(Math.max(index, 0), columns[to].length - 1)];
+            target = rows[at] || rows[at - 1] || rows[at + 1];
+          }
         }
       } else if (inTabs) {
         if (direction > 0) {
-          target = firstButton('.dock-summary') || firstContent;
+          target = firstButton('.dock-summary') || firstContent();
         }
       } else if (inSummary) {
-        target = direction > 0 ? firstContent : activeTab();
+        target = direction > 0 ? firstContent() : activeTab();
       } else if (focused === footer) {
         if (direction < 0) {
           target =
@@ -1044,34 +1521,22 @@ const createDocked = () => {
             firstButton('.dock-summary') ||
             activeTab();
         }
-      } else if (inPaints) {
-        target =
-          direction > 0
-            ? footer
-            : buttons(inspector)
-                .filter((button) => !button.closest('[data-paints]'))
-                .at(-1) ||
-              firstButton('.dock-summary') ||
-              activeTab();
       } else {
         const group =
-          inInspector ||
+          focused.closest('[data-hangar]') ||
           focused.closest('[data-trade-items], [data-stock-items], nav');
-        const column = group
-          ? buttons(group).filter((button) => !button.closest('[data-paints]'))
-          : [];
+        const column = group ? buttons(group) : [];
         const index = column.indexOf(focused as HTMLButtonElement);
 
         target =
           column[index + direction] ||
           (direction > 0
-            ? (inInspector && firstButton('[data-paints]')) || footer
+            ? footer
             : firstButton('.dock-summary') || activeTab());
       }
 
       if (target === footer) footerOrigin = focused;
-      target?.focus();
-      update();
+      focusMenuTarget(target, event.key);
     },
     { capture: true, signal: screen.signal },
   );
@@ -1127,17 +1592,16 @@ const createDocked = () => {
 
         const candidateSelector = '[data-candidates] [data-key]';
         const fromCandidate = target.closest(candidateSelector);
+        const toCandidate = related?.closest?.<HTMLElement>(candidateSelector);
 
-        if (
-          fromCandidate &&
-          fromCandidate !== related?.closest?.(candidateSelector)
-        ) {
+        if (fromCandidate && type === 'focusout' && toCandidate) return;
+
+        if (fromCandidate && fromCandidate !== toCandidate) {
           const active =
-            (type === 'focusout'
-              ? related?.closest?.<HTMLElement>(candidateSelector)
-              : candidateList.querySelector<HTMLElement>(
-                  '[data-key]:focus-visible',
-                )) ||
+            (type === 'pointerout' &&
+              candidateList.querySelector<HTMLElement>(
+                '[data-key]:focus-visible',
+              )) ||
             (ui.element.classList.contains('ui-arrow-navigation')
               ? null
               : candidateList.querySelector<HTMLElement>('[data-key]:hover'));
@@ -1154,7 +1618,8 @@ const createDocked = () => {
         const from = target.closest(rowSelector);
         const to = related?.closest?.(rowSelector);
 
-        if (!from || from === to) return;
+        // The destination row's focusin will inspect and render it directly.
+        if (!from || from === to || (type === 'focusout' && to)) return;
 
         if (selection.tab === 'trade' && related?.closest?.('.dock-detail')) {
           return;
@@ -1174,7 +1639,7 @@ const createDocked = () => {
   });
 
   root.addEventListener(
-    'click',
+    'ui-press',
     (event) => {
       const target = event.composedPath()[0] as HTMLElement;
       const element = target.closest<HTMLButtonElement>('button');
@@ -1194,14 +1659,41 @@ const createDocked = () => {
 
       const ship = player.ship;
 
-      if (element.getAttribute('data-tab')) {
-        open(element.getAttribute('data-tab'));
+      if (element.hasAttribute('data-dialog-cancel')) {
+        element.closest('dialog').close();
+        return;
+      }
+
+      if (element.hasAttribute('data-visit-hangar')) {
+        element.closest('dialog').close();
+        open('hangar');
+        activeTab().focus();
+        return;
+      }
+
+      if (element.hasAttribute('data-confirm-ship-sale')) {
+        applyHangarAction('SELL', dialogShipId);
+        saleDialog.close();
+        update();
+        return;
+      }
+
+      if (element.hasAttribute('data-confirm-ship-name')) {
+        query<HTMLFormElement>(root, '[data-ship-rename-form]').requestSubmit();
+        return;
+      }
+
+      if (
+        element.getAttribute('data-tab') ||
+        element.hasAttribute('data-purchase-ship')
+      ) {
+        open(element.getAttribute('data-tab') || 'hangar');
         activeTab().focus();
         return;
       }
 
       if (element.hasAttribute('data-key') && selection.tab !== 'trade') {
-        selectRow({ element, event });
+        selectRow({ element, event: event.detail });
         return;
       }
 
@@ -1215,10 +1707,68 @@ const createDocked = () => {
 
       if (element.hasAttribute('data-launch')) return back();
 
-      if (
-        element.hasAttribute('data-hull-paint') ||
-        element.getAttribute('data-service') === 'paint'
-      ) {
+      if (selection.tab === 'hangar') {
+        const owned = selectedHangarShip();
+        const command = element.getAttribute('data-hangar-command');
+
+        if (element.hasAttribute('data-paint') && owned) {
+          applyHangarAction(
+            'PAINT',
+            owned.id,
+            element.getAttribute('data-paint'),
+          );
+        } else if (command === 'BUY' || command === 'SPECIAL') {
+          purchaseShipIds = player.ships.map((ship) => ship.id);
+          applyHangarAction(command, 0, selection.key.slice('offer:'.length));
+        } else if (owned) {
+          if (command === 'SELL') {
+            dialogShipId = owned.id;
+            text(
+              '[data-ship-sale-description]',
+              `Are you sure you want to sell ${owned.name}, including all cargo and fitted modules?`,
+            );
+            setHtml(
+              query(root, '[data-ship-sale-values]'),
+              saleValues(owned)
+                .filter(
+                  ([label, value]) =>
+                    value || (label !== 'Repairs' && label !== 'Refueling'),
+                )
+                .map(
+                  ([label, value]) =>
+                    `<dt>${label}</dt><dd class="text-right">${money(value)}</dd>`,
+                )
+                .join('') +
+                `<dt class="dock-sale-total">Total</dt><dd class="dock-sale-total text-right">${money(salePrice(owned))}</dd>`,
+            );
+            saleDialog.showModal();
+          } else if (command === 'RENAME') {
+            dialogShipId = owned.id;
+            renameInput.value = owned.name;
+            renameInput.setCustomValidity('');
+            renameDialog.showModal();
+            renameInput.select();
+          } else if (command === 'PAINT') {
+            hangarPaint = !hangarPaint;
+          } else if (
+            command === 'PILOT' ||
+            command === 'REPAIR' ||
+            command === 'REFUEL'
+          ) {
+            applyHangarAction(command, owned.id);
+          }
+        }
+
+        update();
+
+        if (command === 'PAINT' && hangarPaint) {
+          firstButton('[data-paints]')?.focus();
+        }
+
+        return;
+      }
+
+      if (element.hasAttribute('data-hull-paint')) {
         rememberOrigin(element);
         inDetails = true;
         selection.key = selection.inspected = 'paint';
@@ -1227,10 +1777,7 @@ const createDocked = () => {
         update();
         firstButton('[data-paints]')?.focus();
         return;
-      } else if (
-        element.hasAttribute('data-repair-all') ||
-        element.getAttribute('data-service') === 'repair'
-      ) {
+      } else if (element.hasAttribute('data-repair-all')) {
         repairAll();
       } else {
         if (element.hasAttribute('data-key')) inspect(element);
@@ -1312,7 +1859,19 @@ const createDocked = () => {
         }
 
         if (command === 'BUY_AMMO') {
-          buyAmmo(ship);
+          const stock = (
+            ship.world?.entities.get(ship.dockedTo) as Craft
+          )?.cargoContents.find(
+            (object) =>
+              object instanceof Item && object.resource === item.ammo?.resource,
+          );
+
+          if (stock) {
+            applyCraftAction(ship, {
+              action: 'buyStock',
+              objectIds: [stock.id],
+            });
+          }
         }
 
         if (command === 'EQUIP') {
@@ -1373,6 +1932,7 @@ const createDocked = () => {
   screen.signal.addEventListener('abort', () => thumbnailObserver.disconnect());
   screen.update = update;
   screen.escape = back;
+  applyHangarAction('LIST');
   return screen;
 };
 

@@ -20,7 +20,7 @@ import { PredictionManager } from '${process.cwd()}/src/client/prediction/predic
 import { cloneEntity } from '${process.cwd()}/src/client/simulation/world-state.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/client/simulation/world.ts';
 import { diamond as diamondSpec, itemTypes, message as messageSpec } from '${process.cwd()}/src/specs/items/index.ts';
-import { Autogun, CargoHatch, HornDrill, PowerPlant, ShieldGenerator, ShieldGeneratorMd, ThrusterDualMd, ThrusterDualXl, ThrusterSingleSm, ThrusterSingleMd, ThrusterTriple, thrusters, moduleTypes } from '${process.cwd()}/src/client/objects/modules/index.ts';
+import { Autogun, CargoHatch, HornDrill, PowerPlant, PowerPlant2V, ShieldGenerator, ShieldGeneratorMd, ThrusterDualMd, ThrusterDualXl, ThrusterSingleSm, ThrusterSingleMd, ThrusterTriple, thrusters, moduleTypes } from '${process.cwd()}/src/client/objects/modules/index.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/network/craft-actions.ts';
@@ -87,7 +87,7 @@ assert.deepEqual(fitsOf(ship,engineMount),thrusters.filter(type=>engineMount.fit
 // Exercise every thruster independently of the production ships' loadouts.
 const thrusterHull=[
   {health:100,core:true,points:[[-16,-20],[8,0],[-16,20]],
-    mounts:[[{x:-16,y:0,fits:thrusters.map(type=>type.definitionId)}], [{x:0,y:0,fits:['powerPlant']}]]},
+    mounts:[[{x:-16,y:0,fits:thrusters.map(type=>type.definitionId)}], [{x:0,y:0,fits:['powerPlant2V']}]]},
   {health:100,core:true,points:[[8,0],[20,0],[-16,20]]}
 ];
 assert.equal(ship.name,'Mustang','ship instances keep their display names under production transforms');
@@ -367,7 +367,7 @@ for (const type of thrusters) {
   const departing = new Ship({hullSegments:thrusterHull,shades: colors.white, position: Vec.create(100000, 100000)}).addToScene();
   const engine = new type();
   departing.cargoContents.push(engine); departing.fit(engine);
-  departing.fit(new PowerPlant());
+  departing.fit(new PowerPlant2V());
   departing.storedPower = departing.powerCapacity;
   departing.launch();
   let timer = 3;
@@ -505,6 +505,13 @@ adoptPlayerShip({ship:replacement});
 assert(!replacement.dead && game.sprites.includes(replacement), 'adopting the current ship does not remove it');
 assert(player.ships.length === 2 && player.ships[1] === spareShip,
   'adopting the current ship does not duplicate it or remove other owned ships');
+adoptPlayerShip({ship:replacement,ownedShips:[]});
+assert.equal(player.ships, ownedShips, 'fleet reconciliation preserves the owned array');
+assert.equal(player.ships.length, 0, 'a sold last ship is not retained as owned');
+assert.equal(player.ship, replacement, 'an empty hangar retains its docked berth');
+adoptPlayerShip({ship:replacement,ownedShips:[spareShip,replacement]});
+assert.deepEqual(player.ships,[replacement,spareShip], 'fleet reconciliation puts the piloted ship first');
+assert.equal(player.berth,undefined, 'owning a ship clears the empty berth');
 console.log('Cargo contents, dock actions, damage, repairs, cargo hatch physics and flight tests passed');
 `;
 

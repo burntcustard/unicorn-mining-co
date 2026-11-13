@@ -11,7 +11,7 @@ export const renderLandmarkIcon = ({
   outline,
 }: {
   ctx: CanvasRenderingContext2D;
-  object: GameObject;
+  object: { kind?: GameObject['kind']; definitionId?: string };
   radius: number;
   outline?: string;
 }) => {

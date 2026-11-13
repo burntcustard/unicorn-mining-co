@@ -81,10 +81,15 @@ export const initKeys = ({
 
     const key = event.key.toLowerCase();
 
-    if (key === 'tab') {
-      event.preventDefault();
+    if (
+      key === 'control' ||
+      key === 'meta' ||
+      ((event.ctrlKey || event.metaKey) && ['-', '+', '=', '0'].includes(key))
+    ) {
       return;
     }
+
+    if (key === 'tab') event.preventDefault();
 
     if (key.startsWith('arrow') || key === ' ') event.preventDefault();
 

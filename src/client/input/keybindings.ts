@@ -23,22 +23,33 @@ export type KeyAction =
   | 'shieldGenerator'
   | 'targetNext'
   | 'fpsCounter'
+  | 'sectorMap'
+  | 'mapZoomIn'
+  | 'mapZoomOut'
   | 'telemetry'
   | 'requestGateAccess';
 
 export const bindingModes = ['hold', 'toggle'] as const;
-// Keep saved mode IDs stable: 1 was the old module Press option.
-const savedBindingModes = ['hold', 'press', 'toggle'] as const;
 
 export type KeyBinding = {
   keys: readonly string[];
-  mode: (typeof savedBindingModes)[number];
+  mode: 'hold' | 'press' | 'toggle';
 };
 
 export type Keybindings = Record<KeyAction, KeyBinding>;
 
-export const bindingModeLabel = (mode: KeyBinding['mode']) =>
-  ['Hold', 'Press', 'Toggle'][savedBindingModes.indexOf(mode)];
+export const bindingModeLabel = (mode: KeyBinding['mode']) => {
+  switch (mode) {
+    case 'hold':
+      return 'Hold';
+
+    case 'press':
+      return 'Press';
+
+    case 'toggle':
+      return 'Toggle';
+  }
+};
 
 // Keys use KeyboardEvent.key names, compared without case. Each action keeps
 // an array so a later player profile can assign several keys to one action.
@@ -59,6 +70,9 @@ export const defaultKeybindings: Keybindings = {
   fpsCounter: { keys: ['f'], mode: 'toggle' },
   requestGateAccess: { keys: ['r'], mode: 'press' },
   telemetry: { keys: ['v'], mode: 'press' },
+  sectorMap: { keys: ['Tab'], mode: 'press' },
+  mapZoomIn: { keys: ['=', '+'], mode: 'press' },
+  mapZoomOut: { keys: ['-'], mode: 'press' },
 };
 
 // Module actions are one-byte protocol tags; binding fields are mangled
@@ -124,6 +138,9 @@ export const bindingEntries: [string, KeyBinding][] = [
   ['Request access', defaultKeybindings.requestGateAccess],
   ['Release cargo', defaultKeybindings.cargoRelease],
   ['Toggle movement telemetry', defaultKeybindings.telemetry],
+  ['Toggle map', defaultKeybindings.sectorMap],
+  ['Zoom map in', defaultKeybindings.mapZoomIn],
+  ['Zoom map out', defaultKeybindings.mapZoomOut],
 ];
 
 // Derive input property names from object keys so production property mangling
@@ -168,7 +185,7 @@ export const saveBindings = () => {
       JSON.stringify(
         bindingEntries.map(([, binding]) => [
           binding.keys,
-          savedBindingModes.indexOf(binding.mode),
+          +(binding.mode === 'toggle'),
         ]),
       ),
     );
@@ -191,34 +208,26 @@ try {
 
   if (
     Array.isArray(saved) &&
-    saved.length >= bindingEntries.length - 5 &&
-    saved.length <= bindingEntries.length &&
-    saved.every((entry) => {
-      const keys = Array.isArray(entry?.[0]) ? entry[0] : entry;
-
-      return (
-        Array.isArray(keys) &&
-        keys.length &&
-        keys.every((key) => typeof key === 'string' && key.length < 30) &&
-        (!Array.isArray(entry[0]) ||
-          (Number.isInteger(entry[1]) &&
-            entry[1] >= 0 &&
-            entry[1] < savedBindingModes.length))
-      );
-    })
+    saved.length === bindingEntries.length &&
+    saved.every(
+      (entry) =>
+        Array.isArray(entry) &&
+        Array.isArray(entry[0]) &&
+        entry[0].length &&
+        entry[0].every(
+          (key: unknown) => typeof key === 'string' && key.length < 30,
+        ) &&
+        Number.isInteger(entry[1]) &&
+        entry[1] >= 0 &&
+        entry[1] < bindingModes.length,
+    )
   ) {
     saved.forEach((entry, i) => {
       const binding = bindingEntries[i][1];
 
-      if (Array.isArray(entry[0])) {
-        binding.keys = entry[0];
+      binding.keys = entry[0];
 
-        if (hasBindingMode(binding)) {
-          binding.mode = entry[1] === 2 ? bindingModes[1] : 'hold';
-        }
-      } else {
-        binding.keys = entry;
-      }
+      if (hasBindingMode(binding)) binding.mode = bindingModes[entry[1]];
     });
   }
 } catch {

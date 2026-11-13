@@ -1,6 +1,4 @@
 import { type Segment } from '../../types';
-import { game } from '../../game';
-import { linesPath } from '../../utilities/drawing';
 import { type ModuleSpec } from '../../../specs/modules/types';
 import { Module, type ModuleRenderOptions } from './module';
 
@@ -17,14 +15,7 @@ export class ShieldGeneratorModule extends Module {
   }
 
   render({ segment }: ModuleRenderOptions) {
-    super.render({ segment });
-
-    if (!segment.lines) return;
-    game.ctx.save();
-    game.ctx.strokeStyle = this.shades[2];
-    game.ctx.rotate(segment.phase || 0);
-    game.ctx.stroke(linesPath(segment.lines));
-    game.ctx.restore();
+    super.render({ segment, markingsRotation: segment.phase || 0 });
   }
 
   updateVisual({ dt, segments }: { dt: number; segments: Segment[] }) {

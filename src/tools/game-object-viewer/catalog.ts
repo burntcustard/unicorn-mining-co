@@ -5,6 +5,7 @@ import { type StationSpec } from '../../specs/stations/types';
 import { type ItemSpec } from '../../specs/items/types';
 import { Ship } from '../../client/objects/ship';
 import { Station } from '../../client/objects/station';
+import { NavBeacon } from '../../client/objects/nav-beacon';
 import { Item } from '../../client/objects/item';
 import { Asteroid } from '../../client/objects/asteroid';
 import { Craft } from '../../client/objects/craft';
@@ -56,6 +57,14 @@ const discover = <T>({
     .sort((a, b) => a.name.localeCompare(b.name, 'en-US'));
 
 export const catalog = {
+  navBeacon: [
+    {
+      key: 'navBeacon',
+      name: 'Nav Beacon',
+      source: 'src/specs/nav-beacon.ts',
+      create: () => new NavBeacon(),
+    },
+  ],
   jumpGate: [
     {
       key: 'jumpGate',

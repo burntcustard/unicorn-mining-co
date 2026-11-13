@@ -1085,11 +1085,15 @@ const starAsteroidLosesOneArm = () => {
   const pieces = [...world.entities.values()].filter(
     ({ kind }) => kind === 'asteroid',
   );
-  const arm = pieces.find(({ decay }) => decay);
+  const arm = pieces.find(({ segments }) => !segments?.length);
   const remainder = pieces.find(({ segments }) => segments?.length);
 
   assert.equal(world.entities.has(asteroid.id), false);
   assert.equal(arm.shapeOutline.length, 3);
+  assert(
+    !arm.decay,
+    'a detached arm does not decay before being broken into debris',
+  );
   assert.equal(remainder.segments.length, 3);
 };
 

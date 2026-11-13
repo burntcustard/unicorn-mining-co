@@ -17,8 +17,7 @@ export const restoreGraphics = () => {
         if (typeof saved[i] === 'boolean') graphics[i] = saved[i];
       }
 
-      // Resolution is last, including in older preferences with a glow toggle.
-      const resolution = saved.at(-1);
+      const resolution = saved[3];
 
       if ([0.5, 0.75, 1, 1.5, 2].includes(resolution)) graphics[3] = resolution;
     }
@@ -101,4 +100,24 @@ export const saveRenderer = (value: string) => {
   } catch {
     /* The preference may not persist. */
   }
+};
+
+export let hideUi = false;
+
+try {
+  hideUi = localStorage.getItem('unicorn-hide-ui') === 'true';
+} catch {
+  /* Keep the UI visible when storage is unavailable. */
+}
+
+export const saveHideUi = (value: boolean) => {
+  hideUi = value;
+
+  try {
+    localStorage.setItem('unicorn-hide-ui', String(value));
+  } catch {
+    /* Apply for this visit. */
+  }
+
+  window.dispatchEvent(new Event('ui-graphics'));
 };

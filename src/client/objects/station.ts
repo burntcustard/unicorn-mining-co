@@ -22,6 +22,7 @@ const guides = new WeakMap<Station, { radius: number }>();
 export class Station extends Craft {
   kind = 'station';
   dockingBays: number[];
+  shipsForSale: StationSpec['shipsForSale'];
 
   constructor({
     stationType = 'corral-5',
@@ -37,6 +38,7 @@ export class Station extends Craft {
 
     super({ ...spec, ...properties });
     this.dockingBays = spec.dockingBays;
+    this.shipsForSale = spec.shipsForSale.map((offer) => ({ ...offer }));
     this.definitionId = stationType === 'corral-5' ? undefined : stationType;
 
     if (!properties.cargoContents && this.world) {

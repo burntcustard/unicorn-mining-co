@@ -276,7 +276,7 @@ checkUi: try {
   });
 
   await c.send('Fetch.enable', {
-    patterns: [{ urlPattern: 'http://localhost:3000/*' }],
+    patterns: [{ urlPattern: 'http://localhost:3002/*' }],
   });
 
   await c.send('Runtime.enable');
@@ -288,6 +288,12 @@ checkUi: try {
     'Page.addScriptToEvaluateOnNewDocument',
     {
       source: `window.audioContexts = 0;
+      window.audioStarts = 0;
+      const start = AudioBufferSourceNode.prototype.start;
+      AudioBufferSourceNode.prototype.start = function(...args) {
+        window.audioStarts++;
+        return start.apply(this, args);
+      };
       const OriginalAudioContext = AudioContext;
       window.AudioContext = class extends OriginalAudioContext {
         constructor(...args) { super(...args); window.audioContexts++; }
@@ -319,7 +325,7 @@ checkUi: try {
     mobile: false,
   });
 
-  await c.send('Page.navigate', { url: 'http://localhost:3000' });
+  await c.send('Page.navigate', { url: 'http://localhost:3002' });
   await pause(700);
   const check = (expression: string) => evaluate(c, expression);
 
@@ -345,7 +351,11 @@ checkUi: try {
 
   const pressKey = async (
     key: string,
-    { shift = false, repeat = false } = {},
+    {
+      shift = false,
+      repeat = false,
+      onDown,
+    }: { shift?: boolean; repeat?: boolean; onDown?: () => Promise<void> } = {},
   ) => {
     for (const type of ['keyDown', 'keyUp']) {
       await c.send('Input.dispatchKeyEvent', {
@@ -360,8 +370,14 @@ checkUi: try {
           ['Escape', 27],
           ['Tab', 9],
           [' ', 32],
+          ['ArrowLeft', 37],
+          ['ArrowUp', 38],
+          ['ArrowRight', 39],
+          ['ArrowDown', 40],
         ]).get(key),
       });
+
+      if (type === 'keyDown') await onDown?.();
     }
   };
 
@@ -377,7 +393,7 @@ checkUi: try {
     return [x, y];
   };
 
-  const click = async (selector: string) => {
+  const click = async (selector: string, onDown?: () => Promise<void>) => {
     const [x, y] = await hover(selector);
 
     await c.send('Input.dispatchMouseEvent', {
@@ -387,6 +403,8 @@ checkUi: try {
       button: 'left',
       clickCount: 1,
     });
+
+    await onDown?.();
 
     await c.send('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
@@ -398,10 +416,11 @@ checkUi: try {
   };
 
   const openMenuScreen = async (destination: string) => {
-    await click(`[data-action="${destination}"]`);
-    await waitFor(
-      `!!document.querySelector('#${destination}-heading')`,
-      `${destination} screen loads on navigation`,
+    await click(`[data-action="${destination}"]`, () =>
+      waitFor(
+        `!!document.querySelector('#${destination}-heading')`,
+        `${destination} screen loads before mouse release`,
+      ),
     );
   };
 
@@ -477,7 +496,11 @@ checkUi: try {
           e.params.exceptionDetails.text,
       );
 
-  if (!process.env.UI_DOCK_ONLY && !process.env.UI_HUD_ONLY) {
+  if (
+    !process.env.UI_DOCK_ONLY &&
+    !process.env.UI_HUD_ONLY &&
+    !process.env.UI_HANGAR_ONLY
+  ) {
     assert(
       await check(
         `document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root')`,
@@ -506,12 +529,12 @@ checkUi: try {
     );
     await checkHiddenElements();
     await capture('menu');
-    assert.equal(
+    assert.deepEqual(
       await check(
-        `performance.getEntriesByType('resource').filter(entry => entry.name.endsWith('.js') && entry.startTime <= window.menuFrame).length`,
+        `performance.getEntriesByType('resource').filter(entry => entry.name.endsWith('.js') && entry.startTime <= window.menuFrame).map(entry => new URL(entry.name).pathname.match(/\\/(audio-context|index)-[\\w-]+\\.js$/)?.[1] || entry.name).sort()`,
       ),
-      1,
-      'only the JavaScript entry is requested before the first menu frame',
+      ['audio-context', 'index'],
+      'only the JavaScript entry and shared audio context are requested before the first menu frame',
     );
     assert(
       !c.events.some(
@@ -532,6 +555,24 @@ checkUi: try {
       await check(`document.activeElement === document.body`),
       'opening the menu does not assign focus',
     );
+    assert.equal(
+      await check('window.audioContexts'),
+      0,
+      'preparation does not initialize audio',
+    );
+    await hover('[data-action="credits"]');
+    assert.equal(
+      await check('window.audioContexts + window.audioStarts'),
+      0,
+      'hovering before a gesture does not open audio or queue a cue',
+    );
+
+    await c.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: 0,
+      y: 0,
+    });
+
     await pressKey('ArrowDown');
     assert(
       await check(
@@ -560,11 +601,10 @@ checkUi: try {
     await pressKey('ArrowUp');
     assert(
       await check(
-        `document.activeElement === document.querySelector('[data-action="credits"]')`,
+        `document.activeElement === document.querySelector('[data-action="play"]')`,
       ),
-      'Up wraps to the last menu item',
+      'Up stops at the first menu item',
     );
-    await pressKey('ArrowDown');
     await pressKey('Tab');
     assert(
       await check(
@@ -572,16 +612,30 @@ checkUi: try {
       ),
       'main-menu keyboard focus uses the highlight without an outline',
     );
-    const playBox = await check(`(() => {
-    const box = document.querySelector('[data-action="play"] span').getBoundingClientRect();
-    return [box.x + box.width / 2, box.y + box.height / 2];
-  })()`);
+    const audioStarts = await check('window.audioStarts');
+
+    await hover('[data-action="play"] span');
+    assert.equal(
+      await check('window.audioStarts'),
+      audioStarts + 1,
+      'entering a menu button plays one cue',
+    );
+    const [x, y] = await check(`(() => {
+      const box = document.querySelector('[data-action="play"]').getBoundingClientRect();
+      return [box.left + 5, box.top + box.height / 2];
+    })()`);
 
     await c.send('Input.dispatchMouseEvent', {
       type: 'mouseMoved',
-      x: playBox[0],
-      y: playBox[1],
+      x,
+      y,
     });
+
+    assert.equal(
+      await check('window.audioStarts'),
+      audioStarts + 1,
+      'moving from the label to its button does not replay the cue',
+    );
 
     await pause(180);
     assert(
@@ -628,8 +682,8 @@ checkUi: try {
     );
     assert.equal(
       await check('window.audioContexts'),
-      0,
-      'preparation does not initialize audio',
+      1,
+      'arrow navigation initializes the shared audio context',
     );
     assert(
       c.events
@@ -744,6 +798,139 @@ checkUi: try {
       'binding buttons display uppercase without changing their source text',
     );
     await checkHiddenElements();
+    await check(
+      `document.querySelector('[data-bindings] > :last-child button').focus()`,
+    );
+    await pressKey('ArrowDown');
+    assert(
+      await check(
+        `document.activeElement === document.querySelector('[data-module-bindings] > :first-child').querySelectorAll('button')[2]`,
+      ),
+      'Down from the final ship binding reaches the first module binding',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(
+        `document.activeElement === document.querySelector('[data-bindings] > :last-child button')`,
+      ),
+      'Up from the first module control returns to Ship controls',
+    );
+    const moduleRows = await check(
+      `document.querySelectorAll('[data-module-bindings] > div').length`,
+    );
+
+    for (const column of [0, 1, 2]) {
+      await check(
+        `document.querySelectorAll('[data-module-bindings] > div')[0].querySelectorAll('button')[${column}].focus()`,
+      );
+
+      for (let row = 1; row < moduleRows; row++) {
+        await pressKey('ArrowDown');
+        assert(
+          await check(
+            `document.activeElement === document.querySelectorAll('[data-module-bindings] > div')[${row}].querySelectorAll('button')[${column}]`,
+          ),
+          `Down retains column ${column} between module rows`,
+        );
+      }
+
+      for (let row = moduleRows - 2; row >= 0; row--) {
+        await pressKey('ArrowUp');
+        assert(
+          await check(
+            `document.activeElement === document.querySelectorAll('[data-module-bindings] > div')[${row}].querySelectorAll('button')[${column}]`,
+          ),
+          `Up retains column ${column} between module rows`,
+        );
+      }
+    }
+
+    await check(
+      `document.querySelector('[data-module-bindings] > :first-child button').focus()`,
+    );
+
+    for (const column of [1, 2]) {
+      await pressKey('ArrowRight');
+      assert(
+        await check(
+          `document.activeElement === document.querySelector('[data-module-bindings] > :first-child').querySelectorAll('button')[${column}]`,
+        ),
+        'Right moves across the module row',
+      );
+    }
+
+    await pressKey('ArrowRight');
+    assert(
+      await check(
+        `document.activeElement === document.querySelector('[data-module-bindings] > :first-child').querySelectorAll('button')[2]`,
+      ),
+      'Right stops at the end of a module row',
+    );
+
+    for (const column of [1, 0]) {
+      await pressKey('ArrowLeft');
+      assert(
+        await check(
+          `document.activeElement === document.querySelector('[data-module-bindings] > :first-child').querySelectorAll('button')[${column}]`,
+        ),
+        'Left moves across the module row',
+      );
+    }
+
+    await check(
+      `document.querySelector('[data-module-bindings] > :last-child button').focus()`,
+    );
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-reset]')`));
+
+    await check(`(() => {
+      document.querySelector('[data-back]').focus();
+      document.querySelector('[data-module-bindings] > :last-child').scrollIntoView({ block: 'center' });
+    })()`);
+
+    await c.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: 0,
+      y: 0,
+    });
+
+    const topModeAtBorder = () =>
+      check(`(() => {
+      const group = document.querySelector('[data-module-bindings] > :last-child .ui-binding-modes');
+      const hold = group.querySelector('button');
+      const box = hold.getBoundingClientRect();
+      return document.elementFromPoint(box.right - 1, box.y + box.height / 2)?.textContent;
+    })()`);
+
+    assert.equal(
+      await topModeAtBorder(),
+      'Hold',
+      'the pressed Hold button paints above its unpressed neighbor at their shared border',
+    );
+    await check(
+      `document.querySelector('[data-module-bindings] > :last-child .ui-binding-modes button').focus()`,
+    );
+    await pressKey('Tab');
+    assert(
+      await check(
+        `document.activeElement.matches('[data-module-bindings] > :last-child .ui-binding-modes button:last-child:focus-visible')`,
+      ),
+    );
+    assert.equal(
+      await topModeAtBorder(),
+      'Toggle',
+      'keyboard focus paints the unpressed Toggle button above the pressed Hold button',
+    );
+    await check(`document.querySelector('[data-back]').focus()`);
+    await hover(
+      '[data-module-bindings] > :last-child .ui-binding-modes button:last-child',
+    );
+    assert.equal(
+      await topModeAtBorder(),
+      'Toggle',
+      'hover paints the unpressed Toggle button above the pressed Hold button',
+    );
+    await check('document.activeElement.blur()');
     await pressKey('ArrowDown');
     assert(
       await check(
@@ -790,12 +977,47 @@ checkUi: try {
       y: 0,
     });
 
+    for (const tab of ['controls', 'graphics']) {
+      await check(`document.querySelector('[data-${tab}]').focus()`);
+      await pressKey('ArrowUp');
+      assert(
+        await check(`document.activeElement.matches('[data-back]')`),
+        `Up from the ${tab} tab moves to Back`,
+      );
+      await check(`document.querySelector('[data-${tab}]').focus()`);
+      await pressKey('ArrowDown');
+      assert(
+        await check(
+          `document.activeElement === document.querySelector('[data-bindings] button')`,
+        ),
+        `Down from the ${tab} tab moves to the selected Controls panel`,
+      );
+    }
+
+    await pressKey('ArrowUp');
+    assert(await check(`document.activeElement.matches('[data-controls]')`));
+    await pressKey('ArrowUp');
+    assert(await check(`document.activeElement.matches('[data-back]')`));
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-controls]')`));
+
+    await check(`document.querySelector('[data-controls]').focus()`);
+    await pressKey('ArrowLeft');
+    assert(
+      await check(`document.activeElement.matches('[data-controls]')`),
+      'Left stops at Controls',
+    );
+    await pressKey('ArrowRight');
+    assert(
+      await check(`document.activeElement.matches('[data-graphics]')`),
+      'Right moves from Controls to Graphics',
+    );
     await pressKey('ArrowRight');
     assert(
       await check(
         `document.activeElement === document.querySelector('[data-graphics]') && document.activeElement.matches(':focus-visible')`,
       ),
-      'arrow navigation shows keyboard focus',
+      'Right stops at Graphics and retains visible keyboard focus',
     );
     assert.deepEqual(
       await readTabStyle(),
@@ -815,11 +1037,72 @@ checkUi: try {
       'moving focus does not change selection',
     );
     await pressKey('Enter');
+
     assert(
       await check(
         `document.querySelector('[data-graphics]').getAttribute('aria-current') === 'page'`,
       ),
       'Enter selects the focused section',
+    );
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-graphic="0"]')`));
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-graphics]')`),
+      'Up from the Graphics panel returns to its selected tab',
+    );
+    await pressKey('ArrowUp');
+    assert(await check(`document.activeElement.matches('[data-back]')`));
+    await pressKey('ArrowDown');
+    assert(
+      await check(`document.activeElement.matches('[data-graphics]')`),
+      'Down from Back returns to the selected Graphics tab',
+    );
+    await pressKey('ArrowDown');
+
+    for (const selector of [
+      '[data-graphic="1"]',
+      '[data-graphic="2"]',
+      '[data-backdrop-blur]',
+      '[data-hide-ui]',
+      '[data-renderer]',
+      '[data-resolution]',
+      '[data-hud-resolution]',
+    ]) {
+      await pressKey('ArrowDown');
+      assert(
+        await check(`document.activeElement.matches('${selector}')`),
+        `Down reaches ${selector} in the Graphics panel`,
+      );
+    }
+
+    await pressKey('ArrowUp');
+    assert(await check(`document.activeElement.matches('[data-resolution]')`));
+    await check(`document.querySelector('[data-renderer]').focus()`);
+    await pressKey('Enter');
+    await pressKey('ArrowDown');
+    await pressKey('Enter');
+    assert(
+      await check(
+        `document.querySelector('[data-renderer]').value === 'webgl'`,
+      ),
+      'an open graphics selector still accepts arrow keys to change its value',
+    );
+    await check(
+      `document.querySelector('[data-renderer]').value = 'canvas'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'))`,
+    );
+    await check(
+      `window.savedCssSupports = CSS.supports; CSS.supports = (...args) => args[0] === 'selector(:open)' ? false : window.savedCssSupports(...args)`,
+    );
+    await pressKey('ArrowDown');
+    assert(
+      await check(
+        `document.activeElement.matches('[data-renderer]') && document.activeElement.value === 'webgl'`,
+      ),
+      'graphics selectors keep native keyboard behavior without :open support',
+    );
+    await check(
+      `CSS.supports = window.savedCssSupports; delete window.savedCssSupports; document.querySelector('[data-renderer]').value = 'canvas'; document.querySelector('[data-renderer]').dispatchEvent(new Event('change'))`,
     );
     await checkHiddenElements();
     assert.equal(
@@ -898,6 +1181,26 @@ checkUi: try {
     return selected.borderBottomColor !== other.borderBottomColor && selected.color !== other.color && selected.webkitTextStrokeWidth === '0px';
   })()`),
       'selected tabs have an accent underline and text without the light-text stroke',
+    );
+    assert.equal(
+      await check(`document.querySelector('[data-hide-ui]').checked`),
+      false,
+      'Hide UI defaults to off',
+    );
+    await check(`document.querySelector('[data-hide-ui]').click()`);
+    assert(
+      await check(
+        `getComputedStyle(document.querySelector('.hud-overlay')).opacity === '0' && getComputedStyle(document.querySelector('.hud')).opacity === '1' && getComputedStyle(document.querySelector('.ui-settings')).opacity === '1' && document.querySelector('[data-hide-ui]').checked && localStorage.getItem('unicorn-hide-ui') === 'true'`,
+      ),
+      'Hide UI makes only the in-game HUD transparent while settings stay visible',
+    );
+    await check(`document.querySelector('[data-hide-ui]').click()`);
+    assert.equal(
+      await check(
+        `getComputedStyle(document.querySelector('.hud-overlay')).opacity`,
+      ),
+      '1',
+      'settings can restore the in-game HUD',
     );
     await capture('graphics');
     assert(
@@ -1078,6 +1381,125 @@ checkUi: try {
 
     await capture('saves');
     assert(await check(`!document.querySelector('[data-clear]').disabled`));
+    const revealWidth = await check(
+      `document.querySelector('[data-reveal]').getBoundingClientRect().width`,
+    );
+
+    await click('[data-reveal]');
+    assert(
+      await check(`(() => {
+        const button = document.querySelector('[data-reveal]');
+        const [show, hide] = button.querySelectorAll('span');
+        return document.querySelector('[data-private-id]').type === 'text'
+          && button.getAttribute('aria-pressed') === 'true'
+          && show.getAttribute('aria-hidden') === 'true'
+          && hide.getAttribute('aria-hidden') === 'false'
+          && getComputedStyle(show).opacity === '0'
+          && getComputedStyle(hide).opacity === '1';
+      })()`),
+      'revealing the ID exposes only the Hide label',
+    );
+    assert.equal(
+      await check(
+        `document.querySelector('[data-reveal]').getBoundingClientRect().width`,
+      ),
+      revealWidth,
+      'the reveal button keeps its width when its label changes',
+    );
+    await click('[data-reveal]');
+    assert(
+      await check(`(() => {
+        const button = document.querySelector('[data-reveal]');
+        const [show, hide] = button.querySelectorAll('span');
+        return document.querySelector('[data-private-id]').type === 'password'
+          && button.getAttribute('aria-pressed') === 'false'
+          && show.getAttribute('aria-hidden') === 'false'
+          && hide.getAttribute('aria-hidden') === 'true'
+          && getComputedStyle(show).opacity === '1'
+          && getComputedStyle(hide).opacity === '0';
+      })()`),
+      'hiding the ID exposes only the Reveal label',
+    );
+    await check(`Object.defineProperty(navigator, 'clipboard', {
+      configurable: true, value: { writeText: async () => { throw Error(); } }
+    })`);
+    await click('[data-copy]');
+    await waitFor(
+      `document.querySelector('.ui-status').textContent.includes('Copy is unavailable')`,
+      'a failed copy offers manual selection',
+    );
+    assert(
+      await check(`document.querySelector('[data-private-id]').type === 'text'
+        && document.querySelector('[data-reveal] span:last-child').getAttribute('aria-hidden') === 'false'`),
+      'manual copying reveals the ID and updates the button label',
+    );
+    await check(`delete navigator.clipboard`);
+    await click('[data-reveal]');
+
+    for (const action of ['copy', 'clear', 'reveal']) {
+      for (const [arrow, target] of [
+        ['ArrowUp', 'private-id'],
+        ['ArrowDown', 'import-id'],
+      ]) {
+        await check(`document.querySelector('[data-${action}]').focus()`);
+        await pressKey(arrow);
+        assert(
+          await check(`document.activeElement.matches('[data-${target}]')`),
+          `${arrow} moves vertically past the Saves action row from ${action}`,
+        );
+      }
+    }
+
+    await check(`document.querySelector('[data-copy]').focus()`);
+
+    for (const action of ['clear', 'reveal']) {
+      await pressKey('ArrowRight');
+      assert(await check(`document.activeElement.matches('[data-${action}]')`));
+    }
+
+    for (const action of ['clear', 'copy']) {
+      await pressKey('ArrowLeft');
+      assert(await check(`document.activeElement.matches('[data-${action}]')`));
+    }
+
+    await check(`document.querySelector('[data-verify]').focus()`);
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-import-id]')`),
+      'Up moves from Verify to the import field',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-copy]')`),
+      'Up enters the Saves action row once',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-private-id]')`),
+      'Up moves to the saved private ID field',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('[data-back]')`),
+      'Up moves from the saved private ID field to Back',
+    );
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-private-id]')`));
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-copy]')`));
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-import-id]')`));
+    await check(
+      `document.activeElement.value = 'abcd'; document.activeElement.setSelectionRange(2, 2)`,
+    );
+    await pressKey('ArrowLeft');
+    assert(
+      await check(`document.activeElement.matches('[data-import-id]')
+        && document.activeElement.selectionStart === 1`),
+      'Left continues to move the text cursor in the import field',
+    );
+    await pressKey('ArrowDown');
+    assert(await check(`document.activeElement.matches('[data-verify]')`));
     await check(
       `document.querySelector('[data-import-id]').value = 'invalid'; document.querySelector('[data-import]').requestSubmit()`,
     );
@@ -1115,6 +1537,16 @@ checkUi: try {
       ),
       'profile input receives keyboard focus',
     );
+    await pressKey('ArrowDown');
+    assert(
+      await check(`document.activeElement.matches('[data-play]')`),
+      'Down moves from the profile input to Play',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(`document.activeElement.matches('#profile-name')`),
+      'Up returns from Play to the profile input',
+    );
     await check(`(() => {
       const input = document.querySelector('#profile-name');
       input.value = '🦄'.repeat(17);
@@ -1139,7 +1571,7 @@ checkUi: try {
       input.dispatchEvent(new Event('input'));
     })()`);
     await capture('profile');
-    await check(`document.querySelector('.ui-profile').requestSubmit()`);
+    await pressKey('Enter');
     await pause(6500);
     assert.equal(
       c.events
@@ -1162,7 +1594,7 @@ checkUi: try {
     assert.equal(
       await check('window.audioContexts'),
       1,
-      'Play initializes audio before the first flight control',
+      'Play reuses the audio context before the first flight control',
     );
     await waitFor(
       `document.querySelector('#connection-status').hidden`,
@@ -1174,10 +1606,41 @@ checkUi: try {
     );
     await pressKey('v');
     await waitFor(
-      `!document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry .telemetry-player')?.textContent.includes('Position ')`,
+      `!document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry .telemetry-player')?.textContent.includes('Pos ')`,
       'telemetry shortcut enables production simulation readouts',
     );
+    assert(
+      await check(`(() => {
+        const text = document.querySelector('.hud-telemetry').textContent;
+        return ['Frame time ', 'Render time (CPU) ', 'Scale ', 'Offset pos ', 'Screen pos '].every(label => text.includes(label)) && !text.includes('NaN');
+      })()`),
+      'production telemetry exposes timing, CSS viewport transform, and rendered player pose',
+    );
+    assert(
+      await check(`['simulation', 'rendered'].every(section => {
+        const root = document.querySelector('.telemetry-' + section);
+        return root.querySelector('strong') && ['Pos ', 'Rotation '].every(label => root.querySelector('.telemetry-player').textContent.includes(label));
+      })`),
+      'production telemetry groups simulation and rendered player poses under bold headings',
+    );
     await capture('telemetry');
+    await pressKey('Escape');
+    await waitFor(
+      `document.querySelector('.ui-main:not([hidden])') && document.querySelector('.hud-overlay').hidden`,
+      'opening the main menu hides the shared in-game HUD container',
+    );
+    assert(
+      await check(`(() => {
+        const panel = document.querySelector('.hud-telemetry');
+        return !panel.hidden && panel.parentElement === document.querySelector('.hud-overlay') && !panel.getClientRects().length;
+      })()`),
+      'menu visibility hides enabled telemetry together with the other HUD panels',
+    );
+    await pressKey('Escape');
+    await waitFor(
+      `!document.querySelector('.hud-overlay').hidden && !document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry').getClientRects().length > 0`,
+      'resuming restores enabled telemetry without toggling it again',
+    );
     await pressKey('v', { repeat: true });
     assert(
       !(await check(`document.querySelector('.hud-telemetry').hidden`)),
@@ -1331,14 +1794,14 @@ checkUi: try {
 
     assert(
       await check(`(() => {
-        const root = document.querySelector('.hud');
-        return document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root') &&
+        const root = document.querySelector('.hud-overlay');
+        return root.parentElement === document.querySelector('.hud') && document.querySelectorAll('.hud').length === 1 && !document.querySelector('#ui-root') &&
           !document.querySelector('.hud-instruments') &&
           ['.hud-modules', '.hud-stores', '.hud-credits', '.hud-target', '.hud-sector', '.hud-map'].every(selector => document.querySelector(selector).parentElement === root) &&
           document.querySelector('.chat-panel').parentElement === root &&
-          document.querySelector('.ui-notification').parentElement === root;
+          document.querySelector('.ui-notification').parentElement === root.parentElement;
       })()`),
-      'instruments, chat, and notifications share one HUD parent',
+      'instruments and chat share a HUD container while notifications remain outside it',
     );
 
     await check(
@@ -1527,7 +1990,7 @@ checkUi: try {
 
     assert(savedToken);
 
-    const namedIdentity = await fetch('http://localhost:3000/api/identity', {
+    const namedIdentity = await fetch('http://localhost:3002/api/identity', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: savedToken,
@@ -1696,10 +2159,14 @@ checkUi: try {
     await checkShipPreview();
     await openMenuScreen('saves');
     await check(
-      `document.querySelector('[data-import-id]').value = localStorage.getItem('playerToken'); document.querySelector('[data-import]').requestSubmit()`,
+      `document.querySelector('[data-import-id]').value = localStorage.getItem('playerToken')`,
     );
-    await pause(250);
-    assert(await check(`document.querySelector('dialog').open`));
+    await click('[data-verify]', () =>
+      waitFor(
+        `document.querySelector('dialog').open`,
+        'pressing Verify submits the form before release',
+      ),
+    );
     await click('dialog button[value="cancel"]');
     assert.equal(
       await check(`localStorage.getItem('playerToken')`),
@@ -1745,7 +2212,7 @@ checkUi: try {
     );
 
     const preservedIdentity = await fetch(
-      'http://localhost:3000/api/identity',
+      'http://localhost:3002/api/identity',
       {
         method: 'POST',
         body: savedToken,
@@ -1769,6 +2236,16 @@ checkUi: try {
     );
     await capture('returning');
     await checkShipPreview();
+
+    await openMenuScreen('credits');
+    assert.equal(
+      await check('window.audioContexts'),
+      1,
+      'a mouse click enables audio without keyboard navigation',
+    );
+    await hover('[data-back]');
+    await waitFor('window.audioStarts === 1', 'submenu hover plays the cue');
+    await click('[data-back]');
 
     const { identifier: previewObserverScript } = await c.send(
       'Page.addScriptToEvaluateOnNewDocument',
@@ -1893,7 +2370,9 @@ checkUi: try {
           const play = document.querySelector('.ui-main [data-action="play"]');
           if (!play) return;
           observer.disconnect();
-          play.click();
+          play.dispatchEvent(new PointerEvent('pointerdown', {
+            bubbles: true, cancelable: true, isPrimary: true, pointerType: 'mouse',
+          }));
           window.playedBeforePreview = true;
         }).observe(document, { childList: true, subtree: true });`,
       },
@@ -1934,26 +2413,71 @@ checkUi: try {
   });
 
   await c.send('Page.navigate', {
-    url: `http://localhost:3000/${fixturePath}/index.html`,
+    url: `http://localhost:3002/${fixturePath}/index.html`,
   });
 
   await pause(250);
   await check(
     `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
   );
+  await waitFor(
+    `!!document.querySelector('.dock-screen')`,
+    'the deferred docking screen finishes loading',
+  );
+
+  const [single, overlap, dimOverlap, blend, opacity] = await check(
+    'fixture.checkBeamComposition()',
+  );
+
+  assert(single[0] > 0, 'the beam surface contains visible light');
+  assert(overlap[0] > single[0], 'overlapping beams brighten');
+  const singleWash = (single[0] / 255) * 0.5;
+  const overlapWash = (overlap[0] / 255) * 0.5;
+  const originalOverlap = 1 - (1 - singleWash) ** 2;
+  const share = (overlapWash - singleWash) / (originalOverlap - singleWash);
+
+  assert(share > 0 && share < 1, 'the overlap is a restrained increase');
+  assert(
+    dimOverlap[0] > overlap[0],
+    'a weaker beam crossing at a different position adds light too',
+  );
+  assert.equal(blend, 'screen');
+  assert.equal(opacity, '0.5');
+
+  if (process.env.UI_HANGAR_ONLY) {
+    await waitFor(
+      `!!document.querySelector('[data-tab="hangar"]')`,
+      'Hangar docking chunk loads',
+    );
+    await checkHangar();
+    assert.equal(errors().length, 0, errors().join('\n'));
+    console.log(
+      'Production Hangar: ship lists, purchases, piloting, names, confirmations, hull paint, keyboard navigation, and empty hangars passed.',
+    );
+    break checkUi;
+  }
+
   const graphics = await check('fixture.checkGraphics()');
   const bays = await check('fixture.checkStationBay()');
   const chat = await check('fixture.checkChat()');
+
+  await check(`document.querySelector('.dock-screen').hidden = true`);
   const hud = await check('fixture.checkHud()');
+
+  await check(`document.querySelector('.dock-screen').hidden = false`);
   const telemetry = await check('fixture.checkTelemetry()');
 
   for (const [behavior, passed] of Object.entries(telemetry)) {
     assert(passed, `telemetry: ${behavior}`);
   }
 
-  for (const [behavior, passed] of Object.entries(hud)) {
-    assert(passed, `HUD: ${behavior}`);
-  }
+  assert.deepEqual(
+    Object.entries(hud)
+      .filter(([, passed]) => !passed)
+      .map(([behavior]) => behavior),
+    [],
+    'HUD checks pass',
+  );
 
   for (const [behavior, passed] of Object.entries(chat)) {
     assert(passed, `chat: ${behavior}`);
@@ -1970,6 +2494,69 @@ checkUi: try {
       mobile: false,
     });
 
+    assert(
+      await check(`(() => {
+        let now = 0;
+        Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
+        let map;
+        try {
+          fixture.showHudLayout(0);
+          map = document.querySelector('.hud-map canvas').getContext('2d');
+          const clear = map.clearRect;
+          let draws = 0;
+          map.clearRect = function (...args) { draws++; return clear.apply(this, args); };
+          now = 33;
+          fixture.refreshHudLayout(true);
+          const beforeInterval = draws;
+          now = 34;
+          fixture.refreshHudLayout(true);
+          const afterInterval = draws;
+          now = 66;
+          fixture.refreshHudLayout(true);
+          const beforeSecondInterval = draws;
+          now = 67;
+          fixture.refreshHudLayout(true);
+          const afterSecondInterval = draws;
+          now = 101;
+          fixture.refreshHudLayout(false);
+          now = 102;
+          fixture.refreshHudLayout(true);
+          const afterShowing = draws;
+          document.querySelector('[data-map-toggle]').click();
+          return beforeInterval === 0 && afterInterval === 1 && beforeSecondInterval === 1 && afterSecondInterval === 2 && afterShowing === 3 && draws === 4;
+        } finally {
+          if (map) delete map.clearRect;
+          delete performance.now;
+          fixture.hideHudLayout();
+        }
+      })()`),
+      'the map refreshes at 30 Hz, immediately when shown or toggled',
+    );
+
+    await check(`fixture.showHudLayout(7)`);
+    assert(
+      await check(
+        `document.querySelector('[data-map-toggle]').getAttribute('aria-expanded') === 'false'`,
+      ),
+      'the minimap stays visible while sector markers load',
+    );
+    await check(`fixture.completeHudMap()`);
+    assert(
+      await check(
+        `document.querySelector('[data-map-toggle]').getAttribute('aria-expanded') === 'true'`,
+      ),
+      'the requested map opens as soon as its sector snapshot arrives',
+    );
+    await check(`fixture.showHudLayout(7)`);
+    await check(`document.querySelector('[data-map-toggle]').click()`);
+    await check(`fixture.completeHudMap()`);
+    assert(
+      await check(
+        `document.querySelector('[data-map-toggle]').getAttribute('aria-expanded') === 'false'`,
+      ),
+      'a second press cancels a pending map request',
+    );
+
     for (const [mode, name] of [
       'flight',
       'target',
@@ -1977,6 +2564,7 @@ checkUi: try {
       'telemetry',
       'hidden',
       'tooltip',
+      'map',
     ].entries()) {
       await check(`fixture.showHudLayout(${mode})`);
       await check('document.fonts.ready.then(() => true)');
@@ -1995,6 +2583,27 @@ checkUi: try {
           })()`),
           'telemetry uses plain div records in the grid row directly below chat',
         );
+
+        const [x, y] = await check(`(() => {
+          const box = document.querySelector('.hud-telemetry').getBoundingClientRect();
+          return [box.x + box.width / 2, box.y + box.height / 2];
+        })()`);
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseWheel',
+          x,
+          y,
+          deltaX: 0,
+          deltaY: 200,
+        });
+
+        await pause(100);
+
+        assert(
+          await check(`document.querySelector('.hud-telemetry').scrollTop > 0`),
+          'telemetry receives pointer events and scrolls with the mouse wheel',
+        );
+        await check(`document.querySelector('.hud-telemetry').scrollTop = 0`);
       }
 
       if (mode === 0) {
@@ -2022,6 +2631,235 @@ checkUi: try {
             return stable;
           })()`),
           'stores retain their size and position, module spacing, and minimap alignment as module counts change',
+        );
+      }
+
+      if (mode === 0 || mode === 6) {
+        assert(
+          await check(`(() => {
+          const panel = document.querySelector('.hud-map');
+          const map = panel.getBoundingClientRect();
+          const overlay = document.querySelector('.hud-overlay').getBoundingClientRect();
+          const button = panel.querySelector('button').getBoundingClientRect();
+          const canvas = panel.querySelector('canvas');
+          const ctx = canvas.getContext('2d');
+          const radius = Math.min(canvas.width, canvas.height) / 2;
+          const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          const circular = getComputedStyle(panel).borderTopLeftRadius === '50%';
+          const cornerButton = Math.abs(map.right - overlay.right) < 0.1 &&
+            Math.abs(map.bottom - overlay.bottom) < 0.1 &&
+            button.right <= overlay.right && button.bottom <= overlay.bottom &&
+            button.right >= overlay.right - 4 && button.bottom >= overlay.bottom - 4;
+          for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+              if (Math.hypot(x + 0.5 - radius, y + 0.5 - radius) > radius + 1 &&
+                pixels[(y * canvas.width + x) * 4 + 3]) return false;
+            }
+          }
+          return circular && cornerButton;
+        })()`),
+          'both map sizes are circular and their map and button fit the HUD overlay corner',
+        );
+      }
+
+      if (mode === 0) {
+        assert(
+          await check(`(() => {
+            const button = document.querySelector('[data-map-toggle]');
+            return button.classList.contains('ui-control') &&
+              button.querySelector('kbd').textContent === 'Tab' &&
+              button.children.length === 1 && button.getAttribute('aria-label') === 'Toggle map' &&
+              button.getAttribute('aria-pressed') === 'false';
+          })()`),
+          'the map toggle uses the shared key control and displays its shortcut',
+        );
+
+        const originalPressed = await check(
+          `document.querySelector('.hud-modules button').getAttribute('aria-pressed')`,
+        );
+
+        for (const active of [false, true]) {
+          await check(
+            `document.querySelector('.hud-modules button').setAttribute('aria-pressed', '${active}')`,
+          );
+          await hover('.hud-modules button');
+          await pause(150);
+          assert(
+            await check(`(() => {
+              const key = getComputedStyle(document.querySelector('.hud-modules button kbd'));
+              return key.borderColor === 'rgb(255, 255, 255)' && key.boxShadow !== 'none' &&
+                key.color === '${active ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)'}';
+            })()`),
+            `hover highlights the ${active ? 'selected' : 'unselected'} key with a white border and glow`,
+          );
+
+          await c.send('Input.dispatchMouseEvent', {
+            type: 'mouseMoved',
+            x: 0,
+            y: 0,
+          });
+
+          await check(
+            `document.querySelector('.hud-modules button').focus({ focusVisible: true })`,
+          );
+          await pause(150);
+          assert(
+            await check(`(() => {
+              const button = document.querySelector('.hud-modules button');
+              const key = getComputedStyle(button.querySelector('kbd'));
+              return button.matches(':focus-visible') && key.borderColor === 'rgb(255, 255, 255)' && key.boxShadow !== 'none';
+            })()`),
+            `keyboard focus highlights the ${active ? 'selected' : 'unselected'} key`,
+          );
+          await check(`document.querySelector('.hud-modules button').blur()`);
+        }
+
+        await check(
+          `document.querySelector('.hud-modules button').setAttribute('aria-pressed', '${originalPressed}')`,
+        );
+        await click('[data-map-toggle]');
+        assert(
+          await check(
+            `document.querySelector('[data-map-toggle]').getAttribute('aria-pressed') === 'true' && document.querySelector('[data-map-key]').textContent === 'Tab'`,
+          ),
+          'the HUD-corner control is clickable and retains its shortcut while selected',
+        );
+        await click('[data-map-toggle]');
+        assert(
+          await check(
+            `document.querySelector('[data-map-toggle]').getAttribute('aria-pressed') === 'false'`,
+          ),
+        );
+        await pause(150);
+      }
+
+      if (mode === 6) {
+        assert(
+          await check(`(() => {
+            const panel = document.querySelector('.hud-map');
+            const button = panel.querySelector('button');
+            const expanded = panel.getBoundingClientRect();
+            const animate = () => {
+              button.click();
+              panel.getBoundingClientRect();
+              const transition = panel.getAnimations().find(animation => animation.transitionProperty === 'width');
+              if (!transition || transition.effect.getTiming().duration !== 100) return null;
+              transition.pause();
+              transition.currentTime = 50;
+              const middle = panel.getBoundingClientRect();
+              transition.finish();
+              const end = panel.getBoundingClientRect();
+              return { middle: [middle.width, middle.right, middle.bottom], end: [end.width, end.height, end.right, end.bottom] };
+            };
+            const shrink = animate();
+            const grow = animate();
+            if (!shrink || !grow) return false;
+            const compact = shrink.end;
+            const anchored = bounds => Math.abs(bounds[1] - expanded.right) < 0.1 && Math.abs(bounds[2] - expanded.bottom) < 0.1;
+            return Math.abs(expanded.width - compact[0] * 2) < 0.1 &&
+              Math.abs(expanded.height - compact[1] * 2) < 0.1 &&
+              Math.abs(expanded.right - compact[2]) < 0.1 &&
+              Math.abs(expanded.bottom - compact[3]) < 0.1 &&
+              [shrink.middle, grow.middle].every(bounds => bounds[0] > compact[0] && bounds[0] < expanded.width && anchored(bounds)) &&
+              Math.abs(grow.end[0] - expanded.width) < 0.1;
+          })()`),
+          'the map grows and shrinks over 0.1 seconds while retaining its bottom-right anchor',
+        );
+        await pause(100);
+        const before = await check(
+          `document.querySelector('.hud-map canvas').toDataURL()`,
+        );
+        const [x, y] = await check(`(() => {
+          const box = document.querySelector('.hud-map canvas').getBoundingClientRect();
+          return [box.x + box.width / 2, box.y + box.height / 2];
+        })()`);
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mousePressed',
+          x,
+          y,
+          button: 'left',
+          clickCount: 1,
+        });
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseMoved',
+          x: x + 80,
+          y: y + 50,
+          button: 'left',
+          buttons: 1,
+        });
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseReleased',
+          x: x + 80,
+          y: y + 50,
+          button: 'left',
+          clickCount: 1,
+        });
+
+        assert.notEqual(
+          await check(`document.querySelector('.hud-map canvas').toDataURL()`),
+          before,
+          'dragging moves the map viewport',
+        );
+        assert(
+          await check(
+            `!document.querySelector('.hud-map').classList.contains('hud-map-dragging')`,
+          ),
+          'releasing the pointer ends the map drag',
+        );
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mousePressed',
+          x,
+          y,
+          button: 'left',
+          clickCount: 1,
+        });
+
+        const frames = [];
+
+        for (const [moveX, moveY] of [
+          [100, 100],
+          [1270, 890],
+          [100, 890],
+          [1270, 100],
+          [x, y],
+        ]) {
+          await c.send('Input.dispatchMouseEvent', {
+            type: 'mouseMoved',
+            x: moveX,
+            y: moveY,
+            button: 'left',
+            buttons: 1,
+          });
+
+          frames.push(
+            await check(
+              `document.querySelector('.hud-map canvas').toDataURL()`,
+            ),
+          );
+        }
+
+        await c.send('Input.dispatchMouseEvent', {
+          type: 'mouseReleased',
+          x,
+          y,
+          button: 'left',
+          clickCount: 1,
+        });
+
+        await pause(300);
+        assert.equal(
+          new Set(frames).size,
+          frames.length,
+          'every rapid movement renders a new viewport immediately',
+        );
+        assert.equal(
+          await check(`document.querySelector('.hud-map canvas').toDataURL()`),
+          frames.at(-1),
+          'no markers pop in after rapid panning without a server response',
         );
       }
 
@@ -2158,18 +2996,82 @@ checkUi: try {
 
   await click('[data-tab="outfitting"]');
 
-  for (const name of ['Search Light', 'Power Plant']) {
+  for (const name of ['Search Light', 'Power Plant', 'Thruster']) {
     const key =
       await check(`Array.from(document.querySelectorAll('[data-loadout] [data-key]'))
       .find(button => button.textContent.includes('${name}')).getAttribute('data-key')`);
 
     await click(`[data-loadout] [data-key="${key}"]`);
-    assert(
-      await check(`!document.querySelector('[data-paint-unsupported]').hidden
-        && document.querySelector('[data-paint-unsupported]').textContent.trim() === 'Painting unsupported on this module'
-        && document.querySelector('[data-paints]').hidden`),
-      `${name} explains why painting is unavailable`,
+    await check('fixture.refresh(); fixture.refresh(); fixture.refresh()');
+    assert.equal(
+      await check(
+        `document.querySelectorAll('[data-weight-panel]:not([hidden])').length`,
+      ),
+      1,
+      `${name} shows its weight once after repeated updates`,
     );
+    assert(
+      await check(`(() => {
+        const weight = document.querySelector('[data-weight-panel]');
+        const health = document.querySelector('[data-health-panel]');
+        return weight.className === health.className
+          && weight.textContent.trim().startsWith('Weight')
+          && weight.querySelector('[data-weight]').textContent.trim().endsWith(' KG')
+          && !document.querySelector('[data-module-power]').textContent.includes('Weight');
+      })()`),
+      `${name} shows weight in KG as a compact health-style row`,
+    );
+
+    assert.equal(
+      await check(`document.querySelector('[data-thruster-stats]').hidden`),
+      name !== 'Thruster',
+      `${name} shows thruster stats only for thrusters`,
+    );
+    assert(
+      await check(`document.querySelector('[data-weapon-stats]').hidden`),
+      `${name} does not show weapon stats`,
+    );
+    assert(
+      await check(`document.querySelector('[data-weapon-dps]').hidden`),
+      `${name} does not show weapon DPS`,
+    );
+
+    if (name === 'Thruster') {
+      assert(
+        await check(`(() => {
+          const [handling, power, fuel] = document.querySelector('[data-thruster-stats]').children;
+          const health = document.querySelector('[data-health-panel]');
+          const columns = handling.children;
+          if (columns.length !== 2) return false;
+          const [speed, turn] = columns;
+          const a = speed.getBoundingClientRect(), b = turn.getBoundingClientRect();
+          return document.querySelector('[data-thruster-stats]').children.length === 3
+            && document.querySelector('[data-module-power]').hidden
+            && speed.textContent.includes('Max speed') && speed.textContent.includes('m/s')
+            && turn.textContent.includes('Turn rate') && turn.textContent.includes('°/s')
+            && speed.querySelector('.text-lg') && turn.querySelector('.text-lg')
+            && Math.abs(a.y - b.y) < 1 && a.right <= b.left
+            && power.className === health.className && power.textContent.includes('Power use') && power.textContent.includes(' MW')
+            && fuel.className === health.className && fuel.textContent.includes('Fuel usage') && fuel.textContent.includes('L/min');
+        })()`),
+        'thruster details show large ship-specific handling columns above compact power and fuel rows',
+      );
+    }
+
+    if (name === 'Power Plant') {
+      assert(
+        await check(`(() => {
+          const columns = document.querySelector('[data-module-power] > div').children;
+          if (columns.length !== 2) return false;
+          const [generation, storage] = columns;
+          const a = generation.getBoundingClientRect(), b = storage.getBoundingClientRect();
+          return generation.textContent.includes('Generation') && generation.textContent.includes(' MW')
+            && /^Storage\\s*\\d+ MJ$/.test(storage.textContent.trim())
+            && Math.abs(a.y - b.y) < 1 && a.right <= b.left;
+        })()`),
+        'power plant generation and storage appear side by side',
+      );
+    }
   }
 
   for (const activation of ['Enter', ' ', 'click']) {
@@ -2179,6 +3081,32 @@ checkUi: try {
     const candidate = '[data-candidates] [data-key="shop-laser"]';
 
     await click(candidate);
+    assert(
+      await check(`(() => {
+        const stats = document.querySelector('[data-weapon-stats]');
+        const columns = [...stats.firstElementChild.children];
+        const power = document.querySelector('[data-module-power]');
+        const dps = document.querySelector('[data-weapon-dps]');
+        const health = document.querySelector('[data-health-panel]');
+        const boxes = columns.map(column => column.getBoundingClientRect());
+        return !stats.hidden && columns.length === 2
+          && columns[0].textContent.trim() === 'Damage0.2'
+          && columns[1].textContent.trim() === 'ROF∞'
+          && columns.every(column => column.querySelector('.text-lg'))
+          && Math.abs(boxes[0].y - boxes[1].y) < 1 && boxes[0].right <= boxes[1].left
+          && stats.getBoundingClientRect().bottom <= power.getBoundingClientRect().top
+          && !dps.hidden && dps.className === health.className
+          && dps.querySelector('[data-dps]').textContent.trim() === '6'
+          && power.getBoundingClientRect().bottom <= dps.getBoundingClientRect().top
+          && document.fonts.check('16px Gemetric', '∞');
+      })()`),
+      'laser details show damage and infinity above power and compact DPS below',
+    );
+
+    if (process.env.UI_CAPTURE_DIR && activation === 'Enter') {
+      await capture('docked-laser-stats');
+    }
+
     assert.equal(
       await check(`document.querySelector('[data-health]').textContent`),
       '40/40',
@@ -2249,10 +3177,38 @@ checkUi: try {
     await check(`document.querySelector('.ui-notification').hidden`),
     'expired notifications leave no visible overlay',
   );
+  const notifications = await check('fixture.checkNotifications()');
+
+  for (const [behavior, passed] of Object.entries(notifications)) {
+    assert(passed, `notifications: ${behavior}`);
+  }
+
   assert.deepEqual(
     await check(`fixture.previewStability()`),
     [true, true, true, true, true, true, true, true],
     'preview updates retain animation for visual changes and committed fittings while rebuilding other loadout changes',
+  );
+
+  await c.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x: 1,
+    y: 1,
+    button: 'left',
+    clickCount: 1,
+  });
+
+  await c.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: 1,
+    y: 1,
+    button: 'left',
+    clickCount: 1,
+  });
+
+  assert.deepEqual(
+    await check(`fixture.previewAutogunAudio()`),
+    [true, true, true, true, true, true, true, true, true, true],
+    'outfitting previews play autogun motor and clicks, preserve plasma beeps, and stop motors on replacement, hiding, deselection and destruction',
   );
 
   assert(
@@ -2277,12 +3233,16 @@ checkUi: try {
     const icon = launch.querySelector('.dock-launch-icon');
     return document.activeElement === launch && launch.matches(':focus-visible')
       && !launch.disabled
-      && getComputedStyle(icon).opacity === '1' && !!icon.querySelector('svg path');
+      && getComputedStyle(launch).outlineStyle === 'none'
+      && getComputedStyle(icon).opacity === '1' && icon instanceof HTMLCanvasElement
+      && icon.getContext('2d').getImageData(0, 0, icon.width, icon.height).data.some(value => value);
   })()`),
-    'the Launch action receives keyboard focus and shows the ship outline',
+    'the Launch action receives keyboard focus and shows the rendered ship',
   );
 
-  for (const tab of ['overview', 'outfitting', 'trade', 'services']) {
+  const dockTabs = ['overview', 'outfitting', 'trade', 'hangar'];
+
+  for (const [index, tab] of dockTabs.entries()) {
     await click(`[data-tab="${tab}"]`);
     await pressKey('ArrowDown');
     assert(
@@ -2299,16 +3259,23 @@ checkUi: try {
       `${tab}: Up from the first content action returns to the active tab`,
     );
     await pressKey('ArrowRight');
+    assert(
+      await check(
+        `document.activeElement.getAttribute('data-tab') === '${dockTabs[Math.min(index + 1, dockTabs.length - 1)]}'`,
+      ),
+      'Right advances through station tabs and stops at the final tab',
+    );
+    await check(`document.querySelector('[data-tab="${tab}"]').focus()`);
     await pressKey('ArrowLeft');
     assert(
       await check(
-        `document.activeElement.getAttribute('data-tab') === '${tab}'`,
+        `document.activeElement.getAttribute('data-tab') === '${dockTabs[Math.max(index - 1, 0)]}'`,
       ),
-      'Left and Right still navigate between tabs',
+      'Left moves through station tabs and stops at the first tab',
     );
   }
 
-  const focusDock = async (selector: string) => {
+  async function focusDock(selector: string) {
     await c.send('Input.dispatchMouseEvent', {
       type: 'mouseMoved',
       x: 10,
@@ -2316,7 +3283,7 @@ checkUi: try {
     });
 
     await check(`document.querySelector(${JSON.stringify(selector)}).focus()`);
-  };
+  }
 
   const selectCandidate = async (selector: string, activation = 'Enter') => {
     const transaction = await check('fixture.transactionState()');
@@ -2356,14 +3323,14 @@ checkUi: try {
     );
   };
 
-  const expectFocus = async (selector: string, message: string) => {
+  async function expectFocus(selector: string, message: string) {
     assert(
       await check(
         `document.activeElement.matches(${JSON.stringify(selector)})`,
       ),
       message,
     );
-  };
+  }
 
   const committedDockState = () =>
     check(`[
@@ -2404,6 +3371,90 @@ checkUi: try {
         ))
       );
     }
+  };
+
+  const checkDetailArrowNavigation = async () => {
+    const committed = await committedDockState();
+    const [count, actions, paints] = await check(`(() => {
+      const buttons = [...document.querySelectorAll('.dock-detail button:not(:disabled)')]
+        .filter(button => button.getClientRects().length);
+      window.trappedActions = buttons.filter(button => !button.hasAttribute('data-paint'));
+      window.trappedPaints = buttons.filter(button => button.hasAttribute('data-paint'));
+      window.trappedButtons = [...trappedActions, ...trappedPaints.slice(0, 1)];
+      return [trappedButtons.length, trappedActions.length, trappedPaints.length];
+    })()`);
+
+    for (const arrow of ['ArrowDown', 'ArrowUp']) {
+      await focusDock('.dock-detail');
+
+      for (let step = 0; step <= count; step++) {
+        await pressKey(arrow);
+        const index =
+          arrow === 'ArrowDown'
+            ? Math.min(step, count - 1)
+            : Math.max(count - 1 - step, 0);
+
+        assert(
+          await check(
+            count
+              ? `document.activeElement === trappedButtons[${index}]`
+              : `document.activeElement.matches('.dock-detail')`,
+          ),
+          `${arrow} moves vertically through actions and treats paint colors as one row`,
+        );
+      }
+    }
+
+    for (let index = 0; index < actions; index++) {
+      await check(`trappedActions[${index}].focus()`);
+
+      for (const arrow of ['ArrowLeft', 'ArrowRight']) {
+        await pressKey(arrow);
+        assert(
+          await check(`document.activeElement === trappedActions[${index}]`),
+          `${arrow} does not move vertically through action buttons`,
+        );
+      }
+    }
+
+    for (const arrow of ['ArrowLeft', 'ArrowRight']) {
+      if (!paints) break;
+      const forward = arrow === 'ArrowRight';
+
+      await check(`trappedPaints[${forward ? 0 : paints - 1}].focus()`);
+
+      for (let step = 1; step <= paints; step++) {
+        await pressKey(arrow);
+        const index = forward
+          ? Math.min(step, paints - 1)
+          : Math.max(paints - 1 - step, 0);
+
+        assert(
+          await check(`document.activeElement === trappedPaints[${index}]`),
+          `${arrow} stays in the paint row and stops at its edge`,
+        );
+      }
+    }
+
+    for (let index = 0; index < paints; index++) {
+      await check(`trappedPaints[${index}].focus()`);
+      await pressKey('ArrowDown');
+      assert(
+        await check(`document.activeElement === trappedPaints[${index}]`),
+        'Down on a paint color does not move sideways to another color',
+      );
+      await pressKey('ArrowUp');
+      assert(
+        await check(
+          actions
+            ? `document.activeElement === trappedActions.at(-1)`
+            : `document.activeElement === trappedPaints[${index}]`,
+        ),
+        'Up from a paint color moves to the action above or stays in a paint-only panel',
+      );
+    }
+
+    assert.deepEqual(await committedDockState(), committed);
   };
 
   await click('[data-tab="outfitting"]');
@@ -2464,6 +3515,53 @@ checkUi: try {
   await check('fixture.tradeCargo()');
   await click('[data-tab="trade"]');
   const browsingTrade = await committedDockState();
+
+  await check('window.restoreTradeLayout = fixture.tradeNavigationLayout()');
+  assert(
+    await check(`(() => {
+      const rows = [...document.querySelectorAll('[data-trade-items] button, [data-stock-items] button')];
+      const origin = rows[0].getBoundingClientRect().top;
+      const step = parseFloat(getComputedStyle(rows[0]).getPropertyValue('--ui-row-height'));
+      return rows.every(row => {
+        const borderTop = row.getBoundingClientRect().top + parseFloat(getComputedStyle(row, '::before').top);
+        const offset = (borderTop - origin) / step;
+        return Math.abs(offset - Math.round(offset)) < 0.01;
+      });
+    })()`),
+    'trade row borders stay on the same grid across columns with different group headings',
+  );
+  assert(
+    await check(`(() => {
+      const rows = selector => [...document.querySelectorAll(selector + ' button')];
+      return rows('[data-trade-items]').findIndex(row => row.getAttribute('data-key') === 'cargo:item-5')
+        !== rows('[data-stock-items]').findIndex(row => row.getAttribute('data-key') === 'shop:item-5');
+    })()`),
+    'the trade navigation fixture places ammunition at different button indices',
+  );
+  await focusDock('[data-trade-items] [data-key="cargo:item-5"]');
+  await pressKey('ArrowRight');
+  await expectFocus(
+    '[data-stock-items] [data-key="shop:item-5"]',
+    'Right reaches the visually nearest Buy row across different group headings',
+  );
+  await pressKey('ArrowLeft');
+  await expectFocus(
+    '[data-trade-items] [data-key="cargo:item-5"]',
+    'Left reaches the visually nearest Sell row across different group headings',
+  );
+  await focusDock('[data-trade-items] [data-trade-group="modules"] button');
+  await pressKey('ArrowRight');
+  await expectFocus(
+    '[data-stock-items] [data-key="shop:item-3"]',
+    'Right from the module group reaches Opal at the closest visible height',
+  );
+  await pressKey('ArrowLeft');
+  await expectFocus(
+    '[data-trade-items] [data-trade-group="modules"] button',
+    'Left from Opal reaches the closer module row rather than its button index',
+  );
+  await check('restoreTradeLayout()');
+  await focusDock('[data-tab="trade"]');
 
   await pressKey('ArrowDown');
   await expectFocus('[data-trade-items] button', 'Down focuses the Sell list');
@@ -2621,7 +3719,7 @@ checkUi: try {
     [
       ['items', ['Diamond']],
       ['modules', ['Beam Laser']],
-      ['ammunition', ['Autogun Ammo']],
+      ['ammunition', ['Projectile ammo']],
     ],
     'cargo tables classify items, modules, and ammunition without duplicates',
   );
@@ -2770,7 +3868,7 @@ checkUi: try {
       await checkTradeActionVisibility(ammoStock, 'BUY');
       assert(
         await check(
-          `document.querySelector('[data-title]').textContent === 'Autogun Ammo' && document.querySelector('[data-description]').textContent.includes('Autogun ammunition')`,
+          `document.querySelector('[data-title]').textContent === 'Projectile ammo' && !!document.querySelector('[data-description]').textContent.trim()`,
         ),
         'buying from a surviving stack retains its inspector and full ammunition description',
       );
@@ -2856,7 +3954,7 @@ checkUi: try {
       ])`),
       [
         ['modules', ['Beam Laser', 'Beam Laser']],
-        ['ammunition', ['Autogun Ammo']],
+        ['ammunition', ['Projectile ammo']],
       ],
       'station stock separates modules and ammunition into matching trade tables',
     );
@@ -3010,7 +4108,7 @@ checkUi: try {
   await pause(250);
 
   for (const activation of ['Enter', ' ']) {
-    for (const tab of ['overview', 'outfitting', 'trade', 'services']) {
+    for (const tab of ['overview', 'outfitting', 'trade', 'hangar']) {
       await focusDock(`[data-tab="${tab}"]`);
       await pressKey(activation);
       assert(
@@ -3066,6 +4164,8 @@ checkUi: try {
           ),
           'opening an empty slot leaves all compatible modules unselected',
         );
+      } else {
+        await checkDetailArrowNavigation();
       }
 
       if (key !== 'hull:0') {
@@ -3074,7 +4174,7 @@ checkUi: try {
         await pressKey('ArrowLeft');
         assert(
           await check(`document.activeElement === detailControl`),
-          'horizontal arrows leave actions and compatible-module rows in place',
+          'opposite horizontal arrows restore focus within the same panel',
         );
         await checkDockTabOrder();
       } else {
@@ -3115,9 +4215,11 @@ checkUi: try {
     );
     await pressKey('Escape');
 
-    await focusDock('[data-tab="services"]');
+    await focusDock('[data-tab="hangar"]');
     await pressKey(activation);
-    await focusDock('[data-service="paint"]');
+    await focusDock('[data-owned-ships] button');
+    await pressKey(activation);
+    await focusDock('[data-hangar-command="PAINT"]');
     await pressKey(activation);
     await expectFocus(
       '[data-paint]',
@@ -3125,10 +4227,12 @@ checkUi: try {
     );
     assert(
       await check(
-        `document.querySelector('[data-tab="services"]').hasAttribute('aria-current')`,
+        `document.querySelector('[data-tab="hangar"]').hasAttribute('aria-current')`,
       ),
-      'Hull Paint preserves the Services tab',
+      'Hull Paint preserves the Hangar tab',
     );
+    await checkDetailArrowNavigation();
+    await focusDock('[data-paint]');
     await check(`window.firstPaint = document.activeElement`);
     await pressKey('ArrowRight');
     assert(
@@ -3152,8 +4256,8 @@ checkUi: try {
     await checkDockTabOrder();
     await pressKey('Escape');
     await expectFocus(
-      '[data-service="paint"]',
-      'Escape returns to the Services paint button',
+      '[data-owned-ships] button',
+      'Escape returns to the owned ship row',
     );
 
     await click('[data-tab="overview"]');
@@ -3167,12 +4271,13 @@ checkUi: try {
   }
 
   await check(`fixture.damageHull()`);
-  await click('[data-tab="services"]');
-  await focusDock('[data-service="repair"]');
+  await click('[data-tab="hangar"]');
+  await click('[data-owned-ships] button');
+  await focusDock('[data-hangar-command="REPAIR"]');
   await pressKey('Enter');
   await expectFocus(
-    '[data-service="paint"]',
-    'repairing from Services skips the newly disabled Repair All button',
+    '[data-hangar-command="SELL"]',
+    'repairing from Hangar skips the newly disabled Repair All button',
   );
   await check(`fixture.damageHull()`);
   await click('[data-tab="overview"]');
@@ -3263,12 +4368,12 @@ checkUi: try {
   );
   await pressKey('Enter');
   await expectFocus(
-    '[data-candidates]',
-    'Remove returns focus to the compatible-module list with no card selected',
+    '[data-candidates] button:first-child',
+    'Remove focuses the first compatible module with no card selected',
   );
   await expectEmptySlot();
   assert(
-    await check(`document.querySelector('[data-fitting-preview]').hidden`),
+    await check(`!document.querySelector('[data-fitting-preview]').hidden`),
   );
   const emptySlotState = await committedDockState();
   const candidateKeys = await check(`[
@@ -3304,6 +4409,28 @@ checkUi: try {
   const firstCandidate = `[data-candidates] [data-key="${candidateKeys[0]}"]`;
   const secondCandidate = `[data-candidates] [data-key="${candidateKeys[1]}"]`;
 
+  for (const direction of [1, -1]) {
+    const arrow = direction > 0 ? 'ArrowDown' : 'ArrowUp';
+
+    await focusDock('[data-candidates]');
+
+    for (let step = 0; step <= candidateKeys.length; step++) {
+      await pressKey(arrow);
+      const index =
+        direction > 0
+          ? Math.min(step, candidateKeys.length - 1)
+          : Math.max(candidateKeys.length - 1 - step, 0);
+
+      await expectFocus(
+        `[data-candidates] [data-key="${candidateKeys[index]}"]`,
+        `${arrow} enters the compatible-module list and stops at its end`,
+      );
+      assert.deepEqual(await committedDockState(), emptySlotState);
+      await expectEmptySlot();
+    }
+  }
+
+  await focusDock('[data-candidates]');
   await hover(firstCandidate);
   await waitForFitting('active && progress === 1');
   const firstFitting = await fittingState();
@@ -3474,8 +4601,21 @@ checkUi: try {
   await focusDock('[data-candidates] button:last-child');
   await pressKey('ArrowDown');
   await expectFocus(
+    '[data-candidates] button:last-child',
+    'Down stops at the last compatible module even with a card selected',
+  );
+  await focusDock(firstCandidate);
+  await pressKey('ArrowUp');
+  await expectFocus(
+    firstCandidate,
+    'Up stops at the first compatible module even with a card selected',
+  );
+  assert.deepEqual(await committedDockState(), activatedCandidate);
+  await focusDock('[data-candidates] button:last-child');
+  await pressKey('Tab');
+  await expectFocus(
     '[data-command="SELL"]',
-    'Down from the last compatible module reaches the selected card actions',
+    'Tab from the last compatible module reaches the selected card actions',
   );
   await waitForFitting('active && progress === 1');
   assert.equal(
@@ -3485,11 +4625,19 @@ checkUi: try {
   );
   assert.deepEqual(await committedDockState(), activatedCandidate);
   await pressKey('ArrowUp');
-  await expectFocus(
-    '[data-candidates] button:last-child',
-    'Up from the first card action returns to the compatible-module list',
+  assert(
+    await check(`document.activeElement === [...document.querySelectorAll('.dock-detail button:not(:disabled)')]
+      .filter(button => button.getClientRects().length)[0]`),
+    'Up stops at the first card action inside the selected detail panel',
   );
   assert.deepEqual(await committedDockState(), activatedCandidate);
+  await checkDetailArrowNavigation();
+  await focusDock('[data-command="SELL"]');
+  await pressKey('Tab', { shift: true });
+  await expectFocus(
+    '[data-candidates] button:last-child',
+    'Shift+Tab leaves the detail panel for the compatible-module list',
+  );
 
   assert(
     await check(`(() => {
@@ -3530,6 +4678,8 @@ checkUi: try {
   await focusDock('[data-key="hull:0"]');
   await pressKey('Enter');
   await expectFocus('[data-command="FIX"]', 'a damaged hull focuses Repair');
+  await checkDetailArrowNavigation();
+  await focusDock('[data-command="FIX"]');
   await pressKey('Enter');
   await expectFocus(
     '[data-key="hull:0"]',
@@ -3555,9 +4705,9 @@ checkUi: try {
   await expectFocus('[data-hull-paint]', 'Down returns to Hull Paint');
   await pressKey('Enter');
   await pressKey('ArrowDown');
-  await expectFocus('[data-launch]', 'Down from the paint row reaches Back');
+  await expectFocus('[data-paint]', 'Down stays within the paint controls');
   await pressKey('ArrowUp');
-  await expectFocus('[data-paint]', 'Up from Back returns to the paint row');
+  await expectFocus('[data-paint]', 'Up stays within the paint controls');
   await focusDock('[data-launch]');
   await pressKey(' ');
   await expectFocus(
@@ -3630,8 +4780,8 @@ checkUi: try {
     await focusDock('[data-command="REMOVE"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates]',
-      'Remove focuses the list without selecting the removed module',
+      '[data-candidates] button:first-child',
+      'Remove focuses the first compatible module without selecting it',
     );
     await expectEmptySlot();
     await selectCandidate(
@@ -3652,7 +4802,7 @@ checkUi: try {
     await focusDock('[data-command="SELL"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates]',
+      '[data-candidates] button:first-child',
       'selling a fitted module focuses replacements for its empty slot',
     );
     await expectEmptySlot();
@@ -3706,7 +4856,7 @@ checkUi: try {
     await focusDock('[data-command="SELL"]');
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates]',
+      '[data-candidates] button:first-child',
       'selling the automatically fitted purchase focuses replacements for its empty slot',
     );
     await expectEmptySlot();
@@ -3829,8 +4979,8 @@ checkUi: try {
     );
     await pressKey(activation);
     await expectFocus(
-      '[data-candidates]',
-      'removing an identical module focuses the list with both copies unselected',
+      '[data-candidates] button:first-child',
+      'removing an identical module focuses the first candidate with both copies unselected',
     );
     await expectEmptySlot();
     await selectCandidate(
@@ -3847,7 +4997,7 @@ checkUi: try {
       'selling the second fitting candidate preserves the first copy',
     );
     await expectFocus(
-      '[data-candidates]',
+      '[data-candidates] button:first-child',
       'selling from full cargo keeps replacements for the empty slot focused',
     );
     await expectEmptySlot();
@@ -3858,8 +5008,8 @@ checkUi: try {
 
     await check(`fixture.rejectPurchase(${rejectedId})`);
     await expectFocus(
-      '[data-candidates]',
-      'a rejected fitted purchase returns focus to the empty compatible list',
+      '[data-candidates] button:first-child',
+      'a rejected fitted purchase focuses the first compatible module',
     );
     await expectEmptySlot();
   }
@@ -3931,6 +5081,11 @@ checkUi: try {
     'sparkles and extra strokes zoom out without moving the item body off center or clipping the preview',
   );
   assert.deepEqual(
+    await check(`fixture.moduleLineWidths()`),
+    [[4, 4], [4, 1.25], 4],
+    'model line widths inherit the current default or use the part override without changing its outline',
+  );
+  assert.deepEqual(
     await check(`fixture.previewOcclusion()`),
     [
       [255, 0, 255, 255],
@@ -3941,6 +5096,51 @@ checkUi: try {
       [0, 0, 0, 0],
     ],
     'selected modules retain their layer, covered pixels stay hidden, and unselected overlaps stay at 50% opacity',
+  );
+  const [insideSelected, insideCandidate, hullOnly] = await check(
+    `fixture.previewInsideHull()`,
+  );
+
+  for (const image of [insideSelected, insideCandidate]) {
+    assert.deepEqual(image[0], [255, 0, 0, 255]);
+    assert.deepEqual(
+      image[1],
+      [255, 0, 0, 255],
+      'the supporting hull does not cover or tint the selected inside module',
+    );
+    assert.deepEqual(image[2], [0, 255, 0, 128]);
+    assert.deepEqual(
+      image.slice(3, 5),
+      [
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+      ],
+      'other modules on the supporting hull are fully hidden at every layer',
+    );
+    assert.deepEqual(
+      image[5],
+      [255, 0, 255, 128],
+      'modules on other hulls remain visible',
+    );
+    assert.deepEqual(
+      image[6],
+      [255, 0, 0, 255],
+      'an adjacent hull does not cover the selected inside module',
+    );
+  }
+
+  assert.deepEqual(
+    hullOnly[1],
+    [0, 255, 0, 255],
+    'the supporting hull remains opaque when no inside module is selected',
+  );
+  assert.deepEqual(
+    hullOnly.slice(3, 5),
+    [
+      [0, 255, 255, 255],
+      [0, 0, 255, 255],
+    ],
+    'other modules return when the inside module is no longer selected',
   );
 
   assert(
@@ -3956,7 +5156,7 @@ checkUi: try {
     await check(
       `Array.from(document.querySelectorAll('[data-stock-items] [data-key^="shop:"]'), button => button.querySelector('.dock-trade-name').textContent.trim())`,
     ),
-    ['Autogun Ammo'],
+    ['Projectile ammo'],
     'Trade stocks ammunition only; modules are purchased in Outfitting',
   );
   assert.equal(
@@ -3979,7 +5179,7 @@ checkUi: try {
   );
   assert(
     await check(
-      `document.querySelector('[data-title]').textContent === 'Autogun Ammo' && !document.querySelector('[data-detail-preview]').hidden && document.querySelector('[data-location]').textContent === document.querySelector('[data-station]').textContent`,
+      `document.querySelector('[data-title]').textContent === 'Projectile ammo' && !document.querySelector('[data-detail-preview]').hidden && document.querySelector('[data-location]').textContent === document.querySelector('[data-station]').textContent`,
     ),
     'focusing stock previews its item with the station name without selecting it',
   );
@@ -4082,7 +5282,36 @@ checkUi: try {
       wholeShip,
     'leaving an unselected hull restores the whole ship at full opacity',
   );
-  await click('[data-key="hull:0"]');
+  await check(`(() => {
+    window.cueBuffers = [];
+    Object.defineProperty(window, 'selectCueStarts', {
+      get: () => window.cueBuffers.filter(buffer => buffer === window.selectCueBuffer).length,
+    });
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      window.cueBuffers.push(this.buffer);
+      return start.apply(this, args);
+    };
+  })()`);
+  await hover('[data-key="hull:0"]');
+  await check(`window.hoverCueBuffers = window.cueBuffers.slice()`);
+  await click('[data-key="hull:0"]', () =>
+    waitFor(
+      `window.cueBuffers.length === window.hoverCueBuffers.length + 1 && document.activeElement.closest('.dock-detail')`,
+      'mouse press opens the hull details and plays the select cue before release',
+    ),
+  );
+  await check(`window.selectCueBuffer = window.cueBuffers.at(-1)`);
+  assert.equal(
+    await check('window.hoverCueBuffers.includes(window.selectCueBuffer)'),
+    false,
+    'hover does not select a hull',
+  );
+  assert.equal(
+    await check('window.selectCueStarts'),
+    1,
+    'mouse release does not repeat the select cue',
+  );
   await hover('[data-key="hull:1"]');
   await pause(100);
 
@@ -4110,18 +5339,32 @@ checkUi: try {
 
   for (const key of ['Enter', ' ']) {
     await check(`document.querySelector('[data-key="mount:2"]').focus()`);
-    await pressKey(key);
+    const selectStarts = await check('window.selectCueStarts');
+
+    await pressKey(key, {
+      onDown: () =>
+        waitFor(
+          `window.selectCueStarts === ${selectStarts + 1} && document.activeElement.matches('[data-candidates] button:first-child')`,
+          'keydown opens compatible modules and plays the select cue before release',
+        ),
+    });
+
+    assert.equal(
+      await check('window.selectCueStarts'),
+      selectStarts + 1,
+      'key release does not repeat the select cue',
+    );
     assert(
       await check(
-        `document.activeElement.matches('[data-candidates]') && document.querySelector('[data-fitting-preview]').hidden`,
+        `document.activeElement.matches('[data-candidates] button:first-child') && !document.querySelector('[data-fitting-preview]').hidden`,
       ),
-      'confirming an empty slot focuses the list without previewing the first module',
+      'confirming an empty slot focuses and previews the first compatible module',
     );
     await expectEmptySlot();
     await pressKey('Tab');
     await expectFocus(
-      '[data-candidates] button:first-child',
-      'Tab from the list container reaches its first compatible module',
+      '[data-candidates] button:nth-child(2)',
+      'Tab advances from the first compatible module to the next',
     );
     await expectEmptySlot();
   }
@@ -4133,6 +5376,58 @@ checkUi: try {
     ),
     'Escape returns from compatible modules to the slot without launching',
   );
+
+  for (const activation of ['Enter', 'click']) {
+    await focusDock('[data-key="mount:2"]');
+    await pressKey('Enter');
+    const selected = await check(
+      `document.querySelector('[data-candidates] button:first-child').getAttribute('data-key')`,
+    );
+    const candidate = `[data-candidates] [data-key="${selected}"]`;
+    const transaction = await check('fixture.transactionState()');
+
+    if (activation === 'Enter') {
+      await focusDock(candidate);
+      await pressKey('Enter');
+    } else {
+      await click(candidate);
+    }
+
+    assert(
+      await check(
+        `document.querySelector(${JSON.stringify(candidate)}).getAttribute('aria-pressed') === 'true'`,
+      ),
+      `${activation} selects a compatible module`,
+    );
+    await hover('[data-key="hull:1"]');
+    await pressKey('Escape');
+    await expectEmptySlot();
+    assert(
+      await check(`document.activeElement.matches(${JSON.stringify(candidate)})
+        && document.querySelector('[data-loadout] [data-key="mount:2"]').getAttribute('aria-pressed') === 'true'
+        && document.querySelector('[data-back-label]').textContent === 'Back'
+        && !fixture.inspect()[3]`),
+      'first Escape clears the compatible module and returns focus to it while retaining the mount',
+    );
+    assert.deepEqual(await check('fixture.transactionState()'), transaction);
+    await pressKey('Escape', { repeat: true });
+    await expectEmptySlot();
+    assert(
+      await check(
+        `document.querySelector('[data-loadout] [data-key="mount:2"]').getAttribute('aria-pressed') === 'true'`,
+      ),
+      'a repeated Escape does not also leave the mount',
+    );
+    await pressKey('Escape');
+    assert(
+      await check(`document.activeElement.getAttribute('data-key') === 'mount:2'
+        && !document.querySelector('[data-loadout] [aria-pressed="true"]')
+        && document.querySelector('[data-back-label]').textContent === 'Launch'
+        && !fixture.inspect()[3]`),
+      'second Escape leaves the mount and returns focus to its loadout row',
+    );
+  }
+
   await click('[data-key="hull:0"]');
   assert(
     await check(
@@ -4245,9 +5540,16 @@ checkUi: try {
     await check(
       `document.activeElement.matches('[data-candidates]') && document.querySelector('[data-fitting-preview]').hidden`,
     ),
-    'clicking an empty slot focuses the list without inspecting a candidate',
+    'clicking an empty slot focuses the compatible modules without previewing one',
   );
   await expectEmptySlot();
+  await pressKey('Tab');
+  assert(
+    await check(
+      `document.activeElement.matches('[data-candidates] button:first-child') && !document.querySelector('[data-fitting-preview]').hidden`,
+    ),
+    'Tab from the compatible modules list focuses and previews its first item',
+  );
   await click('[data-loadout] [data-key="mount:0"]');
   assert(
     await check(`document.activeElement.matches('[data-command="REMOVE"]')`),
@@ -4313,6 +5615,14 @@ checkUi: try {
     'hull thumbnail is centered in its card',
   );
   await capture('docked-hull');
+  await click('[data-key="mount:3"]');
+  assert(
+    await check(
+      `!/(NaN|undefined)/.test(document.querySelector('.dock-energy').innerHTML)`,
+    ),
+    'power totals and bars remain valid when a power plant omits consumption',
+  );
+  await capture('docked-power-plant');
   await click('[data-key="mount:5"]');
   assert.deepEqual(
     await check(`fixture.previewState()`),
@@ -4341,8 +5651,8 @@ checkUi: try {
   await expectEmptySlot();
   await capture('docked-empty-slot');
   assert(
-    await check(`document.querySelector('[data-fitting-preview]').hidden`),
-    'removing a module does not immediately preview a replacement',
+    await check(`!document.querySelector('[data-fitting-preview]').hidden`),
+    'removing a module previews the focused replacement without selecting it',
   );
   const autogun = await check(
     `Array.from(document.querySelectorAll('[data-candidates] button')).find(x=>x.textContent.includes('Autogun')).getAttribute('data-key')`,
@@ -4355,6 +5665,32 @@ checkUi: try {
   })()`);
 
   await click(`[data-candidates] [data-key="${autogun}"]`);
+
+  if (process.env.UI_CAPTURE_DIR) await capture('docked-autogun-stats');
+  assert(
+    await check(`(() => {
+      const stats = document.querySelector('[data-weapon-stats]');
+      if (!stats.firstElementChild) return false;
+      const columns = [...stats.firstElementChild.children];
+      const power = document.querySelector('[data-module-power]');
+      const dps = document.querySelector('[data-weapon-dps]');
+      const health = document.querySelector('[data-health-panel]');
+      const boxes = columns.map(column => column.getBoundingClientRect());
+      return !stats.hidden && columns.length === 2
+        && columns[0].textContent.trim() === 'Damage3'
+        && columns[1].textContent.trim() === 'ROF6.25/s'
+        && !dps.hidden && dps.className === health.className
+        && dps.querySelector('[data-dps]').textContent.trim() === '18.75'
+        && power.getBoundingClientRect().bottom <= dps.getBoundingClientRect().top
+        && boxes.every(box => Math.abs(box.y - boxes[0].y) < 1)
+        && boxes[0].right <= boxes[1].left;
+    })()`),
+    'autogun details show damage and ROF above power and compact DPS below',
+  );
+  assert.equal(
+    await check(`document.querySelector('[data-title]').textContent`),
+    'Autogun (AMMO:0)',
+  );
   assert.deepEqual(
     await check('fixture.transactionState()'),
     beforeAutogunSelection,
@@ -4402,13 +5738,13 @@ checkUi: try {
   );
   assert(
     await check(
-      `document.querySelector('[data-title]').textContent === 'Autogun'`,
+      `document.querySelector('[data-title]').textContent === 'Autogun (AMMO:200)'`,
     ),
     'buying ammunition keeps the selected module card open',
   );
   await click('[data-tab="trade"]');
   const ammoCargo = await check(
-    `Array.from(document.querySelectorAll('[data-trade-items] [data-key^="cargo:"]')).find(button => button.textContent.includes('Autogun Ammo')).getAttribute('data-key')`,
+    `Array.from(document.querySelectorAll('[data-trade-items] [data-key^="cargo:"]')).find(button => button.textContent.includes('Projectile ammo')).getAttribute('data-key')`,
   );
 
   await click(`[data-trade-items] [data-key="${ammoCargo}"]`);
@@ -4469,6 +5805,12 @@ checkUi: try {
       `document.querySelector('[data-title]').textContent === 'Autogun' && !document.querySelector('[data-detail-preview]').hidden && document.querySelector('[data-location]').textContent === document.querySelector('[data-station]').textContent`,
     ),
     'hovered sold module shows the station name and a preview',
+  );
+  assert(
+    await check(`!document.querySelector('[data-weapon-dps]').hidden
+      && document.querySelector('[data-weapon-dps] [data-dps]').textContent.trim() === '18.75'
+      && !document.querySelector('[data-weapon-stats]').hidden`),
+    'Trade also shows compact DPS and prominent damage for weapon modules',
   );
   await capture('docked-trade-module');
   const moduleImage = await check(
@@ -4555,7 +5897,7 @@ checkUi: try {
     await check(
       `document.activeElement.closest('[data-stock-items]') && !document.querySelector('[data-stock-items] [aria-pressed="true"]')`,
     ),
-    'Right focuses a Buy row without selecting it, clamping to the shorter column',
+    'Right focuses the nearest Buy row without selecting it',
   );
   await pressKey('ArrowLeft');
   assert(
@@ -4641,7 +5983,7 @@ checkUi: try {
     );
     await click(background);
     assert(
-      await check(`document.querySelector('[data-title]').textContent === '${painting ? 'Ship overview' : 'Outfitting'}'
+      await check(`document.querySelector('[data-title]').textContent === '${painting ? 'Station overview' : 'Outfitting'}'
         && !document.querySelector('[data-loadout] [aria-pressed="true"]')
         && document.querySelector('[data-hull-paint]').getAttribute('aria-pressed') === 'false'
         && !document.querySelector('.dock-energy').classList.contains('dock-inspecting')
@@ -4700,6 +6042,15 @@ checkUi: try {
       `document.querySelector('[data-candidates] [aria-pressed="true"]').getAttribute('data-key') === '${plasma}'`,
     ),
     'Space selects the focused shop module',
+  );
+  assert(
+    await check(`(() => {
+      const stats = document.querySelector('[data-weapon-stats]');
+      const columns = [...stats.firstElementChild.children];
+      return !stats.hidden && columns.length === 3
+        && columns[2].textContent.trim() === 'AOE24 m';
+    })()`),
+    'plasma details retain its explosion radius',
   );
   await expectFocus(
     '[data-command="BUY"]',
@@ -4912,7 +6263,7 @@ checkUi: try {
   );
   assert(!(await check(`!!document.querySelector('[data-loadout]')`)));
 
-  for (const tab of ['overview', 'outfitting', 'trade', 'services']) {
+  for (const tab of ['overview', 'outfitting', 'trade', 'hangar']) {
     for (const activation of ['Enter', ' ', 'Escape']) {
       await c.send('Page.reload');
       await pause(250);
@@ -4933,8 +6284,494 @@ checkUi: try {
     }
   }
 
+  await c.send('Page.reload');
+  await pause(250);
+  await check(
+    `(async () => { window.fixture = await import('./fixture.js'); fixture.dock(); })()`,
+  );
+  await pause(250);
+  await checkHangar();
+
+  async function checkHangar() {
+    await pressKey('Tab');
+    await check(`document.querySelector('[data-launch]').focus()`);
+    assert(
+      await check(`(() => {
+        const launch = document.querySelector('[data-launch]');
+        const footer = launch.closest('footer');
+        return launch.matches(':focus-visible')
+          && getComputedStyle(launch).outlineStyle === 'none'
+          && getComputedStyle(launch).userSelect === 'none'
+          && getComputedStyle(launch.querySelector('kbd')).boxShadow !== 'none'
+          && getComputedStyle(footer).userSelect !== 'none'
+          && [...footer.querySelectorAll('.ui-control')].every(element => getComputedStyle(element).userSelect === 'none');
+      })()`),
+      'footer controls own their styles and Launch highlights its key without a focus outline',
+    );
+    assert(
+      await check(`(() => {
+        const canvas = document.querySelector('canvas.dock-launch-icon');
+        return canvas && canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value);
+      })()`),
+      'the Launch button uses a rendered ship thumbnail',
+    );
+    assert.deepEqual(
+      await check('fixture.shipThumbnailRendering()'),
+      [true, true, true, true, true, true, true, true],
+      'ship thumbnails point 45 degrees counterclockwise with thruster flares but no glow, cache unchanged images, resize, and leave the live ship and renderer unchanged',
+    );
+    await click('[data-tab="hangar"]');
+    assert.deepEqual(
+      await check('fixture.showroomActivation()'),
+      [true, true, true, true],
+      'for-sale previews activate all modules except search lights without changing the live ship',
+    );
+    await click('[data-tab="overview"]');
+    await click('[data-tab="hangar"]');
+    assert.equal(
+      await check(
+        `document.querySelectorAll('[data-owned-ships] button').length`,
+      ),
+      1,
+    );
+    assert.equal(
+      await check(
+        `document.querySelectorAll('[data-ships-for-sale] button').length`,
+      ),
+      7,
+    );
+    assert(
+      await check(`(() => {
+        const rows = [...document.querySelectorAll('[data-owned-ships] button, [data-ships-for-sale] button')];
+        return rows.every(row => {
+          const canvas = row.querySelector('canvas[data-ship-thumbnail]');
+          if (!canvas || row.querySelector('svg')) return false;
+          const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          return pixels.some((value, index) => index % 4 === 3 && value > 0);
+        });
+      })()`),
+      'every owned and for-sale ship has a rendered thumbnail instead of a wireframe',
+    );
+    await hover('[data-ships-for-sale] button');
+    assert.equal(
+      await check(`document.querySelector('[data-title]').textContent`),
+      'Hangar',
+      'Hangar details require selecting a ship',
+    );
+    await focusDock('[data-owned-ships] button');
+    await pressKey('ArrowDown');
+    await expectFocus(
+      '[data-ships-for-sale] button',
+      'Down moves between the two Hangar groups',
+    );
+    await pressKey('ArrowUp');
+    await expectFocus('[data-owned-ships] button', 'Up returns to owned ships');
+    await pressKey('Enter');
+
+    const fullSale = await check(
+      `Number(document.querySelector('[data-ship-sale]').textContent.replace(/\\D/g, ''))`,
+    );
+    const serviceCost = await check('fixture.damageHangarShip()');
+    const netSale = fullSale - serviceCost;
+
+    assert(serviceCost > 0);
+    assert.equal(
+      await check(
+        `Number(document.querySelector('[data-ship-sale]').textContent.replace(/\\D/g, ''))`,
+      ),
+      netSale,
+      'sale label deducts hull repair, module repair, and refueling',
+    );
+
+    if (process.env.UI_CAPTURE_DIR) await capture('hangar-owned');
+    await click('[data-hangar-command="RENAME"]');
+    assert(
+      await check(`document.querySelector('[data-ship-rename-dialog]').open`),
+    );
+    await check(
+      `document.querySelector('#ship-name').value = 'a'.repeat(17); document.querySelector('#ship-name').dispatchEvent(new Event('input'))`,
+    );
+    await click('[data-confirm-ship-name]');
+    assert(
+      await check(`document.querySelector('[data-ship-rename-dialog]').open`),
+      'invalid rename stays open',
+    );
+    await check(
+      `document.querySelector('#ship-name').value = '<b> & Ship'; document.querySelector('#ship-name').dispatchEvent(new Event('input'))`,
+    );
+    await click('[data-confirm-ship-name]');
+    assert.equal(
+      await check(
+        `document.querySelector('[data-owned-ships] button .dock-row-text').textContent`,
+      ),
+      '<b> & Ship',
+    );
+    assert.equal(
+      await check(`document.querySelector('[data-owned-ships] b')`),
+      null,
+      'ship names are rendered as text, not markup',
+    );
+    const beforeCancel = await check('fixture.hangarTestState()');
+
+    await click('[data-hangar-command="SELL"]');
+    assert(
+      await check(`document.querySelector('[data-ship-sale-dialog]').open`),
+    );
+    const breakdown = await check(`(() => {
+      const dialog = document.querySelector('[data-ship-sale-dialog]');
+      const values = dialog.querySelector('[data-ship-sale-values]');
+      return [
+        dialog.querySelector('[data-ship-sale-description]').textContent,
+        [...values.querySelectorAll('dt')].map(element => element.textContent),
+        [...values.querySelectorAll('dd')].map(element => Number(element.textContent.replace(/[^0-9-]/g, ''))),
+        [...values.children].every(element => getComputedStyle(element).fontFamily.includes('Gemetric')),
+        [...values.querySelectorAll('.dock-sale-total')].every(element => getComputedStyle(element).borderTopStyle === 'solid'),
+      ];
+    })()`);
+
+    assert.equal(
+      breakdown[0],
+      'Are you sure you want to sell <b> & Ship, including all cargo and fitted modules?',
+    );
+    assert.deepEqual(breakdown[1], [
+      'Ship',
+      'Cargo',
+      'Modules',
+      'Repairs',
+      'Refueling',
+      'Total',
+    ]);
+    assert.equal(
+      breakdown[2]
+        .slice(0, 5)
+        .reduce((sum: number, value: number) => sum + value, 0),
+      netSale,
+    );
+    assert.equal(breakdown[2][5], netSale);
+    assert(
+      breakdown[2][3] < 0 && breakdown[2][4] < 0,
+      'service costs are deductions',
+    );
+    assert(breakdown[3], 'all sale labels and values use Gemetric');
+    assert(breakdown[4], 'a rule separates the total from the calculation');
+    await click('[data-ship-sale-dialog] [data-dialog-cancel]');
+    assert.deepEqual(
+      await check('fixture.hangarTestState()'),
+      beforeCancel,
+      'Cancel preserves the ship and balance',
+    );
+    await click('[data-hangar-command="SELL"]');
+    await pressKey('Escape');
+    assert.deepEqual(
+      await check('fixture.hangarTestState()'),
+      beforeCancel,
+      'Escape cancels the sale',
+    );
+    await click('[data-hangar-command="SELL"]');
+    await click('[data-confirm-ship-sale]');
+    assert.equal((await check('fixture.hangarTestState()'))[0].length, 0);
+    assert.equal(
+      (await check('fixture.hangarTestState()'))[2],
+      beforeCancel[2] + netSale,
+      'confirmed sale pays the displayed condition-adjusted amount',
+    );
+    await check('fixture.reopenDock()');
+    assert(
+      await check(`(() => {
+        const message = document.querySelector('[data-owned-ships] p');
+        return message.textContent === 'You do not own any ships.'
+          && getComputedStyle(message).textTransform === 'none'
+          && !message.closest('.dock-group');
+      })()`),
+      'empty owned fleet uses a sentence-case message outside a dock-group',
+    );
+    assert(
+      await check(
+        `document.querySelector('[data-tab="hangar"]').getAttribute('aria-current') === 'page'`,
+      ),
+      'reopening a shipless berth restores the Hangar screen',
+    );
+    assert(
+      await check(`document.querySelector('[data-launch]').disabled`),
+      'Launch is disabled without an owned ship',
+    );
+    await hover('[data-launch]');
+    assert(
+      await check(`(() => {
+        const label = document.querySelector('[data-launch-unavailable]');
+        return document.querySelector('.dock-launch-icon').hidden
+          && label.getClientRects().length > 0
+          && label.textContent.trim() === 'Unavailable - no ship'
+          && getComputedStyle(label).fontFamily.includes('system-ui')
+          && getComputedStyle(label).textTransform === 'none'
+          && label.getBoundingClientRect().left >= document.querySelector('[data-launch]').getBoundingClientRect().right;
+      })()`),
+      'shipless Launch has no hovered icon and a permanent regular-font label beside it',
+    );
+    await pressKey('Escape');
+    assert(
+      await check(`(() => {
+        const dialog = document.querySelector('[data-launch-unavailable-dialog]');
+        const bounds = dialog.getBoundingClientRect();
+        return dialog.open
+          && dialog.querySelector('p').textContent.trim().replace(/\\s+/g, ' ') === 'Launch unavailable. Visit the hangar to purchase a new ship.'
+          && document.activeElement === dialog.querySelector('[data-dialog-cancel]')
+          && Math.abs(bounds.x + bounds.width / 2 - innerWidth / 2) < 2
+          && Math.abs(bounds.y + bounds.height / 2 - innerHeight / 2) < 2;
+      })()`),
+      'shipless Escape opens a centered launch-unavailable dialog focused on Cancel',
+    );
+    await click('[data-launch-unavailable-dialog] [data-dialog-cancel]');
+    assert(
+      await check(
+        `!document.querySelector('dialog[open]') && !!document.querySelector('.dock-screen')`,
+      ),
+      'Cancel stays docked without an open dialog',
+    );
+    await pressKey('Escape');
+    await pressKey('Escape');
+    assert(
+      await check(
+        `!document.querySelector('dialog[open]') && !!document.querySelector('.dock-screen')`,
+      ),
+      'Escape dismisses the popup without leaving the station',
+    );
+
+    for (const tab of ['overview', 'outfitting', 'trade']) {
+      await click(`[data-tab="${tab}"]`);
+      assert(
+        await check(
+          `document.querySelector('[data-tab="${tab}"]').getAttribute('aria-current') === 'page'`,
+        ),
+        `shipless players can open ${tab}`,
+      );
+    }
+
+    assert(
+      await check(`(() => {
+        const stock = [...document.querySelectorAll('[data-stock-items] button')];
+        const explanation = document.querySelector('[data-market-disabled]');
+        return stock.length > 0 && stock.every(button => button.disabled)
+          && !document.querySelector('[data-trade-stock]').hidden
+          && !explanation.hidden
+          && explanation.textContent.trim().replace(/\\s+/g, ' ') === 'Market disabled as you have no ship to store items in.';
+      })()`),
+      'shipless market stock stays visible but disabled with an explanation',
+    );
+    await hover('[data-stock-items] button');
+    assert(
+      await check(
+        `getComputedStyle(document.querySelector('[data-stock-items] button:hover .dock-trade-name'), '::after').content === 'none'`,
+      ),
+      'disabled market rows do not show a hovered Buy or Sell label',
+    );
+    await click('[data-tab="outfitting"]');
+    assert(
+      await check(`document.querySelector('.dock-detail [data-description]').textContent === 'No ship to outfit.'
+        && document.querySelector('[data-purchase-ship]').getClientRects().length > 0
+        && !document.querySelector('[data-outfitting]').textContent.includes('You do not own any ships to outfit.')`),
+      'shipless Outfitting shows its message and purchase shortcut in the right panel',
+    );
+    await click('[data-purchase-ship]');
+    assert(
+      await check(
+        `document.querySelector('[data-tab="hangar"]').getAttribute('aria-current') === 'page'`,
+      ),
+      'Purchase ship opens the Hangar tab',
+    );
+    await click('[data-tab="trade"]');
+    await pressKey('Escape');
+    await click('[data-visit-hangar]');
+    assert(
+      await check(`!document.querySelector('dialog[open]')
+        && document.querySelector('[data-tab="hangar"]').getAttribute('aria-current') === 'page'`),
+      'the launch-unavailable Hangar button closes the popup and opens Hangar',
+    );
+    await check('fixture.fundHangar()');
+    await click('[data-key="offer:finch"]');
+    await check('fixture.hangarStatus(true)');
+    assert(
+      await check(`document.querySelector('[data-hangar-status]').hidden
+        && document.querySelector('[data-hangar-command="BUY"]').disabled`),
+      'pending purchases lock the Buy button without flashing status text',
+    );
+    await check(`fixture.hangarStatus(false, 'Purchase rejected')`);
+    assert(
+      await check(`!document.querySelector('[data-hangar-status]').hidden
+        && document.querySelector('[data-hangar-status]').textContent === 'Purchase rejected'`),
+      'Hangar transaction errors remain visible',
+    );
+    await check('fixture.hangarStatus(false)');
+    await click('[data-hangar-command="BUY"]');
+    const firstOwned = await check('fixture.hangarTestState()');
+
+    assert(
+      await check(`document.querySelector('[data-key="owned:${firstOwned[1]}"]').getAttribute('aria-pressed') === 'true'
+        && document.querySelector('[data-description]').textContent === 'Currently piloting this ship.'
+        && document.querySelector('[data-hangar-command="BUY"]').hidden
+        && !document.querySelector('[data-hangar-command="SELL"]').hidden`),
+      'buying immediately selects the new owned ship and shows its management panel',
+    );
+    assert(
+      await check(`document.querySelector('[data-launch-unavailable]').hidden
+        && document.querySelector('[data-purchase-ship]').hidden`),
+      'buying a ship removes shipless notices and the purchase shortcut',
+    );
+    await click('[data-key="offer:finch"]');
+    await click('[data-hangar-command="BUY"]');
+    const twoOwned = await check('fixture.hangarTestState()');
+
+    assert(
+      await check(
+        `document.querySelector('[data-key="owned:${twoOwned[1]}"]').getAttribute('aria-pressed') === 'true'`,
+      ),
+      'buying a duplicate selects the newly purchased instance',
+    );
+    assert.equal(twoOwned[0].length, 2, 'duplicate ship models can be owned');
+    assert(
+      await check(`[...document.querySelectorAll('[data-owned-ships] canvas')].every(canvas =>
+        canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(value => value))`),
+      'inactive owned ships keep their own rendered thumbnails',
+    );
+    assert.notEqual(
+      twoOwned[1],
+      firstOwned[1],
+      'buy automatically pilots the new ship',
+    );
+    await click(`[data-key="owned:${firstOwned[1]}"]`);
+    await click('[data-hangar-command="PILOT"]');
+    assert.equal((await check('fixture.hangarTestState()'))[1], firstOwned[1]);
+    assert(
+      await check(
+        `document.querySelector('[data-tab="hangar"]').getAttribute('aria-current') === 'page'`,
+      ),
+      'piloting another ship keeps the Hangar open',
+    );
+    await click('[data-hangar-command="PAINT"]');
+    await click('[data-paint="2"]');
+    assert(
+      await check(
+        `document.querySelector('[data-paint="2"]').getAttribute('aria-pressed') === 'true'`,
+      ),
+      'Hangar hull paint applies to the selected ship',
+    );
+    await click('[data-hangar-command="SELL"]');
+    assert(
+      await check(
+        `JSON.stringify([...document.querySelectorAll('[data-ship-sale-values] dt')].map(element => element.textContent)) === JSON.stringify(['Ship', 'Cargo', 'Modules', 'Total'])`,
+      ),
+      'undamaged and fully fueled sales omit service deductions',
+    );
+    await click('[data-confirm-ship-sale]');
+    assert.equal(
+      (await check('fixture.hangarTestState()'))[1],
+      twoOwned[1],
+      'selling the piloted ship selects another owned ship',
+    );
+    await click('[data-key="offer:mustang"]');
+    assert(
+      await check(
+        `document.querySelector('[data-hangar-command="SPECIAL"]').hidden`,
+      ),
+      'players who can afford a Mustang do not get the special offer',
+    );
+    await check('fixture.impoverishHangar()');
+    await click('[data-key="offer:mustang"]');
+    assert(
+      await check(`(() => {
+        const row = document.querySelector('[data-key="offer:mustang"]');
+        const special = document.querySelector('[data-hangar-command="SPECIAL"]');
+        const description = document.querySelector('[data-special-offer]');
+        return row.lastElementChild.tagName === 'SPAN'
+          && row.lastElementChild.textContent === 'SPECIAL OFFER!'
+          && row.lastElementChild.classList.contains('ml-auto')
+          && !row.querySelector('small')
+          && !/[0-9]/.test(row.textContent)
+          && !special.hidden && !special.disabled
+          && document.querySelector('[data-hangar-command="BUY"]').disabled
+          && !description.hidden && description.textContent.includes('(123)')
+          && getComputedStyle(description).textTransform === 'none';
+      })()`),
+      'unaffordable Mustang replaces its row price with full-size SPECIAL OFFER!, alongside disabled regular Buy and the offer explanation',
+    );
+    assert(
+      await check(`(() => {
+        const label = document.querySelector('[data-key="offer:mustang"] .dock-offer');
+        const style = getComputedStyle(label);
+        const animation = label.getAnimations()[0];
+        animation.pause();
+        animation.currentTime = 0;
+        const transparent = getComputedStyle(label).textDecorationColor;
+        animation.currentTime = 800;
+        const visible = getComputedStyle(label).textDecorationColor;
+        animation.play();
+        return style.animationDuration === '0.8s'
+          && style.animationTimingFunction === 'ease-in-out'
+          && style.animationDirection === 'alternate'
+          && style.animationIterationCount === 'infinite'
+          && style.textDecorationLine === 'underline'
+          && label.textContent === 'SPECIAL OFFER'
+          && label.nextSibling.textContent === '!'
+          && getComputedStyle(label.parentElement).textDecorationLine === 'none'
+          && parseFloat(style.textDecorationThickness) > 0
+          && parseFloat(style.textUnderlineOffset) > parseFloat(style.textDecorationThickness)
+          && transparent === 'rgba(0, 0, 0, 0)'
+          && visible === style.color
+          && style.opacity === '1';
+      })()`),
+      'only the special-offer underline flashes from transparent to current color with the cargo FULL timing',
+    );
+    await click('[data-hangar-command="SPECIAL"]');
+    const rescued = await check('fixture.hangarTestState()');
+
+    assert.equal(
+      rescued[0].length,
+      1,
+      'special offer replaces the existing fleet',
+    );
+    assert.equal(rescued[2], 0, 'special offer consumes all remaining credits');
+    assert.notEqual(
+      rescued[1],
+      twoOwned[1],
+      'special offer provides a new ship',
+    );
+    assert(
+      await check(`document.querySelector('[data-key="owned:${rescued[1]}"]').getAttribute('aria-pressed') === 'true'
+        && document.querySelector('[data-title]').textContent === 'Mustang'
+        && !document.querySelector('dialog[open]')`),
+      'special offer immediately selects the new Mustang without confirmation',
+    );
+  }
+
+  await check('fixture.ammoShip()');
+  await click('[data-tab="outfitting"]');
+  await click('[data-key="mount:0"]');
+  assert(
+    await check(
+      `!document.querySelector('[data-command="BUY_AMMO"]').hidden && !document.querySelector('[data-command="BUY_AMMO"]').disabled`,
+    ),
+    'a fitted cannon offers its ammunition',
+  );
+  await click('[data-command="BUY_AMMO"]');
+  const cannonAmmo = await check('fixture.ammoState()');
+
+  assert.equal(cannonAmmo[0], 9998);
+  await check('fixture.alternateAmmo()');
+  assert.equal(
+    await check(`document.querySelector('[data-ammo-price]').textContent`),
+    '7$',
+  );
+  await click('[data-command="BUY_AMMO"]');
+  const otherAmmo = await check('fixture.ammoState()');
+
+  assert.equal(otherAmmo[0], cannonAmmo[0] - 7);
+  assert(
+    otherAmmo[1].includes(999),
+    'buying ammunition uses the selected weapon ammo type',
+  );
+
   console.log(
-    'Production UI: deferred startup, navigation, preferences, identity verification, preview, desktop layout, trading, repairs, paint, focus and launch passed.',
+    'Production UI: navigation, identity, previews, trading, repairs, paint, Hangar purchases, names, confirmations, empty hangars, focus and launch passed.',
   );
   assert.equal(errors().length, 0, errors().join('\n'));
 } finally {

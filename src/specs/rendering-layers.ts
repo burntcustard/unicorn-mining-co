@@ -3,14 +3,15 @@ export const renderingLayers = {
   scenery: 1,
   modulesBelowShipHull: 2,
   glowBelowShips: 3,
-  shipHull: 4,
-  modulesAboveShipHull: 5,
-  glowAboveShips: 6,
-  modulesBelowStationHull: 7,
-  glowBelowStations: 8,
-  stationHull: 9,
-  modulesAboveStationHull: 10,
-  glowAboveStations: 11,
+  modulesInsideShipHull: 4,
+  shipHull: 5,
+  modulesAboveShipHull: 6,
+  glowAboveShips: 7,
+  modulesBelowStationHull: 8,
+  glowBelowStations: 9,
+  stationHull: 10,
+  modulesAboveStationHull: 11,
+  glowAboveStations: 12,
 } as const;
 
 export type RenderingLayer =

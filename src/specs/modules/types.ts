@@ -14,6 +14,8 @@ type ModuleModelPart = {
   // Circular support below the barrels, fixed in place during deployment.
   turretBase?: boolean;
   lines?: number[][][];
+  // Width of this part's lines in game units; defaults to the outline width.
+  lineWidth?: number;
   covers?: boolean;
   fillAlpha?: number;
   color?: string;
@@ -35,8 +37,8 @@ type ModuleValues = {
   icon: string;
   description: string;
   // Idle draw and total activated draw, in MW.
-  power: number;
-  powerActivated: number;
+  power?: number;
+  powerActivated?: number;
   // Total draw during initial weapon charging and between shots, in MW.
   powerCharging?: number;
   // Total draw while a fully deployed beam weapon fires, in MW.
@@ -44,6 +46,7 @@ type ModuleValues = {
   // Generation is MW (MJ/s); storage capacity is MJ.
   powerGenerated?: number;
   powerCapacity?: number;
+  weight: number;
   health: number;
   // Optional separate health pool for the exposed active module or shield bubble.
   healthActivated?: number;
@@ -128,7 +131,11 @@ type ModuleValues = {
 
 export type ModuleSpec = ModuleValues &
   (
-    | { behavior: 'powerPlant'; powerGenerated: number; model: [] }
+    | {
+        behavior: 'powerPlant';
+        powerGenerated: number;
+        model: (ModuleModelPart & { points: number[][] })[];
+      }
     | {
         behavior: 'thruster';
         fuelUsage: number;

@@ -1,3 +1,4 @@
+import settings from '../../specs/sounds/horn-drill';
 import { type Craft } from '../objects/craft';
 import { HornDrill } from '../objects/modules/horn-drill';
 import { continuousSound } from './sound-loader';
@@ -26,11 +27,11 @@ export const updateHornDrillSounds = ({
       craft.segmentsAtMount(mount).forEach((segment, segmentIndex) => {
         if (!segment.active) return;
         const key = `${craft.id}:${mountIndex}:${segmentIndex}`;
-        const level = segment.biting ? 8 : 4;
         const voice = continuousSound(
           voices.get(key),
-          (level / 2) * multiplier,
-          1 - level / 80,
+          (segment.biting ? settings.bitingVolume : settings.activeVolume) *
+            multiplier,
+          segment.biting ? settings.bitingPitch : settings.activePitch,
         );
 
         if (voice) {

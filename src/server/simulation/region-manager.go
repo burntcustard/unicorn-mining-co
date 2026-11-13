@@ -26,6 +26,7 @@ type RegionManager struct {
 	removed                   map[uint32]bool
 	descriptionOwners         map[uint32][]*protocol.RegionDescription
 	stationLists              map[regionBounds][]protocol.StationDescription
+	mapStations               []protocol.MapMarker
 	queryBounds, markerBounds []regionBounds
 	queried                   *queriedRegions
 	generator                 *RegionGenerator
@@ -34,6 +35,32 @@ type RegionManager struct {
 
 func NewRegionManager(seed uint32, catalog specs.Catalog, sectors ...Sector) *RegionManager {
 	return &RegionManager{loaded: utilities.NewOrderedMap[Vec.Vector, *protocol.LoadedRegion](), saved: map[Vec.Vector]*protocol.RegionDescription{}, worldSeed: seed, removed: map[uint32]bool{}, descriptionOwners: map[uint32][]*protocol.RegionDescription{}, stationLists: map[regionBounds][]protocol.StationDescription{}, generator: NewRegionGenerator(catalog, sectors...), catalog: catalog}
+}
+
+// MapStations returns all surviving stations in the sector's finite station area.
+func (r *RegionManager) MapStations() []protocol.MapMarker {
+	if r.mapStations != nil {
+		return r.mapStations
+	}
+
+	r.mapStations = []protocol.MapMarker{}
+	sector := r.generator.sector
+
+	if sector == nil {
+		return r.mapStations
+	}
+
+	density := r.catalog.SectorGeneration.Density[1]
+	extent := math.Max(sector.RadiusX, sector.RadiusY)*density.Scale*density.Cutoff + 1
+	from, to := Vec.Create(-extent, -extent), Vec.Create(extent, extent)
+
+	for _, station := range r.generator.GenerateStations(r.worldSeed, from, to) {
+		if !r.removed[station.ID] {
+			r.mapStations = append(r.mapStations, protocol.MapMarker{Kind: "station", ID: int64(station.ID), Position: station.Position, DefinitionID: station.DefinitionID})
+		}
+	}
+
+	return r.mapStations
 }
 
 func (r *RegionManager) PreGenerate(radius float64) {
@@ -118,6 +145,9 @@ func (r *RegionManager) Unload(region Vec.Vector) {
 
 func (r *RegionManager) Remove(id uint32) {
 	r.removed[id] = true
+
+	r.mapStations = slices.DeleteFunc(r.mapStations, func(marker protocol.MapMarker) bool { return marker.ID == int64(id) })
+
 	r.queried = nil
 	clear(r.stationLists)
 

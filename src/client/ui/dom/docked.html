@@ -13,7 +13,7 @@
       </button>
       <button class="ui-tab" data-tab="outfitting">Outfitting</button>
       <button class="ui-tab" data-tab="trade">Trade</button>
-      <button class="ui-tab" data-tab="services">Services</button>
+      <button class="ui-tab" data-tab="hangar">Hangar</button>
     </nav>
     <div class="ui-credits ui-heading-pair grid text-right text-outline">
       <span class="uppercase text-color text-sm">Available unicredits</span>
@@ -27,6 +27,9 @@
     ></h2>
     <div class="ui-scroll" data-sidebar role="complementary">
       <div data-overview>
+        <p class="text-muted mt-4" data-ship-required hidden>
+          You do not own any ships.
+        </p>
         <dl class="dock-overview-stats gap-4 mb-8 grid">
           <dt class="uppercase">Hull</dt>
           <dd data-hull-total></dd>
@@ -68,13 +71,11 @@
         <h2 class="uppercase">Sell from cargo</h2>
         <div data-trade-items role="group"></div>
       </div>
-      <div data-services hidden>
-        <h2 class="uppercase">Services</h2>
-        <p>Repair your hull and fitted modules, or change your hull paint.</p>
-        <nav class="grid gap-3 mt-6 uppercase">
-          <button class="ui-button" data-service="repair">Repair all</button>
-          <button class="ui-button" data-service="paint">Hull paint</button>
-        </nav>
+      <div data-hangar hidden>
+        <h2 class="uppercase mb-4">Your ships</h2>
+        <nav class="mb-8" data-owned-ships></nav>
+        <h2 class="uppercase mb-4">Ships for sale</h2>
+        <nav class="dock-group uppercase text-sm" data-ships-for-sale></nav>
       </div>
     </div>
     <div class="ui-scroll" data-trade-stock hidden>
@@ -104,13 +105,13 @@
           <span class="uppercase text-muted text-sm">Price</span>
         </div>
         <nav
-          class="dock-group uppercase text-sm"
+          class="dock-group ui-focus-panel uppercase text-sm"
           tabindex="-1"
           data-candidates
         ></nav>
       </div>
       <div
-        class="dock-detail ui-card ui-scroll"
+        class="dock-detail ui-card ui-scroll ui-focus-panel"
         tabindex="-1"
         role="complementary"
       >
@@ -128,6 +129,66 @@
           hidden
         ></canvas>
         <p class="mt-4" data-description></p>
+        <p class="mt-4" data-market-disabled hidden>
+          Market disabled as you have no ship to store items in.
+        </p>
+        <button class="ui-button mt-4 uppercase" data-purchase-ship hidden>
+          Purchase ship
+        </button>
+        <p class="ui-status mt-4" role="status" data-hangar-status hidden></p>
+        <dl
+          class="dock-overview-stats gap-4 mt-6 grid"
+          data-hangar-stats
+          hidden
+        ></dl>
+        <div class="grid gap-2 mt-6" data-hangar-actions hidden>
+          <button
+            class="ui-button flex items-center justify-between uppercase"
+            data-hangar-command="BUY"
+          >
+            <span data-ship-buy-label>Buy</span>
+            <span data-ship-price></span>
+          </button>
+          <button
+            class="ui-button flex items-center justify-between uppercase"
+            data-hangar-command="SPECIAL"
+            hidden
+          >
+            <span>Buy</span>
+            <span>Special offer</span>
+          </button>
+          <p data-special-offer hidden></p>
+          <button class="ui-button uppercase" data-hangar-command="PILOT">
+            Pilot ship
+          </button>
+          <button
+            class="ui-button flex items-center justify-between uppercase"
+            data-hangar-command="REPAIR"
+          >
+            Repair all
+            <span data-ship-repair></span>
+          </button>
+          <button
+            class="ui-button flex items-center justify-between uppercase"
+            data-hangar-command="REFUEL"
+          >
+            Refuel
+            <span data-ship-refuel></span>
+          </button>
+          <button
+            class="ui-button flex items-center justify-between uppercase"
+            data-hangar-command="SELL"
+          >
+            Sell
+            <span data-ship-sale></span>
+          </button>
+          <button class="ui-button uppercase" data-hangar-command="RENAME">
+            Rename ship
+          </button>
+          <button class="ui-button uppercase" data-hangar-command="PAINT">
+            Hull paint
+          </button>
+        </div>
         <div
           class="flex items-center justify-between gap-3 mt-6"
           data-trade-price-panel
@@ -136,8 +197,26 @@
           <span class="uppercase text-sm" data-trade-price-label></span>
           <span data-trade-value></span>
         </div>
+        <div class="mt-6" data-weapon-stats hidden></div>
         <div class="mt-6" data-module-power hidden></div>
-        <p class="mt-4" data-fuel-usage></p>
+        <div data-thruster-stats hidden></div>
+        <div
+          class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
+          data-weapon-dps
+          title="Maximum direct-hit damage per second while firing continuously"
+          hidden
+        >
+          <span class="uppercase">DPS</span>
+          <span data-dps></span>
+        </div>
+        <div
+          class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
+          data-weight-panel
+          hidden
+        >
+          <span class="uppercase">Weight</span>
+          <span data-weight></span>
+        </div>
         <div
           class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
           data-health-panel
@@ -192,15 +271,18 @@
     </div>
   </div>
   <footer
-    class="dock-footer ui-controls flex items-center justify-between text-muted text-sm uppercase"
+    class="dock-footer flex items-center justify-between text-muted text-sm"
   >
-    <button class="gap-3 flex items-center" data-launch>
+    <button class="ui-control gap-3 flex items-center uppercase" data-launch>
       <kbd class="flex-none">Esc</kbd>
       <span data-back-label>Launch</span>
-      <span class="dock-launch-icon ui-icon" aria-hidden="true"></span>
+      <canvas class="dock-launch-icon ui-icon" aria-hidden="true"></canvas>
     </button>
-    <div class="flex items-center gap-8">
-      <span class="gap-3 flex items-center">
+    <p class="ml-3 mr-auto" data-launch-unavailable hidden>
+      Unavailable - no ship
+    </p>
+    <div class="flex items-center gap-8 uppercase">
+      <span class="ui-control gap-3 flex items-center">
         <span class="gap-1 flex items-center">
           <kbd class="flex-none">↑</kbd>
           <kbd class="flex-none">↓</kbd>
@@ -209,7 +291,7 @@
         </span>
         Navigate
       </span>
-      <span class="gap-3 flex items-center">
+      <span class="ui-control gap-3 flex items-center">
         <span class="gap-1 flex items-center">
           <kbd class="flex-none">Enter</kbd>
           <kbd class="flex-none">Space</kbd>
@@ -218,4 +300,63 @@
       </span>
     </div>
   </footer>
+  <dialog
+    class="ui-card"
+    aria-labelledby="launch-unavailable-message"
+    data-launch-unavailable-dialog
+  >
+    <p id="launch-unavailable-message">
+      Launch unavailable. Visit the hangar to purchase a new ship.
+    </p>
+    <div class="gap-4 mt-6 flex flex-wrap" data-action-group>
+      <button class="ui-button uppercase" data-dialog-cancel>Cancel</button>
+      <button class="ui-button uppercase" data-visit-hangar>Hangar</button>
+    </div>
+  </dialog>
+  <dialog
+    class="ui-card"
+    aria-labelledby="ship-sale-heading"
+    data-ship-sale-dialog
+  >
+    <h2 class="uppercase text-lg" id="ship-sale-heading">Sell ship</h2>
+    <p class="mt-4" data-ship-sale-description></p>
+    <dl class="dock-sale-values mt-6 grid uppercase" data-ship-sale-values></dl>
+    <div class="gap-4 mt-6 flex flex-wrap" data-action-group>
+      <button class="ui-button uppercase" data-dialog-cancel>Cancel</button>
+      <button class="ui-button uppercase" data-confirm-ship-sale>
+        Yes sell ship
+      </button>
+    </div>
+  </dialog>
+  <dialog
+    class="ui-card"
+    aria-labelledby="ship-rename-heading"
+    data-ship-rename-dialog
+  >
+    <form class="grid gap-4" data-ship-rename-form>
+      <h2 class="uppercase text-lg" id="ship-rename-heading">Rename ship</h2>
+      <label class="uppercase" for="ship-name">Ship name</label>
+      <input
+        class="ui-input"
+        id="ship-name"
+        required
+        autocomplete="off"
+        spellcheck="false"
+        aria-describedby="ship-name-hint"
+      />
+      <p id="ship-name-hint">Choose a name from 1 to 16 characters.</p>
+      <div class="gap-4 mt-4 flex flex-wrap" data-action-group>
+        <button class="ui-button uppercase" type="button" data-dialog-cancel>
+          Cancel
+        </button>
+        <button
+          class="ui-button uppercase"
+          type="button"
+          data-confirm-ship-name
+        >
+          Save name
+        </button>
+      </div>
+    </form>
+  </dialog>
 </div>

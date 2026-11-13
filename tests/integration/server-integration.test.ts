@@ -6,13 +6,23 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import WebSocket from 'ws';
 import { rolldown } from 'rolldown';
+import { ProtocolClient } from '../../benchmarking/server/client.ts';
+import { loadProtocolRuntime } from '../../benchmarking/utilities/protocol-runtime.ts';
+import { paintColors } from '../../src/specs/colors.ts';
 import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
 import {
   decodeServerControl,
   encodeClientMessage,
 } from '../../src/client/protocol/binary-control';
-import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot';
+import {
+  decodeBinarySnapshot,
+  mergeModuleStates,
+} from '../../src/client/protocol/binary-snapshot';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
+import type {
+  ReplicatedEntity,
+  ReplicatedModule,
+} from '../../src/client/protocol/network';
 
 // Exercise production-mangled field access and tags against the actual Go wire.
 const entry = resolve('src/__wire_integration.ts');
@@ -37,6 +47,8 @@ const bundle = await rolldown({
           packet=>{const message=decodeBinarySnapshot(packet);return [message.type==='load',message.snapshotSequence,message.acknowledgedSequence,message.serverTick,message.fullEntities.length];},
           ()=>encodeClientMessage({type:'activity'}),
           packet=>{const message=decodeServerControl(packet);return message.type==='sounds' ? message.sounds.map(sound=>[sound.effect,sound.id,sound.by,sound.position.x,sound.position.y]) : undefined;},
+          position=>encodeClientMessage({type:'sectorMap',position}),
+          packet=>{const message=decodeServerControl(packet);return message.type==='sectorMap' ? message.mapMarkers.map(marker=>[marker.kind==='field',marker.kind==='ship',marker.id,marker.position.x,marker.position.y,marker.radius,marker.name,marker.definitionId,marker.color]) : undefined;},
         ];`
           : undefined,
     },
@@ -53,6 +65,14 @@ const production = (
     `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
   )
 ).default;
+
+assert.deepEqual(
+  production[0](null),
+  encodeClientMessage({
+    type: 'hello',
+    playerToken: null,
+  }),
+);
 
 const decodeSounds = (packet: Uint8Array) => {
   const message = decodeServerControl(packet);
@@ -134,6 +154,8 @@ const source = [
 ];
 
 const sockets: WebSocket[] = [];
+const paintClients: ProtocolClient[] = [];
+let paintPulse: ReturnType<typeof setInterval>;
 
 const databaseDirectory = mkdtempSync(
   resolve(tmpdir(), 'unicorn-integration-'),
@@ -153,7 +175,7 @@ const server = spawn(resolve('bin/server'), [], {
 const timeout = setTimeout(() => {
   sockets.forEach((socket) => socket.terminate());
   server.kill('SIGTERM');
-}, 15000);
+}, 120000);
 
 try {
   const address = await new Promise<string>((resolveAddress, reject) => {
@@ -309,15 +331,24 @@ try {
       playerId: number;
       shipId: number;
       tick: number;
+      entities: Map<number, ReplicatedEntity>;
     }>((resolveClient, reject) => {
+      const entities = new Map<number, ReplicatedEntity>();
+
       let welcome: Extract<
         ReturnType<typeof decodeServerControl>,
         { type: 'welcome' }
       >;
 
       socket.on('error', reject);
+
       socket.on('open', () =>
-        socket.send(encodeClientMessage({ type: 'hello', playerToken: null })),
+        socket.send(
+          encodeClientMessage({
+            type: 'hello',
+            playerToken: null,
+          }),
+        ),
       );
 
       socket.on('message', (data) => {
@@ -332,6 +363,31 @@ try {
           }
 
           const snapshot = decodeBinarySnapshot(packet);
+
+          if (snapshot.type === 'load') entities.clear();
+
+          for (const record of snapshot.fullEntities) {
+            const previous = entities.get(record.id);
+
+            mergeModuleStates(record, previous);
+            const entity = { ...previous, ...record } as ReplicatedEntity;
+
+            for (const [key, value] of Object.entries(record)) {
+              if (value === null) {
+                delete (entity as unknown as Record<string, unknown>)[key];
+              }
+            }
+
+            entities.set(record.id, entity);
+          }
+
+          if (snapshot.entityIds) {
+            const ids = new Set(snapshot.entityIds);
+
+            for (const id of entities.keys()) {
+              if (!ids.has(id)) entities.delete(id);
+            }
+          }
 
           if (snapshot.snapshotSequence !== undefined) {
             socket.send(
@@ -348,6 +404,7 @@ try {
               playerId: welcome.playerId,
               shipId: welcome.shipId,
               tick: snapshot.serverTick,
+              entities,
             });
           }
         } catch (error) {
@@ -359,6 +416,110 @@ try {
 
   const actor = await join();
   const observer = await join();
+
+  const mapped = new Promise<any[]>((resolveMap, reject) => {
+    actor.socket.on('message', (data) => {
+      try {
+        const packet = new Uint8Array(data as Buffer);
+
+        if (packet[1] !== 0x43) return;
+        const message = decodeServerControl(packet);
+
+        if (message.type !== 'sectorMap') return;
+        const markers = message.mapMarkers.map((marker) => [
+          marker.kind === 'field',
+          marker.kind === 'ship',
+          marker.id,
+          marker.position.x,
+          marker.position.y,
+          marker.radius,
+          marker.name,
+          marker.definitionId,
+          marker.color,
+        ]);
+
+        assert.deepEqual(
+          production[8](packet),
+          markers,
+          'production map properties decode Go markers',
+        );
+        assert(
+          markers.every((marker) => !marker[0]),
+          'fields are generated locally rather than streamed',
+        );
+        assert(
+          markers.some((marker) => marker[1] && marker[2] === actor.shipId),
+          'map includes own player',
+        );
+        assert(
+          markers.some((marker) => marker[1] && marker[2] === observer.shipId),
+          'map includes other player',
+        );
+        resolveMap(markers);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+
+  const mapRequest = encodeClientMessage({
+    type: 'sectorMap',
+    position: { x: 0, y: 0 },
+  });
+
+  assert.deepEqual(production[7]({ x: 0, y: 0 }), mapRequest);
+  actor.socket.send(mapRequest);
+  await mapped;
+
+  // Both sockets observe the same changing ship through one shared batch.
+  const mixedModules = new Promise<void>((resolveMixed, reject) => {
+    const updates = new Map<number, Map<number, ReplicatedModule[]>>();
+
+    const handlers: {
+      socket: WebSocket;
+      handle: (data: WebSocket.RawData) => void;
+    }[] = [];
+
+    for (const [index, { socket, entities }] of [actor, observer].entries()) {
+      const handle = (data: WebSocket.RawData) => {
+        try {
+          const packet = new Uint8Array(data as Buffer);
+
+          if (packet[1] !== 0x4d) return;
+          const snapshot = decodeBinarySnapshot(packet);
+          const modules = entities.get(actor.shipId)?.modules;
+
+          if (snapshot.type !== 'snapshot' || !modules?.length) return;
+
+          assert.deepEqual(production[4](packet), [
+            false,
+            snapshot.snapshotSequence,
+            snapshot.acknowledgedSequence,
+            snapshot.serverTick,
+            snapshot.fullEntities.length,
+          ]);
+
+          const atTick = updates.get(snapshot.serverTick) ?? new Map();
+
+          atTick.set(index, modules);
+          updates.set(snapshot.serverTick, atTick);
+
+          if (atTick.has(0) && atTick.has(1)) {
+            assert.deepEqual(atTick.get(0), atTick.get(1));
+            handlers.forEach(({ socket, handle }) =>
+              socket.off('message', handle),
+            );
+            resolveMixed();
+          }
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      handlers.push({ socket, handle });
+      socket.on('message', handle);
+    }
+  });
 
   const heard = new Promise<void>((resolveSound, reject) => {
     observer.socket.on('message', (data) => {
@@ -400,14 +561,137 @@ try {
     }),
   );
 
-  await heard;
+  await Promise.all([heard, mixedModules]);
+  const actorClosed = once(actor.socket, 'close');
+  const observerClosed = once(observer.socket, 'close');
+
   actor.socket.close();
   observer.socket.close();
+  await Promise.all([actorClosed, observerClosed]);
+
+  // Paint a real fitted module through the station and observe later sparse updates.
+  const { runtime } = await loadProtocolRuntime(
+    resolve(databaseDirectory, 'runtime'),
+  );
+
+  const makePaintClient = (index: number, clientRuntime = runtime) => {
+    const client = new ProtocolClient({
+      url: address,
+      index,
+      players: 2,
+      runtime: clientRuntime,
+      preparationTimeoutMs: 90000,
+    });
+
+    paintClients.push(client);
+    return client;
+  };
+
+  const painter = makePaintClient(0);
+  let captureSparse = false;
+  let sparsePackets = 0;
+
+  const observerRuntime = {
+    ...runtime,
+    decodeBinarySnapshot(
+      data: Parameters<typeof runtime.decodeBinarySnapshot>[0],
+    ) {
+      const snapshot = runtime.decodeBinarySnapshot(data);
+
+      if (
+        captureSparse &&
+        snapshot.fullEntities.some(
+          (entity) =>
+            entity.id === painter.shipId &&
+            entity.modules?.some(
+              (module) =>
+                module.type === undefined || module.shades?.length === 0,
+            ),
+        )
+      ) {
+        sparsePackets++;
+      }
+
+      return snapshot;
+    },
+  };
+
+  const paintObserver = makePaintClient(1, observerRuntime);
+
+  paintPulse = setInterval(
+    () => paintClients.forEach((client) => client.activity()),
+    5000,
+  );
+  await Promise.all(paintClients.map((client) => client.ready()));
+  await painter.dock();
+
+  const hatchType = runtime.catalog.moduleIds.indexOf('cargoHatch');
+  const hatch = painter.ship.modules?.find(
+    (module) => module.type === hatchType && module.mount >= 0,
+  );
+
+  assert(hatch?.id !== undefined, 'the actor has a fitted cargo hatch');
+  const hatchId = hatch.id;
+  const another = painter.ship.modules?.find((module) => module.id !== hatchId);
+  const previousOtherShades = another?.shades;
+  const ownHatch = () =>
+    painter.ship?.modules?.find((module) => module.id === hatchId);
+  const observedShip = () => paintObserver.entities.get(painter.shipId);
+  const observedHatch = () =>
+    observedShip()?.modules?.find((module) => module.id === hatchId);
+  const isYellow = (shades?: readonly string[]) =>
+    shades?.length === paintColors[2].length &&
+    shades.every((shade, index) => shade === paintColors[2][index]);
+
+  await painter.craftAction(
+    { action: 'paint', mount: hatch.mount, moduleId: hatchId, paint: 2 },
+    () => !!isYellow(ownHatch()?.shades),
+  );
+  // The benchmark launch helper flies outward for ten seconds, which can
+  // take the ship beyond the stationary observer's replication range.
+  painter.input({ ...emptyPlayerInput(), launch: true });
+  await painter.until(() => !painter.ship?.dockedTo, 'Ship begins launching');
+  painter.input(emptyPlayerInput());
+  await paintObserver.until(
+    () => !!isYellow(observedHatch()?.shades),
+    'Observer sees the repainted hatch',
+  );
+  captureSparse = true;
+  painter.input({ ...emptyPlayerInput(), cargoHatch: true });
+  await paintObserver.until(
+    () =>
+      !!observedHatch()?.segments.some(
+        (segment) => segment.active > 0 || segment.activationProgress > 0,
+      ),
+    'Observer sees the repainted hatch animate',
+  );
+  assert(sparsePackets > 0, 'the observer received sparse module updates');
+  assert(
+    isYellow(observedHatch()?.shades),
+    'animation retains the repainted palette',
+  );
+
+  if (another) {
+    assert.deepEqual(
+      observedShip()?.modules?.find((module) => module.id === another.id)
+        ?.shades,
+      previousOtherShades,
+      'painting one module preserves another module palette',
+    );
+  }
+
+  assert.deepEqual(painter.errors, []);
+  assert.deepEqual(paintObserver.errors, []);
+  console.log(
+    'Local actor and observer preserve painted module color during animation',
+  );
   console.log(
     'Go assets, health, source/production UC+UM codecs, input acknowledgment and reconnect passed',
   );
 } finally {
   clearTimeout(timeout);
+  clearInterval(paintPulse);
+  await Promise.all(paintClients.map((client) => client.close()));
   sockets.forEach((socket) => socket.terminate());
 
   if (server.exitCode === null) {

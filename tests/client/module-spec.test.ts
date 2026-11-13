@@ -20,6 +20,7 @@ const spec: ModuleSpec = {
   description: 'Timing fixture.',
   power: exampleWeapon.power,
   powerActivated: exampleWeapon.powerActivated,
+  weight: 1,
   health: 10,
   price: 20,
   zIndex: renderingLayers.modulesBelowShipHull,
@@ -81,13 +82,22 @@ const optional = { ...spec };
 delete optional.chargeDuration;
 assert.equal(moduleSpecForSimulation(optional).chargeDuration, undefined);
 
-const { moduleIds, moduleSpecList, moduleSpecs } =
+const { moduleIds, moduleSpecList, moduleSpecs, powerPlantIds } =
   await import('../../src/specs/modules');
 
 assert.deepEqual(
   moduleSpecList,
   moduleIds.map((id) => moduleSpecs[id]),
 );
+
+for (const id of powerPlantIds) {
+  const plant = moduleSpecs[id];
+
+  assert(
+    'powerCapacity' in plant && Number.isInteger(plant.powerCapacity),
+    `${id} must have a whole-number power storage capacity`,
+  );
+}
 
 const discoveredIds: string[] = [];
 
@@ -97,16 +107,27 @@ for (const category of moduleCategoryIds) {
     import.meta.url,
   );
 
-  for (const file of readdirSync(folder).filter(
+  for (const file of readdirSync(folder, {
+    recursive: true,
+    encoding: 'utf8',
+  }).filter(
     (file) =>
       file.endsWith('.ts') &&
       file !== 'index.ts' &&
-      !file.startsWith('example-'),
+      !file.split('/').at(-1)!.startsWith('example-'),
   )) {
     const exports = await import(new URL(file, folder).href);
 
     for (const [id, authored] of Object.entries(exports)) {
-      if (!authored || typeof authored !== 'object' || !('power' in authored)) {
+      if (
+        !authored ||
+        typeof authored !== 'object' ||
+        !('behavior' in authored) ||
+        !('name' in authored) ||
+        !('health' in authored) ||
+        !('weight' in authored) ||
+        !('price' in authored)
+      ) {
         continue;
       }
 
@@ -174,11 +195,12 @@ try {
 }
 
 for (const module of moduleSpecList) {
-  assert(Number.isFinite(module.power) && module.power >= 0);
-  assert(
-    Number.isFinite(module.powerActivated) &&
-      module.powerActivated >= module.power,
-  );
-}
+  const spec: ModuleSpec = module;
 
-assert(moduleSpecs.powerPlant.powerGenerated > 0);
+  assert(Number.isFinite(module.weight) && module.weight > 0);
+  const idle = spec.power ?? 0;
+  const active = spec.powerActivated ?? 0;
+
+  assert(Number.isFinite(idle) && idle >= 0);
+  assert(Number.isFinite(active) && active >= idle);
+}

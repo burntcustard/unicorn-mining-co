@@ -53,6 +53,17 @@
     <h3 class="uppercase text-sm text-muted mt-6">Display</h3>
     <div>
       <label class="uppercase flex items-center justify-between gap-6 py-2">
+        Hide UI
+        <input type="checkbox" data-hide-ui />
+      </label>
+      <p>
+        Makes in-game HUD panels transparent while keeping their content and
+        controls available in the DOM. Menus and docked UI stay visible. Off by
+        default. Changes apply immediately.
+      </p>
+    </div>
+    <div>
+      <label class="uppercase flex items-center justify-between gap-6 py-2">
         World renderer
         <select class="ui-input shrink-0" data-renderer>
           <option value="canvas">Canvas (default)</option>
@@ -101,8 +112,8 @@
     <h3 class="uppercase text-lg" id="binding-heading">Change key</h3>
     <p class="mt-4" id="binding-prompt"></p>
     <p class="ui-status mt-4" role="status"></p>
-    <form method="dialog" class="gap-2 mt-4 flex flex-wrap" data-action-group>
+    <div class="gap-2 mt-4 flex flex-wrap" data-action-group>
       <button class="uppercase ui-button">Cancel</button>
-    </form>
+    </div>
   </dialog>
 </div>

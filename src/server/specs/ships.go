@@ -54,6 +54,7 @@ type InitialModule struct {
 type Ship struct {
 	NPCOnly        bool            `json:"npcOnly"`
 	CrystalWeapon  *CrystalWeapon  `json:"crystalWeapon"`
+	Price          float64         `json:"price"`
 	FuelCapacity   float64         `json:"fuelCapacity"`
 	InitialLoadout []InitialModule `json:"initialLoadout"`
 	Name           string          `json:"name"`

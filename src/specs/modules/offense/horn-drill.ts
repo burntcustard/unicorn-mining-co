@@ -6,6 +6,7 @@ export const hornDrill = {
   icon: './horn-drill.svg',
   description: 'Cut into asteroids to break off rock and extract ore.',
   behavior: 'hornDrill',
+  weight: 1,
   name: 'Horn Drill',
   health: 80,
   power: 0.3,

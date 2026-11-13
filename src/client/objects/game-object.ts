@@ -124,6 +124,10 @@ export class GameObject {
         ];
   }
 
+  get lightFilter(): string | undefined {
+    return undefined;
+  }
+
   remove() {
     this.dead = true;
     const resident: GameObject | undefined = this.world?.entities.get(this.id);
@@ -173,10 +177,14 @@ export class GameObject {
     this.rotation = rotation;
   }
 
+  get decaying() {
+    return !!this.decay;
+  }
+
   update(dt: number) {
     if (this.dead || this.buried) return;
 
-    if (this.decay && (this.health -= this.decay * dt) <= 0) {
+    if (this.decaying && (this.health -= this.decay * dt) <= 0) {
       this.remove();
       return;
     }

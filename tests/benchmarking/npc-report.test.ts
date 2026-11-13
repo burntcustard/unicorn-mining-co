@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import {
   collectionProgress,
   readNPCReport,
+  retryEarlyCollection,
   summarizeNPCCollection,
   validateNPCActivity,
 } from '../../benchmarking/npc/report.ts';
@@ -309,6 +310,34 @@ try {
 
   assert.equal(ordinary.collection.complete, true);
   assert.equal(ordinary.collection.completionSeconds, 1.5);
+
+  const early = { shipId: 2, scenario: 'collector', start: 3000, end: 4000 };
+
+  await assert.rejects(readNPCReport(early), /measured window must include/);
+
+  const earlyReport = await readNPCReport({
+    ...early,
+    allowEarlyCompletion: true,
+  });
+
+  assert.equal(earlyReport.completedBeforeCapture, true);
+  assert.deepEqual(earlyReport.events, ordinary.events);
+  assert.deepEqual(earlyReport.captureEvents, []);
+  assert.equal(
+    (await readNPCReport({ ...early, start: 2500, allowEarlyCompletion: true }))
+      .completedBeforeCapture,
+    false,
+  );
+
+  await assert.rejects(
+    readNPCReport({
+      ...early,
+      start: 2100,
+      end: 2400,
+      allowEarlyCompletion: true,
+    }),
+    /measured window must include/,
+  );
 } finally {
   if (previousManifest === undefined) {
     delete process.env.NPC_BENCHMARK_FIXTURE;
@@ -327,3 +356,31 @@ assert.throws(() =>
     captureEvents: [],
   }),
 );
+
+// A rejected full-window attempt is retained separately and never counts as a result.
+const rejected: number[] = [];
+const valid: number[] = [];
+let attempts = 0;
+
+await retryEarlyCollection({
+  run: async () => (++attempts < 3 ? attempts : void valid.push(attempts)),
+  record: async (attempt) => {
+    rejected.push(attempt);
+  },
+});
+
+assert.deepEqual(rejected, [1, 2]);
+assert.deepEqual(valid, [3]);
+
+await assert.rejects(
+  retryEarlyCollection({
+    run: async () => 4,
+    record: async (attempt) => {
+      rejected.push(attempt);
+    },
+  }),
+  /three attempts/,
+);
+
+assert.deepEqual(rejected, [1, 2, 4, 4, 4]);
+assert.deepEqual(valid, [3]);

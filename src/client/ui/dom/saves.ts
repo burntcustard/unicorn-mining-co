@@ -22,29 +22,30 @@ export const createSaves = () => {
       'Connecting to create a pilot, or import an existing private ID.';
   }
 
-  reveal.addEventListener(
-    'click',
-    () => {
-      const visible = privateId.getAttribute('type') === 'password';
+  const setVisible = (visible: boolean) => {
+    privateId.setAttribute('type', visible ? 'text' : 'password');
+    reveal.children[0].setAttribute('aria-hidden', String(visible));
+    reveal.children[1].setAttribute('aria-hidden', String(!visible));
+    reveal.setAttribute('aria-pressed', String(visible));
+  };
 
-      privateId.setAttribute('type', visible ? 'text' : 'password');
-      reveal.textContent = visible ? 'Hide' : 'Reveal';
-      reveal.setAttribute('aria-pressed', String(visible));
+  reveal.addEventListener(
+    'ui-press',
+    () => {
+      setVisible(privateId.getAttribute('type') === 'password');
     },
     { signal: screen.signal },
   );
 
   copy.addEventListener(
-    'click',
+    'ui-press',
     async () => {
       try {
         await navigator.clipboard.writeText(privateId.value);
         status.textContent = 'Private ID copied.';
       } catch {
-        privateId.setAttribute('type', 'text');
+        setVisible(true);
         privateId.select();
-        reveal.textContent = 'Hide';
-        reveal.setAttribute('aria-pressed', 'true');
         status.textContent =
           'Copy is unavailable. Select and copy your private ID manually.';
       }
@@ -53,7 +54,7 @@ export const createSaves = () => {
   );
 
   clear.addEventListener(
-    'click',
+    'ui-press',
     () => {
       try {
         localStorage.removeItem('playerToken');
@@ -67,16 +68,21 @@ export const createSaves = () => {
     { signal: screen.signal },
   );
 
-  query(screen.element, '[data-back]').addEventListener('click', ui.back, {
+  query(screen.element, '[data-back]').addEventListener('ui-press', ui.back, {
     signal: screen.signal,
   });
 
   const input = query<HTMLInputElement>(screen.element, '[data-import-id]');
   const verify = query<HTMLButtonElement>(screen.element, '[data-verify]');
   const dialog = query<HTMLDialogElement>(screen.element, 'dialog');
+  const form = query<HTMLFormElement>(screen.element, '[data-import]');
   let verifiedId = '';
 
-  query(screen.element, '[data-import]').addEventListener(
+  verify.addEventListener('ui-press', () => form.requestSubmit(), {
+    signal: screen.signal,
+  });
+
+  form.addEventListener(
     'submit',
     async (event) => {
       event.preventDefault();
@@ -109,6 +115,12 @@ export const createSaves = () => {
     },
     { signal: screen.signal },
   );
+
+  dialog.querySelectorAll('button').forEach((button) => {
+    button.addEventListener('ui-press', () => dialog.close(button.value), {
+      signal: screen.signal,
+    });
+  });
 
   dialog.addEventListener(
     'close',

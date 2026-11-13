@@ -543,6 +543,6 @@ if (
     'Stop the existing Go watcher first; only one server can own the world database.',
   );
   console.log(
-    `Start GOMEMLIMIT=300MiB GOFLAGS=-overlay=${overlay} npm run dev:server and wait for port 3001 to be ready. Then run npm run benchmark:npc -- --watch --scenario all.`,
+    `Start GOMEMLIMIT=600MiB GOFLAGS=-overlay=${overlay} npm run dev:server and wait for port 3001 to be ready. Then run npm run benchmark:npc -- --watch --scenario all.`,
   );
 }

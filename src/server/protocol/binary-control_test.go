@@ -13,6 +13,10 @@ import (
 type controlFixture struct {
 	Client []struct {
 		Message struct {
+			Position                                  specs.Vector
+			Command                                   string
+			ShipID                                    int64
+			Value                                     string
 			GateID                                    uint64
 			Channel                                   byte
 			Sender, Text                              string
@@ -29,6 +33,7 @@ type controlFixture struct {
 	}
 	Server []struct {
 		Message struct {
+			MapMarkers                   []MapMarker
 			CargoDemand                  *int64
 			GateID                       uint64
 			Channel                      byte
@@ -84,6 +89,14 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		}
 
 		switch got.Type {
+		case "sectorMap":
+			if got.Position != fixture.Message.Position {
+				t.Fatal("map viewport differs")
+			}
+		case "hangar":
+			if got.HangarCommand != fixture.Message.Command || got.ShipID != fixture.Message.ShipID || got.Text != fixture.Message.Value {
+				t.Fatal("hangar request differs")
+			}
 		case "gateAccess":
 			if got.GateID != fixture.Message.GateID {
 				t.Fatal("gate ID differs")
@@ -119,6 +132,7 @@ func TestControlMatchesTypeScript(t *testing.T) {
 		message := fixture.Message
 
 		got, err := EncodeServerControl(ServerControl{
+			MapMarkers:  message.MapMarkers,
 			CargoDemand: message.CargoDemand, Channel: message.Channel, Sender: message.Sender, SenderRole: message.SenderRole, Text: message.Text,
 			Sounds: message.Sounds,
 			Type:   message.Type, PlayerID: message.PlayerID, ShipID: message.ShipID,
@@ -214,6 +228,42 @@ func TestTargetInput(t *testing.T) {
 
 		if _, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
 			t.Fatalf("invalid target accepted: %x", target)
+		}
+	}
+}
+
+func TestHelloTokenFlag(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, kind := range []string{"hello", "prepare"} {
+		for flags := byte(0); flags < 2; flags++ {
+			packet := writer{data: []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs[kind]), flags}}
+
+			if flags&1 != 0 {
+				if err := packet.uuid("12345678-1234-1234-1234-123456789abc"); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			control, err := DecodeClientControl(packet.data, catalog.Protocol, catalog.Simulation.SimulationStep)
+
+			if err != nil || control.Type != kind || (control.PlayerToken != "") != (flags&1 != 0) {
+				t.Fatalf("%s flags %d: %+v %v", kind, flags, control, err)
+			}
+		}
+
+		for _, data := range [][]byte{
+			{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs[kind])},
+			{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs[kind]), 2},
+			{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs[kind]), 1},
+		} {
+			if _, err := DecodeClientControl(data, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
+				t.Fatalf("%s accepted malformed flags or token %x", kind, data)
+			}
 		}
 	}
 }

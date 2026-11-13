@@ -92,7 +92,7 @@ try {
     `import { openLatencyBrowser } from ${JSON.stringify(pathToFileURL(resolve('benchmarking/latency/browser.ts')).href)};
 try {
   await openLatencyBrowser({
-    options: {url:'http://localhost:3000/',width:640,height:480},
+    options: {url:'http://localhost:3002/',width:640,height:480},
     production: {assets:new Map()}, signal:new AbortController().signal,
     registerClose() {}, pageCount:1,
   });

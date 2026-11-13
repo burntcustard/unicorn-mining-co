@@ -6,23 +6,24 @@ import { graphics } from './dom/graphics';
  */
 
 export const setSizing = (game: GameState) => {
+  const resolution = graphics[3] * (window.devicePixelRatio || 1);
+
   game.scale =
     (Math.min(window.innerWidth, window.innerHeight) / (720 * game.size)) *
-    graphics[3];
-  game.width = (window.innerWidth * graphics[3]) / game.scale;
-  game.height = (window.innerHeight * graphics[3]) / game.scale;
-  game.canvas.width = window.innerWidth * graphics[3];
-  game.canvas.height = window.innerHeight * graphics[3];
+    resolution;
+  game.width = (window.innerWidth * resolution) / game.scale;
+  game.height = (window.innerHeight * resolution) / game.scale;
+  game.canvas.width = window.innerWidth * resolution;
+  game.canvas.height = window.innerHeight * resolution;
   // Resizing a canvas wipes its context settings, so this goes back on after.
   // Cached artwork should stay sharp, without resampling between its pixels
   game.ctx.imageSmoothingEnabled = false;
 
-  // The HUD has a grid of its own, so that zooming the world out by raising
-  // game.size shrinks the ships without shrinking the text along with them
+  // The HUD has a grid of its own, independent of the world view size.
   game.uiScale =
-    (Math.min(window.innerWidth, window.innerHeight) / 720) * graphics[3];
-  game.uiWidth = (window.innerWidth * graphics[3]) / game.uiScale;
-  game.uiHeight = (window.innerHeight * graphics[3]) / game.uiScale;
+    (Math.min(window.innerWidth, window.innerHeight) / 720) * resolution;
+  game.uiWidth = (window.innerWidth * resolution) / game.uiScale;
+  game.uiHeight = (window.innerHeight * resolution) / game.uiScale;
 };
 
 import { type GameState } from '../game';

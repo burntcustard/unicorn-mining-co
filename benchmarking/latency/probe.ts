@@ -154,8 +154,15 @@ export function installLatencyClient({
     launch() {
       const button = document.querySelector<HTMLButtonElement>('[data-launch]');
 
-      if (button) {
-        button.click();
+      if (button && !button.disabled && button.getClientRects().length) {
+        button.dispatchEvent(
+          new PointerEvent('pointerdown', {
+            bubbles: true,
+            isPrimary: true,
+            button: 0,
+          }),
+        );
+
         return true;
       }
 
