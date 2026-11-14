@@ -97,6 +97,13 @@ assert.equal(
 );
 ship.update(1);
 assert.equal(ship.fuel, ship.fuelCapacity, 'docked controls use no fuel');
+ship.fuel = ship.fuelCapacity - 0.5;
+assert.equal(ship.refuelCost, 0, 'fuel that displays as full has no cost');
+assert.equal(ship.applyDockAction(action, account), undefined);
+ship.fuel = ship.fuelCapacity - 0.51;
+assert.equal(ship.refuelCost, 1);
+assert(ship.applyDockAction(action, account));
+assert.equal(ship.fuel, ship.fuelCapacity);
 ship.fuel = 60;
 assert.equal(ship.refuelCost, 12);
 

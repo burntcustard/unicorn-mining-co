@@ -54,6 +54,11 @@ func TestRefuelAndEmptyTankRespawn(t *testing.T) {
 
 	p.ship.Fuel = 119.5
 	p.profile.Credits = 1
+
+	if p.ship.RefuelCost() != 0 {
+		t.Fatal("fuel that displays as full must have no refuel cost")
+	}
+
 	s.Receive(request, socket)
 
 	if p.ship.Fuel != 119.5 || p.profile.Credits != 1 {
@@ -61,6 +66,11 @@ func TestRefuelAndEmptyTankRespawn(t *testing.T) {
 	}
 
 	p.ship.Fuel = 119.49
+
+	if p.ship.RefuelCost() != 1 {
+		t.Fatal("fuel that displays below full must cost one credit")
+	}
+
 	s.Receive(request, socket)
 
 	if p.ship.Fuel != 120 || p.profile.Credits != 0 {

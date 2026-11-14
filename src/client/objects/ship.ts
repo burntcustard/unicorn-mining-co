@@ -172,7 +172,9 @@ export class Ship extends Craft {
   }
 
   get refuelCost() {
-    return Math.ceil((this.fuelCapacity - this.fuel) * flight.fuelPrice);
+    const missing = this.fuelCapacity - this.fuel;
+
+    return missing > 0.5 ? Math.ceil(missing * flight.fuelPrice) : 0;
   }
 
   consumeFuel(dt: number) {
@@ -210,12 +212,7 @@ export class Ship extends Craft {
     if (action.action === 'refuel') {
       const cost = this.refuelCost;
 
-      if (
-        station?.kind !== 'station' ||
-        !(cost > 0) ||
-        Math.round(this.fuel) >= this.fuelCapacity ||
-        player.credits < cost
-      ) {
+      if (station?.kind !== 'station' || !(cost > 0) || player.credits < cost) {
         return;
       }
 

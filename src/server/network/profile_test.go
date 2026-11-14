@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
 )
@@ -69,6 +70,45 @@ func TestProfileNameSurvivesReconnectRestartAndRespawn(t *testing.T) {
 	if p.ship.Name != "Mustang" || p.ship.TargetLabel != name {
 		t.Fatal("replacement ship did not use its model name")
 	}
+}
+
+func TestPlayerTargetLabelFollowsPilotedShip(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	socket := &benchmarkSocket{}
+	s.Receive(protocol.Control{Type: "prepare"}, socket)
+	s.Receive(protocol.Control{Type: "profile", DisplayName: "Pilot"}, socket)
+	s.Receive(protocol.Control{Type: "play"}, socket)
+	p := s.playersBySocket[socket]
+	dockHangarPlayer(s, p)
+	batch := NewBinarySnapshotBatch(catalog)
+	fields := catalog.Protocol.BinaryFieldIDs
+
+	check := func(ship *objects.Ship, name string, label any) {
+		t.Helper()
+		batch.Begin(nil)
+		record := batch.prepared(ship)
+
+		if record.fields[fields.Name].wire != name || record.fields[fields.TargetLabel].wire != label {
+			t.Fatalf("replicated name=%v label=%v; want %q and %v", record.fields[fields.Name].wire, record.fields[fields.TargetLabel].wire, name, label)
+		}
+	}
+
+	first := p.ship
+	hangarAction(t, s, p, "RENAME", first.ID, "First Ship")
+	check(first, "First Ship", "Pilot")
+	p.profile.Credits = 100000
+	hangarAction(t, s, p, "BUY", 0, "kestrel")
+	second := p.ship
+	check(first, "First Ship", nil)
+	check(second, "Kestrel", "Pilot")
+	hangarAction(t, s, p, "PILOT", first.ID, "")
+	check(first, "First Ship", "Pilot")
+	check(second, "Kestrel", nil)
+
+	npc := objects.CreateShip(s.World, objects.Properties{})
+	npc.Name = "NPC Ship"
+	check(npc, "NPC Ship", nil)
 }
 
 func TestProfileNameValidationAndOwnership(t *testing.T) {

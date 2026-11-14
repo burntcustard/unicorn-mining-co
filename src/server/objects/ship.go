@@ -147,7 +147,7 @@ func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (pr
 	case "refuel":
 		cost := s.RefuelCost()
 
-		if s.TradeStation() == nil || !(cost > 0) || math.Round(s.Fuel) >= s.FuelCapacity || *credits < cost {
+		if s.TradeStation() == nil || !(cost > 0) || *credits < cost {
 			return action, false
 		}
 
@@ -548,7 +548,13 @@ func (s *Ship) FuelThrottle() float64 {
 }
 
 func (s *Ship) RefuelCost() float64 {
-	return math.Ceil((s.FuelCapacity - s.Fuel) * s.Rules.Flight.FuelPrice)
+	missing := s.FuelCapacity - s.Fuel
+
+	if missing <= 0.5 {
+		return 0
+	}
+
+	return math.Ceil(missing * s.Rules.Flight.FuelPrice)
 }
 
 func (s *Ship) ConsumeFuel(dt float64) {

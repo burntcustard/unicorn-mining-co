@@ -70,7 +70,7 @@
 
 **fuel usage** - A thruster module's full forward-thrust consumption in liters per second (L/s). A ship consumes the combined fuel usage of its working thrusters. Turning alone uses half this rate; forward thrust with turning uses the forward rate. Coasting and docking use no fuel. Below 5% capacity, speed and turn rate are halved and fuel usage is one quarter of normal.
 
-**refuel** - A station overview action that fills the ship's fuel tank, charging for the missing liters at the shared fuel price, rounded up to whole unicredits.
+**refuel** - A station overview action that fills the ship's fuel tank when more than half a liter is missing, charging for the missing liters at the shared fuel price, rounded up to whole unicredits.
 
 **game object** - Anything in the game with its own identity and state, such as a craft, asteroid, portal, item, or module.
 

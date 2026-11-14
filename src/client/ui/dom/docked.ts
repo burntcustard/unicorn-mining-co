@@ -461,9 +461,7 @@ const createDocked = () => {
           (command === 'BUY' && player.credits < offer?.price) ||
           (command === 'REPAIR' && (!total || player.credits < total)) ||
           (command === 'REFUEL' &&
-            (!owned?.refuelCost ||
-              Math.round(owned.fuel) >= owned.fuelCapacity ||
-              player.credits < owned.refuelCost));
+            (!owned?.refuelCost || player.credits < owned.refuelCost));
       });
 
     text('[data-ship-buy-label]', buyLabel(offer?.price));
@@ -662,7 +660,6 @@ const createDocked = () => {
     query<HTMLButtonElement>(root, '[data-refuel]').disabled =
       !player.ships.length ||
       !ship.refuelCost ||
-      Math.round(ship.fuel) >= ship.fuelCapacity ||
       player.credits < ship.refuelCost;
     text('[data-balance]', money(player.credits));
     text('[data-ship-name]', ship.name);

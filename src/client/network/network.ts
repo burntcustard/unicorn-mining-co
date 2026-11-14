@@ -671,7 +671,10 @@ export class NetworkClient {
 
       if (message.credits !== undefined) this.player.credits = message.credits;
       this.authoritativeCredits = this.player.credits;
-      this.dockSequence = this.acknowledgedDockSequence = 0;
+      // Sector travel sends another welcome over the existing connection.
+      // Keep its sequence so even requests still in flight cannot collide.
+
+      if (!this.welcomed) this.dockSequence = this.acknowledgedDockSequence = 0;
       this.dockIds.clear();
       this.pendingDockActions.length = 0;
       this.hangarListPending = false;
