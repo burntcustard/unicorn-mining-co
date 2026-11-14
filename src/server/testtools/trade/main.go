@@ -43,6 +43,7 @@ func main() {
 
 	session := network.NewGameSession(25, catalog)
 	socket := &socket{packets: []string{}}
+	var stationID int64
 	decoder := json.NewDecoder(os.Stdin)
 	encoder := json.NewEncoder(os.Stdout)
 
@@ -69,6 +70,7 @@ func main() {
 			ship := entity.(interface{ ShipBase() *objects.Ship }).ShipBase()
 
 			id := simulation.EntityID(session.World)
+			stationID = id
 			station := objects.NewStation("corral-5", objects.Properties{ObjectProperties: simulation.ObjectProperties{World: session.World, ID: &id, Position: ship.Position}}, catalog)
 			simulation.AddEntity(session.World, station)
 			ship.DockedTo = &id
@@ -79,8 +81,25 @@ func main() {
 				modules.Create("autogun", simulation.ObjectProperties{World: session.World}, catalog))
 			// A rejected request forces a full load of the controlled dock state.
 			session.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "buyStock"}}, socket)
+			session.Receive(protocol.Control{Type: "profile", DisplayName: "burntcustard"}, socket)
 		case "drift":
 			session.World.NextEntityID += 100
+		case "travel":
+			player, _ := session.World.Players.Get(1)
+			entity, _ := session.World.Entities.Get(player.ShipID)
+
+			ship := entity.(interface{ ShipBase() *objects.Ship }).ShipBase()
+
+			ship.DockedTo = nil
+			session.Receive(protocol.Control{Type: "chat", Text: "/tp 0 0"}, socket)
+		case "redock":
+			player, _ := session.World.Players.Get(1)
+			entity, _ := session.World.Entities.Get(player.ShipID)
+
+			ship := entity.(interface{ ShipBase() *objects.Ship }).ShipBase()
+
+			ship.DockedTo = &stationID
+			session.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "buyStock"}}, socket)
 		case "block":
 			socket.buffered = network.MaxSnapshotBuffer + 1
 		case "unblock":

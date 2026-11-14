@@ -231,6 +231,7 @@ func TestTypeScriptGameplay(t *testing.T) {
 			}
 
 			snapshot := 0
+			shieldContact := false
 
 			for tick := 0; tick < scenario.Ticks; tick++ {
 				if scenario.Name == "moth-thrusters" && tick == 40 {
@@ -292,6 +293,12 @@ func TestTypeScriptGameplay(t *testing.T) {
 
 				events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: inputs})
 
+				for _, event := range events {
+					if hit, ok := event.(protocol.CollisionEvent); ok && (hit.Shield[0] || hit.Shield[1]) {
+						shieldContact = true
+					}
+				}
+
 				if snapshot < len(scenario.Snapshots) && scenario.Snapshots[snapshot].Tick == tick {
 					expected := scenario.Snapshots[snapshot]
 					contacts := []any{}
@@ -322,6 +329,10 @@ func TestTypeScriptGameplay(t *testing.T) {
 					compare.JSON(t, fmt.Sprintf("tick%d.entities", tick), entities, expected.Entities, 2e-8)
 					snapshot++
 				}
+			}
+
+			if scenario.Name == "shield" && !shieldContact {
+				t.Fatal("shield contact did not mark a collision event")
 			}
 
 			if snapshot != len(scenario.Snapshots) {

@@ -3,7 +3,8 @@ import type { HornDrillSoundSettings } from '../../client/audio/synthesis';
 export default {
   duration: 33,
   frequency: 35,
-  volume: 0.3,
+  volume: 0.25,
+  highpass: 80,
   basePitch: 0.4,
   activeVolume: 2,
   bitingVolume: 4,

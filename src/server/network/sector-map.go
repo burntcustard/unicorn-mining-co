@@ -12,7 +12,7 @@ import (
 func (s *GameSession) sectorMapView(player *playerRecord, position specs.Vector) {
 	now := s.now()
 
-	if player.socket == nil || (!player.mapAt.IsZero() && now.Sub(player.mapAt) < 200*time.Millisecond) || math.Abs(position.X) > 1e9 || math.Abs(position.Y) > 1e9 {
+	if player.socket == nil || (!player.mapAt.IsZero() && now.Sub(player.mapAt) < 60*time.Millisecond) || math.Abs(position.X) > 1e9 || math.Abs(position.Y) > 1e9 {
 		return
 	}
 

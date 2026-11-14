@@ -35,8 +35,8 @@ assert.equal(value(cannon, 'AOE'), undefined);
 
 const plasma = moduleWeaponMarkup(PlasmaAccelerator);
 
-assert.equal(value(plasma, 'Damage'), '10');
-assert.equal(moduleWeaponDps(PlasmaAccelerator), '3.33');
+assert.equal(value(plasma, 'Damage'), '15');
+assert.equal(moduleWeaponDps(PlasmaAccelerator), '5');
 assert.equal(value(plasma, 'ROF'), '0.33/s');
 assert.equal(value(plasma, 'AOE'), '24 m');
 

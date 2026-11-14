@@ -110,6 +110,46 @@ func TestWorldSoundPacketsExcludeUI(t *testing.T) {
 	}
 }
 
+func TestShieldBounceOverridesCollisionAndAsteroidSounds(t *testing.T) {
+	catalog, _ := specs.Load()
+	session := NewGameSession(25, catalog)
+	actor := &soundSocket{}
+	session.Receive(protocol.Control{Type: "hello"}, actor)
+	player := session.playersBySocket[actor]
+	position := Vec.Create(10, 20)
+
+	for _, shieldSide := range []int{0, 1} {
+		collision := protocol.CollisionEvent{A: player.shipID, B: -99, Impact: 400, Damage: [2]float64{2, 3}, Position: position}
+
+		if shieldSide == 1 {
+			collision.A, collision.B = collision.B, collision.A
+		}
+
+		collision.Shield[shieldSide] = true
+		expected := []protocol.WorldSound{{Effect: 5, ID: player.shipID, By: player.playerID, Position: position}}
+
+		for _, events := range [][]protocol.SimulationEvent{
+			{protocol.AsteroidSplit{AsteroidID: -99}, collision},
+			{collision, protocol.AsteroidDestroyed{AsteroidID: -99, By: player.playerID}},
+		} {
+			if got := session.worldSounds(events); !reflect.DeepEqual(got, expected) {
+				t.Fatalf("shield side %d: got %#v, want %#v", shieldSide, got, expected)
+			}
+		}
+	}
+
+	// An unrelated fracture keeps its own sound even when a shield bounces.
+	events := []protocol.SimulationEvent{
+		protocol.CollisionEvent{A: player.shipID, B: -99, Impact: 400, Shield: [2]bool{true, false}, Position: position},
+		protocol.DrillDamage{TargetID: -100, By: player.playerID, Position: position},
+		protocol.AsteroidSplit{AsteroidID: -100},
+	}
+
+	if got := session.worldSounds(events); len(got) != 2 || got[0].Effect != 5 || got[1].Effect != 4 {
+		t.Fatalf("unrelated fracture sounds: %#v", got)
+	}
+}
+
 func TestModuleSoundIsDeliveredOnceFromTick(t *testing.T) {
 	t.Parallel()
 	catalog, _ := specs.Load()

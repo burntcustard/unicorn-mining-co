@@ -20,6 +20,7 @@ type Human struct {
 	Craft    *objects.Ship
 	ID       int64
 	Account  string
+	Name     string
 	Online   bool
 	Cooldown uint64
 	Input    protocol.Input
@@ -28,6 +29,8 @@ type Human struct {
 }
 
 func (p *Human) AccountID() string { return p.Account }
+
+func (p *Human) DisplayName() string { return p.Name }
 
 func (p *Human) ObserverID() int64 { return p.ID }
 
@@ -158,7 +161,7 @@ func (h *Host) AddPlayer() *Human {
 	position := Vec.AddScaled(home.Position, Vec.Create(cos, sin), home.Radius+250)
 	position.X, position.Y = utilities.RoundTiesUp(position.X), utilities.RoundTiesUp(position.Y)
 	ship := objects.CreatePlayerShip(h.Simulation, objects.Properties{PlayerID: &id, Position: position})
-	p := &Human{Craft: ship, ID: id, Account: fmt.Sprint(id), Online: true, Credits: h.Simulation.Specification.StartingCredits}
+	p := &Human{Craft: ship, ID: id, Account: fmt.Sprint(id), Name: "Skye", Online: true, Credits: h.Simulation.Specification.StartingCredits}
 	h.Humans = append(h.Humans, p)
 	simulation.AddEntity(h.Simulation, ship)
 	simulation.AddPlayer(h.Simulation, simulation.Player{ID: id, ShipID: ship.ID, Credits: &p.Credits})

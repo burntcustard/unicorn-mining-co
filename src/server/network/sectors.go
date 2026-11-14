@@ -634,6 +634,8 @@ func (e *sectorEnvironment) Send(player ai.Player, message protocol.ServerContro
 
 func (p *playerRecord) AccountID() string { return p.profile.ID }
 
+func (p *playerRecord) DisplayName() string { return p.profile.DisplayName }
+
 func (p *playerRecord) ObserverID() int64 { return p.playerID }
 
 func (p *playerRecord) Ship() *objects.Ship { return p.ship }

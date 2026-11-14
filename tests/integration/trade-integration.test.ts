@@ -258,6 +258,18 @@ assert(!ship().mounts[0].module, 'rapid equipped sales stay sold after server co
 assert.equal(client.player.credits, beforeEquippedBuyback, 'rapid equipped buyback and resale are charged correctly');
 assert.equal(ship().cargoContents.length, ship().cargoSpace - 1, 'rapid equipped trades preserve cargo');
 
+// Relocation sends another welcome on the same connection. A transaction
+// already in flight can reach the server after that relocation and must not
+// make later action sequence numbers collide with it.
+assert(act({ action: 'buyAmmo' }));
+receive(await server('travel', outgoing()));
+receive(await server('redock', outgoing()));
+const afterTravel = state();
+assert(act({ action: 'sell', objectIds: [ship().cargoContents.find(object => object.item === autogunAmmo).id] }));
+await flush();
+assert.equal(ship().cargoContents.length, afterTravel[1].length - 1, 'a sale after relocation is confirmed by the server');
+assert.equal(client.player.credits, afterTravel[0] + autogunAmmo.price, 'the sale after relocation credits the account');
+
 const beforeHangar = client.player.credits;
 const starterId = ship().id;
 const hangar = async (command, shipId = 0, value = '') => {
@@ -310,6 +322,7 @@ receive(await server('tick', outgoing()));
 assert.equal(ship().id, berthId);
 assert(ship().dockedTo, 'an empty hangar cannot launch over the wire');
 await server('disconnect', []);
+client.connect('test');
 receive(await server('receive', [encodeClientMessage({ type: 'prepare', playerToken })]));
 receive(await server('receive', [encodeClientMessage({ type: 'play' })]));
 assert.equal(client.ownedShips.length, 0, 'shipless reconnect preserves the empty fleet');
@@ -322,6 +335,10 @@ assert(ship().dockedTo, 'a shipless berth cannot be launched by client predictio
 await hangar('BUY', 0, 'mustang');
 assert.notEqual(ship().id, berthId);
 assert.equal(client.ownedShips.length, 1);
+const afterReconnect = state();
+assert(act({ action: 'buyAmmo' }));
+await flush();
+assert.equal(ship().cargoContents.length, afterReconnect[1].length + 1, 'the first action after a new connection is confirmed');
 
 const settled = state();
 client.connected = false;

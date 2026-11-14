@@ -52,6 +52,31 @@ func TestRefuelAndEmptyTankRespawn(t *testing.T) {
 		t.Fatal("full tank charged twice")
 	}
 
+	p.ship.Fuel = 119.5
+	p.profile.Credits = 1
+
+	if p.ship.RefuelCost() != 0 {
+		t.Fatal("fuel that displays as full must have no refuel cost")
+	}
+
+	s.Receive(request, socket)
+
+	if p.ship.Fuel != 119.5 || p.profile.Credits != 1 {
+		t.Fatal("fuel that rounds to full must not be refilled")
+	}
+
+	p.ship.Fuel = 119.49
+
+	if p.ship.RefuelCost() != 1 {
+		t.Fatal("fuel that displays below full must cost one credit")
+	}
+
+	s.Receive(request, socket)
+
+	if p.ship.Fuel != 120 || p.profile.Credits != 0 {
+		t.Fatal("fuel that rounds below full must be refillable")
+	}
+
 	p.ship.Fuel = 60
 	p.profile.Credits = 12
 	s.Receive(request, socket)

@@ -198,7 +198,9 @@ export class Ship extends Craft {
   }
 
   get refuelCost() {
-    return Math.ceil((this.fuelCapacity - this.fuel) * flight.fuelPrice);
+    const missing = this.fuelCapacity - this.fuel;
+
+    return missing > 0.5 ? Math.ceil(missing * flight.fuelPrice) : 0;
   }
 
   consumeFuel(dt: number) {

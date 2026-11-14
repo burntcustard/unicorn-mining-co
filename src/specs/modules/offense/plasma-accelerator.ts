@@ -21,7 +21,7 @@ export const plasmaAccelerator = {
   activationDuration: 700,
   chargeDuration: 3000,
   retractionDistance: 17,
-  damage: 10,
+  damage: 15,
   fireInterval: 3000,
   muzzleFlash: plasmaMuzzleFlash,
   recoil: 30,

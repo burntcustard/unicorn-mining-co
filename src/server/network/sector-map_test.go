@@ -49,11 +49,19 @@ func TestSectorMapViewportIsPrivateAndRateLimited(t *testing.T) {
 		t.Fatal("map query rate was not bounded")
 	}
 
+	// A normal 15 Hz request must pass the server-side limit.
+	p.mapAt = s.now().Add(-time.Second / 15)
+	s.Receive(protocol.Control{Type: "sectorMap", Position: position}, a)
+
+	if len(a.frames) != 2 {
+		t.Fatal("map query at 15 Hz was rate limited")
+	}
+
 	p.mapAt = time.Time{}
 	position = Vec.Create(200000, 200000)
 	s.Receive(protocol.Control{Type: "sectorMap", Position: position}, a)
 
-	if len(a.frames) != 2 || !bytes.Contains(a.frames[1], []byte("Map Pilot")) || !bytes.Contains(a.frames[1], []byte("Other Pilot")) {
+	if len(a.frames) != 3 || !bytes.Contains(a.frames[2], []byte("Map Pilot")) || !bytes.Contains(a.frames[2], []byte("Other Pilot")) {
 		t.Fatal("panning lost sector-wide player data")
 	}
 
@@ -69,6 +77,42 @@ func TestSectorMapViewportIsPrivateAndRateLimited(t *testing.T) {
 
 	if len(prepared.frames) != 0 {
 		t.Fatal("prepared account received gameplay map")
+	}
+}
+
+func TestSectorMapIncludesNamesCreatedThroughProfileFlow(t *testing.T) {
+	catalog, _ := specs.Load()
+	s := NewGameSession(25, catalog)
+	requester, other := &soundSocket{}, &soundSocket{}
+
+	for _, player := range []struct {
+		socket *soundSocket
+		name   string
+	}{{requester, "Map Pilot"}, {other, "Other Pilot"}} {
+		s.Receive(protocol.Control{Type: "prepare"}, player.socket)
+		s.Receive(protocol.Control{Type: "profile", DisplayName: player.name}, player.socket)
+		s.Receive(protocol.Control{Type: "play"}, player.socket)
+	}
+
+	requester.frames = nil
+	s.Receive(protocol.Control{Type: "sectorMap", Position: s.playersBySocket[requester].ship.Position}, requester)
+
+	if len(requester.frames) != 1 {
+		t.Fatalf("got %d map responses, want one", len(requester.frames))
+	}
+
+	for _, player := range []struct {
+		socket *soundSocket
+		name   string
+	}{{requester, "Map Pilot"}, {other, "Other Pilot"}} {
+		p := s.playersBySocket[player.socket]
+		packet, err := protocol.EncodeServerControl(protocol.ServerControl{Type: "sectorMap", MapMarkers: []protocol.MapMarker{{
+			Kind: "ship", ID: p.shipID, Position: p.ship.Position, Name: player.name, Color: p.ship.Shades[2], SenderRole: string(p.profile.Role),
+		}}}, catalog.Protocol)
+
+		if err != nil || !bytes.Contains(requester.frames[0], packet[5:]) {
+			t.Fatalf("map omitted named marker for %s", player.name)
+		}
 	}
 }
 

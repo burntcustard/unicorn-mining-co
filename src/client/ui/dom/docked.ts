@@ -419,7 +419,7 @@ const createDocked = () => {
         ? `<dt>Hull</dt><dd>${health(ship.hullHealthTotal, ship.hullMaxHealth)}</dd>
         <dt>Modules fitted</dt><dd>${ship.mounts.filter((mount) => mount.module).length}/${ship.mounts.length}</dd>
         <dt>Cargo</dt><dd>${ship.cargoContents.length}/${ship.cargoSpace}</dd>
-        <dt>Fuel</dt><dd>${ship.fuel.toFixed(1)}/${ship.fuelCapacity} L</dd>`
+        <dt>Fuel</dt><dd>${Math.round(ship.fuel)}/${ship.fuelCapacity} L</dd>`
         : '',
     );
 
@@ -655,7 +655,7 @@ const createDocked = () => {
       query(root, '.dock-station-icon'),
       station.definitionId === 'corral-6' ? hexagon : pentagon,
     );
-    text('[data-fuel]', `${ship.fuel.toFixed(1)}/${ship.fuelCapacity} L`);
+    text('[data-fuel]', `${Math.round(ship.fuel)}/${ship.fuelCapacity} L`);
     text('[data-fuel-price]', money(ship.refuelCost));
     query<HTMLButtonElement>(root, '[data-refuel]').disabled =
       !player.ships.length ||

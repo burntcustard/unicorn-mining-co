@@ -23,7 +23,7 @@ type Ship struct {
 	cargoReleaseTime   float64
 	thrusterMountCount int
 	*Craft
-	NPCState                                 string
+	NPCState, TargetLabel                    string
 	TargetID                                 *int64
 	Firing                                   bool
 	Fuel, FuelCapacity                       float64
@@ -569,7 +569,13 @@ func (s *Ship) FuelThrottle() float64 {
 }
 
 func (s *Ship) RefuelCost() float64 {
-	return math.Ceil((s.FuelCapacity - s.Fuel) * s.Rules.Flight.FuelPrice)
+	missing := s.FuelCapacity - s.Fuel
+
+	if missing <= 0.5 {
+		return 0
+	}
+
+	return math.Ceil(missing * s.Rules.Flight.FuelPrice)
 }
 
 func (s *Ship) ConsumeFuel(dt float64) {

@@ -55,6 +55,8 @@ func shipSalePrice(ship *objects.Ship) float64 {
 
 func (s *GameSession) pilotShip(p *playerRecord, ship *objects.Ship) {
 	previous := p.ship
+	previous.TargetLabel = ""
+	ship.TargetLabel = p.profile.DisplayName
 
 	p.storedShips = slices.DeleteFunc(p.storedShips, func(candidate *objects.Ship) bool { return candidate == ship })
 

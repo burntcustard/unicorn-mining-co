@@ -2631,6 +2631,15 @@ export const checkHud = () => {
   const gateApproachCleared =
     text('[data-description]') === gate.targetLabel!.split('\n').at(-1);
 
+  const namedPilot = createPlayerShip(createWorld());
+
+  namedPilot.name = 'Named ship';
+  namedPilot.targetLabel = 'Pilot name';
+  update({ ...options, target: namedPilot });
+  const playerShipDescription =
+    text('[data-name]') === 'Named ship' &&
+    text('[data-description]') !== 'Pilot name';
+
   const targetArtwork = [
     new Station({ stationType: 'corral-5' }),
     new Station({ stationType: 'corral-6' }),
@@ -2714,10 +2723,10 @@ export const checkHud = () => {
     zoomedMapLabel !== mapRangeLabel &&
     mapCanvas.getAttribute('aria-label') === mapRangeLabel;
 
-  updateMap(5249, true);
+  updateMap(5066, true);
   const expandedMapWaits = mapRequests.length === 3;
 
-  updateMap(5250, true);
+  updateMap(5067, true);
   const expandedMapPolls = mapRequests.length === 4;
 
   mapHud.toggleMap();
@@ -2765,6 +2774,7 @@ export const checkHud = () => {
     ['cargoFullCleared', cargoFullCleared],
     ['gateApproach', gateApproach],
     ['gateApproachCleared', gateApproachCleared],
+    ['playerShipDescription', playerShipDescription],
     ['storeOrder', storeOrder],
     ['noCargoBar', noCargoBar],
     ['sharedTextStyle', sharedTextStyle],

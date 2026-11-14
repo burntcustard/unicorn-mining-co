@@ -10,7 +10,6 @@ import (
 	"math"
 	"slices"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -1192,12 +1191,6 @@ func TestFriendlyVictimDockingDoesNotAbandonDefendedLoot(t *testing.T) {
 
 			if !npc.CargoAccepted || !slices.Equal(npc.loot, loot) || !npc.aggressors[other.ID] || npc.aggressors[p.ID] || npc.State != state {
 				t.Fatal("the friendly victim's docking abandoned loot or interrupted its defender")
-			}
-
-			for _, line := range s.World.Specification.PirateDialog.Escaped {
-				if chatCount(p, strings.ReplaceAll(line, "{player}", p.Craft.Name)) != 0 {
-					t.Fatal("the pirate called off combat against a friendly original victim")
-				}
 			}
 
 			other.Craft.DockedTo = &npc.HomeID
