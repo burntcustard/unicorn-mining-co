@@ -10,7 +10,7 @@ export const autogun = {
   description:
     "Fire a rapid stream of kinetic projectiles.\nDon't forget to buy ammo!",
   behavior: 'weapon',
-  weight: 1,
+  mass: 100,
   name: 'Autogun',
   health: 0,
   healthActivated: 20,

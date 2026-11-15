@@ -108,7 +108,7 @@ func (s *Search) movement(ship *objects.Ship, obstacles []obstacle) Movement {
 	target := waypoint()
 	speed := Vec.Length(ship.Velocity)
 	lookahead := speed * ship.Catalog.NPCMovement.DecisionInterval
-	turnRate := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+	turnRate := ship.MaximumTurnRate()
 
 	if turnRate > 0 {
 		lookahead += speed / turnRate

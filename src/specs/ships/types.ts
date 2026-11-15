@@ -14,7 +14,8 @@ export type ShipSpec = {
   fuelCapacity: number;
   cargoSpace: number;
   drag: number;
-  mass: number;
+  hullMass: number;
+  angularThrust: number;
   radius: number;
   turnRate: number;
   // Zero-based mount slots, flattened in hull segment order. Omitted slots stay empty.

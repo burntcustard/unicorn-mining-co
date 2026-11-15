@@ -87,7 +87,7 @@ func makeSegment(object *simulation.GameObject, zIndex int, module simulation.Mo
 
 	side := plan.ThrusterNozzleSide
 
-	if spec.CollectsCargo && mount != nil {
+	if spec.Behavior == "cargoHatch" && mount != nil {
 		if mount.LocalPosition.Y < 0 {
 			side = 1
 		} else if mount.LocalPosition.Y > 0 {

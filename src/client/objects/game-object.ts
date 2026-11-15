@@ -181,6 +181,10 @@ export class GameObject {
     return !!this.decay;
   }
 
+  movementDrag() {
+    return this.drag ?? motion.defaultDrag;
+  }
+
   update(dt: number) {
     if (this.dead || this.buried) return;
 
@@ -192,12 +196,8 @@ export class GameObject {
     if (this.angularDrag) this.spin *= Math.exp(-this.angularDrag * dt);
     this.rotation += this.spin * dt;
 
-    const {
-      position,
-      velocity,
-      drag = motion.defaultDrag,
-      maxSpeed = motion.defaultMaxSpeed,
-    } = this;
+    const { position, velocity, maxSpeed = motion.defaultMaxSpeed } = this;
+    const drag = this.movementDrag();
     const speedSquared = velocity.x * velocity.x + velocity.y * velocity.y;
 
     if (speedSquared < motion.minimumSpeedSquared) {

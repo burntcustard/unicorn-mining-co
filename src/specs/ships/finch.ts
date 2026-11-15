@@ -4,12 +4,13 @@ import type { ShipSpec } from './types';
 // Five-panel compact craft with two interchangeable weapon/cargo hardpoints.
 export const finch = {
   name: 'Finch',
-  price: 2200,
+  price: 1800,
   fuelCapacity: 120,
   cargoSpace: 6,
-  drag: 0.56,
-  mass: 9,
+  drag: 2338,
+  hullMass: 3625,
   radius: 40,
+  angularThrust: 4175,
   turnRate: 2,
   initialLoadout: [
     {

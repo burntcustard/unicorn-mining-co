@@ -3,12 +3,13 @@ import type { ShipSpec } from './types';
 
 export const courser = {
   name: 'Courser',
-  price: 2800,
+  price: 2400,
   fuelCapacity: 120,
   cargoSpace: 8,
-  drag: 0.56,
-  mass: 9,
+  drag: 2338,
+  hullMass: 3540,
   radius: 40,
+  angularThrust: 4175,
   turnRate: 3,
   initialLoadout: [
     { mount: 0, module: 'cannonSm' },

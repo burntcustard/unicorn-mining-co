@@ -46,7 +46,7 @@ type ModuleValues = {
   // Generation is MW (MJ/s); storage capacity is MJ.
   powerGenerated?: number;
   powerCapacity?: number;
-  weight: number;
+  mass: number;
   health: number;
   // Optional separate health pool for the exposed active module or shield bubble.
   healthActivated?: number;
@@ -108,7 +108,6 @@ type ModuleValues = {
   forwardThrust?: number;
   rotationalThrust?: number;
   offset?: number;
-  collectsCargo?: boolean;
   grinds?: boolean;
   beam?: boolean;
   reach?: number;

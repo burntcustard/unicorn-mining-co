@@ -7,7 +7,7 @@ import type { ModuleSpec } from '../types';
 
 export const cannonSm = {
   icon: './autogun.svg',
-  weight: 1,
+  mass: 100,
   name: 'Cannon sm',
   description: 'Fire one kinetic projectile per second from a slim barrel.',
   behavior: 'weapon',
@@ -15,7 +15,7 @@ export const cannonSm = {
   healthActivated: 20,
   power: 0.1,
   powerActivated: 0.4,
-  price: 600,
+  price: 300,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   activationDuration: 500,

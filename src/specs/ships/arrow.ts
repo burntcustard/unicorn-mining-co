@@ -3,12 +3,13 @@ import type { ShipSpec } from './types';
 
 export const arrow = {
   name: 'Arrow',
-  price: 2600,
+  price: 3200,
   fuelCapacity: 120,
   cargoSpace: 12,
-  drag: 0.56,
-  mass: 9,
+  drag: 2338,
+  hullMass: 3110,
   radius: 40,
+  angularThrust: 4175,
   turnRate: 3,
   initialLoadout: [
     { mount: 2, module: 'thrusterSingleMd' },
@@ -29,7 +30,7 @@ export const arrow = {
       ],
     },
     {
-      health: 20,
+      health: 30,
       mounts: [
         [
           {
@@ -93,7 +94,7 @@ export const arrow = {
       ],
     },
     {
-      health: 20,
+      health: 30,
       mounts: [
         [
           {
@@ -138,7 +139,7 @@ export const arrow = {
       ],
     },
     {
-      health: 40,
+      health: 60,
       core: true,
       mounts: [
         [

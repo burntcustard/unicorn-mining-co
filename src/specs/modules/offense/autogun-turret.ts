@@ -9,7 +9,7 @@ export const autogunTurret = {
   icon: './autogun.svg',
   description: 'Fire a rapid stream of kinetic projectiles.',
   behavior: 'weapon',
-  weight: 1,
+  mass: 100,
   name: 'Autogun Turret',
   turret: true,
   turretTurnRate: 3,

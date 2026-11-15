@@ -174,7 +174,7 @@ func (forecast contactForecast) predict(thrust, turn, horizon float64) (contactP
 		vb := contact.FixtureB.Body.GetLinearVelocityFromWorldPoint(wm.Points[0])
 		contact.SurfaceSpeed = a.Speed + b.Speed
 		impact := contact.SurfaceSpeed - Vec.Dot(Vec.Subtract(vb, va), wm.Normal)
-		inverseMass := 1/a.Owner.(simulation.Entity).Base().Mass + 1/b.Owner.(simulation.Entity).Base().Mass
+		inverseMass := 1/a.Owner.(simulation.Entity).Base().ForceMass() + 1/b.Owner.(simulation.Entity).Base().ForceMass()
 
 		if (impact/inverseMass-rules.Physics.DamageBase)/rules.Physics.DamageScale >= .5 {
 			result.safe = false
@@ -200,7 +200,7 @@ func (forecast contactForecast) predict(thrust, turn, horizon float64) (contactP
 	dt := rules.SimulationStep
 	substeps := rules.UpdateTiers["visible"].Substeps
 	substep := dt / float64(substeps)
-	angular := ship.RotationalThrust()
+	angular := ship.AngularAcceleration()
 	maximumSpin := ship.TurnRate * angular / ship.Rules.Flight.SpinDivisor
 	acceleration := ship.Rules.Flight.ThrustScale * ship.ForwardThrust() / ship.Mass
 	interval := max(1, int(math.Round(ship.Catalog.NPCMovement.DecisionInterval/dt)))
@@ -298,7 +298,7 @@ func (forecast contactForecast) controls(ship, target *simulation.GameObject) (f
 		gain = 1.8
 	}
 
-	maximum := forecast.ship.TurnRate * forecast.ship.RotationalThrust() / forecast.ship.Rules.Flight.SpinDivisor
+	maximum := forecast.ship.MaximumTurnRate()
 	angle := math.Remainder(math.Atan2(course.Y, course.X)-ship.Rotation, 2*math.Pi)
 
 	if docking && math.Abs(angle) >= 1.65 {

@@ -106,6 +106,7 @@ func TestSectorMapIncludesNamesCreatedThroughProfileFlow(t *testing.T) {
 		name   string
 	}{{requester, "Map Pilot"}, {other, "Other Pilot"}} {
 		p := s.playersBySocket[player.socket]
+
 		packet, err := protocol.EncodeServerControl(protocol.ServerControl{Type: "sectorMap", MapMarkers: []protocol.MapMarker{{
 			Kind: "ship", ID: p.shipID, Position: p.ship.Position, Name: player.name, Color: p.ship.Shades[2], SenderRole: string(p.profile.Role),
 		}}}, catalog.Protocol)

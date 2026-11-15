@@ -8,7 +8,7 @@ export const exampleBeam = {
   icon: './laser.svg',
   description: 'Synthetic module for mechanics tests; excluded from gameplay.',
   behavior: 'beam',
-  weight: 1,
+  mass: 100,
   name: 'Example Beam',
   health: 0,
   healthActivated: 40,

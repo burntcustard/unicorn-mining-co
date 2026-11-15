@@ -215,13 +215,13 @@ func (p *Pilot) steer(ship *objects.Ship, destination Movement, entity simulatio
 turnInput converts a heading error into ordinary rotational controls.
 */
 func turnInput(ship *objects.Ship, angle float64) float64 {
-	return turnCommand(angle, ship.TurnRate*ship.RotationalThrust()/ship.Rules.Flight.SpinDivisor, 1.8)
+	return turnCommand(angle, ship.MaximumTurnRate(), 1.8)
 }
 
 const collectionTurnGain = 3.5
 
 func collectionTurnInput(ship *objects.Ship, angle float64) float64 {
-	return turnCommand(angle, ship.TurnRate*ship.RotationalThrust()/ship.Rules.Flight.SpinDivisor, collectionTurnGain)
+	return turnCommand(angle, ship.MaximumTurnRate(), collectionTurnGain)
 }
 
 func turnCommand(angle, maxSpin, gain float64) float64 {
@@ -355,7 +355,7 @@ func (p *Pilot) attackRun(ship *objects.Ship, destination Movement) Vec.Vector {
 			side = Vec.Scale(side, -1)
 		}
 
-		turnRate := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+		turnRate := ship.MaximumTurnRate()
 		turnRadius := 0.0
 
 		if turnRate > 0 {

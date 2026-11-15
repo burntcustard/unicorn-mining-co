@@ -10,15 +10,20 @@ export const createSaves = () => {
   );
 
   privateId.value = localStorage.getItem('playerToken') || '';
-  const status = query(screen.element, '.ui-status');
+  const saveStatus = query(screen.element, '[data-save-status]');
+  const importStatus = query(screen.element, '[data-import-status]');
   const reveal = query<HTMLButtonElement>(screen.element, '[data-reveal]');
   const copy = query<HTMLButtonElement>(screen.element, '[data-copy]');
   const clear = query<HTMLButtonElement>(screen.element, '[data-clear]');
+  const clearDialog = query<HTMLDialogElement>(
+    screen.element,
+    '[data-clear-dialog]',
+  );
 
   reveal.disabled = copy.disabled = clear.disabled = !privateId.value;
 
   if (!privateId.value) {
-    status.textContent =
+    saveStatus.textContent =
       'Connecting to create a pilot, or import an existing private ID.';
   }
 
@@ -42,26 +47,39 @@ export const createSaves = () => {
     async () => {
       try {
         await navigator.clipboard.writeText(privateId.value);
-        status.textContent = 'Private ID copied.';
+        saveStatus.textContent = 'Private ID copied.';
       } catch {
         setVisible(true);
         privateId.select();
-        status.textContent =
+        saveStatus.textContent =
           'Copy is unavailable. Select and copy your private ID manually.';
       }
     },
     { signal: screen.signal },
   );
 
-  clear.addEventListener(
-    'ui-press',
+  clear.addEventListener('ui-press', () => clearDialog.showModal(), {
+    signal: screen.signal,
+  });
+
+  clearDialog.querySelectorAll('button').forEach((button) => {
+    button.addEventListener('ui-press', () => clearDialog.close(button.value), {
+      signal: screen.signal,
+    });
+  });
+
+  clearDialog.addEventListener(
+    'close',
     () => {
+      if (clearDialog.returnValue !== 'confirm') return;
+      clearDialog.returnValue = '';
+
       try {
         localStorage.removeItem('playerToken');
         localStorage.removeItem('unicorn-preview');
         location.reload();
       } catch {
-        status.textContent =
+        saveStatus.textContent =
           'Unable to clear the save. Storage is unavailable.';
       }
     },
@@ -74,7 +92,10 @@ export const createSaves = () => {
 
   const input = query<HTMLInputElement>(screen.element, '[data-import-id]');
   const verify = query<HTMLButtonElement>(screen.element, '[data-verify]');
-  const dialog = query<HTMLDialogElement>(screen.element, 'dialog');
+  const dialog = query<HTMLDialogElement>(
+    screen.element,
+    '[data-import-dialog]',
+  );
   const form = query<HTMLFormElement>(screen.element, '[data-import]');
   let verifiedId = '';
 
@@ -91,7 +112,7 @@ export const createSaves = () => {
       verifiedId = '';
       verify.disabled = true;
       input.readOnly = true;
-      status.textContent = 'Verifying with the server…';
+      importStatus.textContent = 'Verifying with the server…';
       const candidate = input.value.trim().toLowerCase();
 
       try {
@@ -101,11 +122,12 @@ export const createSaves = () => {
         verifiedId = candidate;
         query(screen.element, '[data-preview]').textContent =
           `${identity[0]} · ${identity[2][0]} · ${identity[1]}$`;
-        status.textContent = 'Identity verified. Confirm to switch pilots.';
+        importStatus.textContent =
+          'Identity verified. Confirm to switch pilots.';
         dialog.showModal();
       } catch (error) {
         if (!screen.signal.aborted) {
-          status.textContent =
+          importStatus.textContent =
             error instanceof Error ? error.message : 'Verification failed.';
         }
       } finally {
@@ -130,11 +152,12 @@ export const createSaves = () => {
           localStorage.setItem('playerToken', verifiedId);
           location.reload();
         } catch {
-          status.textContent =
+          importStatus.textContent =
             'Storage is unavailable. Your identity was not changed.';
         }
       } else {
-        status.textContent = 'Import canceled. Your identity is unchanged.';
+        importStatus.textContent =
+          'Import canceled. Your identity is unchanged.';
       }
 
       verifiedId = '';

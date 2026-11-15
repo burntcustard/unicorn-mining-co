@@ -55,6 +55,7 @@ import { effects } from '${root}/src/client/effects/effect.ts';
 import { sparks } from '${root}/src/client/effects/shrapnel.ts';
 import { renderingLayers } from '${root}/src/specs/rendering-layers.ts';
 import { simulationStep } from '${root}/src/specs/simulation.ts';
+import { flight } from '${root}/src/specs/control-ship.ts';
 import { moduleSpecForSimulation } from '${root}/src/client/utilities/module-spec.ts';
 import * as Vec from '${root}/src/client/utilities/vector.ts';
 globalThis.Path2D = class {
@@ -369,7 +370,7 @@ for (const weapon of [PlasmaAccelerator, Autogun])
       );
       assert(shot, 'a successful shot is required for recoil');
       const impulse = Vec.subtract(recoilShip.velocity, startingVelocity);
-      const amount = (gun.recoil ?? 0) / recoilShip.mass;
+      const amount = ((gun.recoil ?? 0) * flight.massPerPhysicsUnit) / recoilShip.mass;
       assert(
         Math.abs(impulse.x + Math.cos(rotation) * amount) < 1e-9 &&
           Math.abs(impulse.y + Math.sin(rotation) * amount) < 1e-9,

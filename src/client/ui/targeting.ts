@@ -98,6 +98,7 @@ export class Targeting {
           object !== ship &&
           object.id !== ship.id &&
           !object.dead &&
+          !object.dockedTo &&
           !object.buried &&
           targetKinds.has(object.kind!),
       )

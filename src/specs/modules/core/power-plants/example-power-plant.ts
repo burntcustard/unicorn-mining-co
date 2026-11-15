@@ -5,7 +5,7 @@ import type { ModuleSpec } from '../../types';
 export const examplePowerPlant = {
   icon: './power-plant.svg',
   description: 'Synthetic module for mechanics tests; excluded from gameplay.',
-  weight: 2,
+  mass: 350,
   name: 'Example Power Plant',
   behavior: 'powerPlant',
   health: 100,

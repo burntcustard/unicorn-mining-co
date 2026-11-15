@@ -6,7 +6,9 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
 	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -47,6 +49,23 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 
 	path := filepath.Join(t.TempDir(), "world.sqlite")
 	s, store := persistedSession(t, path)
+	examples, err := testsupport.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, id := range []string{"cargoHatch", "autogun"} {
+		s.World.Specification.ModuleSpecs[id] = examples.ModuleSpecs[id]
+	}
+
+	cargoHatch := int64(slices.Index(s.World.Specification.ModuleIDs, "cargoHatch"))
+	autogun := int64(slices.Index(s.World.Specification.ModuleIDs, "autogun"))
+
+	if cargoHatch < 0 || autogun < 0 {
+		t.Fatal("example module wire slots missing")
+	}
+
 	socket, otherSocket := &benchmarkSocket{}, &benchmarkSocket{}
 	s.Receive(protocol.Control{Type: "hello"}, socket)
 	s.Receive(protocol.Control{Type: "hello"}, otherSocket)
@@ -73,16 +92,17 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 
 	// Insufficient funds leave both the player account and ship cargo intact.
 	p.profile.Credits = 530
-	s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "buy", Module: 7}}, socket)
+	s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "buy", Module: autogun}}, socket)
 
 	if p.profile.Credits != 530 || len(p.ship.CargoContents) != 0 {
 		t.Fatal("rejected purchase changed player balance or cargo")
 	}
 
-	s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "buy", Module: 4}}, socket)
+	s.Receive(protocol.Control{Type: "dock", Dock: protocol.DockAction{Action: "buy", Module: cargoHatch}}, socket)
 	committedSession(t, s)
+	balance := 380.0
 
-	if p.profile.Credits != 380 || len(p.ship.CargoContents) != 1 || other.profile.Credits != 2000 {
+	if p.profile.Credits != balance || len(p.ship.CargoContents) != 1 || other.profile.Credits != 2000 {
 		t.Fatal("purchase did not debit only the owning player")
 	}
 
@@ -91,7 +111,7 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 	s.Receive(protocol.Control{Type: "respawn"}, socket)
 	committedSession(t, s)
 
-	if p.shipID == oldShip || p.profile.Credits != 380 {
+	if p.shipID == oldShip || p.profile.Credits != balance {
 		t.Fatal("respawn changed the player's balance")
 	}
 
@@ -106,7 +126,7 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 	s.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
 	committedSession(t, s)
 
-	if s.playersBySocket[socket].profile.Credits != 380 {
+	if s.playersBySocket[socket].profile.Credits != balance {
 		t.Fatal("reconnecting granted starting credits again")
 	}
 
@@ -123,7 +143,7 @@ func TestPlayerCreditsTradeAndSurviveShipReplacement(t *testing.T) {
 	socket = &benchmarkSocket{}
 	s.Receive(protocol.Control{Type: "hello", PlayerToken: token}, socket)
 
-	if s.playersBySocket[socket].profile.Credits != 380 {
+	if s.playersBySocket[socket].profile.Credits != balance {
 		t.Fatal("server restart lost the player balance")
 	}
 }

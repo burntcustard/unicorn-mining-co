@@ -268,7 +268,7 @@ export const ui = (() => {
       return;
     }
 
-    const selector = 'button, a[href], input, select, textarea';
+    const selector = 'button, input, select, textarea';
     const control = target.closest(selector);
     const related = event.relatedTarget;
 

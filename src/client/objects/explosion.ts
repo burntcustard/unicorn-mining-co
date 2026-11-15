@@ -5,7 +5,7 @@ import { contactBetween } from '../collision/contact-between';
 import { type Collider, outlineColorOf } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
 import { type EffectSpec } from '../effects/effect';
-import { applyForce } from '../physics/apply-force';
+import { applyForce, physicsMass } from '../physics/apply-force';
 import * as Vec from '../utilities/vector';
 import { createRandom } from '../utilities/seeded-random';
 
@@ -110,7 +110,7 @@ export const explode = ({
     const falloff = 1 - Math.max(0, distance - entity.radius) / radius;
 
     if (falloff <= 0) continue;
-    const force = Math.min(impulse, maxSpeed * entity.mass) * falloff;
+    const force = Math.min(impulse, maxSpeed * physicsMass(entity)) * falloff;
     // Cap angular impulse independently of mass and the linear speed limit;
     // applyForce then gives heavier bodies proportionally less spin.
     const spin =

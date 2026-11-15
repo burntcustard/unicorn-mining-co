@@ -140,7 +140,7 @@ func Explode(options ExplosionOptions) {
 		impulse := options.Impulse
 
 		if options.MaxSpeed > 0 {
-			impulse = min(impulse, options.MaxSpeed*o.Mass)
+			impulse = min(impulse, options.MaxSpeed*o.ForceMass())
 		}
 
 		force := impulse * falloff

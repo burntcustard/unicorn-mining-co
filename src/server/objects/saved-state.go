@@ -384,6 +384,10 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 	b.LocalMovementRate = o.LocalMovementRate
 	b.Random = random.CreateRandom(o.RandomState)
 
+	if ship, ok := entity.(*Ship); ok {
+		ship.UpdateMass()
+	}
+
 	if o.SharedRandom {
 		b.Random = world.Random
 	}

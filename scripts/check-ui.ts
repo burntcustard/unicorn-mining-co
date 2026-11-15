@@ -276,7 +276,7 @@ checkUi: try {
   });
 
   await c.send('Fetch.enable', {
-    patterns: [{ urlPattern: 'http://localhost:3002/*' }],
+    patterns: [{ urlPattern: 'http://localhost:3000/*' }],
   });
 
   await c.send('Runtime.enable');
@@ -325,7 +325,7 @@ checkUi: try {
     mobile: false,
   });
 
-  await c.send('Page.navigate', { url: 'http://localhost:3002' });
+  await c.send('Page.navigate', { url: 'http://localhost:3000' });
   await pause(700);
   const check = (expression: string) => evaluate(c, expression);
 
@@ -1506,7 +1506,7 @@ checkUi: try {
     await pause(100);
     assert(
       await check(
-        `document.querySelector('.ui-status').textContent.includes('valid private ID')`,
+        `document.querySelector('[data-import-status]').textContent.includes('valid private ID')`,
       ),
     );
     await click('[data-back]');
@@ -1990,7 +1990,7 @@ checkUi: try {
 
     assert(savedToken);
 
-    const namedIdentity = await fetch('http://localhost:3002/api/identity', {
+    const namedIdentity = await fetch('http://localhost:3000/api/identity', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: savedToken,
@@ -2163,11 +2163,11 @@ checkUi: try {
     );
     await click('[data-verify]', () =>
       waitFor(
-        `document.querySelector('dialog').open`,
+        `document.querySelector('[data-import-dialog]').open`,
         'pressing Verify submits the form before release',
       ),
     );
-    await click('dialog button[value="cancel"]');
+    await click('[data-import-dialog] button[value="cancel"]');
     assert.equal(
       await check(`localStorage.getItem('playerToken')`),
       savedToken,
@@ -2178,6 +2178,18 @@ checkUi: try {
     const clearEvents = c.events.length;
 
     await click('[data-clear]');
+    assert(await check(`document.querySelector('[data-clear-dialog]').open`));
+    assert.equal(
+      await check(`localStorage.getItem('playerToken')`),
+      savedToken,
+    );
+    await click('[data-clear-dialog] button[value="cancel"]');
+    assert.equal(
+      await check(`localStorage.getItem('playerToken')`),
+      savedToken,
+    );
+    await click('[data-clear]');
+    await click('[data-clear-dialog] button[value="confirm"]');
     await pause(1000);
     assert(
       await check(
@@ -2212,7 +2224,7 @@ checkUi: try {
     );
 
     const preservedIdentity = await fetch(
-      'http://localhost:3002/api/identity',
+      'http://localhost:3000/api/identity',
       {
         method: 'POST',
         body: savedToken,
@@ -2245,6 +2257,9 @@ checkUi: try {
     );
     await hover('[data-back]');
     await waitFor('window.audioStarts === 1', 'submenu hover plays the cue');
+    await hover('.ui-prose a');
+    await pause(200);
+    assert.equal(await check('window.audioStarts'), 1, 'link hover is silent');
     await click('[data-back]');
 
     const { identifier: previewObserverScript } = await c.send(
@@ -2413,7 +2428,7 @@ checkUi: try {
   });
 
   await c.send('Page.navigate', {
-    url: `http://localhost:3002/${fixturePath}/index.html`,
+    url: `http://localhost:3000/${fixturePath}/index.html`,
   });
 
   await pause(250);
@@ -2424,6 +2439,50 @@ checkUi: try {
     `!!document.querySelector('.dock-screen')`,
     'the deferred docking screen finishes loading',
   );
+
+  const unitLigatures = await check(`(async () => {
+    const units = ['kg', 'm/s', 'm/s²', '°/s'];
+    await document.fonts.load('32px Gemetric', units.join(''));
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    context.font = '32px Gemetric';
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;left:-10000px;top:0;font:32px Gemetric;letter-spacing:normal;white-space:nowrap';
+    document.body.append(host);
+    const span = document.createElement('span');
+    host.append(span);
+    const measure = (text, enabled) => {
+      span.textContent = text;
+      span.style.fontVariantLigatures = enabled ? 'normal' : 'none';
+      return span.getBoundingClientRect().width;
+    };
+    const reference = measure('AA', true);
+    const results = units.map(text => ({
+      text,
+      dom: measure(text, true),
+      disabled: measure(text, false),
+      canvas: context.measureText(text).width,
+      preserved: span.textContent === text,
+    }));
+    host.remove();
+    return { reference, results };
+  })()`);
+
+  for (const unit of unitLigatures.results) {
+    assert(unit.preserved, `${unit.text}: shaping preserves source text`);
+    assert(
+      Math.abs(unit.dom - unitLigatures.reference) < 0.1 &&
+        Math.abs(unit.canvas - unitLigatures.reference) < 0.1,
+      `${unit.text}: DOM and Canvas use a two-character unit advance`,
+    );
+
+    if (unit.text !== 'kg') {
+      assert(
+        unit.disabled > unit.dom + 1,
+        `${unit.text}: disabling common ligatures restores separate glyphs`,
+      );
+    }
+  }
 
   const [single, overlap, dimOverlap, blend, opacity] = await check(
     'fixture.checkBeamComposition()',
@@ -2996,6 +3055,117 @@ checkUi: try {
 
   await click('[data-tab="outfitting"]');
 
+  const instrumentValues = await check('fixture.instrumentPowerRemoval()');
+
+  const instrumentNumber = (value: string) =>
+    Number(value.replaceAll(',', '').match(/[\d.]+/)?.[0]);
+
+  assert(
+    instrumentNumber(instrumentValues[0][0]) >
+      instrumentNumber(instrumentValues[1][0]),
+  );
+  assert.equal(instrumentValues[0][1], instrumentValues[1][1]);
+  assert(
+    instrumentNumber(instrumentValues[0][2]) <
+      instrumentNumber(instrumentValues[1][2]),
+  );
+  assert(
+    instrumentNumber(instrumentValues[0][3]) <
+      instrumentNumber(instrumentValues[1][3]),
+  );
+  assert(
+    instrumentNumber(instrumentValues[0][4]) >
+      instrumentNumber(instrumentValues[1][4]),
+  );
+  assert.deepEqual(
+    instrumentValues[2],
+    instrumentValues[0],
+    'refitting the power plant restores the instrument panel values',
+  );
+
+  const powerMount = await check('fixture.beginInstrumentPreview()');
+
+  await click(`[data-loadout] [data-key="mount:${powerMount}"]`);
+  const plantKey = await check(
+    `Array.from(document.querySelectorAll('[data-candidates] [data-key]')).find(button => button.textContent.includes('Power Plant 2h')).getAttribute('data-key')`,
+  );
+
+  for (const width of [1280, 1920]) {
+    await c.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height: (width * 9) / 16,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+
+    await hover(`[data-loadout] [data-key="mount:${powerMount}"]`);
+    const beforePreview = await check(`(() => {
+      const bounds = (selector) => {
+        const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
+        return [x, y, width, height];
+      };
+      return [document.querySelector('[data-fitting-preview]').hidden, bounds('.dock-preview'), bounds('.dock-energy')];
+    })()`);
+
+    assert(
+      beforePreview[0],
+      'the fitting preview label is hidden without a candidate',
+    );
+    await hover(`[data-candidates] [data-key="${plantKey}"]`);
+    assert(
+      await check(`!document.querySelector('[data-fitting-preview]').hidden`),
+    );
+    const previewValues =
+      await check(`['mass', 'speed', 'acceleration', 'turn', 'storage'].map(name =>
+      document.querySelector('[data-instrument-' + name + ']').textContent.trim())`);
+
+    assert(
+      instrumentNumber(previewValues[0]) >
+        instrumentNumber(instrumentValues[1][0]),
+    );
+    assert(
+      instrumentNumber(previewValues[4]) >
+        instrumentNumber(instrumentValues[1][4]),
+    );
+
+    const previewLayout = await check(`(() => {
+      const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
+      const canvas = rect('.dock-preview');
+      const panel = rect('.dock-energy');
+      const label = rect('[data-fitting-preview]');
+      return [[canvas.x, canvas.y, canvas.width, canvas.height],
+        [panel.x, panel.y, panel.width, panel.height],
+        Math.abs((label.left + label.right) / 2 - (canvas.left + canvas.right) / 2) < 1
+          && label.top >= canvas.top && label.bottom <= panel.top
+          && canvas.bottom - label.bottom <= 16];
+    })()`);
+
+    for (let i = 0; i < 2; i++) {
+      assert(
+        beforePreview[i + 1].every(
+          (value: number, index: number) =>
+            Math.abs(value - previewLayout[i][index]) < 1,
+        ),
+        `previewing does not shift the ${i ? 'instrument panel' : 'ship preview'} at ${width}px`,
+      );
+    }
+
+    assert(
+      previewLayout[2],
+      `the fitting preview label sits centered above the panel at ${width}px`,
+    );
+  }
+
+  await c.send('Emulation.setDeviceMetricsOverride', {
+    width: 1280,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+
+  await check('fixture.endInstrumentPreview()');
+  await click('[data-tab="outfitting"]');
+
   for (const name of ['Search Light', 'Power Plant', 'Thruster']) {
     const key =
       await check(`Array.from(document.querySelectorAll('[data-loadout] [data-key]'))
@@ -3005,21 +3175,21 @@ checkUi: try {
     await check('fixture.refresh(); fixture.refresh(); fixture.refresh()');
     assert.equal(
       await check(
-        `document.querySelectorAll('[data-weight-panel]:not([hidden])').length`,
+        `document.querySelectorAll('[data-mass-panel]:not([hidden])').length`,
       ),
       1,
-      `${name} shows its weight once after repeated updates`,
+      `${name} shows its mass once after repeated updates`,
     );
     assert(
       await check(`(() => {
-        const weight = document.querySelector('[data-weight-panel]');
+        const mass = document.querySelector('[data-mass-panel]');
         const health = document.querySelector('[data-health-panel]');
-        return weight.className === health.className
-          && weight.textContent.trim().startsWith('Weight')
-          && weight.querySelector('[data-weight]').textContent.trim().endsWith(' KG')
-          && !document.querySelector('[data-module-power]').textContent.includes('Weight');
+        return mass.className === health.className
+          && mass.textContent.trim().startsWith('Mass')
+          && mass.querySelector('[data-mass]').textContent.trim().endsWith(' KG')
+          && !document.querySelector('[data-module-power]').textContent.includes('Mass');
       })()`),
-      `${name} shows weight in KG as a compact health-style row`,
+      `${name} shows mass in KG as a compact health-style row`,
     );
 
     assert.equal(
@@ -6127,6 +6297,22 @@ checkUi: try {
     });
 
     await pause(100);
+    assert(
+      await check(`(() => {
+        const panel = document.querySelector('.dock-energy').getBoundingClientRect();
+        return ['mass', 'speed', 'acceleration', 'turn', 'storage'].every(name => {
+          const value = document.querySelector('[data-instrument-' + name + ']');
+          const bounds = value.getBoundingClientRect();
+          const range = document.createRange();
+          range.selectNodeContents(value);
+          return range.getClientRects().length === 1
+            && value.scrollWidth <= value.clientWidth + 1
+            && bounds.left >= panel.left && bounds.right <= panel.right
+            && bounds.top >= panel.top && bounds.bottom <= panel.bottom;
+        });
+      })()`),
+      'instrument values fit inside their panel at desktop widths',
+    );
     assert(
       await check(`(() => {
         const title = document.querySelector('[data-title]');

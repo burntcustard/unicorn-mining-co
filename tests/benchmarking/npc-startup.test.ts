@@ -121,7 +121,7 @@ try {
     { kind: 'wrong-overlay', message: /overlay/i, command: /dev:server/ },
     {
       kind: 'no-frontend',
-      message: /3002/,
+      message: /3000/,
       command: /npm run dev -- --strictPort/,
     },
   ]) {

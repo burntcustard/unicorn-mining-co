@@ -7,7 +7,7 @@ export const exampleDrill = {
   icon: './horn-drill.svg',
   description: 'Synthetic module for mechanics tests; excluded from gameplay.',
   behavior: 'hornDrill',
-  weight: 1,
+  mass: 325,
   name: 'Example Drill',
   health: 100,
   power: 0.1,

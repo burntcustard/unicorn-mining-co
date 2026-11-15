@@ -9,7 +9,7 @@ export const exampleWeapon = {
   icon: './plasma-accelerator.svg',
   description: 'Synthetic module for mechanics tests; excluded from gameplay.',
   behavior: 'weapon',
-  weight: 1,
+  mass: 100,
   name: 'Example Weapon',
   health: 0,
   healthActivated: 20,

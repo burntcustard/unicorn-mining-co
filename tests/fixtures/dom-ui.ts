@@ -1014,6 +1014,58 @@ export const damage = () => {
 
 export const refresh = () => ui.current?.update();
 
+export const instrumentPowerRemoval = () => {
+  const ship = player.ship;
+  const mount = ship.mounts.find(
+    ({ module }) => module && module.behavior === 'powerPlant',
+  );
+
+  if (!mount?.module) throw new Error('Power plant not fitted');
+
+  const powerPlant = mount.module;
+  const values = () =>
+    [
+      '[data-instrument-mass]',
+      '[data-instrument-speed]',
+      '[data-instrument-acceleration]',
+      '[data-instrument-turn]',
+      '[data-instrument-storage]',
+    ].map((selector) => document.querySelector(selector)!.textContent!.trim());
+  const before = values();
+
+  ship.fit(0, mount);
+  ui.current.update();
+  const removed = values();
+
+  ship.fit(powerPlant, mount);
+  ui.current.update();
+  return [before, removed, values()];
+};
+
+let restoreInstrumentPower = () => {};
+
+export const beginInstrumentPreview = () => {
+  const ship = player.ship;
+  const index = ship.mounts.findIndex(
+    ({ module }) => module && module.behavior === 'powerPlant',
+  );
+  const mount = ship.mounts[index];
+
+  if (!mount?.module) throw new Error('Power plant not fitted');
+
+  const original = mount.module;
+
+  ship.fit(0, mount);
+  restoreInstrumentPower = () => ship.fit(original, mount);
+  ui.current.update();
+  return index;
+};
+
+export const endInstrumentPreview = () => {
+  restoreInstrumentPower();
+  ui.current.update();
+};
+
 let activityCount = 0;
 let stopActivity: () => void;
 
@@ -2418,9 +2470,8 @@ export const checkHud = () => {
   update(options);
   const cargoFullCleared = fullLabel.hidden;
   const tooltips =
-    text('#hud-fuel-tooltip')?.includes(
-      `${ship.fuel.toFixed(1)} / ${fuelCapacity} L`,
-    ) &&
+    text('#hud-fuel-tooltip') ===
+      `Fuel: ${Math.round(ship.fuel)} / ${fuelCapacity} L` &&
     text('#hud-cargo-tooltip') === `Cargo: 0 / ${cargoCapacity} slots` &&
     Boolean(text('#hud-power-tooltip')?.includes(generated.toFixed(1)));
   const groupedMeters =

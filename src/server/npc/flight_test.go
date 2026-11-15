@@ -106,7 +106,7 @@ func TestCollectionTurnInputTurnsPromptlyAndSettles(t *testing.T) {
 					ship := arrivalShip(t, definition)
 					ship.Face(heading)
 					ship.Spin = spin
-					maximum := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+					maximum := ship.MaximumTurnRate()
 					deadline := math.Abs(heading)/maximum + .9
 					reversals, previous := 0, 0.0
 

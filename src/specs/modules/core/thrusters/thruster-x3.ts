@@ -3,15 +3,15 @@ import type { ModuleSpec } from '../../types';
 
 export const thrusterTriple = {
   ...thruster,
-  weight: 9,
+  mass: 1060,
   name: 'Triple Thruster',
   health: 30,
   power: 3.6,
   powerActivated: 3.6,
   price: 1800,
   fuelUsage: 0.07,
-  forwardThrust: 28,
-  rotationalThrust: 24,
+  forwardThrust: 22,
+  rotationalThrust: 23,
   offset: 14,
   model: [
     {

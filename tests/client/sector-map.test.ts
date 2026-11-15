@@ -45,7 +45,6 @@ const ctx = {
 } as unknown as CanvasRenderingContext2D;
 
 Vec.setXY(ship.position, 1000, 2000);
-ship.dockedTo = 42;
 
 const field = {
   kind: 'field' as const,
@@ -115,7 +114,7 @@ assert.deepEqual(
 assert.deepEqual(
   labels,
   ['Other Pilot', 'Your Pilot'],
-  'players are labeled once, including your docked ship',
+  'players are labeled once, including your own ship',
 );
 assert.deepEqual(
   labelColors,
@@ -143,6 +142,19 @@ assert(
   'panning moves your own marker away from the map center',
 );
 assert.equal(depth, 0);
+
+// Docked contacts share the station label area and have no ship marker.
+ship.dockedTo = 30;
+markers[1].definitionId = '30';
+markers[1].name = 'Your Pilot';
+markers[2].definitionId = '30';
+labels.length = labelColors.length = translations.length = 0;
+renderSectorMap(options);
+assert.deepEqual(labels, ['Your Pilot', 'Other Pilot']);
+assert.deepEqual(labelColors, ['#ff0', '#4df']);
+assert.equal(depth, 0);
+ship.dockedTo = undefined;
+markers[1].definitionId = markers[2].definitionId = '';
 
 // Grid lines stay anchored to world coordinates as the viewport zooms.
 for (const range of [mapRange, mapRange * 2]) {

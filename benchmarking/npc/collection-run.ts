@@ -21,7 +21,7 @@ import { parseNPCOptions } from './options.ts';
 
 const execute = promisify(execFile);
 const repository = fileURLToPath(new URL('../..', import.meta.url));
-const frontendPort = 3002;
+const frontendPort = 3000;
 
 export const collectionArguments = (args: string[]) => [
   '--scenario',

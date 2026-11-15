@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/burntcustard/unicorn-mining-co/src/server/collision"
 	"github.com/burntcustard/unicorn-mining-co/src/server/collision/query"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
@@ -50,7 +51,7 @@ func TestWeaponRecoil(t *testing.T) {
 				velocity, start := ship.Velocity, ship.Position
 				ship.fireWeapons(0)
 				impulse := Vec.Subtract(ship.Velocity, velocity)
-				amount := gun.ModuleBase().Spec.Recoil / ship.Mass
+				amount := gun.ModuleBase().Spec.Recoil / ship.ForceMass()
 
 				if math.Abs(impulse.X+math.Cos(rotation)*amount) > 1e-9 || math.Abs(impulse.Y+math.Sin(rotation)*amount) > 1e-9 || ship.Spin != 0 {
 					t.Fatal("recoil must apply the configured mass-scaled impulse, rotated with the ship, without turning it")
@@ -1007,6 +1008,7 @@ func TestExplosionDamagesModuleOnce(t *testing.T) {
 	gun := modules.Create("plasmaAccelerator", simulation.ObjectProperties{World: world}, catalog)
 	craft.Fit(gun, mount)
 	craft.SetModuleActive("plasmaAccelerator", true)
+	craft.UpdateModules(gun.ModuleBase().Spec.ActivationDuration)
 	events := []protocol.SimulationEvent{}
 	Explode(ExplosionOptions{Object: source, Radius: 24, Damage: 3, Events: &events})
 
@@ -1032,6 +1034,73 @@ func TestExplosionDamagesModuleOnce(t *testing.T) {
 
 	if !shot.Dead || mount.Health != health-shot.Spec.Damage {
 		t.Fatal("the direct plasma hit must exclude the whole fitted module from repeated splash damage")
+	}
+}
+
+func TestRetractedWeaponHitbox(t *testing.T) {
+	catalog, err := testsupport.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, id := range []string{"autogun", "plasmaAccelerator", "laser", "autogunTurret"} {
+		t.Run(id, func(t *testing.T) {
+			world := simulation.CreateWorld(25, catalog)
+			mount := simulation.NewMount([]specs.MountPoint{{X: 20, Fits: []string{id}}})
+			plan := &simulation.SegmentPlan{Health: new(100.0), Points: &simulation.ShapeOutline{Points: []simulation.Point{{-2, -2}, {2, -2}, {2, 2}, {-2, 2}}}, Mounts: []*simulation.Mount{mount}}
+			craft := NewCraft(Properties{ObjectProperties: simulation.ObjectProperties{World: world, Radius: new(100.0)}}, []*simulation.SegmentPlan{plan}, catalog)
+			gun := modules.Create(id, simulation.ObjectProperties{World: world}, catalog)
+			craft.Fit(gun, mount)
+
+			check := func(want bool) {
+				t.Helper()
+
+				for _, hitbox := range [][]*collision.Collider{craft.Hitbox(), craft.HitboxColliding()} {
+					found := false
+
+					for _, collider := range hitbox {
+						if collider.Segment.(*simulation.Segment).Module == gun {
+							found = true
+						}
+					}
+
+					if found != want {
+						t.Fatalf("weapon collider present = %v, want %v", found, want)
+					}
+				}
+			}
+
+			check(false)
+			before := craft.GeometrySource()
+
+			for _, part := range craft.SegmentsAtMount(mount) {
+				part.Active, part.ActivationProgress = 1, .5
+			}
+
+			check(true)
+
+			if craft.GeometrySource() == before {
+				t.Fatal("deployment must invalidate cached collision geometry")
+			}
+
+			for _, part := range craft.SegmentsAtMount(mount) {
+				part.Active = 0
+			}
+
+			check(true)
+			before = craft.GeometrySource()
+
+			for _, part := range craft.SegmentsAtMount(mount) {
+				part.ActivationProgress = 0
+			}
+
+			check(false)
+
+			if craft.GeometrySource() == before {
+				t.Fatal("retraction must invalidate cached collision geometry")
+			}
+		})
 	}
 }
 

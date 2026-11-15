@@ -456,7 +456,7 @@ func TestPursuitMaintainsFastOrbitsAroundCircularAsteroidsForFiveMinutes(t *test
 			force := math.Hypot(scenario.speed*scenario.speed/scenario.radius, scenario.speed*ship.Drag)
 			maximum := ship.Rules.Flight.ThrustScale * ship.ForwardThrust() / ship.Mass
 
-			if force > maximum || scenario.speed/scenario.radius > ship.TurnRate*ship.RotationalThrust()/ship.Rules.Flight.SpinDivisor || !pursuitRouteClear(ship, []*simulation.Asteroid{rock}, track.at, track.times[len(track.times)-1]) {
+			if force > maximum || scenario.speed/scenario.radius > ship.MaximumTurnRate() || !pursuitRouteClear(ship, []*simulation.Asteroid{rock}, track.at, track.times[len(track.times)-1]) {
 				t.Fatal("orbit exceeds physical movement limits")
 			}
 

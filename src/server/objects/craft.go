@@ -292,6 +292,10 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 	}
 
 	c.sortSegments()
+
+	if ship, ok := c.Self.(*Ship); ok {
+		ship.UpdateMass()
+	}
 }
 
 func (c *Craft) FixHull() {
@@ -458,6 +462,10 @@ func (c *Craft) SetHullHealth(values []float64) {
 
 		return target.Health < 1
 	})
+
+	if ship, ok := c.Self.(*Ship); ok {
+		ship.UpdateMass()
+	}
 
 	c.Cockpit = nil
 
@@ -1026,6 +1034,10 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 		return !slices.Contains(kept, s) && !(s.Mount != nil && slices.Contains(kept, s.Mount.Hull))
 	})
 
+	if ship, ok := c.Self.(*Ship); ok {
+		ship.UpdateMass()
+	}
+
 	if len(kept) > 0 {
 		simulation.OuterEdges(outlinesOf(kept))
 	} else {
@@ -1169,10 +1181,15 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		}
 
 		d := s.ModuleSpec()
-		physical := c.Physics && !d.DisablePhysics && !s.Catches && !(d.CollectsCargo && s.Active == 0 && s.ActivationProgress == 0)
+
+		if (d.Behavior == "weapon" || d.Behavior == "beam") && d.RetractionDistance > 0 && s.ActivationProgress == 0 {
+			continue
+		}
+
+		physical := c.Physics && !d.DisablePhysics && !s.Catches && !(d.Behavior == "cargoHatch" && s.Active == 0 && s.ActivationProgress == 0)
 
 		for _, m := range s.Mounts {
-			if m.Module == nil || !m.Module.ModuleBase().Spec.CollectsCargo {
+			if m.Module == nil || m.Module.ModuleBase().Spec.Behavior != "cargoHatch" {
 				continue
 			}
 

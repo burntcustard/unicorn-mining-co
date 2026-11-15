@@ -40,7 +40,7 @@
     "lint": "oxlint --type-aware --type-check . && npm run lint:css",
     "lint:css": "stylelint \"{src,font}/**/*.css\"",
     "lint:fix": "oxlint --type-aware --type-check --fix . && npm run lint:css -- --fix",
-    "preview": "vite preview --host --port 3002",
+    "preview": "vite preview --host --port 3000",
     "reset-world:live": "node scripts/reset-world-live.ts",
     "reset-world:local": "node scripts/reset-world-local.ts",
     "start:server": "./bin/server",

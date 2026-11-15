@@ -227,7 +227,7 @@ func (m *Manager) Update() {
 			npc.loot = nil
 			clear(npc.aggressors)
 			m.cargoDemand(npc, false)
-			m.chat(npc, dialog.Defeat)
+			m.chat(npc, dialog.Defeat, "{player}", npc.victim.DisplayName())
 		}
 
 		// Searches keep their full window and their return trip home.

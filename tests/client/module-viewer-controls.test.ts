@@ -15,6 +15,8 @@ const context = new Proxy(
 class Element {
   children: Element[] = [];
   dataset: Record<string, string> = {};
+  attributes: Record<string, string> = {};
+  classList = { add: noop };
   style = { setProperty: noop };
   value = '';
   checked = false;
@@ -25,7 +27,11 @@ class Element {
   clientWidth = 160;
   width = 0;
   height = 0;
+  tabIndex = 0;
+  focused = false;
   onchange?: () => void;
+  onclick?: () => void;
+  onkeydown?: (event: { key: string; preventDefault: () => void }) => void;
   private descendants = new Map<string, Element>();
 
   set innerHTML(html: string) {
@@ -50,7 +56,12 @@ class Element {
     return this.descendants.get(selector);
   }
 
-  setAttribute() {}
+  setAttribute(name: string, value: string) {
+    this.attributes[name] = value;
+  }
+  focus() {
+    this.focused = true;
+  }
   getContext() {
     return context;
   }
@@ -73,10 +84,18 @@ class Path {
 }
 
 const controls = new Map(
-  ['#category', '#folder', '#models', '#modules'].map((selector) => [
-    selector,
-    new Element(),
-  ]),
+  [
+    '#category',
+    '#folder',
+    '#models',
+    '#modules',
+    '#modules-tab',
+    '#comparison-tab',
+    '#modules-panel',
+    '#comparison-panel',
+    '#module-controls',
+    '#thruster-comparison',
+  ].map((selector) => [selector, new Element()]),
 );
 let observers = 0;
 
@@ -114,6 +133,12 @@ try {
   const folder = controls.get('#folder')!;
   const models = controls.get('#models')!;
   const grid = controls.get('#modules')!;
+  const moduleTab = controls.get('#modules-tab')!;
+  const comparisonTab = controls.get('#comparison-tab')!;
+  const modulePanel = controls.get('#modules-panel')!;
+  const comparisonPanel = controls.get('#comparison-panel')!;
+  const moduleControls = controls.get('#module-controls')!;
+  const comparison = controls.get('#thruster-comparison')!;
   const ids = () => grid.children.map((card) => card.dataset.module);
 
   assert.equal(models.checked, false);
@@ -139,6 +164,30 @@ try {
       )
       .map(({ id }) => id),
   );
+
+  comparisonTab.onclick!();
+  assert.equal(modulePanel.hidden, true);
+  assert.equal(moduleControls.hidden, true);
+  assert.equal(comparisonPanel.hidden, false);
+  assert.equal(comparisonTab.attributes['aria-selected'], 'true');
+  assert.equal(moduleTab.tabIndex, -1);
+  assert(comparison.children.length > 0, 'comparison is rendered');
+  let prevented = false;
+
+  comparisonTab.onkeydown!({
+    key: 'Home',
+    preventDefault: () => {
+      prevented = true;
+    },
+  });
+
+  assert(prevented);
+  assert.equal(modulePanel.hidden, false);
+  assert.equal(moduleControls.hidden, false);
+  assert.equal(comparisonPanel.hidden, true);
+  assert.equal(moduleTab.attributes['aria-selected'], 'true');
+  assert.equal(moduleTab.focused, true);
+  assert.equal(folder.value, 'thrusters', 'switching tabs preserves filters');
 
   models.checked = true;
   models.onchange!();

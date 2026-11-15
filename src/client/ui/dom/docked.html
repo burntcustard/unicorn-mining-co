@@ -35,12 +35,16 @@
           <dd data-hull-total></dd>
           <dt class="uppercase">Modules fitted</dt>
           <dd data-module-count></dd>
+          <dt class="uppercase">Mass</dt>
+          <dd data-ship-mass></dd>
           <dt class="uppercase">Cargo</dt>
           <dd data-cargo-total></dd>
           <dt class="uppercase">Fuel</dt>
           <dd data-fuel></dd>
           <dt class="uppercase">Power output</dt>
           <dd data-generation></dd>
+          <dt class="uppercase">Power storage</dt>
+          <dd data-power-storage></dd>
         </dl>
         <nav class="grid gap-3 mt-6 uppercase">
           <button
@@ -88,14 +92,32 @@
       </span>
       <canvas class="dock-preview h-full" aria-hidden="true"></canvas>
       <div class="dock-energy ui-card text-sm">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="uppercase">Power consumption</h2>
-          <span data-output></span>
+        <div class="dock-power">
+          <div
+            class="dock-power-summary flex items-center justify-between gap-3"
+          >
+            <h2 class="uppercase">Power</h2>
+            <span data-output></span>
+            <span data-instrument-storage></span>
+          </div>
+          <div data-power-bars></div>
+          <div
+            class="dock-energy-legend flex items-center justify-between mt-4 uppercase"
+          ></div>
         </div>
-        <div data-power-bars></div>
-        <div
-          class="dock-energy-legend flex items-center justify-between gap-3 mt-4 uppercase"
-        ></div>
+        <div class="dock-handling">
+          <h2 class="uppercase">Handling</h2>
+          <dl class="dock-overview-stats gap-3 mt-4 grid">
+            <dt class="uppercase">Mass</dt>
+            <dd data-instrument-mass></dd>
+            <dt class="uppercase">Acceleration</dt>
+            <dd data-instrument-acceleration></dd>
+            <dt class="uppercase">Max speed</dt>
+            <dd data-instrument-speed></dd>
+            <dt class="uppercase">Turn rate</dt>
+            <dd data-instrument-turn></dd>
+          </dl>
+        </div>
       </div>
     </div>
     <div class="dock-inspector gap-6 flex flex-col">
@@ -211,11 +233,11 @@
         </div>
         <div
           class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
-          data-weight-panel
+          data-mass-panel
           hidden
         >
-          <span class="uppercase">Weight</span>
-          <span data-weight></span>
+          <span class="uppercase">Mass</span>
+          <span data-mass></span>
         </div>
         <div
           class="flex items-center justify-between gap-3 text-muted text-sm mt-6"
@@ -305,12 +327,14 @@
     aria-labelledby="launch-unavailable-message"
     data-launch-unavailable-dialog
   >
-    <p id="launch-unavailable-message">
-      Launch unavailable. Visit the hangar to purchase a new ship.
-    </p>
-    <div class="gap-4 mt-6 flex flex-wrap" data-action-group>
-      <button class="ui-button uppercase" data-dialog-cancel>Cancel</button>
-      <button class="ui-button uppercase" data-visit-hangar>Hangar</button>
+    <div class="grid gap-4">
+      <p id="launch-unavailable-message">
+        Launch unavailable. Visit the hangar to purchase a new ship.
+      </p>
+      <div class="gap-4 mt-4 flex flex-wrap" data-action-group>
+        <button class="ui-button uppercase" data-dialog-cancel>Cancel</button>
+        <button class="ui-button uppercase" data-visit-hangar>Hangar</button>
+      </div>
     </div>
   </dialog>
   <dialog
@@ -318,14 +342,16 @@
     aria-labelledby="ship-sale-heading"
     data-ship-sale-dialog
   >
-    <h2 class="uppercase text-lg" id="ship-sale-heading">Sell ship</h2>
-    <p class="mt-4" data-ship-sale-description></p>
-    <dl class="dock-sale-values mt-6 grid uppercase" data-ship-sale-values></dl>
-    <div class="gap-4 mt-6 flex flex-wrap" data-action-group>
-      <button class="ui-button uppercase" data-dialog-cancel>Cancel</button>
-      <button class="ui-button uppercase" data-confirm-ship-sale>
-        Sell ship
-      </button>
+    <div class="grid gap-4">
+      <h2 class="uppercase text-lg mb-4" id="ship-sale-heading">Sell ship</h2>
+      <p data-ship-sale-description></p>
+      <dl class="dock-sale-values grid uppercase" data-ship-sale-values></dl>
+      <div class="gap-4 mt-4 flex flex-wrap" data-action-group>
+        <button class="ui-button uppercase" data-dialog-cancel>Cancel</button>
+        <button class="ui-button uppercase" data-confirm-ship-sale>
+          Sell ship
+        </button>
+      </div>
     </div>
   </dialog>
   <dialog
@@ -334,7 +360,9 @@
     data-ship-rename-dialog
   >
     <form class="grid gap-4" data-ship-rename-form>
-      <h2 class="uppercase text-lg" id="ship-rename-heading">Rename ship</h2>
+      <h2 class="uppercase text-lg mb-4" id="ship-rename-heading">
+        Rename ship
+      </h2>
       <label class="uppercase" for="ship-name">Ship name</label>
       <input
         class="ui-input"
@@ -344,7 +372,7 @@
         spellcheck="false"
         aria-describedby="ship-name-hint"
       />
-      <p id="ship-name-hint">Choose a name from 1 to 16 characters.</p>
+      <p id="ship-name-hint">Choose a ship name from 1 to 16 characters.</p>
       <div class="gap-4 mt-4 flex flex-wrap" data-action-group>
         <button class="ui-button uppercase" type="button" data-dialog-cancel>
           Cancel

@@ -74,6 +74,12 @@ The revised power-plant loadouts subsequently change the Courser, Moth, Finch,
 and Kestrel offers to 4,725, 10,650, 3,125, and 10,175 respectively. The
 remaining replay values are unchanged.
 
+The kilogram mass migration changes 43 ship mass fields from 9 to 4,175 kg,
+except the ship with its dual thruster removed, which is 3,705 kg. That removal
+also adds a mass field to the following snapshot. The synthetic starting
+modules use the same masses as their playable counterparts; all other recorded
+session values remain unchanged.
+
 `rendering.json` captures representative replicated ship, station, mixed cargo,
 and drilling stages. Browser tests hydrate it under source and production
 transforms and check rendering, reconciliation and object identity.

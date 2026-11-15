@@ -13,12 +13,13 @@ const junctionY = 16.5 + (33 - 16.5) * 0.34;
 
 export const kestrel = {
   name: 'Kestrel',
-  price: 6200,
+  price: 4800,
   fuelCapacity: 155,
-  cargoSpace: 18,
-  drag: 0.42,
-  mass: 12,
+  cargoSpace: 22,
+  drag: 2338.14,
+  hullMass: 3537,
   radius: 73,
+  angularThrust: 5567,
   turnRate: 1.2,
   initialLoadout: [
     {

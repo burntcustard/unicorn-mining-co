@@ -1,4 +1,5 @@
 import { powerParts } from './power';
+import { shipStats } from './ship-stats';
 import {
   modulePowerMarkup,
   moduleThrusterMarkup,
@@ -426,7 +427,7 @@ const createDocked = () => {
     [
       '[data-detail-preview]',
       '[data-health-panel]',
-      '[data-weight-panel]',
+      '[data-mass-panel]',
       '[data-candidate-panel]',
       '[data-weapon-stats]',
       '[data-weapon-dps]',
@@ -692,6 +693,11 @@ const createDocked = () => {
       `${ship.cargoContents.length}/${ship.cargoSpace}`,
     );
     text('[data-hull-total]', health(ship.hullHealthTotal, ship.hullMaxHealth));
+    text('[data-ship-mass]', `${ship.mass.toLocaleString('en-US')} kg`);
+    text(
+      '[data-power-storage]',
+      `${ship.powerCapacity.toLocaleString('en-US')} MJ`,
+    );
     text(
       '[data-module-count]',
       `${mounts.filter((entry) => entry.module).length}/${mounts.length}`,
@@ -973,16 +979,30 @@ const createDocked = () => {
     query(root, '[data-module-power]').hidden =
       !module || trading || Boolean(module.forwardThrust);
     const dps = module ? moduleWeaponDps(module) : '';
+    const projectedMass = module?.forwardThrust
+      ? ship.mounts.reduce(
+          (mass, mount) =>
+            mount.fits.some((Type: typeof Module) => Type.forwardThrust)
+              ? mass + module.mass - (mount.module ? mount.module.mass : 0)
+              : mass,
+          ship.mass,
+        )
+      : ship.mass;
 
     query(root, '[data-weapon-dps]').hidden = !dps;
     text('[data-dps]', dps);
     setHtml(
       query(root, '[data-thruster-stats]'),
-      module ? moduleThrusterMarkup(module, ship.turnRate) : '',
+      module
+        ? moduleThrusterMarkup(
+            module,
+            (ship.turnRate * ship.angularThrust) / projectedMass,
+          )
+        : '',
     );
     query(root, '[data-thruster-stats]').hidden = !module?.forwardThrust;
-    query(root, '[data-weight-panel]').hidden = !module || trading;
-    text('[data-weight]', module ? `${module.weight} KG` : '');
+    query(root, '[data-mass-panel]').hidden = !module || trading;
+    text('[data-mass]', module ? `${module.mass} KG` : '');
     const owned = item instanceof Module;
     const ammo = module?.ammo;
     const equipped = Boolean(mount?.module);
@@ -1063,6 +1083,19 @@ const createDocked = () => {
         ? candidates.find((item) => itemKey(item) === inspectedCandidate) ||
           selectedCandidate
         : undefined;
+    const stats = shipStats(ship, previewCandidate);
+
+    text('[data-instrument-mass]', `${stats.mass.toLocaleString('en-US')} kg`);
+    text(
+      '[data-instrument-acceleration]',
+      `${stats.acceleration.toFixed(0)} m/s²`,
+    );
+    text('[data-instrument-speed]', `${stats.maxSpeed.toFixed(0)} m/s`);
+    text('[data-instrument-turn]', `${stats.turnRate.toFixed(0)} °/s`);
+    text(
+      '[data-instrument-storage]',
+      `Storage ${stats.powerCapacity.toLocaleString('en-US')} MJ`,
+    );
     const consumers = mounts.flatMap((entry, at) =>
       entry.module ? [{ module: entry.module, at }] : [],
     );

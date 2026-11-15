@@ -280,7 +280,13 @@ func (o *GameObject) ForceVelocity() *Vec.Vector { return &o.Velocity }
 
 func (o *GameObject) ForceSpin() *float64 { return &o.Spin }
 
-func (o *GameObject) ForceMass() float64 { return o.Mass }
+func (o *GameObject) ForceMass() float64 {
+	if o.Kind == "ship" && o.Rules.Flight.MassPerPhysicsUnit > 0 {
+		return o.Mass / o.Rules.Flight.MassPerPhysicsUnit
+	}
+
+	return o.Mass
+}
 
 // Class defaults precede instance properties in GameObject's Object.assign.
 func (o *GameObject) ApplyProperties(props ObjectProperties) {

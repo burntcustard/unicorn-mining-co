@@ -703,7 +703,8 @@ export const renderContinuousBuffer = ({
   if (kind === 'hornDrill') {
     const rate = Math.min(
       1,
-      (2 * Math.PI * (settings as HornDrillSoundSettings).highpass) / sampleRate,
+      (2 * Math.PI * (settings as HornDrillSoundSettings).highpass) /
+        sampleRate,
     );
 
     if (rate) {

@@ -24,7 +24,7 @@
           autocomplete="off"
         />
       </label>
-      <div class="gap-2 flex flex-wrap" data-action-group>
+      <div class="gap-2 flex flex-wrap items-center" data-action-group>
         <button class="uppercase ui-button" data-copy>Copy</button>
         <button class="uppercase ui-button" data-clear>Clear save</button>
         <button
@@ -35,11 +35,15 @@
           <span aria-hidden="false">Reveal</span>
           <span aria-hidden="true">Hide</span>
         </button>
+        <p
+          class="ui-status ml-auto text-right"
+          role="status"
+          data-save-status
+        ></p>
       </div>
       <p>
-        Clear Save removes this browser's save and reloads the game. Your pilot
-        stays on the server; keep your private ID to return to it. Keybindings
-        and settings are kept.
+        Clear Save removes your access to a pilot and all game progress. Keep
+        your private ID to return to it.
       </p>
     </div>
     <form class="grid gap-4" data-import autocomplete="off">
@@ -55,27 +59,54 @@
           spellcheck="false"
         />
       </label>
-      <button
-        class="uppercase ui-button justify-self-start"
-        type="button"
-        data-verify
-      >
-        Verify ID
-      </button>
-    </form>
-    <p class="ui-status" role="status"></p>
-    <dialog class="ui-card" aria-labelledby="confirm-heading">
-      <h3 class="uppercase text-lg" id="confirm-heading">Switch pilot?</h3>
-      <p class="mt-4" data-preview></p>
-      <p class="mt-4">
-        Your current pilot will remain on the server. Save their private ID
-        before switching. The game will reload with the imported identity.
-      </p>
-      <div class="gap-2 mt-4 flex flex-wrap" data-action-group>
-        <button class="uppercase ui-button" value="cancel">Cancel</button>
-        <button class="uppercase ui-button" value="confirm">
-          Switch pilot
+      <div class="gap-4 flex flex-wrap items-center" data-action-group>
+        <button class="uppercase ui-button" type="button" data-verify>
+          Verify ID
         </button>
+        <p
+          class="ui-status ml-auto text-right"
+          role="status"
+          data-import-status
+        ></p>
+      </div>
+    </form>
+    <dialog class="ui-card" aria-labelledby="clear-heading" data-clear-dialog>
+      <div class="grid gap-4">
+        <h3 class="uppercase text-lg mb-4" id="clear-heading">Clear Save</h3>
+        <p>
+          Are you sure you want to clear your save? Once cleared, it can only be
+          retrieved by importing its private ID.
+        </p>
+        <div class="gap-4 mt-4 flex flex-wrap" data-action-group>
+          <button class="uppercase ui-button" value="cancel" autofocus>
+            Cancel
+          </button>
+          <button class="uppercase ui-button" value="confirm">
+            Clear Save
+          </button>
+        </div>
+      </div>
+    </dialog>
+    <dialog
+      class="ui-card"
+      aria-labelledby="confirm-heading"
+      data-import-dialog
+    >
+      <div class="grid gap-4">
+        <h3 class="uppercase text-lg mb-4" id="confirm-heading">
+          Switch pilot?
+        </h3>
+        <p data-preview></p>
+        <p>
+          Your current pilot will remain on the server. Save their private ID
+          before switching. The game will reload with the imported identity.
+        </p>
+        <div class="gap-4 mt-4 flex flex-wrap" data-action-group>
+          <button class="uppercase ui-button" value="cancel">Cancel</button>
+          <button class="uppercase ui-button" value="confirm">
+            Switch pilot
+          </button>
+        </div>
       </div>
     </dialog>
   </div>
