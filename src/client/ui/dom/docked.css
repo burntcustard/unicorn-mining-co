@@ -231,13 +231,9 @@
   }
 
   .dock-energy.dock-inspecting
-    :is(.dock-power-label, .dock-energy-legend, [data-output]) {
+    .dock-energy-legend
+    > :not(.dock-energy-highlight) {
     opacity: 0.5;
-  }
-
-  .dock-energy.dock-inspecting-generator [data-output] {
-    opacity: 1;
-    color: #e6f;
   }
 
   .dock-inspector {

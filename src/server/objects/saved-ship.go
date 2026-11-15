@@ -279,11 +279,15 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 
 	ship.SetModuleStates(states)
 
-	if s.StoredPower == nil || math.IsNaN(*s.StoredPower) || math.IsInf(*s.StoredPower, 0) || *s.StoredPower < 0 || *s.StoredPower > ship.PowerCapacity() {
-		return nil, fmt.Errorf("invalid saved power storage")
-	}
+	ship.StoredPower = ship.PowerCapacity()
 
-	ship.StoredPower = min(*s.StoredPower, ship.PowerCapacity())
+	if s.StoredPower != nil {
+		if math.IsNaN(*s.StoredPower) || math.IsInf(*s.StoredPower, 0) || *s.StoredPower < 0 {
+			return nil, fmt.Errorf("invalid saved power storage")
+		}
+
+		ship.StoredPower = min(*s.StoredPower, ship.PowerCapacity())
+	}
 
 	for _, cargo := range s.Cargo {
 		props := simulation.ObjectProperties{ID: &cargo.ID, Message: cargo.Message, Health: cargo.Health}

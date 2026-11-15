@@ -306,9 +306,22 @@ const createDocked = () => {
     ...root.querySelectorAll<HTMLButtonElement>('[data-command]'),
   ];
 
-  query(root, '.dock-energy-legend').innerHTML = [...moduleCategories.values()]
-    .map(({ name, color }) => `<span style="color:${color}">${name}</span>`)
-    .join('');
+  const legendClasses = new Map([
+    ['core', 'text-violet'],
+    ['offense', 'text-orange'],
+    ['utility', 'text-green'],
+  ]);
+
+  const legend = new Map(
+    [...moduleCategories].map(([category, { name }]) => {
+      const element = document.createElement('span');
+
+      element.className = legendClasses.get(category) || '';
+      element.textContent = name;
+      query(root, '.dock-energy-legend').append(element);
+      return [category, element];
+    }),
+  );
 
   const swatches = paintColors.map((shades, index) => {
     const element = document.createElement('button');
@@ -1094,7 +1107,7 @@ const createDocked = () => {
     text('[data-instrument-turn]', `${stats.turnRate.toFixed(0)} °/s`);
     text(
       '[data-instrument-storage]',
-      `Storage ${stats.powerCapacity.toLocaleString('en-US')} MJ`,
+      `${stats.powerCapacity.toLocaleString('en-US')} MJ`,
     );
     const consumers = mounts.flatMap((entry, at) =>
       entry.module ? [{ module: entry.module, at }] : [],
@@ -1158,23 +1171,29 @@ const createDocked = () => {
         : '';
 
       return `<div class="dock-power-label flex items-center justify-between gap-3 mt-4 mb-2">
-        <span class="uppercase">${label}</span><span>${total.toFixed(1)} MW</span>
+        <span class="uppercase text-muted">${label}</span><span>${total.toFixed(1)} MW</span>
       </div><div class="ui-power-track">${parts}${generation}</div>`;
     };
 
     query(root, '[data-fitting-preview]').hidden = !previewCandidate;
     text('[data-generation]', `${output.toFixed(1)} MW`);
-    text('[data-output]', `Output ${output.toFixed(1)} MW`);
+    text('[data-output]', `${output.toFixed(1)} MW`);
 
     energy.classList.toggle('dock-inspecting', previewHull >= 0);
-    energy.classList.toggle(
-      'dock-inspecting-generator',
-      previewHull >= 0 &&
-        Boolean(
-          previewCandidate?.powerGenerated ||
-          (previewMount?.module && previewMount.module.powerGenerated),
-        ),
+    const highlightedCategories = new Set(
+      consumers
+        .filter(({ at }) =>
+          previewMount ? at === previewIndex : hullIndexOf(at) === previewHull,
+        )
+        .map(({ module }) => module.category),
     );
+
+    for (const [category, element] of legend) {
+      element.classList.toggle(
+        'dock-energy-highlight',
+        highlightedCategories.has(category),
+      );
+    }
 
     setRows(
       query(root, '[data-power-bars]'),

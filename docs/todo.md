@@ -134,7 +134,7 @@
 [ ] World map with sectors and lines between them (+ players?)
 [-] Small asteroid chunk pop animation
 [ ] Make big ships turn slow
-[ ] Make Items and other Game Objects block light
+[x] Make Items and other Game Objects block light
 
 ## Big future things
 

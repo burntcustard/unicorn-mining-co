@@ -97,8 +97,13 @@
             class="dock-power-summary flex items-center justify-between gap-3"
           >
             <h2 class="uppercase">Power</h2>
-            <span data-output></span>
-            <span data-instrument-storage></span>
+            <span>
+              <span class="text-muted">Output</span> <span data-output></span>
+            </span>
+            <span>
+              <span class="text-muted">Storage</span>
+              <span data-instrument-storage></span>
+            </span>
           </div>
           <div data-power-bars></div>
           <div
@@ -255,6 +260,7 @@
             <span data-repair></span>
           </button>
           <button class="ui-button" data-command="REMOVE">Remove</button>
+          <button class="ui-button" data-command="EQUIP">Equip</button>
           <button
             class="ui-button flex items-center justify-between"
             data-command="SELL"
@@ -269,7 +275,6 @@
             <span data-buy-label>Buy</span>
             <span data-price></span>
           </button>
-          <button class="ui-button" data-command="EQUIP">Equip</button>
           <button
             class="ui-button flex items-center justify-between"
             data-command="BUY_AMMO"
