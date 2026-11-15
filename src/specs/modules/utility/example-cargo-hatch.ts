@@ -7,7 +7,7 @@ export const exampleCargoHatch = {
   icon: './cargo-hatch.svg',
   description: 'Synthetic module for mechanics tests; excluded from gameplay.',
   behavior: 'cargoHatch',
-  weight: 1,
+  mass: 75,
   name: 'Example Cargo Hatch',
   health: 0,
   healthActivated: 4,
@@ -17,7 +17,6 @@ export const exampleCargoHatch = {
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,
   activationDuration: 700,
-  collectsCargo: true,
   offset: 16,
   model: [
     {

@@ -7,10 +7,11 @@ export const moth = {
   name: 'Moth',
   price: 5200,
   fuelCapacity: 180,
-  cargoSpace: 20,
-  drag: 0.36,
-  mass: 14,
+  cargoSpace: 18,
+  drag: 2337.84,
+  hullMass: 4044,
   radius: 74.5,
+  angularThrust: 6494,
   turnRate: 1.8,
   initialLoadout: [
     {
@@ -48,7 +49,7 @@ export const moth = {
   ],
   hullSegments: [
     {
-      health: 45,
+      health: 80,
       core: true,
       mounts: [
         [

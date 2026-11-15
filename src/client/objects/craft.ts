@@ -597,14 +597,14 @@ export class Craft extends GameObject {
         !segment.module.disablePhysics &&
         !segment.catches &&
         !(
-          segment.module.collectsCargo &&
+          segment.module.behavior === 'cargoHatch' &&
           !segment.active &&
           !segment.activationProgress
         ) &&
         !segment.mounts?.some(
           (mount) =>
             mount.module &&
-            mount.module.collectsCargo &&
+            mount.module.behavior === 'cargoHatch' &&
             this.segmentsAtMount(mount).some(
               (segment) =>
                 !((segment.mount || segment).health < 1) &&

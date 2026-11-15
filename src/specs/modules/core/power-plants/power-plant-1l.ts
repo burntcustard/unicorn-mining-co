@@ -13,7 +13,7 @@ export const powerPlant1L = {
   model: powerPlantModel1,
   name: 'Power Plant 1l',
   description: 'A lightweight power plant for small ships.',
-  weight: 0.7,
+  mass: 105,
   price: 950,
   powerGenerated: 3.1,
   powerCapacity: 32,

@@ -432,7 +432,7 @@ func TestPursuitKeepsUpAroundNarrowGeneratedCoursesForFiveMinutes(t *testing.T) 
 
 			t.Logf("reference maximum speed=%.1f yaw=%.2f thrust=%.1f force yaw=%.1f", maximumSpeed, maximumYaw, maximumThrust, maximumForceYaw)
 
-			if maximumSpeed > ship.MaxSpeed() || maximumYaw > ship.TurnRate*ship.RotationalThrust()/ship.Rules.Flight.SpinDivisor || maximumThrust > ship.Rules.Flight.ThrustScale*ship.ForwardThrust()/ship.Mass {
+			if maximumSpeed > ship.MaxSpeed() || maximumYaw > ship.MaximumTurnRate() || maximumThrust > ship.Rules.Flight.ThrustScale*ship.ForwardThrust()/ship.Mass {
 				t.Fatal("reference target exceeds the ship's motion limits")
 			}
 

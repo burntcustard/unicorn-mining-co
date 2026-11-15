@@ -4,6 +4,7 @@ import { drawBeam } from '../../utilities/lighting';
 import { traceBeam, litPath, filteredPaths } from '../../utilities/prism';
 import { Module, type ModuleRenderOptions } from './module';
 import { type ModuleSpec } from '../../../specs/modules/types';
+import { colors } from '../../../specs/colors';
 
 // SearchLight
 // A lamp on the nose, with its housing and beam below the hull and horn drill.
@@ -76,7 +77,7 @@ class SearchLightModule extends Module {
 
         drawBeam({
           ...options,
-          color: segment.shades[2],
+          color: colors.white[2],
           lit: litPath(beam),
         });
 

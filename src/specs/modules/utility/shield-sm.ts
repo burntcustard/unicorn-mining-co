@@ -3,7 +3,7 @@ import type { ModuleSpec } from '../types';
 
 export const shieldGeneratorSm = {
   ...shield,
-  weight: 2,
+  mass: 200,
   name: `${shield.name} sm`,
   health: 25,
   healthActivated: 30,

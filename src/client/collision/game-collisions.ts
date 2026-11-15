@@ -23,6 +23,7 @@ import { Station } from '../objects/station';
 import { type Pose } from '../types';
 import { jumpGateSpec } from '../../specs/jump-gate';
 import { easeProgress } from '../utilities/ease';
+import { physicsMass } from '../physics/apply-force';
 
 type BodyRecord = {
   body: Body;
@@ -558,7 +559,8 @@ export class GameCollisions {
     }
 
     this.impacts.forEach(({ contact: { collider, other, point }, impact }) => {
-      const inverseMass = 1 / collider.owner.mass + 1 / other.owner.mass;
+      const inverseMass =
+        1 / physicsMass(collider.owner) + 1 / physicsMass(other.owner);
       // Keep the first-damage threshold near 1000 while making harder hits
       // climb roughly twice as fast.
       const { damageBase, damageScale } = physics;
@@ -927,11 +929,11 @@ export class GameCollisions {
     );
     record.body.setProxyRadius(record.radius);
 
+    const mass = physicsMass(entity);
+
     record.body.setMass(
-      entity.mass,
-      entity.mass *
-        entity.angularInertiaScale *
-        inertiaPerMass(record.fixtures),
+      mass,
+      mass * entity.angularInertiaScale * inertiaPerMass(record.fixtures),
     );
 
     record.geometrySource =

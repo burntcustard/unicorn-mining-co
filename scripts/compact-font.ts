@@ -68,9 +68,11 @@ function characterMap(bytes: Buffer) {
 export function compactTrueType({
   buffer,
   family,
+  ligatureSubstitutions,
 }: {
   buffer: Buffer;
   family: string;
+  ligatureSubstitutions?: Buffer;
 }) {
   const tables = Array.from({ length: buffer.readUInt16BE(4) }, (_, i) => {
     const record = 12 + i * 16;
@@ -99,6 +101,16 @@ export function compactTrueType({
     return { tag, bytes, paddedLength: (bytes.length + 3) & ~3 };
   });
 
+  if (ligatureSubstitutions) {
+    tables.push({
+      tag: 'GSUB',
+      bytes: Buffer.from(ligatureSubstitutions),
+      paddedLength: (ligatureSubstitutions.length + 3) & ~3,
+    });
+
+    tables.sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0));
+  }
+
   let offset = 12 + tables.length * 16;
   const result = Buffer.alloc(
     offset + tables.reduce((sum, table) => sum + table.paddedLength, 0),
@@ -113,6 +125,13 @@ export function compactTrueType({
   };
 
   buffer.copy(result, 0, 0, 12);
+  const entrySelector = Math.floor(Math.log2(tables.length));
+  const searchRange = 16 * 2 ** entrySelector;
+
+  result.writeUInt16BE(tables.length, 4);
+  result.writeUInt16BE(searchRange, 6);
+  result.writeUInt16BE(entrySelector, 8);
+  result.writeUInt16BE(tables.length * 16 - searchRange, 10);
 
   tables.forEach(({ tag, bytes, paddedLength }, i) => {
     const record = 12 + i * 16;

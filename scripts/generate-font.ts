@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { compactTrueType } from './compact-font.ts';
+import { ligatureTable } from './font-ligatures.ts';
 import { writeFileSync } from 'node:fs';
 import ClipperLib from 'clipper-lib';
 import { Font, woff2, type TTF } from 'fonteditor-core';
@@ -12,8 +13,12 @@ const precision = 8;
 
 // Object iteration puts digit keys first; retain Unicode order in the font.
 const paths = Object.entries(glyphPaths)
-  .filter(([, path]) => path)
+  .filter(([character, path]) => Array.from(character).length === 1 && !!path)
   .sort(([a], [b]) => a.codePointAt(0)! - b.codePointAt(0)!);
+
+const ligaturePaths = Object.entries(glyphPaths).filter(
+  ([sequence, path]) => Array.from(sequence).length > 1 && !!path,
+);
 
 export function glyphContours(
   path: string,
@@ -141,39 +146,58 @@ export async function generateFont() {
   const font = Font.create();
   const data = font.get();
 
-  data.glyf = [['', ''], [' ', ''], ['\u2009', ''], ...paths].map(
-    ([character, path]) => {
-      const contours = path
-        ? glyphContours(path, {
-            filled: character === '★',
-            miter: character === '★' || character === '☆',
-          })
-        : [];
+  data.glyf = [
+    ['', ''],
+    [' ', ''],
+    ['\u2009', ''],
+    ...paths,
+    ...ligaturePaths,
+  ].map(([character, path]) => {
+    const contours = path
+      ? glyphContours(path, {
+          filled: character === '★',
+          miter: character === '★' || character === '☆',
+        })
+      : [];
 
-      const points = contours.flat();
-      const xs = points.map(({ x }) => x);
-      const ys = points.map(({ y }) => y);
-      const xMin = points.length ? Math.min(...xs) : 0;
-      const punctuation = character === '.' || character === ',';
+    const points = contours.flat();
+    const xs = points.map(({ x }) => x);
+    const ys = points.map(({ y }) => y);
+    const xMin = points.length ? Math.min(...xs) : 0;
+    const punctuation = character === '.' || character === ',';
+    const ligature = Array.from(character).length > 1;
 
-      return {
-        name: character || '.notdef',
-        unicode: character ? [character.codePointAt(0)!] : [],
-        // Moving stored coordinates to x=0 makes their deltas smaller. The
-        // original left bearing restores the exact placement during rendering.
-        contours: contours.map((contour) =>
-          contour.map((point) => ({ ...point, x: point.x - xMin })),
-        ),
-        xMin: 0,
-        yMin: points.length ? Math.min(...ys) : 0,
-        xMax: points.length ? Math.max(...xs) - xMin : 0,
-        yMax: points.length ? Math.max(...ys) : 0,
-        advanceWidth:
-          (character === '\u2009' ? 6.5 : punctuation ? 6 : 13) * precision,
-        leftSideBearing: xMin - (punctuation ? 2 * precision : 0),
-      };
-    },
-  );
+    return {
+      name: character || '.notdef',
+      unicode: character && !ligature ? [character.codePointAt(0)!] : [],
+      // Moving stored coordinates to x=0 makes their deltas smaller. The
+      // original left bearing restores the exact placement during rendering.
+      contours: contours.map((contour) =>
+        contour.map((point) => ({ ...point, x: point.x - xMin })),
+      ),
+      xMin: 0,
+      yMin: points.length ? Math.min(...ys) : 0,
+      xMax: points.length ? Math.max(...xs) - xMin : 0,
+      yMax: points.length ? Math.max(...ys) : 0,
+      advanceWidth:
+        (ligature ? 26 : character === '\u2009' ? 6.5 : punctuation ? 6 : 13) *
+        precision,
+      leftSideBearing: xMin - (punctuation ? 2 * precision : 0),
+    };
+  });
+
+  const ligatures = ligaturePaths.map(([sequence], index) => ({
+    glyph: data.glyf.length - ligaturePaths.length + index,
+    components: Array.from(sequence, (character) => {
+      const glyph = data.glyf.findIndex((entry) => entry.name === character);
+
+      if (glyph < 0) {
+        throw new Error(`Missing ligature character: ${character}`);
+      }
+
+      return glyph;
+    }),
+  }));
 
   Object.assign(data.head, {
     unitsPerEm: 16 * precision,
@@ -216,6 +240,7 @@ export async function generateFont() {
       compactTrueType({
         buffer: font.write({ type: 'ttf', toBuffer: true }),
         family: 'Gemetric',
+        ligatureSubstitutions: ligatureTable(ligatures),
       }),
     ),
   );

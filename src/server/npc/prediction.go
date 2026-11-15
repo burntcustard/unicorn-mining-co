@@ -68,7 +68,7 @@ func (p *predictor) reset(ship *objects.Ship, options predictionOptions) *predic
 	}
 
 	obstacles := options.obstacles
-	angular := ship.RotationalThrust()
+	angular := ship.AngularAcceleration()
 	clear(p.obstacles)
 
 	*p = predictor{

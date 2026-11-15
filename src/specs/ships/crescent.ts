@@ -68,9 +68,10 @@ export const crescent: ShipSpec = {
   price: 0,
   fuelCapacity: 180,
   cargoSpace: 0,
-  drag: 0.56,
-  mass: 15,
+  drag: 3896.48,
+  hullMass: 6368,
   radius: 72,
+  angularThrust: 6958,
   turnRate: 2.2,
   initialLoadout: [
     { mount: 0, module: 'powerPlant2V' },

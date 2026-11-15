@@ -56,7 +56,7 @@ WHITE - Unlocked by default from the start of the game.
    `npm run dev:server`
 
 4. In another terminal, start hot-reloading [Vite](https://vitejs.dev/) at
-   [localhost:3002](http://localhost:3002/)
+   [localhost:3000](http://localhost:3000/)
    `npm run dev`
 
 5. Build the browser assets in `dist/` and Go executable in `bin/server`
@@ -66,7 +66,7 @@ WHITE - Unlocked by default from the start of the game.
    [localhost:3001](http://localhost:3001/). It serves the client and WebSocket
    on the same port. `npm run preview` also works with `start:server` running.
 
-Port 3001 is reserved for the Go server. The dev frontend starts at 3002 and
+Port 3001 is reserved for the Go server. The dev frontend starts at 3000 and
 tools start at 3100, advancing to the next available port when needed. Start
 these in any order and use the URL Vite prints. The frontend proxies game
 connections to the Go server on 3001.

@@ -30,6 +30,7 @@ import { presentEvents } from '${process.cwd()}/src/client/effects/present-event
 import { sparks } from '${process.cwd()}/src/client/effects/shrapnel.ts';
 import { colors, paintColors } from '${process.cwd()}/src/specs/colors.ts';
 import { mustang } from '${process.cwd()}/src/specs/ships/mustang.ts';
+import { flight } from '${process.cwd()}/src/specs/control-ship.ts';
 import { fitsOf, cargoMenuEntriesOf } from '${process.cwd()}/src/client/ui/docked-model.ts';
 import { applyCraftAction } from '${process.cwd()}/src/client/network/craft-actions.ts';
 
@@ -380,10 +381,10 @@ for (const type of thrusters) {
     const fraction = timer > 0.05 && timer <= 2 ? 0.25 : 1;
     const forward = launching ? 1 : 0;
     const cap = 17 * type.forwardThrust * fraction;
-    expectedSpeed += 220 * type.forwardThrust * fraction / departing.mass * forward * dt;
+    expectedSpeed += flight.thrustScale * type.forwardThrust * fraction / departing.mass * forward * dt;
     if (expectedSpeed < 1) expectedSpeed = 0;
     // Normal drag still slows a ship when the launch speed cap changes.
-    const draggedSpeed = expectedSpeed * Math.exp(-departing.drag * dt);
+    const draggedSpeed = expectedSpeed * Math.exp(-departing.movementDrag() * dt);
     expectedSpeed = expectedSpeed > cap ? Math.min(draggedSpeed, Math.max(cap, expectedSpeed * 0.9)) :
       draggedSpeed;
     expectedX = roundMotion(expectedX + expectedSpeed * dt);
@@ -404,7 +405,7 @@ for (const type of thrusters) {
   for (let frame = 0; frame < 180; frame++) {
     timer = Math.max(0, timer - dt);
     const fraction = timer > 0.05 && timer <= 2 ? 0.25 : 1;
-    const thrust = type.rotationalThrust * fraction;
+    const thrust = type.rotationalThrust * fraction * departing.angularThrust / departing.mass;
     const target = departing.turnRate * thrust * fraction / 16;
     expectedSpin = roundMotion(expectedSpin + Math.max(-thrust * dt, Math.min(thrust * dt, target - expectedSpin)));
     departing.fly(departing.launching ? 1 : 0, 1);

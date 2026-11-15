@@ -3,6 +3,7 @@ package network
 import (
 	"math"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
@@ -30,7 +31,13 @@ func (s *GameSession) sectorMapView(player *playerRecord, position specs.Vector)
 			return
 		}
 
-		markers = append(markers, protocol.MapMarker{Kind: "ship", ID: p.shipID, Position: p.ship.Position, Name: p.profile.DisplayName, Color: p.ship.Shades[2], SenderRole: string(p.profile.Role)})
+		marker := protocol.MapMarker{Kind: "ship", ID: p.shipID, Position: p.ship.Position, Name: p.profile.DisplayName, Color: p.ship.Shades[2], SenderRole: string(p.profile.Role)}
+
+		if p.ship.DockedTo != nil && *p.ship.DockedTo != 0 {
+			marker.DefinitionID = strconv.FormatInt(*p.ship.DockedTo, 10)
+		}
+
+		markers = append(markers, marker)
 	})
 
 	s.sendControl(player.socket, protocol.ServerControl{Type: "sectorMap", MapMarkers: markers})

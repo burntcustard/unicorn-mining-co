@@ -24,6 +24,7 @@ type Flight struct {
 	LowFuelUsage        float64 `json:"lowFuelUsage"`
 	FuelPrice           float64 `json:"fuelPrice"`
 	ThrustScale         float64 `json:"thrustScale"`
+	MassPerPhysicsUnit  float64 `json:"massPerPhysicsUnit"`
 	SteeringEase        float64 `json:"steeringEase"`
 	SpinDivisor         float64 `json:"spinDivisor"`
 	LaunchDuration      float64 `json:"launchDuration"`

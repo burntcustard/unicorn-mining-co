@@ -4,7 +4,7 @@ Place module specs in `core`, `offense`, or `utility` and export each complete
 spec from that folder's `index.ts`. The core power plant and thruster families
 live in their own subfolders. Keep shared family defaults (such as `thruster.ts`
 and `shield.ts`) beside their variants without exporting them from the index.
-Every module has a weight; it is catalog data and does not yet affect craft mass.
+Every module has a mass that contributes to its ship's movement when installed.
 Specs satisfy `ModuleSpec` and do not declare a `category`.
 
 The main index assigns the folder's named category to its exported specs.

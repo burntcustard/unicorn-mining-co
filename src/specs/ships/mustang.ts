@@ -3,12 +3,13 @@ import type { ShipSpec } from './types';
 
 export const mustang = {
   name: 'Mustang',
-  price: 2400,
+  price: 2800,
   fuelCapacity: 120,
   cargoSpace: 12,
-  drag: 0.56,
-  mass: 9,
+  drag: 2338,
+  hullMass: 2875,
   radius: 40,
+  angularThrust: 4175,
   turnRate: 3,
   initialLoadout: [
     { mount: 1, module: 'thrusterDualMd' },

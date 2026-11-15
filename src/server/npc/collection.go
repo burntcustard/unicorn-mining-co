@@ -60,7 +60,7 @@ func (p *Pilot) collectionWiggle(ship *objects.Ship, obstacles []obstacle) (floa
 		return 0, false
 	}
 
-	spin := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+	spin := ship.MaximumTurnRate()
 	turn := 0.0
 
 	if spin > 0 {
@@ -138,7 +138,7 @@ func (p *Pilot) collectControls(ship *objects.Ship, destination Movement, obstac
 
 	offset := Vec.Subtract(item.Base().Position, ship.Position)
 	bearing := math.Atan2(offset.Y, offset.X)
-	maximum := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+	maximum := ship.MaximumTurnRate()
 	forecast := newContactForecast(ship, item, centers)
 	gain := collectionTurnGain
 
@@ -233,7 +233,7 @@ func PickupDeparture(ship *objects.Ship, position Vec.Vector) float64 {
 	maximum := max(1, ship.MaxSpeed())
 	duration := Vec.Length(offset) / maximum
 	duration += 2 * (Vec.Length(ship.Velocity) - Vec.Dot(ship.Velocity, Vec.Normalize(offset))) / (max(.001, ship.Drag) * maximum)
-	spin := ship.TurnRate * ship.RotationalThrust() / ship.Rules.Flight.SpinDivisor
+	spin := ship.MaximumTurnRate()
 
 	if spin > 0 {
 		duration += math.Abs(math.Remainder(math.Atan2(offset.Y, offset.X)-ship.Rotation, 2*math.Pi)) / spin

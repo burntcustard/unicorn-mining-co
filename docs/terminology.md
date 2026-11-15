@@ -110,6 +110,8 @@
 
 **local position** - A location measured from a craft's center, used for its mounts and segments.
 
+**mass** - The amount of matter in an object, used to determine its movement.
+
 **measurement window** - The interval whose observations contribute to a benchmark result, excluding preparation, warmup, and cleanup.
 
 **memory budget** - Go's soft target for runtime-managed memory, configured with `GOMEMLIMIT`. Leave additional machine RAM for the executable, OS, and file mappings.

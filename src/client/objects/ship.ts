@@ -63,6 +63,8 @@ export class Ship extends Craft {
   firing = false;
   declare targetId?: number;
   declare fuelCapacity: number;
+  declare angularThrust: number;
+  declare hullMass: number;
   fuel: number;
   storedPower = 0;
   thrusterPower = 1;
@@ -465,7 +467,40 @@ export class Ship extends Craft {
 
     this.fuel = properties.fuel ?? spec.fuelCapacity;
     this.storedPower = properties.storedPower ?? 0;
+    this.updateMass();
     this.definitionId = shipType === 'mustang' ? undefined : shipType;
+  }
+
+  updateMass() {
+    this.mass = this.mounts.reduce(
+      (mass, mount) => mass + (mount.module ? mount.module.mass : 0),
+      this.hullMass,
+    );
+  }
+
+  get hullHealth() {
+    return super.hullHealth;
+  }
+
+  set hullHealth(values: number[]) {
+    super.hullHealth = values;
+    this.updateMass();
+  }
+
+  fit(module: Module | 0, mount?: Mount) {
+    super.fit(module, mount);
+    this.updateMass();
+  }
+
+  fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
+    const fragments = super.fracture(hulls, destroyed, wreckage);
+
+    if (!wreckage) this.updateMass();
+    return fragments;
+  }
+
+  movementDrag() {
+    return (this.drag ?? 0) / this.mass;
   }
 
   get stranded() {
@@ -570,6 +605,14 @@ export class Ship extends Craft {
           this.launchThrottle * this.fuelThrottle * this.thrusterPower;
       }
     });
+  }
+
+  get rawForwardThrust() {
+    return this.thrusterTotal('forward');
+  }
+
+  get rawRotationalThrust() {
+    return this.thrusterTotal('rotation');
   }
 
   get forwardThrust() {
@@ -1020,14 +1063,16 @@ export class Ship extends Craft {
         this.forward *
         dt;
       const rotationalThrust = this.rotationalThrust;
+      const angularAcceleration =
+        (rotationalThrust * this.angularThrust) / this.mass;
       const targetSpin =
         (this.turn *
           this.turnRate *
-          rotationalThrust *
+          angularAcceleration *
           this.launchThrottle ** 2) /
         flight.spinDivisor;
 
-      this.spin = approach(this.spin, targetSpin, rotationalThrust * dt);
+      this.spin = approach(this.spin, targetSpin, angularAcceleration * dt);
       Vec.set(
         this.velocity,
         movePoint(this.velocity, this.rotation + this.spin * dt, push),

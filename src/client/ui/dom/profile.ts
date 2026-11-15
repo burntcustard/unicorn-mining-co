@@ -52,7 +52,7 @@ export const createProfile = ({
         button.disabled = true;
       });
 
-      status.textContent = 'Saving profile…';
+      status.textContent = 'Creating profile…';
 
       try {
         await onSave(input.value);

@@ -446,7 +446,7 @@ const render = (now: number) => {
         .filter(
           ({ module }) =>
             module &&
-            (module.collectsCargo ||
+            (module.behavior === 'cargoHatch' ||
               module instanceof Weapon ||
               module instanceof Laser),
         )

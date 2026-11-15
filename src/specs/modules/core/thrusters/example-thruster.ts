@@ -6,7 +6,7 @@ export const exampleThruster = {
   icon: './thruster.svg',
   description: 'Synthetic thruster for fuel and movement tests.',
   behavior: 'thruster',
-  weight: 1,
+  mass: 235,
   name: 'Example Thruster',
   health: 15,
   power: 0.15,
@@ -23,6 +23,7 @@ export const exampleThruster = {
 
 export const exampleTripleThruster = {
   ...exampleThruster,
+  mass: 1060,
   name: 'Example Triple Thruster',
   fuelUsage: 0.07,
   forwardThrust: 28,
@@ -49,6 +50,7 @@ export const exampleTripleThruster = {
 
 export const exampleSmallThruster = {
   ...exampleThruster,
+  mass: 120,
   name: 'Example Small Thruster',
   health: 15,
   power: 0.1,
@@ -68,6 +70,7 @@ export const exampleSmallThruster = {
 
 export const exampleLargeThruster = {
   ...exampleThruster,
+  mass: 350,
   name: 'Example Large Thruster',
   health: 15,
   power: 0.2,
@@ -87,6 +90,7 @@ export const exampleLargeThruster = {
 
 export const exampleExtraLargeThruster = {
   ...exampleThruster,
+  mass: 470,
   name: 'Example Extra Large Thruster',
   health: 15,
   power: 0.25,
@@ -106,6 +110,7 @@ export const exampleExtraLargeThruster = {
 
 export const exampleDualThruster = {
   ...exampleThruster,
+  mass: 470,
   name: 'Example Dual Thruster',
   health: 20,
   power: 0.3,
@@ -131,6 +136,7 @@ export const exampleDualThruster = {
 
 export const exampleLargeDualThruster = {
   ...exampleThruster,
+  mass: 705,
   name: 'Example Large Dual Thruster',
   health: 22,
   power: 0.4,
@@ -156,6 +162,7 @@ export const exampleLargeDualThruster = {
 
 export const exampleExtraLargeDualThruster = {
   ...exampleThruster,
+  mass: 940,
   name: 'Example Extra Large Dual Thruster',
   health: 25,
   power: 0.5,

@@ -3,7 +3,7 @@ import { createSpecimens } from '../../src/tools/font-viewer/specimen.ts';
 import { glyphPaths } from '../../font/glyph-paths.ts';
 
 const characters = Object.entries(glyphPaths)
-  .filter(([, path]) => path)
+  .filter(([character, path]) => Array.from(character).length === 1 && !!path)
   .map(([character]) => character)
   .sort();
 const specimens = createSpecimens(characters);

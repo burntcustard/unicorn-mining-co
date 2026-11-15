@@ -406,7 +406,7 @@ func (g *GameCollisions) Step(entities *utilities.OrderedMap[int64, simulation.E
 	g.impacts.ForEach(func(value impactRecord, _ *physics.Contact) {
 		a, b, point, impact := value.contact.Collider, value.contact.Other, value.contact.Point, value.impact
 		ao, bo := a.Owner.(simulation.Entity).Base(), b.Owner.(simulation.Entity).Base()
-		inverseMass := 1/ao.Mass + 1/bo.Mass
+		inverseMass := 1/ao.ForceMass() + 1/bo.ForceMass()
 		amount := max(0, utilities.RoundTiesUp((impact/inverseMass-rules.Physics.DamageBase)/rules.Physics.DamageScale))
 		applied := [2]float64{}
 
@@ -1018,7 +1018,8 @@ func (g *GameCollisions) syncDetailed(entity simulation.Entity, record *BodyReco
 	}
 
 	record.Body.SetProxyRadius(record.Radius)
-	record.Body.SetMass(object.Mass, object.Mass*object.AngularInertiaScale*inertiaPerMass(fixtures))
+	mass := object.ForceMass()
+	record.Body.SetMass(mass, mass*object.AngularInertiaScale*inertiaPerMass(fixtures))
 	record.GeometrySource = nil
 
 	if len(hitbox) == len(fixtures) {

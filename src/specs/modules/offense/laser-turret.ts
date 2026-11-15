@@ -7,7 +7,7 @@ export const laserTurret = {
   icon: './laser.svg',
   description: 'Focus a continuous beam onto your target.',
   behavior: 'beam',
-  weight: 1,
+  mass: 100,
   name: 'Beam Laser Turret',
   turret: true,
   turretTurnRate: 3,

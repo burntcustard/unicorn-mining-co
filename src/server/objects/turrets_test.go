@@ -178,7 +178,7 @@ func TestTurretProjectileDirectionAndRecoil(t *testing.T) {
 					t.Fatalf("turret must retain one projectile per firing interval, got %d", count)
 				}
 
-				expected := simulation.RotatePoint(Vec.Create(-data.Spec.Recoil/ship.Mass, 0), rotation)
+				expected := simulation.RotatePoint(Vec.Create(-data.Spec.Recoil/ship.ForceMass(), 0), rotation)
 
 				if Vec.Distance(Vec.Subtract(ship.Velocity, velocity), expected) > 1e-9 {
 					t.Fatal("recoil must oppose the turret's firing direction")

@@ -52,8 +52,9 @@
 [ ] Fix big ships having odd thruster left/right flares when turning
 [ ] Custom cursors
 [x] Bigger power generators for bigger ships
-[ ] Fix hull smash sound when shield & asteroid collide
+[x] Fix hull smash sound when shield & asteroid collide
 [ ] New icon for wormholes
+[ ] Add more ship stats to hangar tab
 
 ## MVP
 

@@ -24,6 +24,6 @@ export const pirateDialog = {
   searchExpired: ['I guess they left'],
   escaped: ["You've gotten away this time {player}"],
   stranded: ["Oh no, I'm stuck!"],
-  defeat: ["You win this time, I'm leaving!"],
+  defeat: ["You win this time {player}, I'm leaving!"],
   destroyed: ['AHH!'],
 } satisfies DialogSpec;

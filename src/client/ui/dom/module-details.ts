@@ -49,7 +49,7 @@ export const moduleThrusterMarkup = (
       : 'Full-power turn rate on the current ship if every thruster mount has this thruster';
 
   return [
-    `<div class="flex items-center gap-12 mt-6"><div title="Full-power max speed if every thruster mount has this thruster"><span class="block text-muted text-sm uppercase">Max speed</span><span class="text-color text-lg">${module.forwardThrust * flight.speedPerThrust} m/s</span></div><div title="${turnTitle}"><span class="block text-muted text-sm uppercase">${turnLabel}</span><span class="text-color text-lg">${turnValue}</span></div></div>`,
+    `<div class="flex items-center gap-6 mt-6"><div title="Full-power max speed if every thruster mount has this thruster"><span class="block text-muted text-sm uppercase">Max speed</span><span class="text-color text-lg">${module.forwardThrust * flight.speedPerThrust} m/s</span></div><div title="${turnTitle}"><span class="block text-muted text-sm uppercase">${turnLabel}</span><span class="text-color text-lg">${turnValue}</span></div></div>`,
     row(
       'Power use',
       `${(module.powerActivated ?? module.power ?? 0).toFixed(1)} MW`,

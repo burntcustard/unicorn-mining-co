@@ -1,7 +1,7 @@
 # Gemetric
 
 Edit [glyph-paths.ts](glyph-paths.ts) using whole-number coordinates, with
-half-unit horizontal offsets where needed for optical alignment. Stars use
+half-unit offsets where needed for optical alignment. Stars use
 fractional coordinates to keep all five tips evenly spaced. The initial
 `M` is implicit; use `M` for additional subpaths and `Z` to close them. Empty
 strings are placeholders and aren't included in the font.
@@ -14,6 +14,13 @@ Letters, digits and other symbols have a 13-unit advance. Full stops and commas
 use a 6-unit advance, with the same stroke weight, so numbers stay compact.
 This spacing is built into the font and needs no CSS feature setting. Canvas
 text uses native alignment to respect these widths.
+
+Ligatures in `glyphPaths` are keyed by their text, using multiple characters.
+
+The standard ligatures for `kg`, `m/s`, `m/s²`, and `°/s` each
+advance 26 units, matching two regular characters. The original text remains
+available for copying and accessibility; disabling ligatures shows the separate
+characters instead.
 
 The thin space (`U+2009`, `&#8201;` in HTML) advances 6.5 units, exactly half
 the width of the regular space, and has no visible outline.

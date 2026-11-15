@@ -100,6 +100,7 @@ export const renderSectorMap = ({
   mapMarkers.forEach((marker) => {
     if (
       marker.kind === 'field' ||
+      (marker.kind === 'ship' && marker.definitionId) ||
       (marker.kind === 'ship' && marker.id === ship.id)
     ) {
       return;
@@ -136,10 +137,31 @@ export const renderSectorMap = ({
       renderLandmarkIcon({ ctx, object: marker, radius: iconRadius, outline });
       ctx.lineWidth = 2 * displayScale;
       renderLandmarkIcon({ ctx, object: marker, radius: iconRadius });
+
+      if (marker.kind === 'station') {
+        mapMarkers
+          .filter(
+            (contact) =>
+              contact.kind === 'ship' &&
+              contact.definitionId === String(marker.id),
+          )
+          .forEach((contact, index) => {
+            label(
+              contact.name,
+              iconRadius + (5 + index * 16) * displayScale,
+              senderColor(contact.senderRole || '', contact.id === ship.id),
+            );
+          });
+      }
     }
 
     ctx.restore();
   });
+
+  if (ship.dockedTo) {
+    ctx.restore();
+    return;
+  }
 
   const pose = poses.get(ship.id) || ship;
   const position = offset(pose.position);

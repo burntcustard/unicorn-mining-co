@@ -22,7 +22,7 @@ func TestCargoHatchOffset(t *testing.T) {
 	ship := objects.CreatePlayerShip(world, objects.Properties{})
 
 	for _, segment := range ship.Segments {
-		if segment.Module == nil || !segment.Module.ModuleBase().Spec.CollectsCargo {
+		if segment.Module == nil || segment.Module.ModuleBase().Spec.Behavior != "cargoHatch" {
 			continue
 		}
 

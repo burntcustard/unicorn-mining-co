@@ -16,10 +16,18 @@
       aria-describedby="profile-hint profile-status"
     />
     <p id="profile-hint">Choose a name up to 16 characters.</p>
-    <p class="ui-status" id="profile-status" role="status"></p>
-    <div class="gap-4 flex flex-wrap" data-action-group>
+    <p>
+      The name will appear under to your ship on the map and in-game when
+      targetted by another player. It cannot be changed later.
+    </p>
+    <div class="gap-4 mt-4 flex flex-wrap items-center" data-action-group>
       <button class="ui-button uppercase" type="button" data-play>Play</button>
       <button class="ui-button uppercase" type="button" data-back>Back</button>
+      <p
+        class="ui-status ml-auto text-right"
+        id="profile-status"
+        role="status"
+      ></p>
     </div>
   </form>
 </div>

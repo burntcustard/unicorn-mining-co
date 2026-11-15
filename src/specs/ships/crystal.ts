@@ -57,9 +57,10 @@ export const crystal: ShipSpec = {
   price: 0,
   fuelCapacity: 140,
   cargoSpace: 0,
-  drag: 0.56,
-  mass: 14,
+  drag: 3636.64,
+  hullMass: 6069,
   radius: 70,
+  angularThrust: 6494,
   turnRate: 1.9,
   crystalWeapon: {
     emitters: [
@@ -75,7 +76,7 @@ export const crystal: ShipSpec = {
     powerFiring: 4.2,
   },
   initialLoadout: [
-    { mount: 0, module: 'powerPlant2V' },
+    { mount: 0, module: 'powerPlant2A' },
     { mount: 1, module: 'thrusterSingleSm', shades: colors.violet },
   ],
   hullSegments: [

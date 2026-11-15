@@ -886,7 +886,7 @@ func TestPirateEquipmentDefeat(t *testing.T) {
 					if equipment == "cannonSm" && damaged == 1 {
 						s.Update()
 
-						if npc.Defeated || chatCount(p, "You win this time, I'm leaving!") != 0 {
+						if npc.Defeated || chatCount(p, "You win this time "+p.DisplayName()+", I'm leaving!") != 0 {
 							t.Fatal("losing one cannon defeated the pirate")
 						}
 					}
@@ -912,7 +912,7 @@ func TestPirateEquipmentDefeat(t *testing.T) {
 				s.World.Tick += pirateDecisionTicks(s)
 				s.Update()
 
-				if npc.State != returning || npc.Input.Fire || len(npc.aggressors) != 0 || chatCount(p, "You win this time, I'm leaving!") != 1 {
+				if npc.State != returning || npc.Input.Fire || len(npc.aggressors) != 0 || chatCount(p, "You win this time "+p.DisplayName()+", I'm leaving!") != 1 {
 					t.Fatal("defeated pirate resumed fighting or repeated its defeat message")
 				}
 

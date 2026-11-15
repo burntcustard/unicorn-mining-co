@@ -622,7 +622,8 @@ export const createHud = ({
           Vec.distanceSquared(ship.position, target.position) >
             jumpGateSpec.approachRadius ** 2
             ? 'Move closer to request access'
-            : (!(target instanceof Ship) && target.targetLabel?.split('\n').at(-1)) ||
+            : (!(target instanceof Ship) &&
+                target.targetLabel?.split('\n').at(-1)) ||
               target.description;
 
         text('[data-description]', description || '');

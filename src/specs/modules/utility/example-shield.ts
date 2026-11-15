@@ -7,7 +7,7 @@ export const exampleShield = {
   icon: './shield.svg',
   description: 'Synthetic shield for mechanics tests.',
   behavior: 'shieldGenerator',
-  weight: 1,
+  mass: 200,
   name: 'Example Shield',
   health: 40,
   healthActivated: 100,
@@ -28,6 +28,7 @@ export const exampleShield = {
 
 export const exampleLargeShield = {
   ...exampleShield,
+  mass: 300,
   name: 'Example Large Shield',
   shieldRadius: 60,
 } satisfies ModuleSpec;

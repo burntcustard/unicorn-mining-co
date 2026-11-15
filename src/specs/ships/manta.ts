@@ -68,9 +68,10 @@ export const manta: ShipSpec = {
   price: 0,
   fuelCapacity: 160,
   cargoSpace: 0,
-  drag: 0.56,
-  mass: 12,
+  drag: 3117.52,
+  hullMass: 4977,
   radius: 110,
+  angularThrust: 5567,
   turnRate: 2.8,
   initialLoadout: [
     { mount: 0, module: 'powerPlant2V' },

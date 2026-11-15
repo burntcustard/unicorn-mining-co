@@ -120,7 +120,7 @@ export const makeSegment = (
         Vec.create(
           0,
           (segmentPlan.thrusterNozzleSide ||
-            (craftModule.collectsCargo && mount
+            (craftModule.behavior === 'cargoHatch' && mount
               ? -Math.sign(mount.localPosition.y)
               : 0)) *
             ((craftModule.offset || 0) + thrusterOffset),

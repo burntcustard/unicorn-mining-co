@@ -20,7 +20,7 @@ const spec: ModuleSpec = {
   description: 'Timing fixture.',
   power: exampleWeapon.power,
   powerActivated: exampleWeapon.powerActivated,
-  weight: 1,
+  mass: 1,
   health: 10,
   price: 20,
   zIndex: renderingLayers.modulesBelowShipHull,
@@ -125,7 +125,7 @@ for (const category of moduleCategoryIds) {
         !('behavior' in authored) ||
         !('name' in authored) ||
         !('health' in authored) ||
-        !('weight' in authored) ||
+        !('mass' in authored) ||
         !('price' in authored)
       ) {
         continue;
@@ -197,7 +197,7 @@ try {
 for (const module of moduleSpecList) {
   const spec: ModuleSpec = module;
 
-  assert(Number.isFinite(module.weight) && module.weight > 0);
+  assert(Number.isFinite(module.mass) && module.mass > 0);
   const idle = spec.power ?? 0;
   const active = spec.powerActivated ?? 0;
 

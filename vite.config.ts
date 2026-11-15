@@ -42,7 +42,7 @@ export default defineConfig(({ command }) => {
       proxy,
     },
     server: {
-      port: 3002,
+      port: 3000,
       proxy,
       watch: { ignored: ['**/benchmarking/_local/**'] },
     },

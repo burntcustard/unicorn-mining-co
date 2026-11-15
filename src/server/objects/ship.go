@@ -28,6 +28,7 @@ type Ship struct {
 	Firing                                   bool
 	Fuel, FuelCapacity                       float64
 	StoredPower, ThrusterPower, SystemsPower float64
+	DragCoefficient, AngularThrust           float64
 }
 
 func (s *Ship) Cargo() *[]simulation.Entity { return &s.CargoContents }
@@ -612,6 +613,14 @@ func (s *Ship) RotationalThrust() float64 {
 	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
 }
 
+func (s *Ship) AngularAcceleration() float64 {
+	return s.RotationalThrust() * s.AngularThrust / s.Mass
+}
+
+func (s *Ship) MaximumTurnRate() float64 {
+	return s.TurnRate * s.AngularAcceleration() / s.Rules.Flight.SpinDivisor
+}
+
 func (s *Ship) MaxSpeed() float64 {
 	if s.Cockpit != nil {
 		speed := s.Rules.Flight.SpeedPerThrust * s.ForwardThrust()
@@ -757,7 +766,7 @@ func (s *Ship) Update(dt float64) {
 		forward, rotational, _ := s.thrusterOutput()
 		fuelThrottle := s.FuelThrottle()
 		forward = forward * (throttle * throttle) * fuelThrottle * s.ThrusterPower
-		thrust := rotational * (throttle * throttle) * fuelThrottle * s.ThrusterPower
+		thrust := rotational * (throttle * throttle) * fuelThrottle * s.ThrusterPower * s.AngularThrust / s.Mass
 		push := ((f.ThrustScale * forward) / s.Mass) * s.Forward * dt
 		target := (s.Turn * s.TurnRate * thrust * (throttle * throttle)) / f.SpinDivisor
 		s.Spin = utilities.Approach(s.Spin, target, thrust*dt)
@@ -795,10 +804,6 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 		props.Drag = &d.Drag
 	}
 
-	if props.Mass == nil {
-		props.Mass = &d.Mass
-	}
-
 	if props.Radius == nil {
 		props.Radius = &d.Radius
 	}
@@ -824,7 +829,7 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 		plans[i] = plan
 	}
 
-	ship := &Ship{Craft: NewCraft(props, plans, catalog), ThrusterPower: 1, SystemsPower: 1}
+	ship := &Ship{Craft: NewCraft(props, plans, catalog), ThrusterPower: 1, SystemsPower: 1, DragCoefficient: d.Drag, AngularThrust: d.AngularThrust}
 
 	for _, plan := range ship.HullSegments {
 		for _, mount := range plan.Mounts {
@@ -856,6 +861,8 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 	if id != "mustang" {
 		ship.DefinitionID = id
 	}
+
+	ship.UpdateMass()
 
 	ship.FuelCapacity, ship.Fuel = d.FuelCapacity, d.FuelCapacity
 	ship.CargoSpace = d.CargoSpace

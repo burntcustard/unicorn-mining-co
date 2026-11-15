@@ -78,7 +78,7 @@ func (s *Ship) updateCargoRelease(dt float64) {
 	var hatches []*simulation.Segment
 
 	for _, segment := range s.Segments {
-		if segment.Catches && segment.Module != nil && segment.Module.ModuleBase().Spec.CollectsCargo && !(*segment.TargetHealth() < 1) && segment.Active != 0 && segment.ActivationProgress >= 1 {
+		if segment.Catches && segment.Module != nil && segment.Module.ModuleBase().Spec.Behavior == "cargoHatch" && !(*segment.TargetHealth() < 1) && segment.Active != 0 && segment.ActivationProgress >= 1 {
 			hatches = append(hatches, segment)
 		}
 	}

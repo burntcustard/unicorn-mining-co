@@ -227,7 +227,9 @@ export function buildPrePlugin(flags: Record<string, boolean> = {}) {
       if (id !== '\0virtual:font-characters') return;
 
       const characters = Object.entries(glyphPaths)
-        .filter(([, path]) => path)
+        .filter(
+          ([character, path]) => Array.from(character).length === 1 && !!path,
+        )
         .map(([character]) => character)
         .sort((a, b) => a.codePointAt(0)! - b.codePointAt(0)!)
         .join('');

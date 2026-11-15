@@ -60,7 +60,8 @@ type Ship struct {
 	Name           string          `json:"name"`
 	CargoSpace     int             `json:"cargoSpace"`
 	Drag           float64         `json:"drag"`
-	Mass           float64         `json:"mass"`
+	HullMass       float64         `json:"hullMass"`
+	AngularThrust  float64         `json:"angularThrust"`
 	Radius         float64         `json:"radius"`
 	TurnRate       float64         `json:"turnRate"`
 	HullSegments   []HullSegment   `json:"hullSegments"`

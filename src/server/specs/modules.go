@@ -53,7 +53,7 @@ type Module struct {
 	Model                 []ModelPart `json:"model"`
 	Behavior              string      `json:"behavior"`
 	Name                  string      `json:"name"`
-	Health, Price, Weight float64
+	Health, Price, Mass   float64
 	ZIndex                int      `json:"zIndex"`
 	Shades                []string `json:"shades"`
 	ActivationDuration    float64  `json:"activationDuration"`
@@ -69,7 +69,6 @@ type Module struct {
 	ForwardThrust         float64  `json:"forwardThrust"`
 	RotationalThrust      float64  `json:"rotationalThrust"`
 	Offset                float64  `json:"offset"`
-	CollectsCargo         bool     `json:"collectsCargo"`
 	Grinds                bool     `json:"grinds"`
 	Beam                  bool     `json:"beam"`
 	Reach, Spread, Corner float64
