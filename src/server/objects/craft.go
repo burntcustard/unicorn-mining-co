@@ -1211,8 +1211,13 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		}
 
 		d := s.ModuleSpec()
+		retractionDistance := d.RetractionDistance
 
-		if (d.Behavior == "weapon" || d.Behavior == "beam") && d.RetractionDistance > 0 && s.ActivationProgress == 0 {
+		if s.Mount != nil && s.Mount.RetractionDistance != nil {
+			retractionDistance = *s.Mount.RetractionDistance
+		}
+
+		if (d.Behavior == "weapon" || d.Behavior == "beam") && retractionDistance > 0 && s.ActivationProgress == 0 {
 			continue
 		}
 

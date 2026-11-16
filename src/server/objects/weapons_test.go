@@ -1100,6 +1100,12 @@ func TestRetractedWeaponHitbox(t *testing.T) {
 			if craft.GeometrySource() == before {
 				t.Fatal("retraction must invalidate cached collision geometry")
 			}
+
+			mount.RetractionDistance = new(0.0)
+			check(true)
+
+			mount.RetractionDistance = new(10.0)
+			check(false)
 		})
 	}
 }
