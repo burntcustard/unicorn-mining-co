@@ -176,6 +176,8 @@ export const propertyNames = [
   'healthActivated',
   'rechargeDuration',
   'retractionDistance',
+  'weaponRetractionDistance',
+  'telescoping',
   'fireCooldown',
   'fireInterval',
   'muzzleFlash',

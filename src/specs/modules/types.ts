@@ -71,6 +71,7 @@ type ModuleValues = {
   // Milliseconds spent shutting down before retraction begins.
   dischargeDuration?: number;
   retractionDistance?: number;
+  telescoping?: boolean;
   muzzleFlash?: EffectSpec;
   // Backwards impulse per shot, scaled by the firing ship's mass.
   recoil?: number;

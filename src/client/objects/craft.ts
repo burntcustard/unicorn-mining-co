@@ -422,6 +422,7 @@ export class Craft extends GameObject {
     }
 
     mount.module = craftModule;
+    mount.retractionDistance = this.weaponRetractionDistance;
     // With no exposed inactive body, structural health tracks active integrity.
     mount.health =
       craftModule && (craftModule.health || craftModule.healthActivated);

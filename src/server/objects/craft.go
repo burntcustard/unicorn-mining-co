@@ -260,6 +260,7 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 	}
 
 	mount.Module = module
+	mount.RetractionDistance = c.Catalog.ShipSpecs[c.DefinitionID].WeaponRetractionDistance
 	mount.Health = 0
 
 	if module != nil {

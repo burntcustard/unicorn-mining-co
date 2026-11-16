@@ -31,15 +31,16 @@ type InitialModule struct {
 }
 
 type Ship struct {
-	Price          float64         `json:"price"`
-	FuelCapacity   float64         `json:"fuelCapacity"`
-	InitialLoadout []InitialModule `json:"initialLoadout"`
-	Name           string          `json:"name"`
-	CargoSpace     int             `json:"cargoSpace"`
-	Drag           float64         `json:"drag"`
-	HullMass       float64         `json:"hullMass"`
-	AngularThrust  float64         `json:"angularThrust"`
-	Radius         float64         `json:"radius"`
-	TurnRate       float64         `json:"turnRate"`
-	HullSegments   []HullSegment   `json:"hullSegments"`
+	WeaponRetractionDistance *float64        `json:"weaponRetractionDistance"`
+	Price                    float64         `json:"price"`
+	FuelCapacity             float64         `json:"fuelCapacity"`
+	InitialLoadout           []InitialModule `json:"initialLoadout"`
+	Name                     string          `json:"name"`
+	CargoSpace               int             `json:"cargoSpace"`
+	Drag                     float64         `json:"drag"`
+	HullMass                 float64         `json:"hullMass"`
+	AngularThrust            float64         `json:"angularThrust"`
+	Radius                   float64         `json:"radius"`
+	TurnRate                 float64         `json:"turnRate"`
+	HullSegments             []HullSegment   `json:"hullSegments"`
 }

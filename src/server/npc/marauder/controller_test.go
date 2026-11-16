@@ -64,6 +64,26 @@ func TestConsecutivePingsAndRepeatedSpawns(t *testing.T) {
 		t.Fatal("must spawn a flying crescent in space")
 	}
 
+	cannons := 0
+
+	for _, mount := range npc.ship.Mounts() {
+		if mount.Module != nil && mount.Module.ModuleBase().Type == "cannonSm" {
+			cannons++
+		}
+	}
+
+	rounds := 0
+
+	for _, cargo := range npc.ship.CargoContents {
+		if ammo, ok := cargo.(*objects.Item); ok && ammo.Rounds != nil {
+			rounds += *ammo.Rounds
+		}
+	}
+
+	if cannons != 2 || rounds != 400 {
+		t.Fatalf("marauder must spawn with paired cannons and 400 rounds: cannons=%d rounds=%d", cannons, rounds)
+	}
+
 	ping(m)
 
 	if len(m.Marauders) != 2 {

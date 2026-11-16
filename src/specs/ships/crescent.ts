@@ -87,6 +87,7 @@ const violetOutline = [
 const cornerContinuation = 1.5;
 
 export const crescent: ShipSpec = {
+  weaponRetractionDistance: 14,
   name: 'Crescent',
   price: 0,
   fuelCapacity: 180,
@@ -170,11 +171,17 @@ export const crescent: ShipSpec = {
       [-1, 1].map((direction): HullSegmentSpecification => ({
         health: 25,
         connections: [0],
-        // Keep the original three mount indexes; the controller shares the
-        // power plant's central position on the final gold panel.
-        ...(side === 1 && direction === 1
+        // Keep the controller at mount 3, before the two forward cannon
+        // mounts; its position still coincides with the power plant.
+        ...(side === -1 && direction === -1
           ? { mounts: [[{ x: 0, y: 0, fits: ['flightMode'] }]] }
-          : {}),
+          : direction === 1
+            ? {
+                // Recess the barrels beneath the center while attaching each
+                // cannon to the forward gold panel its muzzle emerges from.
+                mounts: [[{ x: -5, y: side * 6, fits: ['cannonSm'] }]],
+              }
+            : {}),
         shades: colors.yellow,
         lineJoin: 'miter',
         points: [

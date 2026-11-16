@@ -153,21 +153,27 @@ export class Weapon extends Module {
     return super.createModel(spec).map((part) => {
       if (part.turretBase) return { ...part, radius: () => part.radius };
 
-      const radius = Math.max(
-        radiusOf(part.points),
-        radiusOf(
-          (part.points as ShapeOutline).map(([x, y]) => [
-            x - (spec.retractionDistance ?? 0),
-            y,
-          ]),
-        ),
+      const radius = radiusOf(part.points);
+      const defaultRadius = Math.max(
+        radius,
+        radiusOf(part.points, [spec.retractionDistance ?? 0, 0]),
       );
+      const retractionDistance = (segment: Segment) =>
+        segment.mount?.retractionDistance ?? spec.retractionDistance ?? 0;
 
       return {
         ...part,
         // Function-based points have no automatic bounds. Cover both ends of
         // the deployment slide; mirroring preserves distance from the mount.
-        radius: () => radius,
+        radius: (segment: Segment) =>
+          spec.telescoping
+            ? radius
+            : segment.mount?.retractionDistance === undefined
+              ? defaultRadius
+              : Math.max(
+                  radius,
+                  radiusOf(part.points, [retractionDistance(segment), 0]),
+                ),
         points: (segment: Segment) => {
           const progress = Math.min(
             1,
@@ -177,8 +183,12 @@ export class Weapon extends Module {
                 : 1),
           );
 
+          const distance = retractionDistance(segment) * (1 - progress);
+
           return (part.points as ShapeOutline).map(([x, y]) => {
-            x -= (spec.retractionDistance ?? 0) * (1 - progress);
+            x = spec.telescoping
+              ? x * Math.max(0, 1 - distance / spec.barrelLength)
+              : x - distance;
             y *= !spec.turret && segment.mount.localPosition.y < 0 ? -1 : 1;
 
             if (!spec.turret) return [x, y];

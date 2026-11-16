@@ -222,3 +222,70 @@ func TestFlightControllerDetachesWithoutInvisibleWreckage(t *testing.T) {
 		t.Fatal("detaching the state-only controller spawned phantom wreckage or retained its fold")
 	}
 }
+
+func TestCannonBarrelsTelescopeWithShipOverride(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, id := range []string{"crescent", "courser"} {
+		t.Run(id, func(t *testing.T) {
+			world := simulation.CreateWorld(25, catalog)
+			ship := CreatePlayerShip(world, Properties{DefinitionID: id})
+
+			if id == "crescent" {
+				for range 2 {
+					ship.Fit(modules.Create("cannonSm", simulation.ObjectProperties{World: world}, catalog), nil)
+				}
+			}
+
+			travel := *catalog.ShipSpecs[id].WeaponRetractionDistance
+
+			check := func(progress float64) {
+				t.Helper()
+				count := 0
+
+				for _, part := range ship.Segments {
+					if part.Module == nil || part.Module.ModuleBase().Type != "cannonSm" {
+						continue
+					}
+
+					count++
+					nearFlight(t, part.ActivationProgress, progress)
+					outline := part.Outline().Points
+					nearFlight(t, outline[0][0], 0)
+					nearFlight(t, outline[1][0], 26-travel*(1-progress))
+
+					if id == "crescent" && progress == 0 {
+						for _, point := range outline {
+							if math.Abs(point[0]+part.LocalPosition.X)+math.Abs(point[1]+part.LocalPosition.Y) > 16 {
+								t.Fatal("retracted cannon protrudes from the center square")
+							}
+						}
+					}
+				}
+
+				if count != 2 {
+					t.Fatalf("expected two cannon barrels, got %d", count)
+				}
+			}
+
+			check(0)
+			duration := catalog.ModuleSpecs["cannonSm"].ActivationDuration
+			ship.SetModuleActive("cannonSm", true)
+			ship.UpdateModules(duration / 2)
+			check(.5)
+			ship.SetModuleActive("cannonSm", false)
+			ship.UpdateModules(duration / 2)
+			check(0)
+			ship.SetModuleActive("cannonSm", true)
+			ship.UpdateModules(duration)
+			check(1)
+			ship.SetModuleActive("cannonSm", false)
+			ship.UpdateModules(duration)
+			check(0)
+		})
+	}
+}

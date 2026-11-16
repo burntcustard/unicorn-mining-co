@@ -40,6 +40,7 @@ type Module struct {
 	PowerFiring           float64     `json:"powerFiring"`
 	DischargeDuration     float64     `json:"dischargeDuration"`
 	ChargeDuration        float64     `json:"chargeDuration"`
+	Telescoping           bool        `json:"telescoping"`
 	RetractionDistance    float64     `json:"retractionDistance"`
 	FireInterval          float64     `json:"fireInterval"`
 	Recoil                float64     `json:"recoil"`

@@ -2,6 +2,7 @@ import { powerPlantIdsBySize } from '../modules';
 import type { ShipSpec } from './types';
 
 export const courser = {
+  weaponRetractionDistance: 0,
   name: 'Courser',
   price: 2400,
   fuelCapacity: 120,

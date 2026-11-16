@@ -359,8 +359,8 @@ assert(
 
 assert.equal(
   mounts.length,
-  4,
-  'the center adds a flight controller after the original three module mounts',
+  6,
+  'the center adds a flight controller and two cannon mounts after the original three module mounts',
 );
 assert.equal(hull[0].core, true);
 assert.equal(

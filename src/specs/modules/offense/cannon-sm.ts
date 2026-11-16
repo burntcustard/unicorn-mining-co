@@ -39,6 +39,8 @@ export const cannonSm = {
   },
   ammo: autogunAmmo,
   barrelLength: 26,
+  retractionDistance: 6,
+  telescoping: true,
   model: [
     {
       outline: false,

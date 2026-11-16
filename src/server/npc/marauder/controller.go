@@ -7,6 +7,7 @@ import (
 
 	ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
@@ -95,6 +96,14 @@ func (m *Manager) spawn(destination Vec.Vector) *marauder {
 
 	npc.ship = ai.Spawn(m.Environment, ai.SpawnOptions{
 		DefinitionID: rules.Ship, Name: "Marauder", Position: &position, Rotation: heading, Hostile: true,
+		Configure: func(ship *objects.Ship) {
+			for range 2 {
+				ship.Fit(modules.Create("cannonSm", simulation.ObjectProperties{World: m.World}, m.World.Specification), nil)
+				ammoID := simulation.EntityID(m.World)
+				ammo := objects.NewItem("autogunAmmo", simulation.ObjectProperties{World: m.World, ID: &ammoID}, m.World.Specification)
+				ship.CargoContents = append(ship.CargoContents, ammo)
+			}
+		},
 	})
 
 	npc.ship.SuppressDrops = true

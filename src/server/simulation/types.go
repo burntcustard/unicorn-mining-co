@@ -26,13 +26,14 @@ type ModuleData struct {
 }
 
 type Mount struct {
-	MountPoints     []specs.MountPoint
-	LocalPosition   Vec.Vector
-	Health          float64
-	HealthActivated *float64
-	Module          Module
-	Fits            []string
-	Hull            *Segment
+	RetractionDistance *float64
+	MountPoints        []specs.MountPoint
+	LocalPosition      Vec.Vector
+	Health             float64
+	HealthActivated    *float64
+	Module             Module
+	Fits               []string
+	Hull               *Segment
 }
 
 type SegmentPlan struct {

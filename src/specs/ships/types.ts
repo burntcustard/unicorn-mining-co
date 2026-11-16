@@ -28,6 +28,8 @@ export type ShipSpec = {
   angularThrust: number;
   radius: number;
   turnRate: number;
+  // Override weapon deployment travel; zero keeps barrels at full length.
+  weaponRetractionDistance?: number;
   // Zero-based mount slots, flattened in hull segment order. Omitted slots stay empty.
   initialLoadout: {
     mount: number;
