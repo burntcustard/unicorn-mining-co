@@ -22,6 +22,8 @@ const drillLines = Object.freeze(
 ) as number[][][];
 
 class HornDrillModule extends Module {
+  static category = 'offense' as const;
+
   static bounciness = (segment: Segment) =>
     segment.activationProgress > segment.module.activationThreshold
       ? -0.4

@@ -5,7 +5,7 @@ import type { ItemSpec } from '../items/types';
 
 type ModuleModelPart = {
   // Draw the normal edge outline; false draws only the fill and any markings.
-  outline: boolean;
+  outline?: boolean;
   catches?: boolean;
   flareSize?: number;
   thrusterNozzleSide?: number;
@@ -50,14 +50,15 @@ type ModuleValues = {
   // Generation is MW (MJ/s); storage capacity is MJ.
   powerGenerated?: number;
   powerCapacity?: number;
-  mass: number;
-  health: number;
+  mass?: number;
+  // Zero without activated health means the module has no damageable body.
+  health?: number;
   // Optional separate health pool for the exposed active module or shield bubble.
   healthActivated?: number;
   // Milliseconds to restore the active pool while inactive; blocks activation until full.
   rechargeDuration?: number;
-  price: number;
-  zIndex: RenderingLayer;
+  price?: number;
+  zIndex?: RenderingLayer;
   shades?: readonly string[];
   // Milliseconds spent moving between retracted and extended positions.
   activationDuration?: number;
@@ -112,6 +113,7 @@ type ModuleValues = {
   collisionMargin?: number;
   forwardThrust?: number;
   rotationalThrust?: number;
+  // Full flight-mode multiplier; deployment interpolates from 1.
   flightBoost?: number;
   offset?: number;
   grinds?: boolean;

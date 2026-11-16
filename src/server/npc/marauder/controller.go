@@ -179,7 +179,7 @@ func (m *Manager) Update() {
 			npc.thinkAt = 0
 		}
 
-		if ship.Dead || !m.World.Entities.Has(ship.ID) || ship.DockedTo != nil || npc.Visited && !m.nearbyPlayer(ship) {
+		if ship.Dead || !m.World.Entities.Has(ship.ID) || ship.DockedTo != nil || (npc.Visited || ship.Stranded()) && !m.nearbyPlayer(ship) {
 			ai.Remove(m.Environment, ship)
 			return true
 		}

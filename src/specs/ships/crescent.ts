@@ -93,8 +93,7 @@ export const crescent: ShipSpec = {
   fuelCapacity: 180,
   cargoSpace: 0,
   drag: 3896,
-  // The built-in controller carries one unit of the original hull mass.
-  hullMass: 6367,
+  hullMass: 6368,
   // Include the pointed tails after the wings slide backward in flight mode.
   radius: 94,
   angularThrust: 6958,

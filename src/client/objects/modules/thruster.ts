@@ -5,6 +5,8 @@ import type { Segment } from '../../types';
 import { Module, type ModuleRenderOptions } from './module';
 
 class Thruster extends Module {
+  static category = 'core' as const;
+
   updateVisual({ dt, segments }: { dt: number; segments: Segment[] }) {
     segments.forEach((segment) => {
       // A half-height envelope makes gentle thrust and repeated pulses visible.

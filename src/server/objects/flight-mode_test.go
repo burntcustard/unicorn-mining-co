@@ -22,7 +22,7 @@ func flightFixture(t *testing.T) (*Ship, *simulation.World) {
 
 	catalog.ModuleIDs = append(catalog.ModuleIDs, "testFlightMode")
 	wreckage := false
-	catalog.ModuleSpecs["testFlightMode"] = specs.Module{Behavior: "flightMode", FlightBoost: .3, ActivationDuration: .6, Health: 25, Mass: 1, DisablePhysics: true, PowerGenerated: 100, PowerCapacity: 100, Model: []specs.ModelPart{{Wreckage: &wreckage}}}
+	catalog.ModuleSpecs["testFlightMode"] = specs.Module{Behavior: "flightMode", FlightBoost: 1.3, ActivationDuration: .6, Health: 25, Mass: 1, DisablePhysics: true, PowerGenerated: 100, PowerCapacity: 100, Model: []specs.ModelPart{{Wreckage: &wreckage}}}
 	definition := catalog.ShipSpecs["mustang"]
 	health := 100.0
 
@@ -288,4 +288,52 @@ func TestCannonBarrelsTelescopeWithShipOverride(t *testing.T) {
 			check(0)
 		})
 	}
+}
+
+func TestFlightControllerHasNoDamageableBodyOrMass(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := CreatePlayerShip(world, Properties{DefinitionID: "crescent"})
+	mount := ship.Mounts()[3]
+	mass := ship.Mass
+
+	if catalog.ModuleSpecs["flightMode"].Mass != 0 || catalog.ModuleSpecs["flightMode"].Health != 0 {
+		t.Fatal("flight controller must have no mass or damageable body")
+	}
+
+	if Damage(ship.SegmentsAtMount(mount)[0], 100) != 0 {
+		t.Fatal("inactive controller took damage")
+	}
+
+	Damage(mount.Hull, 1)
+	ship.SetModuleActive("flightMode", true)
+	ship.UpdateModules(1)
+
+	if !ship.ModuleActive("flightMode") || ship.flightBoostFactor() != 1.3 || Damage(ship.SegmentsAtMount(mount)[0], 100) != 0 {
+		t.Fatal("healthless controller must activate and remain immune to damage")
+	}
+
+	for _, oldHealth := range []float64{0, 25} {
+		states := ship.ModuleStates()
+
+		for i := range states {
+			if states[i].Mount == 3 {
+				states[i].Health = &oldHealth
+			}
+		}
+
+		ship.SetModuleStates(states)
+
+		if !ship.ModuleActive("flightMode") || Damage(ship.SegmentsAtMount(mount)[0], 100) != 0 {
+			t.Fatal("old saved health must not make the controller damageable or disable it")
+		}
+	}
+
+	ship.Fit(nil, mount)
+	nearFlight(t, ship.Mass, mass)
 }

@@ -1,42 +1,23 @@
-import * as core from './core';
-import * as offense from './offense';
-import * as utility from './utility';
-import type { ModuleCategory } from './categories';
 import type { ModuleSpec } from './types';
 
-const categorize = <
-  Category extends ModuleCategory,
-  Specs extends Record<string, ModuleSpec>,
->({
-  category,
-  specs,
-}: {
-  category: Category;
-  specs: Specs;
-}) =>
-  Object.fromEntries(
-    Object.entries(specs).map(([id, spec]) => [id, { ...spec, category }]),
-  ) as unknown as { [Id in keyof Specs]: Specs[Id] & { category: Category } };
-
-const {
-  powerPlant2V,
+import {
   powerPlant1A,
   powerPlant1H,
-  powerPlant1V,
   powerPlant1L,
+  powerPlant1V,
   powerPlant2A,
   powerPlant2H,
   powerPlant2L,
+  powerPlant2V,
   powerPlant3A,
   powerPlant3H,
-  powerPlant3V,
   powerPlant3L,
+  powerPlant3V,
   powerPlant4A,
   powerPlant4H,
-  powerPlant4V,
   powerPlant4L,
+  powerPlant4V,
   thrusterSingleSm,
-  thrusterCrescent,
   thrusterSingleMd,
   thrusterSingleLg,
   thrusterSingleXl,
@@ -45,9 +26,10 @@ const {
   thrusterDualLg,
   thrusterDualXl,
   thrusterTriple,
-} = categorize({ category: 'core', specs: core });
+  thrusterCrescent,
+} from './core';
 
-const {
+import {
   autogun,
   laser,
   plasmaAccelerator,
@@ -56,9 +38,9 @@ const {
   autogunTurret,
   plasmaAcceleratorTurret,
   laserTurret,
-} = categorize({ category: 'offense', specs: offense });
+} from './offense';
 
-const {
+import {
   cargoHatch,
   cargoHatchPair,
   searchLight,
@@ -67,7 +49,7 @@ const {
   shieldGeneratorXs,
   shieldGeneratorLg,
   flightMode,
-} = categorize({ category: 'utility', specs: utility });
+} from './utility';
 
 export {
   thrusterSingleMd,
@@ -113,6 +95,7 @@ export {
   flightMode,
   thrusterCrescent,
 };
+
 // Stable wire IDs: folder and category order must not change these indexes.
 export const moduleIds = [
   'thrusterSingleMd',
@@ -206,7 +189,7 @@ export const moduleSpecs = {
   thrusterCrescent,
 };
 
-export const moduleSpecList = Object.values(moduleSpecs);
+export const moduleSpecList: ModuleSpec[] = Object.values(moduleSpecs);
 
 export type WeaponId = {
   [Id in ModuleId]: (typeof moduleSpecs)[Id]['behavior'] extends 'weapon'

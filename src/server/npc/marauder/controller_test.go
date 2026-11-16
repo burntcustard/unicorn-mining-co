@@ -288,6 +288,66 @@ func TestDespawnRequiresOriginalVisitAndActiveHumanProximity(t *testing.T) {
 	}
 }
 
+func TestStrandedDespawnBeforeOriginalVisit(t *testing.T) {
+	for _, kind := range []string{"outside", "docked", "dead", "disconnected", "transiting", "unobserved", "absent"} {
+		t.Run(kind, func(t *testing.T) {
+			m, host, p := fixture(t)
+			npc := m.spawn(p.Craft.Position)
+			ship := npc.ship
+			p.Craft.Position = Vec.Add(ship.Position, Vec.Create(5001, 0))
+
+			if len(ship.Engines()) != 2 {
+				t.Fatal("fixture must have two engines")
+			}
+
+			objects.Damage(ship.Engine().ModuleBase().Mount.Hull, 10000)
+			ship.Update(0)
+			m.Update()
+
+			if ship.Dead || ship.Stranded() || npc.Visited || len(m.Marauders) != 1 {
+				t.Fatal("a surviving engine must retain the arrival requirement")
+			}
+
+			objects.Damage(ship.Engine().ModuleBase().Mount.Hull, 10000)
+			ship.Update(0)
+			p.Craft.Position.X--
+			m.Update()
+
+			if ship.Dead || !ship.Stranded() || npc.Visited || len(m.Marauders) != 1 || len(m.Capture()) != 1 {
+				t.Fatal("an active human exactly 5000 away must retain the living stranded ship")
+			}
+
+			switch kind {
+			case "outside":
+				p.Craft.Position.X++
+			case "docked":
+				id := int64(12)
+				p.Craft.DockedTo = &id
+			case "dead":
+				p.Craft.Dead = true
+			case "disconnected":
+				p.Online = false
+			case "transiting":
+				p.Craft.TransitTime = 1
+			case "unobserved":
+				m.World.Players.Delete(p.ID)
+			case "absent":
+				m.World.Entities.Delete(p.Craft.ID)
+			}
+
+			m.Update()
+
+			if len(m.Marauders) != 0 || m.World.Entities.Has(ship.ID) || m.World.Players.Has(*ship.PlayerID) || len(m.Capture()) != 0 {
+				t.Fatal("a stranded ship without nearby active humans must release its entity, observer, and persistence record")
+			}
+
+			if _, ok := host.Inputs[*ship.PlayerID]; ok {
+				t.Fatal("despawning must clear the ship's input")
+			}
+		})
+	}
+}
+
 func TestArrivalSearchAndSavedDestination(t *testing.T) {
 	m, _, p := fixture(t)
 	npc := m.spawn(p.Craft.Position)

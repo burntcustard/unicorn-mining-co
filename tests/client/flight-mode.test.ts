@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { FlightMode, ThrusterCrescent } from '../../src/client/objects/modules';
 import { Ship } from '../../src/client/objects/ship';
+import { damage } from '../../src/client/objects/damage';
 import { EntityState } from '../../src/client/simulation/entity-state';
 import { cloneEntity } from '../../src/client/simulation/world-state';
 import { createWorld, addEntity } from '../../src/client/simulation/world';
@@ -32,6 +33,38 @@ const fold = (ship: Ship, progress = 1) => {
   ship.setModuleActive({ module: FlightMode, active: true });
   ship.updateModules(progress / controller(ship).rate);
 };
+
+{
+  const ship = makeShip();
+  const mount = ship.mounts[3];
+  const mass = ship.mass;
+
+  assert.equal(FlightMode.price, 0);
+  assert.equal(FlightMode.mass, 0);
+  assert.equal(FlightMode.health, 0);
+  assert.equal(FlightMode.zIndex, undefined);
+  assert.equal(controller(ship).module.mass, 0);
+  assert.equal(controller(ship).module.health, 0);
+  assert.equal(controller(ship).module.price, 0);
+  assert.equal(damage(controller(ship), 100), 0);
+  damage(mount.hull, 1);
+  fold(ship);
+  assert(ship.moduleActive({ module: FlightMode }));
+  assert.equal(damage(controller(ship), 100), 0);
+  near(controller(ship).activationProgress, 1);
+
+  for (const oldHealth of [0, 25]) {
+    const states = structuredClone(ship.moduleStates);
+
+    states.find((state) => state.mount === 3)!.health = oldHealth;
+    ship.moduleStates = states;
+    assert.equal(damage(controller(ship), 100), 0);
+    assert(ship.moduleActive({ module: FlightMode }));
+  }
+
+  ship.fit(0, mount);
+  near(ship.mass, mass);
+}
 
 {
   const ship = makeShip();
@@ -224,8 +257,8 @@ const fold = (ship: Ship, progress = 1) => {
     (segment) => segment.module instanceof FlightMode,
   );
 
-  first.module.flightBoost = 0.1;
-  second.module.flightBoost = 0.4;
+  first.module.flightBoost = 1.1;
+  second.module.flightBoost = 1.4;
   first.activationProgress = 1;
   second.activationProgress = 0.5;
   ship.updateFlightMode();

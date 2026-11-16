@@ -1033,7 +1033,8 @@ export class Craft extends GameObject {
 
         if (mount) {
           if (!unchanged) this.fit(module, mount);
-          mount.health = state.health;
+          mount.health =
+            (module.health || module.healthActivated) && state.health;
           mount.healthActivated =
             state.healthActivated ?? module.healthActivated;
 
@@ -1215,16 +1216,13 @@ export class Craft extends GameObject {
   }
 
   get flightBoostFactor() {
-    return (
-      1 +
-      flightStateOf(this).controllers.reduce(
-        (boost, segment) =>
-          Math.max(
-            boost,
-            controllerProgress(segment) * (segment.module.flightBoost || 0),
-          ),
-        0,
-      )
+    return flightStateOf(this).controllers.reduce(
+      (boost, segment) =>
+        Math.max(
+          boost,
+          1 + controllerProgress(segment) * (segment.module.flightBoost - 1),
+        ),
+      1,
     );
   }
 

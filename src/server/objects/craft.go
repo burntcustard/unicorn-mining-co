@@ -281,6 +281,10 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 			}
 		} else {
 			mount.HealthActivated = nil
+
+			if mount.Health == 0 {
+				mount.Health = math.NaN()
+			}
 		}
 
 		c.CargoContents = slices.DeleteFunc(c.CargoContents, func(e simulation.Entity) bool { return e == module })
@@ -613,7 +617,7 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 
 				mount.Health = math.NaN()
 
-				if state.Health != nil {
+				if state.Health != nil && (module.ModuleBase().Spec.Health != 0 || module.ModuleBase().Spec.HealthActivated != nil) {
 					mount.Health = *state.Health
 				}
 

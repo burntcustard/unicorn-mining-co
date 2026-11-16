@@ -117,8 +117,8 @@ func makeSegment(object *simulation.GameObject, zIndex int, module simulation.Mo
 	s.LocalPosition = Vec.Add(s.LocalPosition, Vec.Create(0, side*offset))
 	s.ZIndex = zIndex
 
-	if module != nil {
-		s.ZIndex = spec.ZIndex
+	if module != nil && spec.ZIndex != nil {
+		s.ZIndex = *spec.ZIndex
 	}
 
 	if plan.ZIndex != nil {

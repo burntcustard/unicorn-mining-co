@@ -9,6 +9,8 @@ import (
 )
 
 func (c *Craft) flightModeState() (progress, boost float64) {
+	boost = 1
+
 	for _, segment := range c.Segments {
 		if segment.Module == nil || segment.Mount == nil || segment.Module.ModuleBase().Spec.Behavior != "flightMode" {
 			continue
@@ -22,7 +24,7 @@ func (c *Craft) flightModeState() (progress, boost float64) {
 
 		value := math.Max(0, math.Min(1, segment.ActivationProgress))
 		progress = math.Max(progress, value)
-		boost = math.Max(boost, value*segment.Module.ModuleBase().Spec.FlightBoost)
+		boost = math.Max(boost, 1+value*(segment.Module.ModuleBase().Spec.FlightBoost-1))
 	}
 
 	return progress, boost
@@ -30,7 +32,7 @@ func (c *Craft) flightModeState() (progress, boost float64) {
 
 func (s *Ship) flightBoostFactor() float64 {
 	_, boost := s.flightModeState()
-	return 1 + boost
+	return boost
 }
 
 func (c *Craft) flightOffset(plan *simulation.SegmentPlan, depth int) (Vec.Vector, bool) {

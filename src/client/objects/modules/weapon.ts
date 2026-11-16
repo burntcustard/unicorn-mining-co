@@ -20,6 +20,8 @@ const shownShots = new WeakMap<
 >();
 
 export class Weapon extends Module {
+  static category = 'offense' as const;
+
   declare definitionId: WeaponId;
   fireCooldown = 0;
   chargeCooldown = this.chargeDuration ?? 0;

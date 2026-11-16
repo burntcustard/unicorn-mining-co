@@ -15,6 +15,8 @@ import { type SimulationEvent } from '../../protocol/events';
 import { type ModuleSpec } from '../../../specs/modules/types';
 
 class LaserModule extends Module {
+  static category = 'offense' as const;
+
   static createModel(spec: Extract<ModuleSpec, { behavior: 'beam' }>) {
     return Weapon.createModel(spec);
   }

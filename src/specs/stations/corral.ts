@@ -166,7 +166,8 @@ export const createCorral = ({
           spec.price +
           spec.initialLoadout.reduce(
             (sum, entry) =>
-              sum + moduleSpecList[moduleIds.indexOf(entry.module)].price,
+              sum +
+              (moduleSpecList[moduleIds.indexOf(entry.module)].price ?? 0),
             0,
           ),
       };

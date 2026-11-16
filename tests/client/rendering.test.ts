@@ -1054,7 +1054,7 @@ for (const [id, Type] of moduleTypesById) {
       'each spec part retains one runtime segment',
     );
     parts.forEach((segment, index) => {
-      if (segment.catches || (Array.isArray(segment.points) && !segment.points.length)) return;
+      if (segment.catches || (!segment.points && !segment.radius) || (Array.isArray(segment.points) && !segment.points.length)) return;
       segment.activationProgress = 0.75;
       segment.phase = 0.25;
       const beforeDraw = draws.length;
