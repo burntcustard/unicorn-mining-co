@@ -482,6 +482,7 @@ func (s *GameSession) tickSector(ticks uint64) {
 
 	s.sectors[s.currentSector].pirates.Dispatch()
 	s.sectors[s.currentSector].collectors.Dispatch()
+	s.sectors[s.currentSector].marauders.Dispatch()
 
 	if float64(world.Tick)-s.regionsSyncedAt >= 8 {
 		s.regions.Sync(world, s.positions())
@@ -609,6 +610,7 @@ func (s *GameSession) tickSector(ticks uint64) {
 	dt := float64(ticks) * step
 	s.sectors[s.currentSector].pirates.Update()
 	s.sectors[s.currentSector].collectors.Update()
+	s.sectors[s.currentSector].marauders.Update()
 	s.updateGateAccess(dt)
 	events := simulation.UpdateWorld(world, simulation.UpdateWorldOptions{Inputs: s.inputs, DT: &dt, Ticks: int(ticks)})
 	s.sectors[s.currentSector].pirates.ItemsCollected(events)
@@ -826,6 +828,7 @@ func (s *GameSession) hello(message protocol.Control, socket SessionSocket) {
 		PlasmaActive:  p.ship.ModuleActive("plasmaAccelerator") || p.ship.ModuleActive("plasmaAcceleratorTurret"),
 		AutogunActive: p.ship.ModuleActive("autogun") || p.ship.ModuleActive("autogunTurret") || p.ship.ModuleActive("cannonSm"),
 		LaserActive:   p.ship.ModuleActive("laser") || p.ship.ModuleActive("laserTurret"),
+		FlightMode:    p.ship.ModuleActive("flightMode"),
 	}
 
 	p.lastSequence = 0

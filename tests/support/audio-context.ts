@@ -47,7 +47,7 @@ export class TestAudioContext {
     TestAudioContext.instances.push(this);
   }
 
-  createBuffer(channels: number, length: number, sampleRate: number) {
+  createBuffer(_channels: number, length: number, sampleRate: number) {
     return {
       sampleRate,
       data: new Float32Array(length),

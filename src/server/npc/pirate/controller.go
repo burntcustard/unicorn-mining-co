@@ -8,6 +8,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
 	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
 	"maps"
 	"slices"
@@ -92,11 +93,9 @@ func (m *Manager) Dispatch() {
 	world := m.World
 	// Cargo checks are cheap, but station searches and dispatch run once a second.
 
-	if world.Tick < m.DispatchAt {
+	if !utilities.TickDue(&m.DispatchAt, utilities.TickTimerOptions{Tick: world.Tick, Step: world.Specification.Simulation.SimulationStep, Interval: world.Specification.PirateSpec.DispatchInterval}) {
 		return
 	}
-
-	m.DispatchAt = world.Tick + uint64(world.Specification.PirateSpec.DispatchInterval/world.Specification.Simulation.SimulationStep)
 
 	m.Environment.Players(func(p ai.Player) {
 		if !p.Connected() || !world.Players.Has(p.ObserverID()) || p.Ship().Dead || p.Ship().DockedTo != nil || p.Ship().TransitTime != 0 || p.Ship().MinedCargoValue() <= world.Specification.PirateSpec.CargoValueThreshold || world.Tick < p.EncounterAfter() {

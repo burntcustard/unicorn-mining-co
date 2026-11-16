@@ -36,11 +36,11 @@ type Mount struct {
 }
 
 type SegmentPlan struct {
-	Ribbon                                             bool
+	MirrorWithMount                                    bool
+	FlightOffset                                       *[2]float64
 	CollisionParts                                     [][][]float64
 	Connections                                        []int
 	Essential                                          bool
-	Animation                                          *specs.HullAnimation
 	WreckageColor                                      string
 	Color                                              string
 	Health                                             *float64
@@ -60,7 +60,6 @@ type SegmentPlan struct {
 }
 
 type Segment struct {
-	VisualOutline *ShapeOutline
 	PartColliders []*collision.Collider
 	outlineKey    [2]float64
 	cachedOutline *ShapeOutline

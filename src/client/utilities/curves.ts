@@ -16,10 +16,3 @@ export const sampleCurve = (from: number[], to: number[], count = 8) =>
         : u ** 2 * from[axis] + 2 * u * t * to[axis + 2] + t ** 2 * to[axis],
     );
   });
-
-export const sampleOutline = (points: number[][]) =>
-  points.flatMap((point, index) =>
-    index && point.length > 2
-      ? sampleCurve(points[index - 1], point)
-      : [point.slice(0, 2)],
-  );

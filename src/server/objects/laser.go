@@ -9,13 +9,7 @@ import (
 )
 
 func (s *Ship) ResolveLasers(dt float64, events *[]protocol.SimulationEvent) {
-	if s.World == nil || !s.Firing || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
-		return
-	}
-
-	s.resolveCrystalBeams(dt, events)
-
-	if s.PlayerID == nil {
+	if s.PlayerID == nil || s.World == nil || !s.Firing || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
 		return
 	}
 

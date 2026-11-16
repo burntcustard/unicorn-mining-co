@@ -2705,7 +2705,7 @@ checkUi: try {
           const panel = document.querySelector('.hud-map');
           const map = panel.getBoundingClientRect();
           const overlay = document.querySelector('.hud-overlay').getBoundingClientRect();
-          const button = panel.querySelector('button').getBoundingClientRect();
+          const button = panel.querySelector('[data-map-toggle]').getBoundingClientRect();
           const canvas = panel.querySelector('canvas');
           const ctx = canvas.getContext('2d');
           const radius = Math.min(canvas.width, canvas.height) / 2;
@@ -2802,7 +2802,7 @@ checkUi: try {
         assert(
           await check(`(() => {
             const panel = document.querySelector('.hud-map');
-            const button = panel.querySelector('button');
+            const button = panel.querySelector('[data-map-toggle]');
             const expanded = panel.getBoundingClientRect();
             const animate = () => {
               button.click();
@@ -2810,7 +2810,7 @@ checkUi: try {
               const transition = panel.getAnimations().find(animation => animation.transitionProperty === 'width');
               if (!transition || transition.effect.getTiming().duration !== 100) return null;
               transition.pause();
-              transition.currentTime = 50;
+              transition.currentTime = transition.effect.getTiming().delay + 50;
               const middle = panel.getBoundingClientRect();
               transition.finish();
               const end = panel.getBoundingClientRect();

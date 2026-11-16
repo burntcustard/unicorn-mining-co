@@ -192,9 +192,23 @@ func TestCargoReleaseInputFlag(t *testing.T) {
 	}
 
 	packet[7] = 128
+	control, err = DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep)
 
-	if _, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
-		t.Fatal("unknown flag accepted")
+	if err != nil || !control.Input.FlightMode || control.Input.CargoRelease {
+		t.Fatalf("flight mode flag was not independently decoded: %+v %v", control, err)
+	}
+}
+
+func TestFlightModeFlagAlongsideTargetOffsetAndAllControls(t *testing.T) {
+	catalog, _ := specs.Load()
+	packet := writer{data: []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 127, 255}}
+	packet.number(.01)
+	packet.signed(1 << 45)
+	control, err := DecodeClientControl(packet.data, catalog.Protocol, catalog.Simulation.SimulationStep)
+	input := control.Input
+
+	if err != nil || !input.FlightMode || !input.CargoRelease || !input.Fire || !input.PlasmaActive || !input.AutogunActive || !input.LaserActive || !input.HornDrill || !input.CargoHatch || !input.SearchLight || !input.ShieldGenerator || !input.Launch || input.Thrust != 1 || input.Turn != -1 || input.TargetID == nil || *input.TargetID != 1<<45 || !control.HasOffset || control.Offset != .01 {
+		t.Fatalf("flight mode interfered with another packed flag: %+v %v", control, err)
 	}
 }
 

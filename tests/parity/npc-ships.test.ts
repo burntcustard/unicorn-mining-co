@@ -5,7 +5,6 @@ import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { createWorld } from '../../src/client/simulation/world';
 import type { ShipId } from '../../src/specs/ships';
 import * as Vec from '../../src/client/utilities/vector';
-import { sampleOutline } from '../../src/client/utilities/curves';
 
 const fixtures = JSON.parse(
   execFileSync('go', ['run', './src/server/testtools/npc-ships'], {
@@ -26,7 +25,6 @@ for (const fixture of fixtures) {
     rotation: fixture.rotation,
   });
 
-  world.tick = fixture.tick;
   const colliders = ship.hitbox();
 
   assert.equal(
@@ -52,19 +50,4 @@ for (const fixture of fixtures) {
       point.forEach((value, axis) => near(value, expected.points[at][axis])),
     );
   });
-
-  for (const [index, expected] of Object.entries(fixture.visual) as [
-    string,
-    number[][],
-  ][]) {
-    const segment = ship.segments.find(
-      (segment) => segment.module === ship.hullSegments[Number(index)],
-    )!;
-    const outline = sampleOutline(segment.curvePoints);
-
-    assert.equal(outline.length, expected.length);
-    outline.forEach((point, at) =>
-      point.forEach((value, axis) => near(value, expected[at][axis])),
-    );
-  }
 }

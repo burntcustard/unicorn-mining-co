@@ -48,6 +48,7 @@ export const protocolTags = [
   'gateAccess',
   'chat',
   'navBeacon',
+  'flightMode',
 ];
 
 /**

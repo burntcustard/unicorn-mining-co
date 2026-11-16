@@ -227,6 +227,7 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 	mounts := ship.Mounts()
 
 	for _, m := range s.Modules {
+		m.Type = ship.restoredModuleType(m.Type, m.Mount)
 		kind := slices.Index(catalog.ModuleIDs, m.Type)
 
 		if _, exists := catalog.ModuleSpecs[m.Type]; !exists || kind < 0 {

@@ -117,7 +117,6 @@ export const drawSegment = ({
   ctx: CanvasRenderingContext2D;
   segment: Segment;
 }) => {
-  if (segment.ribbon && !segment.ribbonPath) return;
   const lineJoin = ctx.lineJoin;
 
   if (segment.lineJoin) ctx.lineJoin = segment.lineJoin;
@@ -126,10 +125,7 @@ export const drawSegment = ({
       ? segment.points(segment)
       : segment.points;
   const path = points?.length
-    ? shapePath(
-        segment.ribbonPath || segment.curvePoints || points,
-        segment.unclosed,
-      )
+    ? shapePath(points, segment.unclosed)
     : segment.radius
       ? circlePath(segment.radius(segment))
       : undefined;
@@ -146,17 +142,6 @@ export const drawSegment = ({
     ctx.stroke(
       linesPath(segment.lines.call ? segment.lines(segment) : segment.lines),
     );
-    ctx.restore();
-  }
-
-  for (const decoration of segment.decorations || []) {
-    const path = shapePath(decoration.points);
-
-    ctx.save();
-    ctx.fillStyle = decoration.color;
-    ctx.fill(path);
-
-    if (decoration.outline) ctx.stroke(path);
     ctx.restore();
   }
 

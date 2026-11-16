@@ -16,7 +16,6 @@ export const drawHullSegment = ({
   health: number;
   pose: Pose;
 }) => {
-  if (segment.ribbon && !segment.ribbonPath) return;
   const worn =
     health < (segment.module.health || segment.module.healthActivated) / 2
       ? 0
@@ -26,9 +25,7 @@ export const drawHullSegment = ({
     segment.color ||
     hullSegmentFill({
       ctx,
-      segment: segment.ribbonFill
-        ? { ...segment, ...segment.ribbonFill }
-        : segment,
+      segment,
       worn,
       rotation: pose.rotation,
     });

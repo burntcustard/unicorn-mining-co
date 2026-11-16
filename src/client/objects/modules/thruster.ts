@@ -21,15 +21,17 @@ class Thruster extends Module {
     const progress = Math.max(segment.activationProgress, segment.phase || 0);
 
     if (progress > 0) {
-      const { flareSize } = segment;
+      const { flareSize, points } = segment;
 
       super.render({
         segment,
-        points: [
-          [0, -flareSize],
-          [-flareSize * 2.5 * progress, 0],
-          [0, flareSize],
-        ],
+        points: Array.isArray(points)
+          ? points.map(([x, y]) => [x * progress, y * progress])
+          : [
+              [0, -flareSize],
+              [-flareSize * 2.5 * progress, 0],
+              [0, flareSize],
+            ],
       });
     }
   }
@@ -58,6 +60,7 @@ class Thruster extends Module {
 }
 
 export const ThrusterSingleSm = Thruster.define('thrusterSingleSm');
+export const ThrusterCrescent = Thruster.define('thrusterCrescent');
 export const ThrusterSingleMd = Thruster.define('thrusterSingleMd');
 export const ThrusterSingleLg = Thruster.define('thrusterSingleLg');
 export const ThrusterSingleXl = Thruster.define('thrusterSingleXl');

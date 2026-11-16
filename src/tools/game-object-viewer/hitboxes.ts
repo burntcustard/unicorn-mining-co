@@ -4,7 +4,7 @@ import { withAlpha } from '../../client/utilities/color';
 
 /*
  * Colliders already carry their world pose and local outline. Draw those exact
- * fixtures, including animated and nonphysical pieces in a stationary preview.
+ * fixtures, including nonphysical pieces in a stationary preview.
  */
 export const drawHitboxes = ({
   ctx,

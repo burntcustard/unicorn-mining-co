@@ -30,9 +30,6 @@ import { type player as localPlayer } from '../player';
 import { type CraftAction } from '../protocol/network';
 import { simulationStep } from '../../specs/simulation';
 import { interpolatePose } from '../utilities/interpolate-pose';
-import { prepareHull } from '../utilities/hull-spec';
-import { drawCrystalBeams, resolveCrystalBeams } from './crystal-beams';
-import { renderingLayers } from '../../specs/rendering-layers';
 
 export type PredictedShot = {
   projectile: Projectile;
@@ -53,8 +50,6 @@ type DockActionRequest =
   | { action: 'buy'; module: number; moduleId?: number; mount?: number };
 
 export class Ship extends Craft {
-  declare npcOnly?: boolean;
-  declare crystalWeapon?: ShipSpec['crystalWeapon'];
   declare name: string;
   declare npcState?: string;
   // Resist collision torque without changing the pilot's steering response.
@@ -123,28 +118,7 @@ export class Ship extends Craft {
   }
 
   get powerUsage() {
-    return this.powerEntries.reduce(
-      (sum, { value }) => sum + value,
-      this.crystalPowerUsage,
-    );
-  }
-
-  get crystalPowerUsage() {
-    return this.crystalWeapon &&
-      this.firing &&
-      !this.dead &&
-      !this.dockedTo &&
-      !this.launching &&
-      this.crystalWeapon.emitters.some((emitter) =>
-        this.segments.some(
-          (segment) =>
-            segment.hull &&
-            segment.module === this.hullSegments[emitter.hullIndex] &&
-            !(segment.health < 1),
-        ),
-      )
-      ? this.crystalWeapon.powerFiring
-      : 0;
+    return this.powerEntries.reduce((sum, { value }) => sum + value, 0);
   }
 
   modulePower(module: Module) {
@@ -159,7 +133,7 @@ export class Ship extends Craft {
     if (!(dt > 0)) return;
     let generation = 0;
     let capacity = 0;
-    let systems = this.crystalPowerUsage;
+    let systems = 0;
     let thrusters = 0;
 
     this.powerEntries.forEach(({ module, value }) => {
@@ -228,7 +202,6 @@ export class Ship extends Craft {
     action: DockActionRequest,
     player: Pick<typeof localPlayer, 'credits'>,
   ): CraftAction | undefined {
-    if (this.npcOnly) return;
     const mount =
       'mount' in action && action.mount !== undefined
         ? this.mounts[action.mount]
@@ -461,7 +434,6 @@ export class Ship extends Craft {
 
     super({
       ...spec,
-      hullSegments: spec.hullSegments.map(prepareHull),
       ...properties,
     });
 
@@ -623,7 +595,8 @@ export class Ship extends Craft {
       (this.thrusterTotal('forward') / mountCount) *
       this.launchThrottle ** 2 *
       this.fuelThrottle *
-      this.thrusterPower
+      this.thrusterPower *
+      this.flightBoostFactor
     );
   }
 
@@ -750,13 +723,6 @@ export class Ship extends Craft {
 
     super.render({
       ...options,
-      draw: () => {
-        options.draw?.();
-
-        if (options.zIndex === renderingLayers.modulesBelowShipHull) {
-          drawCrystalBeams(this, ctx, pose);
-        }
-      },
       drawHull: (options) => drawHullSegment({ ctx, ...options }),
     });
 
@@ -779,7 +745,8 @@ export class Ship extends Craft {
       (this.thrusterTotal('rotation') / mountCount) *
       this.launchThrottle ** 2 *
       this.fuelThrottle *
-      this.thrusterPower
+      this.thrusterPower *
+      this.flightBoostFactor
     );
   }
 
@@ -792,8 +759,6 @@ export class Ship extends Craft {
   }
 
   resolveLasers(dt: number, events: SimulationEvent[]) {
-    resolveCrystalBeams(this, dt, events);
-
     for (const module of this.modules) {
       if (module instanceof Laser) module.resolveHits(this, dt, events);
     }

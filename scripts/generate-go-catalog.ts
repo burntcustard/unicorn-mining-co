@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { colors, paintColors } from '../src/specs/colors';
 import { pirateDialog } from '../src/specs/dialog/pirate';
+import { marauderSpec } from '../src/specs/npcs/marauder';
 import { pirateSpec } from '../src/specs/npcs/pirate';
 import { collectorSpec } from '../src/specs/npcs/collector';
 import { collectorDialog } from '../src/specs/dialog/collector';
@@ -40,7 +41,6 @@ import {
 import type { ModuleSpec } from '../src/specs/modules/types';
 import { shipSpecs } from '../src/specs/ships/index';
 import type { ShipSpec } from '../src/specs/ships/types';
-import { prepareHull } from '../src/client/utilities/hull-spec';
 import type { StationSpec } from '../src/specs/stations/types';
 import { stationSpecs } from '../src/specs/stations/index';
 import {
@@ -100,6 +100,7 @@ const simulation = {
 
 const catalog = {
   npcMovement,
+  marauderSpec,
   pirateSpec,
   collectorSpec,
   collectorDialog,
@@ -130,15 +131,7 @@ const catalog = {
       },
     ]),
   ),
-  shipSpecs: Object.fromEntries(
-    Object.entries(shipSpecs).map(([id, ship]) => [
-      id,
-      {
-        ...ship,
-        hullSegments: ship.hullSegments.map(prepareHull),
-      },
-    ]),
-  ),
+  shipSpecs,
   stationSpecs,
   protocol: {
     binaryFieldIds,

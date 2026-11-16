@@ -56,7 +56,7 @@ export type SimulationEvent =
       type: 'docked';
     }
   | {
-      module: 'cargoHatch' | 'shieldGenerator' | 'searchLight';
+      module: 'cargoHatch' | 'shieldGenerator' | 'searchLight' | 'flightMode';
       playerId: PlayerId;
       active: boolean;
       type: 'moduleChanged';

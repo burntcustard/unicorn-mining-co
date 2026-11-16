@@ -2,8 +2,8 @@ package collector
 
 import (
 	"cmp"
+	"github.com/burntcustard/unicorn-mining-co/src/server/utilities"
 	"math"
-	"math/rand/v2"
 	"slices"
 
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
@@ -31,8 +31,7 @@ func dispatchable(entity simulation.Entity) bool {
 
 func (s *Manager) checkAt() uint64 {
 	rules := s.World.Specification.CollectorSpec
-	delay := rules.CheckIntervalMin + rand.Float64()*(rules.CheckIntervalMax-rules.CheckIntervalMin)
-	return s.World.Tick + max(1, uint64(math.Ceil(delay/s.World.Specification.Simulation.SimulationStep)))
+	return utilities.NextTick(utilities.TickTimerOptions{Tick: s.World.Tick, Step: s.World.Specification.Simulation.SimulationStep, Interval: rules.CheckIntervalMin, IntervalMax: rules.CheckIntervalMax})
 }
 
 /*
@@ -42,11 +41,9 @@ loading a 10,000-meter circle of physics or requiring a nearby human observer.
 func (s *Manager) discoverStations() {
 	rules := s.World.Specification.CollectorSpec
 
-	if s.World.Tick < s.DiscoverAt {
+	if !utilities.TickDue(&s.DiscoverAt, utilities.TickTimerOptions{Tick: s.World.Tick, Step: s.World.Specification.Simulation.SimulationStep, Interval: rules.DiscoveryInterval}) {
 		return
 	}
-
-	s.DiscoverAt = s.World.Tick + max(1, uint64(rules.DiscoveryInterval/s.World.Specification.Simulation.SimulationStep))
 
 	if s.Stations == nil {
 		s.Stations = make(map[int64]*dispatchStation)

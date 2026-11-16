@@ -42,9 +42,7 @@ import { outerEdges } from '../utilities/polygon';
 import { type Contact, type Collider } from '../collision/types';
 import { cargoContactAllowed } from './modules/cargo-hatch';
 import { hullColliders } from '../collision/hull-colliders';
-import { animateHull } from './animate-hull';
 import { convexParts } from '../utilities/triangulate';
-import { sampleOutline } from '../utilities/curves';
 import { Module } from './modules/module';
 import {
   type Pose,
@@ -102,6 +100,75 @@ const collisionCaches = new WeakMap<
 
 const drillColliders = new WeakMap<Segment, Collider>();
 
+const hullFlightOffsets = new WeakMap<
+  HullSegmentPlan[],
+  (Vec.Value | undefined)[] | null
+>();
+
+const flightStates = new WeakMap<
+  Craft,
+  { source: Segment[]; controllers: Segment[]; progress?: number }
+>();
+
+const flightStateOf = (craft: Craft) => {
+  let state = flightStates.get(craft);
+
+  if (!state || state.source !== craft.segments) {
+    state = {
+      source: craft.segments,
+      controllers: craft.segments.filter(
+        (segment) => segment.mount && segment.module.behavior === 'flightMode',
+      ),
+    };
+
+    flightStates.set(craft, state);
+  }
+
+  return state;
+};
+
+const controllerProgress = (segment: Segment) =>
+  segment.mount?.module === segment.module &&
+  segment.module.mount === segment.mount &&
+  !(segment.mount.health < 1) &&
+  !(segment.mount.hull.health < 1)
+    ? Math.max(0, Math.min(1, segment.activationProgress || 0))
+    : 0;
+
+const flightOffsetsOf = (plans: HullSegmentPlan[]) => {
+  const cached = hullFlightOffsets.get(plans);
+
+  if (cached !== undefined) return cached;
+
+  if (!plans.some((plan) => plan.flightOffset)) {
+    hullFlightOffsets.set(plans, null);
+    return null;
+  }
+
+  const resolve = (
+    index: number,
+    visited: Set<number>,
+  ): Vec.Value | undefined => {
+    const plan = plans[index];
+
+    if (!plan || visited.has(index)) return;
+
+    if (plan.flightOffset) return Vec.create(...plan.flightOffset);
+    visited.add(index);
+
+    for (const connection of plan.connections || []) {
+      const offset = resolve(connection, visited);
+
+      if (offset) return offset;
+    }
+  };
+
+  const offsets = plans.map((_, index) => resolve(index, new Set()));
+
+  hullFlightOffsets.set(plans, offsets);
+  return offsets;
+};
+
 const collisionOutlines = new WeakMap<
   ShapeOutline,
   { x: number; y: number; shapeOutline: ShapeOutline }
@@ -112,7 +179,8 @@ import { approach } from '../utilities/approach';
 const centerOf = (segments: Segment[]) =>
   Vec.scale(
     segments.reduce(
-      (center, { middle }) => Vec.add(center, Vec.create(...middle!)),
+      (center, { middle, localPosition }) =>
+        Vec.add(center, Vec.add(Vec.create(...middle!), localPosition)),
       Vec.create(),
     ),
     1 / segments.length,
@@ -123,7 +191,6 @@ const outlinesOf = (segments: Segment[]) =>
     .filter((points): points is ShapeOutline => Array.isArray(points));
 
 export class Craft extends GameObject {
-  hullAnimation = false;
   // Negative time counts down departure; positive time counts down arrival, in seconds.
   transitTime = 0;
   transitGate = 0;
@@ -206,21 +273,14 @@ export class Craft extends GameObject {
       // that no longer exist after the fragment is replicated or rewound.
       this.hullSegments = this.segments.map((segment) => {
         const points =
-          segment.ribbon && segment.curvePoints
-            ? sampleOutline(segment.curvePoints)
-            : typeof segment.points === 'function'
-              ? segment.points(segment)
-              : segment.points;
-        const radius =
-          segment.ribbon && points
-            ? shapeOutlineExtent(points).reach
-            : segment.radius?.(segment) || 0;
+          typeof segment.points === 'function'
+            ? segment.points(segment)
+            : segment.points;
+        const radius = segment.radius?.(segment) || 0;
 
         return {
           points: points?.map(([x, y]) => [x, y]),
           collisionParts: points && convexParts(points),
-          curvePoints: segment.curvePoints,
-          decorations: segment.decorations,
           shades: segment.shades,
           radius: () => radius,
           localPosition: Vec.clone(segment.localPosition),
@@ -256,6 +316,7 @@ export class Craft extends GameObject {
   // A broken module keeps its shape long enough to tumble away as wreckage,
   // while the original mount is immediately free again for the dock menu.
   detach(mount: Mount) {
+    this.updateFlightMode();
     const mountedSegments = this.segmentsAtMount(mount);
     const wreckageSegments = mountedSegments.filter(
       (segment) => segment.wreckage !== false,
@@ -373,7 +434,10 @@ export class Craft extends GameObject {
         fits.includes(craftModule.constructor as typeof Module),
       )!;
 
-      mount.localPosition = Vec.create(point.x, point.y);
+      mount.localPosition = Vec.add(
+        Vec.create(point.x, point.y),
+        mount.hull?.localPosition || Vec.create(),
+      );
       this.cargoContents = this.cargoContents.filter(
         (object) => object !== craftModule,
       );
@@ -389,12 +453,12 @@ export class Craft extends GameObject {
     }
 
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
+    this.updateFlightMode();
   }
 
   // Restore the original hull data, including any pieces and mounting points
   // lost when a damaged ship fractured.
   fixHull() {
-    this.hullAnimation = this.hullSegments.some((plan) => plan.animation);
     const hulls = this.segments.filter(({ hull }) => hull);
 
     const orderedHulls = this.hullSegments.map((segmentPlan) => {
@@ -435,6 +499,7 @@ export class Craft extends GameObject {
     outerEdges(outlinesOf(hulls));
     // A surviving core anchors flight and the hull kept attached to it.
     this.cockpit = hulls.find(({ core }) => core);
+    this.updateFlightMode();
   }
 
   connectedHullGroups(hulls: Segment[]) {
@@ -442,7 +507,7 @@ export class Craft extends GameObject {
 
     if (!this.hullSegments.some((plan) => plan.connections)) return groups;
     const neighbors = hulls.map(
-      (segment, index) =>
+      (_segment, index) =>
         new Set(groups.find((group) => group.includes(index)) || [index]),
     );
 
@@ -481,6 +546,7 @@ export class Craft extends GameObject {
   }
 
   fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
+    this.updateFlightMode();
     const center = hulls.length && centerOf(hulls);
     const groups = destroyed
       ? hulls.map((_, i) => [i])
@@ -569,7 +635,7 @@ export class Craft extends GameObject {
   }
 
   hitbox(collidingOnly = false) {
-    animateHull(this);
+    this.updateFlightMode();
 
     if (
       this.transitTime ||
@@ -980,6 +1046,8 @@ export class Craft extends GameObject {
         this.cargoContents.push(module);
       }
     });
+
+    this.updateFlightMode();
   }
 
   momentum(position: Vec.Value) {
@@ -1011,7 +1079,7 @@ export class Craft extends GameObject {
     drawHull,
     pose = this,
   }: CraftRenderOptions = {}) {
-    animateHull(this);
+    this.updateFlightMode();
     const { ctx } = game;
     const glow =
       zIndex === renderingLayers.glowBelowShips ||
@@ -1145,6 +1213,73 @@ export class Craft extends GameObject {
     });
   }
 
+  get flightBoostFactor() {
+    return (
+      1 +
+      flightStateOf(this).controllers.reduce(
+        (boost, segment) =>
+          Math.max(
+            boost,
+            controllerProgress(segment) * (segment.module.flightBoost || 0),
+          ),
+        0,
+      )
+    );
+  }
+
+  /*
+   * Moving roots carry their directed descendants and fitted modules together.
+   * The authored geometry stays immutable; offsets also feed ordinary colliders.
+   */
+  updateFlightMode() {
+    const offsets = flightOffsetsOf(this.hullSegments);
+
+    if (!offsets) return;
+    const state = flightStateOf(this);
+    const progress = state.controllers.reduce(
+      (value, segment) => Math.max(value, controllerProgress(segment)),
+      0,
+    );
+
+    if (state.progress === progress) return;
+    state.progress = progress;
+
+    this.segments.forEach((segment) => {
+      if (!segment.hull) return;
+      const offset = offsets[this.hullSegments.indexOf(segment.module)];
+
+      if (!offset) return;
+      const base = segment.module.localPosition;
+      const x = (base?.x || 0) + offset.x * progress;
+      const y = (base?.y || 0) + offset.y * progress;
+
+      if (segment.localPosition.x !== x || segment.localPosition.y !== y) {
+        // Checkpoints retain vector references, so changed poses need new ones.
+        segment.localPosition = Vec.create(x, y);
+      }
+
+      segment.mounts?.forEach((mount) => {
+        const point =
+          mount.mountPoints?.find(
+            ({ fits }) =>
+              mount.module &&
+              fits.includes(mount.module.constructor as typeof Module),
+          ) || mount.mountPoints?.[0];
+
+        if (!point) return;
+        const position = Vec.create(point.x + x, point.y + y);
+        const delta = Vec.subtract(position, mount.localPosition);
+
+        if (!delta.x && !delta.y) return;
+        mount.localPosition = position;
+
+        this.segmentsAtMount(mount).forEach((part) => {
+          part.localPosition = Vec.add(part.localPosition, delta);
+        });
+      });
+    });
+  }
+
   /**
    * Throw a group of this ship's segments off as a loose body of its own:
    * rebased around `origin`, carrying the motion it had while attached, and
@@ -1203,7 +1338,6 @@ export class Craft extends GameObject {
   }
 
   update(dt: number) {
-    animateHull(this);
     this.updateModules(dt);
 
     super.update(dt);
@@ -1386,9 +1520,12 @@ export class Craft extends GameObject {
         segment.expandingTick = this.world?.tick;
       }
     });
+
+    this.updateFlightMode();
   }
 
   updateVisual(dt: number) {
+    this.updateFlightMode();
     const previous = visualPhases.get(this);
     const phases = new Map<number | Module, number[]>();
 

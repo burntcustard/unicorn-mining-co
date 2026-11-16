@@ -29,6 +29,7 @@ type Properties struct {
 type geometrySource struct{ identity byte }
 
 type Craft struct {
+	SuppressDrops bool
 	// Negative time counts down departure; positive time counts down arrival, in seconds.
 	TransitTime  float64
 	TransitGate  int64
@@ -46,9 +47,6 @@ type Craft struct {
 	source                             *geometrySource
 	colliders                          []*collision.Collider
 	spareColliders                     []*collision.Collider
-	hullPoseTick                       uint64
-	hullPoseReady                      bool
-	hullAnimation                      bool
 }
 
 func (*Craft) IsCraft() {}
@@ -138,11 +136,6 @@ func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog specs.C
 
 			outline := segment.Outline()
 
-			if segment.VisualOutline != nil {
-				outline = segment.VisualOutline
-				_, radius = simulation.ShapeOutlineExtent(outline.Points)
-			}
-
 			if outline != nil {
 				plan.Points = &simulation.ShapeOutline{Points: append([]simulation.Point{}, outline.Points...)}
 				plan.CollisionParts = simulation.ConvexParts(outline.Points)
@@ -171,7 +164,7 @@ func centerOf(segments []*simulation.Segment) Vec.Vector {
 	center := Vec.Vector{}
 
 	for _, s := range segments {
-		center = Vec.Add(center, Vec.Create(s.Middle[0], s.Middle[1]))
+		center = Vec.Add(center, Vec.Add(s.LocalPosition, Vec.Create(s.Middle[0], s.Middle[1])))
 	}
 
 	return Vec.Scale(center, 1/float64(len(segments)))
@@ -303,6 +296,7 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 	}
 
 	c.sortSegments()
+	c.updateFlightMode()
 
 	if ship, ok := c.Self.(*Ship); ok {
 		ship.UpdateMass()
@@ -310,10 +304,6 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 }
 
 func (c *Craft) FixHull() {
-	c.hullPoseReady = false
-
-	c.hullAnimation = slices.ContainsFunc(c.HullSegments, func(plan *simulation.SegmentPlan) bool { return plan.Animation != nil })
-
 	hulls := []*simulation.Segment{}
 
 	for _, s := range c.Segments {
@@ -375,6 +365,8 @@ func (c *Craft) FixHull() {
 			break
 		}
 	}
+
+	c.updateFlightMode()
 }
 
 func (c *Craft) Launch() {
@@ -490,6 +482,8 @@ func (c *Craft) SetHullHealth(values []float64) {
 			break
 		}
 	}
+
+	c.updateFlightMode()
 }
 
 func (c *Craft) ModuleStates() []ModuleState {
@@ -645,6 +639,8 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 			c.CargoContents = append(c.CargoContents, module)
 		}
 	}
+
+	c.updateFlightMode()
 }
 
 func (c *Craft) Wreckage() []WreckageSegment {
@@ -808,6 +804,8 @@ func (c *Craft) UpdateModules(dt float64) {
 			}
 		}
 	}
+
+	c.updateFlightMode()
 }
 
 func (c *Craft) Momentum(position Vec.Vector) Vec.Vector {
@@ -954,7 +952,7 @@ func (c *Craft) Detach(mount *simulation.Mount) {
 		c.CargoContents = slices.DeleteFunc(c.CargoContents, func(e simulation.Entity) bool { return e == destroyed })
 	}
 
-	if len(segments) == 0 {
+	if len(segments) == 0 || c.SuppressDrops {
 		return
 	}
 
@@ -1008,7 +1006,7 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 	fragments := []*Craft{}
 
 	for i, g := range groups {
-		if i == core {
+		if i == core || c.SuppressDrops {
 			continue
 		}
 
@@ -1059,6 +1057,10 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 		contents := c.CargoContents
 		c.CargoContents = nil
 
+		if c.SuppressDrops {
+			contents = nil
+		}
+
 		for _, e := range contents {
 			o := e.Base()
 			o.World = c.World
@@ -1080,7 +1082,6 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 }
 
 func (c *Craft) Update(dt float64) {
-	c.animateHull()
 	c.UpdateModules(dt)
 	c.GameObject.Update(dt)
 
@@ -1185,7 +1186,7 @@ func (c *Craft) GeometrySource() any {
 func (c *Craft) Hitbox() []*collision.Collider { return c.hitbox(false) }
 
 func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
-	c.animateHull()
+	c.updateFlightMode()
 
 	if c.TransitTime != 0 || c.DockedTo != nil && *c.DockedTo != 0 {
 		// Invalidate the geometry token so physics removes cached fixtures too.

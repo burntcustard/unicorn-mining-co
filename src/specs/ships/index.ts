@@ -7,8 +7,6 @@ import { moth } from './moth';
 import { finch } from './finch';
 import { kestrel } from './kestrel';
 import { crescent } from './crescent';
-import { crystal } from './crystal';
-import { manta } from './manta';
 
 export const shipSpecs = {
   mustang,
@@ -19,11 +17,19 @@ export const shipSpecs = {
   finch,
   kestrel,
   crescent,
-  crystal,
-  manta,
 };
 
 export type ShipId = keyof typeof shipSpecs;
+
+export const stationShipIds: readonly ShipId[] = [
+  'mustang',
+  'arrow',
+  'crotus',
+  'courser',
+  'moth',
+  'finch',
+  'kestrel',
+];
 
 export const shipSpecsById = new Map<ShipId, ShipSpec>(
   Object.entries(shipSpecs) as [ShipId, ShipSpec][],

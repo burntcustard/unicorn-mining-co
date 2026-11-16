@@ -44,6 +44,7 @@ type SectorState struct {
 	PirateCooldowns            map[string]uint64 `json:",omitempty"`
 	NPCs                       []NPC             `json:",omitempty"`
 	NPCDispatch                json.RawMessage   `json:",omitempty"`
+	MarauderDispatch           json.RawMessage   `json:",omitempty"`
 }
 
 // NPC controllers refer to ordinary entity rows so ships and their cargo share

@@ -5,7 +5,12 @@ import {
   encodeClientMessage,
   encodeServerControl,
 } from '../../src/client/protocol/binary-control';
-import { emptyPlayerInput, sameInput } from '../../src/client/protocol/input';
+import {
+  emptyPlayerInput,
+  packPlayerInput,
+  sameInput,
+  unpackPlayerInput,
+} from '../../src/client/protocol/input';
 import type { ClientMessage } from '../../src/client/protocol/network';
 
 const token = '12345678-9abc-4def-8012-3456789abcde';
@@ -102,6 +107,12 @@ const controls: ClientMessage[] = [
     sequence: 9,
     input: { ...emptyPlayerInput(), fire: true },
   },
+  {
+    type: 'input',
+    tick: 9,
+    sequence: 10,
+    input: { ...emptyPlayerInput(), flightMode: true },
+  },
   { type: 'dock', action: 'buyAmmo' },
   { type: 'dock', action: 'buyAmmo', sequence: 42 },
   { type: 'dock', action: 'buyStock', objectIds: [42], sequence: 43 },
@@ -150,6 +161,7 @@ for (const targetId of [
         targetId,
         fire: true,
         autogunActive: true,
+        flightMode: true,
       },
       ...(offset !== undefined && { offset }),
     };
@@ -163,7 +175,75 @@ for (const targetId of [
     assert(
       !sameInput(message.input, { ...message.input, targetId: undefined }),
     );
+    assert(!sameInput(message.input, { ...message.input, flightMode: false }));
   }
+}
+
+const flightInput = { ...emptyPlayerInput(), flightMode: true };
+
+assert.equal(packPlayerInput(flightInput), 1 << 13);
+assert.deepEqual(unpackPlayerInput(packPlayerInput(flightInput)), flightInput);
+assert(
+  sameInput(emptyPlayerInput(), { ...emptyPlayerInput(), flightMode: false }),
+);
+assert(!sameInput(flightInput, emptyPlayerInput()));
+assert(!sameInput(emptyPlayerInput(), flightInput));
+
+for (const turn of [-1, 0, 1]) {
+  const message: ClientMessage = {
+    type: 'input',
+    tick: 1,
+    sequence: 1,
+    offset: 0.015,
+    input: {
+      hornDrill: true,
+      cargoHatch: true,
+      searchLight: true,
+      shieldGenerator: true,
+      launch: true,
+      thrust: 1,
+      turn,
+      fire: true,
+      plasmaActive: true,
+      autogunActive: true,
+      laserActive: true,
+      cargoRelease: true,
+      flightMode: true,
+      targetId: -130,
+    },
+  };
+
+  const encoded = encodeClientMessage(message);
+
+  const withoutFlightMode = encodeClientMessage({
+    ...message,
+    input: { ...message.input, flightMode: undefined },
+  });
+
+  assert.equal(
+    encoded[7],
+    255,
+    'flight mode composes with every optional input flag',
+  );
+  assert.equal(
+    withoutFlightMode[7],
+    127,
+    'all existing optional flag bits stay in place',
+  );
+  assert.deepEqual(encoded.slice(0, 7), withoutFlightMode.slice(0, 7));
+  assert.deepEqual(
+    encoded.slice(8),
+    withoutFlightMode.slice(8),
+    'offset and target payloads do not move',
+  );
+  assert.deepEqual(decodeClientMessage(encoded), message);
+
+  assert(
+    sameInput(unpackPlayerInput(packPlayerInput(message.input)), {
+      ...message.input,
+      targetId: undefined,
+    }),
+  );
 }
 
 for (const targetId of [NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
@@ -309,6 +389,26 @@ assert.deepEqual(
   'untargeted inputs retain their wire format',
 );
 
+const flightPacket = encodeClientMessage({
+  type: 'input',
+  tick: 1,
+  sequence: 1,
+  input: flightInput,
+});
+
+assert.deepEqual(
+  [...flightPacket],
+  [0x55, 0x43, 1, 1, 1, 1, 0, 128],
+  'flight mode uses the previously unused high flag without changing legacy input bytes',
+);
+
+assert.deepEqual(decodeClientMessage(flightPacket), {
+  type: 'input',
+  tick: 1,
+  sequence: 1,
+  input: flightInput,
+});
+
 const paint = encodeClientMessage({
   type: 'dock',
   action: 'paint',
@@ -332,7 +432,6 @@ for (const invalid of [
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
-  changed(input, 7, 128), // invalid input flags
   changed(input, 7, 64), // missing target ID
   Uint8Array.from([...changed(input, 7, 64), 0x80, 0]), // noncanonical target ID
   Uint8Array.from([

@@ -11,6 +11,7 @@ type Point [2]float64
 type Vector = vector.Vector
 
 type Catalog struct {
+	MarauderSpec     Marauder            `json:"marauderSpec"`
 	NPCMovement      NPCMovement         `json:"npcMovement"`
 	PirateSpec       Pirate              `json:"pirateSpec"`
 	CollectorSpec    Collector           `json:"collectorSpec"`

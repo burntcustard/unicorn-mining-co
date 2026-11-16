@@ -2,6 +2,8 @@
 package specs
 
 type ModelPart struct {
+	MirrorWithMount    bool    `json:"mirrorWithMount"`
+	Wreckage           *bool   `json:"wreckage"`
 	WreckageColor      string  `json:"wreckageColor"`
 	Outline            *bool   `json:"outline"`
 	Catches            bool    `json:"catches"`
@@ -25,14 +27,10 @@ type Projectile struct {
 		MaxSpeed float64 `json:"maxSpeed"`
 		Damage   float64 `json:"damage"`
 	} `json:"explosion"`
-	Glow *struct {
-		Color  string  `json:"color"`
-		Alpha  float64 `json:"alpha"`
-		Radius float64 `json:"radius"`
-	} `json:"glow"`
 }
 
 type Module struct {
+	FlightBoost           float64     `json:"flightBoost"`
 	PowerCapacity         float64     `json:"powerCapacity"`
 	FuelUsage             float64     `json:"fuelUsage"`
 	PowerGenerated        float64     `json:"powerGenerated"`
@@ -70,7 +68,6 @@ type Module struct {
 	RotationalThrust      float64  `json:"rotationalThrust"`
 	Offset                float64  `json:"offset"`
 	Grinds                bool     `json:"grinds"`
-	Beam                  bool     `json:"beam"`
 	Reach, Spread, Corner float64
 	ShieldRadius          float64  `json:"shieldRadius"`
 	CoverDuration         float64  `json:"coverDuration"`

@@ -37,13 +37,13 @@ func (m *Manager) inputFor(npc *pirate) protocol.Input {
 		}
 
 		npc.CollectAfter = 0
-		target := enemy.Base()
-		// Lead kinetic shots with the target's relative motion.
-		flight := Vec.Distance(ship.Position, target.Position) / world.Specification.ModuleSpecs["cannonSm"].Projectile.Speed
-		aim := Vec.AddScaled(target.Position, Vec.Subtract(target.Velocity, ship.Velocity), min(flight, rules.AimPredictionTime))
-		input.Thrust, input.Turn = npc.pilot.Steer(ship, ai.Movement{Position: target.Position, Velocity: target.Velocity, PassDistance: rules.PassDistance, TargetID: target.ID})
-		angle := math.Remainder(math.Atan2(aim.Y-ship.Position.Y, aim.X-ship.Position.X)-ship.Rotation, 2*math.Pi)
-		input.Fire = math.Abs(angle) < rules.AimTolerance && Vec.DistanceSquared(ship.Position, target.Position) < rules.FiringDistance*rules.FiringDistance
+
+		input.Thrust, input.Turn, input.Fire = npc.pilot.Attack(ship, enemy, ai.AttackOptions{
+			PassDistance: rules.PassDistance, AimTolerance: rules.AimTolerance,
+			ProjectileSpeed: world.Specification.ModuleSpecs["cannonSm"].Projectile.Speed, AimPredictionTime: rules.AimPredictionTime,
+			CanFire: Vec.DistanceSquared(ship.Position, enemy.Position) < rules.FiringDistance*rules.FiringDistance,
+		})
+
 		return input
 	}
 

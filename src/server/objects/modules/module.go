@@ -43,6 +43,8 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 
 	for _, part := range spec.Model {
 		plan := &simulation.SegmentPlan{
+			MirrorWithMount:    part.MirrorWithMount,
+			NoWreckage:         part.Wreckage != nil && !*part.Wreckage,
 			Color:              part.Color,
 			WreckageColor:      part.WreckageColor,
 			Covers:             part.Covers,

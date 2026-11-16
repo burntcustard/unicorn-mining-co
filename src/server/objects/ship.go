@@ -15,8 +15,6 @@ import (
 )
 
 type Ship struct {
-	NPCOnly            bool
-	CrystalWeapon      *specs.CrystalWeapon
 	cargoReleaseHeld   bool
 	releasingCargo     bool
 	cargoReleaseHatch  int
@@ -139,10 +137,6 @@ func (s *Ship) RepairCost(mount *simulation.Mount) float64 {
 }
 
 func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (protocol.DockAction, bool) {
-	if s.NPCOnly {
-		return action, false
-	}
-
 	mounts := s.Mounts()
 	var mount *simulation.Mount
 
@@ -604,13 +598,13 @@ func (s *Ship) LaunchThrottle() float64 {
 func (s *Ship) ForwardThrust() float64 {
 	forward, _, _ := s.thrusterOutput()
 	throttle := s.LaunchThrottle()
-	return forward * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
+	return forward * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor()
 }
 
 func (s *Ship) RotationalThrust() float64 {
 	_, rotational, _ := s.thrusterOutput()
 	throttle := s.LaunchThrottle()
-	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
+	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor()
 }
 
 func (s *Ship) AngularAcceleration() float64 {
@@ -764,6 +758,8 @@ func (s *Ship) Update(dt float64) {
 		f := s.Rules.Flight
 		throttle := s.LaunchThrottle()
 		forward, rotational, _ := s.thrusterOutput()
+		boost := s.flightBoostFactor()
+		forward, rotational = forward*boost, rotational*boost
 		fuelThrottle := s.FuelThrottle()
 		forward = forward * (throttle * throttle) * fuelThrottle * s.ThrusterPower
 		thrust := rotational * (throttle * throttle) * fuelThrottle * s.ThrusterPower * s.AngularThrust / s.Mass
@@ -818,14 +814,12 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 			p[j] = simulation.Point(point)
 		}
 
-		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex, Shades: segment.Shades, Color: segment.Color, CollisionParts: segment.CollisionParts, Connections: segment.Connections, Essential: segment.Essential, Animation: segment.Animation}
+		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex, Shades: segment.Shades, CollisionParts: segment.CollisionParts, Connections: segment.Connections, Essential: segment.Essential, FlightOffset: segment.FlightOffset}
 
 		for _, mount := range segment.Mounts {
 			plan.Mounts = append(plan.Mounts, simulation.NewMount(mount))
 		}
 
-		plan.Ribbon = segment.Ribbon
-		plan.Stroke = segment.Stroke
 		plans[i] = plan
 	}
 
@@ -843,8 +837,6 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 	}
 
 	ship.Self = ship
-	ship.CrystalWeapon = d.CrystalWeapon
-	ship.NPCOnly = d.NPCOnly
 	ship.Kind = "ship"
 	ship.AngularInertiaScale = catalog.Simulation.Flight.AngularInertiaScale
 

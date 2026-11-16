@@ -98,8 +98,7 @@ const releases = new Set<() => void>();
 const stopFiring = () => releases.forEach((release) => release());
 
 const paintHull = () => {
-  hullPaint.disabled =
-    !(previewObject instanceof Ship) || !!previewObject.npcOnly;
+  hullPaint.disabled = !(previewObject instanceof Ship);
 
   if (!(previewObject instanceof Ship)) return;
   const shades = colors[state.paint] || colors.white;
@@ -318,38 +317,6 @@ const rebuild = () => {
     modules.append(
       ...mounts.map((mount) => createMountControls({ craft, ...mount })),
     );
-
-    if (craft instanceof Ship && craft.crystalWeapon) {
-      const button = document.createElement('button');
-
-      button.className = 'text-xs mt-4';
-      button.textContent = 'Fire crystal beams';
-
-      button.onpointerdown = () => {
-        craft.firing = true;
-      };
-
-      const release = () => {
-        craft.firing = false;
-      };
-
-      button.onpointerup = release;
-      button.onpointerleave = release;
-      button.onpointercancel = release;
-      button.onblur = release;
-
-      button.onkeydown = (event) => {
-        if (event.key === ' ' || event.key === 'Enter') {
-          event.preventDefault();
-          craft.firing = true;
-        }
-      };
-
-      button.onkeyup = release;
-      releases.add(release);
-      modules.append(button);
-      moduleControls.hidden = false;
-    }
   }
 
   paintHull();

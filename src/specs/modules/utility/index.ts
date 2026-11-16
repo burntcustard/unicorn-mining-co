@@ -5,3 +5,4 @@ export { shieldGeneratorSm } from './shield-sm';
 export { shieldGeneratorMd } from './shield-md';
 export { shieldGeneratorXs } from './shield-xs';
 export { shieldGeneratorLg } from './shield-lg';
+export { flightMode } from './flight-mode';

@@ -7,6 +7,7 @@ import { hornDrill } from '../../specs/modules/offense/horn-drill';
 import { cargoHatch } from '../../specs/modules/utility/cargo-hatch';
 import { searchLight } from '../../specs/modules/utility/search-light';
 import { shield } from '../../specs/modules/utility/shield';
+import { flightMode } from '../../specs/modules/utility/flight-mode';
 
 export type KeyAction =
   | 'fire'
@@ -27,7 +28,8 @@ export type KeyAction =
   | 'mapZoomIn'
   | 'mapZoomOut'
   | 'telemetry'
-  | 'requestGateAccess';
+  | 'requestGateAccess'
+  | 'flightMode';
 
 export const bindingModes = ['hold', 'toggle'] as const;
 
@@ -73,6 +75,7 @@ export const defaultKeybindings: Keybindings = {
   sectorMap: { keys: ['Tab'], mode: 'press' },
   mapZoomIn: { keys: ['=', '+'], mode: 'press' },
   mapZoomOut: { keys: ['-'], mode: 'press' },
+  flightMode: { keys: ['c'], mode: 'toggle' },
 };
 
 // Module actions are one-byte protocol tags; binding fields are mangled
@@ -81,6 +84,9 @@ export const moduleBinding = (
   action: (typeof moduleControls)[number]['input'],
 ): KeyBinding => {
   switch (action) {
+    case 'flightMode':
+      return defaultKeybindings.flightMode;
+
     case 'cargoHatch':
       return defaultKeybindings.cargoHatch;
 
@@ -141,11 +147,13 @@ export const bindingEntries: [string, KeyBinding][] = [
   ['Toggle map', defaultKeybindings.sectorMap],
   ['Zoom map in', defaultKeybindings.mapZoomIn],
   ['Zoom map out', defaultKeybindings.mapZoomOut],
+  [flightMode.name, defaultKeybindings.flightMode],
 ];
 
 // Derive input property names from object keys so production property mangling
 // stays consistent without using gameplay tag strings as property names.
 const moduleBindings = {
+  flightMode: defaultKeybindings.flightMode,
   plasmaActive: defaultKeybindings.plasmaActive,
   autogunActive: defaultKeybindings.autogunActive,
   laserActive: defaultKeybindings.laserActive,
@@ -208,7 +216,8 @@ try {
 
   if (
     Array.isArray(saved) &&
-    saved.length === bindingEntries.length &&
+    (saved.length === bindingEntries.length ||
+      saved.length === bindingEntries.length - 1) &&
     saved.every(
       (entry) =>
         Array.isArray(entry) &&

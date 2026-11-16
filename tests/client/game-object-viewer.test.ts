@@ -1,9 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { rolldown } from 'rolldown';
 import { buildPrePlugin } from '../../plugins/build-plugins';
 
 const root = process.cwd();
 const entryId = `${root}/src/__game_object_viewer_test.ts`;
+const shipFiles = readdirSync(`${root}/src/specs/ships`).filter(
+  (name) => name.endsWith('.ts') && !['index.ts', 'types.ts'].includes(name),
+);
 const scenario = `
 import assert from 'node:assert/strict';
 import { Ship } from '${root}/src/client/objects/ship.ts';
@@ -49,8 +52,8 @@ Object.assign(globalThis, {
   Option: class extends Element {
     constructor(text, value) { super(); this.textContent = text; this.value = value; }
   },
-  Path2D: class { moveTo() {} lineTo() {} closePath() {} arc() {} },
-  localStorage: { getItem: () => null, setItem() {} },
+  Path2D: class { moveTo() {} lineTo() {} quadraticCurveTo() {} closePath() {} arc() {} },
+  localStorage: { getItem: () => JSON.stringify({ selected: { ship: '../../specs/ships/courser.ts#courser' } }), setItem() {} },
   devicePixelRatio: 1,
   requestAnimationFrame: callback => { frame = callback; return 1; },
   cancelAnimationFrame: noop,
@@ -170,6 +173,32 @@ assert.equal(visibleBeams(laserMounts[0]), 1);
 assert.equal(visibleBeams(laserMounts[1]), 0);
 window.onpagehide();
 assert.equal(visibleBeams(laserMounts[0]), 0);
+
+const specSelect = elements.get('#spec');
+const shipOptions = specSelect.children.map(option => option.textContent);
+assert(!shipOptions.includes('Manta'), 'the removed ship is absent from the viewer');
+hitboxes.checked = true;
+elements.get('.viewer-controls').onchange({ target: hitboxes });
+assert(!shipOptions.includes('Crystal'), 'the removed crystal ship is absent from the viewer');
+for (const name of ['Crescent']) {
+  const option = specSelect.children.find(option => option.textContent === name);
+  assert(option, name + ' appears in the viewer');
+  specSelect.value = option.value;
+  elements.get('.viewer-controls').onchange({ target: specSelect });
+  const preview = viewer.previewObject;
+  assert(preview instanceof Ship);
+  let renders = 0;
+  let colliderCount = 0;
+  const render = preview.render.bind(preview);
+  const hitbox = preview.hitbox.bind(preview);
+  preview.render = (...args) => { renders++; return render(...args); };
+  preview.hitbox = () => { const colliders = hitbox(); colliderCount += colliders.length; return colliders; };
+  advance();
+  assert(renders > 0, name + ' renders in the viewer');
+  assert(colliderCount > 0, name + ' draws its hitboxes');
+}
+hitboxes.checked = false;
+elements.get('.viewer-controls').onchange({ target: hitboxes });
 const typeSelect = elements.get('#object-type');
 typeSelect.value = 'navBeacon';
 elements.get('.viewer-controls').onchange({ target: typeSelect });
@@ -237,10 +266,22 @@ const bundle = await rolldown({
 
         if (id.endsWith('/src/tools/game-object-viewer/catalog.ts')) {
           return (
-            "import { courser } from '../../specs/ships/courser';\n" +
+            shipFiles
+              .map(
+                (file, index) =>
+                  `import * as ship${index} from '../../specs/ships/${file}';`,
+              )
+              .join('\n') +
+            '\n' +
             readFileSync(id, 'utf8').replace(
               /const specs = import\.meta\.glob[\s\S]*?\n\);/,
-              `const specs = { '../../specs/ships/courser.ts': { courser: {
+              `const specs = { ${shipFiles
+                .map(
+                  (file, index) => `'../../specs/ships/${file}': ship${index}`,
+                )
+                .join(', ')} };
+              const courser = specs['../../specs/ships/courser.ts'].courser;
+              specs['../../specs/ships/courser.ts'] = { courser: {
                 ...courser,
                 hullSegments: courser.hullSegments.map(segment => ({
                   ...segment,
@@ -249,7 +290,7 @@ const bundle = await rolldown({
                     fits: mount.fits.includes('cannonSm') ? ['cannonSm', 'laser'] : mount.fits,
                   }))),
                 })),
-              } } };`,
+              } };`,
             )
           );
         }

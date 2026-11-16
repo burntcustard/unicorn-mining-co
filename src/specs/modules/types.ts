@@ -9,6 +9,8 @@ type ModuleModelPart = {
   catches?: boolean;
   flareSize?: number;
   thrusterNozzleSide?: number;
+  // Reflect local Y for a mount on the craft's negative Y side.
+  mirrorWithMount?: boolean;
   points?: number[][];
   radius?: number;
   // Circular support below the barrels, fixed in place during deployment.
@@ -16,11 +18,13 @@ type ModuleModelPart = {
   lines?: number[][][];
   // Width of this part's lines in game units; defaults to the outline width.
   lineWidth?: number;
+  lineJoin?: CanvasLineJoin;
   covers?: boolean;
   fillAlpha?: number;
   color?: string;
   // Detached paint tones use the neutral white palette.
   wreckageColor?: string;
+  wreckage?: false;
   // Milliseconds after a shot before this part lights again.
   rechargeDelay?: number;
   rechargeColor?: string;
@@ -107,6 +111,7 @@ type ModuleValues = {
   collisionMargin?: number;
   forwardThrust?: number;
   rotationalThrust?: number;
+  flightBoost?: number;
   offset?: number;
   grinds?: boolean;
   beam?: boolean;
@@ -131,6 +136,10 @@ type ModuleValues = {
 export type ModuleSpec = ModuleValues &
   (
     | {
+        behavior: 'flightMode';
+        flightBoost: number;
+      }
+    | {
         behavior: 'powerPlant';
         powerGenerated: number;
         model: (ModuleModelPart & { points: number[][] })[];
@@ -141,9 +150,8 @@ export type ModuleSpec = ModuleValues &
         forwardThrust: number;
         rotationalThrust: number;
         model: (ModuleModelPart & {
-          flareSize: number;
           thrusterNozzleSide: number;
-        })[];
+        } & ({ flareSize: number } | { points: number[][] }))[];
       }
     | {
         behavior: 'cargoHatch';

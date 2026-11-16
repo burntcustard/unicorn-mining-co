@@ -105,6 +105,13 @@ export class Module extends GameObject {
             : undefined;
 
         if (!shape) return;
+
+        if (segment.lineJoin) ctx.lineJoin = segment.lineJoin;
+
+        if (segment.lineWidth !== undefined) {
+          ctx.lineWidth = segment.lineWidth;
+        }
+
         const shades = this.shades || segment.shades;
         const color =
           segment.fillShade === undefined

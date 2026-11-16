@@ -18,7 +18,7 @@ func hullPlans(segments []specs.HullSegment) []*simulation.SegmentPlan {
 			outline.Points[j] = simulation.Point(point)
 		}
 
-		plans[i] = &simulation.SegmentPlan{Health: segment.Health, Points: outline, DisablePhysics: segment.DisablePhysics, DockSegment: segment.DockSegment, Shades: segment.Shades, ZIndex: segment.ZIndex}
+		plans[i] = &simulation.SegmentPlan{Health: segment.Health, Points: outline, DisablePhysics: segment.DisablePhysics, DockSegment: segment.DockSegment, Shades: segment.Shades, ZIndex: segment.ZIndex, FlightOffset: segment.FlightOffset, Connections: segment.Connections}
 
 		for _, mount := range segment.Mounts {
 			plans[i].Mounts = append(plans[i].Mounts, simulation.NewMount(mount))
@@ -52,17 +52,25 @@ func makeSegment(object *simulation.GameObject, zIndex int, module simulation.Mo
 
 	s.Rate = 1 / duration
 
-	if plan.Points != nil {
-		if plan.Points.Edges == nil {
-			plan.Points.Edges = make([]bool, len(plan.Points.Points))
+	if s.MirrorWithMount && mount != nil && mount.LocalPosition.Y < 0 && s.Points != nil {
+		s.Points = &simulation.ShapeOutline{Points: slices.Clone(s.Points.Points), Edges: slices.Clone(s.Points.Edges)}
 
-			for i := range plan.Points.Edges {
-				plan.Points.Edges[i] = true
+		for index := range s.Points.Points {
+			s.Points.Points[index][1] *= -1
+		}
+	}
+
+	if s.Points != nil {
+		if s.Points.Edges == nil {
+			s.Points.Edges = make([]bool, len(s.Points.Points))
+
+			for i := range s.Points.Edges {
+				s.Points.Edges[i] = true
 			}
 		}
 
-		if len(plan.Points.Points) > 0 {
-			middle, reach := simulation.ShapeOutlineExtent(plan.Points.Points)
+		if len(s.Points.Points) > 0 {
+			middle, reach := simulation.ShapeOutlineExtent(s.Points.Points)
 			s.Middle = &middle
 
 			if s.Radius == nil {
