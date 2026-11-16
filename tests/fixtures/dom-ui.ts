@@ -1765,6 +1765,7 @@ export const checkNotifications = () => {
 
 export const previewAutogunAudio = async () => {
   const { Ship } = await import('../../src/client/objects/ship');
+  const audioContext = await import('../../src/client/audio/audio-context');
   const { default: shipPreview } =
     await import('../../src/client/ui/dom/ship-preview');
   const { preloadSound, unlockAudio } =
@@ -1833,9 +1834,22 @@ export const previewAutogunAudio = async () => {
     draw(110);
     const fittedMotor = started.find((node) => node.loop);
 
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    // Headless browsers can report a running audio context without advancing
+    // its clock. Advance it explicitly to exercise the click scheduler.
+    const context = audioContext.audio;
+
+    if (!context) throw new Error('Audio context was not created');
+    const audioTime = context.currentTime;
+
+    Object.defineProperty(context, 'currentTime', {
+      configurable: true,
+      get: () => audioTime + 0.25,
+    });
+
     draw(1);
     const fittedClick = started.some((node) => !node.loop);
+
+    delete (context as unknown as { currentTime?: number }).currentTime;
 
     source.fit(0, source.mounts[gunMount]);
     preview.update(source, { mount: turretMount, candidate: AutogunTurret });
@@ -1882,6 +1896,12 @@ export const previewAutogunAudio = async () => {
     ];
   } finally {
     preview.destroy();
+
+    if (audioContext.audio) {
+      delete (audioContext.audio as unknown as { currentTime?: number })
+        .currentTime;
+    }
+
     AudioBufferSourceNode.prototype.start = start;
     AudioBufferSourceNode.prototype.stop = stop;
     window.requestAnimationFrame = request;
@@ -2028,6 +2048,112 @@ export const previewStability = async () => {
     Ship.prototype.updateModules = updateModules;
     window.requestAnimationFrame = request;
     window.cancelAnimationFrame = cancel;
+    document.body.removeChild(target);
+  }
+};
+
+export const previewEmptyCanvas = async () => {
+  const { Ship } = await import('../../src/client/objects/ship');
+  const { default: shipPreview } =
+    await import('../../src/client/ui/dom/ship-preview');
+  const target = document.createElement('canvas');
+  const request = window.requestAnimationFrame;
+  const cancel = window.cancelAnimationFrame;
+  const Observer = window.ResizeObserver;
+  // oxlint-disable-next-line typescript/unbound-method
+  const drawImage = CanvasRenderingContext2D.prototype.drawImage;
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+
+  let notifyResize = () => {};
+
+  target.style.width = target.style.height = '512px';
+  document.body.append(target);
+
+  window.requestAnimationFrame = (callback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  };
+
+  window.cancelAnimationFrame = (id) => {
+    frames.delete(id);
+  };
+
+  window.ResizeObserver = class extends Observer {
+    constructor(callback: ResizeObserverCallback) {
+      super(callback);
+      notifyResize = () => callback([], this);
+    }
+
+    observe() {}
+  };
+
+  CanvasRenderingContext2D.prototype.drawImage = function (
+    image: CanvasImageSource,
+    ...args: number[]
+  ) {
+    if (
+      image instanceof HTMLCanvasElement &&
+      (image.width === 0 || image.height === 0)
+    ) {
+      throw new DOMException('Passed-in canvas is empty', 'InvalidStateError');
+    }
+
+    Reflect.apply(drawImage, this, [image, ...args]);
+  };
+
+  const preview = shipPreview.createShipPreview(target);
+  const source = new Ship();
+
+  source.fit(new Autogun(), source.mounts[0]);
+
+  const draw = (time: number) => {
+    const pending = [...frames.values()];
+
+    frames.clear();
+    pending.forEach((callback) => callback(time));
+  };
+
+  try {
+    preview.update(source, { hull: 0, mount: 0 });
+    draw(16);
+
+    const initiallyAnimating = !!frames.size;
+
+    const cases = (['width', 'height'] as const).map((dimension, index) => {
+      target.style[dimension] = '0px';
+      let noException = true;
+
+      try {
+        draw(32 + index * 32);
+      } catch {
+        noException = false;
+      }
+
+      const stopped = !frames.size;
+
+      target.style[dimension] = '512px';
+      notifyResize();
+      const requested = !!frames.size;
+
+      draw(48 + index * 32);
+      const pixels = target
+        .getContext('2d')!
+        .getImageData(0, 0, target.width, target.height).data;
+      const rendered = pixels.some(
+        (value, offset) => offset % 4 === 3 && value,
+      );
+
+      return noException && stopped && requested && rendered && !!frames.size;
+    });
+
+    return [initiallyAnimating, ...cases];
+  } finally {
+    preview.destroy();
+    window.requestAnimationFrame = request;
+    window.cancelAnimationFrame = cancel;
+    window.ResizeObserver = Observer;
+    CanvasRenderingContext2D.prototype.drawImage = drawImage;
     document.body.removeChild(target);
   }
 };

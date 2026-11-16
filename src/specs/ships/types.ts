@@ -1,9 +1,19 @@
 import type { ModuleId } from '../modules';
 import type { MountPointSpec } from '../mounts';
 
-type HullSegmentSpecification = {
+export type HullSegmentSpecification = {
   health: number;
   points: number[][];
+  // Bevel is the default; miter preserves points and round softens corners.
+  lineJoin?: CanvasLineJoin;
+  // Optional open stroke paths, separate from the filled collision polygon.
+  shapeOutline?: number[][][];
+  collisionParts?: number[][][];
+  shades?: readonly string[];
+  connections?: number[];
+  // Translation at full flight-mode activation, inherited through connections.
+  flightOffset?: [number, number];
+  essential?: boolean;
   core?: boolean;
   mounts?: MountPointSpec[][];
 };
@@ -18,7 +28,13 @@ export type ShipSpec = {
   angularThrust: number;
   radius: number;
   turnRate: number;
+  // Override weapon deployment travel; zero keeps barrels at full length.
+  weaponRetractionDistance?: number;
   // Zero-based mount slots, flattened in hull segment order. Omitted slots stay empty.
-  initialLoadout: { mount: number; module: ModuleId }[];
+  initialLoadout: {
+    mount: number;
+    module: ModuleId;
+    shades?: readonly string[];
+  }[];
   hullSegments: HullSegmentSpecification[];
 };

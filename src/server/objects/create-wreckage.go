@@ -17,6 +17,7 @@ func CreateWreckage(props Properties, segments []WreckageSegment, catalog specs.
 
 		if s.ShapeOutline != nil {
 			plan.Points = &simulation.ShapeOutline{Points: s.ShapeOutline}
+			plan.CollisionParts = simulation.ConvexParts(s.ShapeOutline)
 		}
 
 		plans[i] = plan

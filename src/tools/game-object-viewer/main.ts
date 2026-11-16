@@ -20,6 +20,7 @@ import { jumpGateSpec } from '../../specs/jump-gate';
 import * as Vec from '../../client/utilities/vector';
 import { catalog, previewMounts, type ObjectType } from './catalog';
 import { drawGrid } from './grid';
+import { drawHitboxes } from './hitboxes';
 import {
   addEffect,
   effects,
@@ -34,6 +35,7 @@ type ViewerState = {
   selected: Partial<Record<ObjectType, string>>;
   grid: boolean;
   mountPoints: boolean;
+  hitboxes: boolean;
   spin: boolean;
   rotation: number;
   zoom: number;
@@ -52,6 +54,7 @@ export const state: ViewerState = {
   selected: {},
   grid: true,
   mountPoints: true,
+  hitboxes: false,
   spin: false,
   rotation: 0,
   zoom: 2,
@@ -69,6 +72,7 @@ const specSelect = document.querySelector<HTMLSelectElement>('#spec')!;
 const gridInput = document.querySelector<HTMLInputElement>('#grid')!;
 const mountPointsInput =
   document.querySelector<HTMLInputElement>('#mount-points')!;
+const hitboxesInput = document.querySelector<HTMLInputElement>('#hitboxes')!;
 const spinInput = document.querySelector<HTMLInputElement>('#spin')!;
 const zoomInput = document.querySelector<HTMLInputElement>('#zoom')!;
 const zoomValue = document.querySelector<HTMLOutputElement>('#zoom-value')!;
@@ -102,7 +106,7 @@ const paintHull = () => {
   previewObject.shades = shades;
   previewObject.segments
     .filter((segment) => segment.hull)
-    .forEach((segment) => (segment.shades = shades));
+    .forEach((segment) => (segment.shades = segment.module.shades || shades));
 };
 
 const createMountControls = ({
@@ -120,6 +124,15 @@ const createMountControls = ({
       ? undefined
       : options.find(({ type }) => type === attachments[key]) || defaultOption;
   const module = attached ? new attached.Type() : 0;
+
+  const initial = craft.initialLoadout?.find(
+    (entry: { mount: number }) => entry.mount === craft.mounts.indexOf(mount),
+  );
+
+  if (module && initial?.shades && initial.module === attached?.type) {
+    module.shades = initial.shades;
+  }
+
   const control = gameModuleControls.find(({ Type }) => module instanceof Type);
   const mode =
     module instanceof Weapon || module instanceof Laser
@@ -416,6 +429,16 @@ const render = (now: number) => {
 
   renderEffects({ ctx });
 
+  if (state.hitboxes) {
+    if (previewObject) {
+      drawHitboxes({ ctx, object: previewObject, scale: game.scale });
+    }
+
+    world.entities.forEach((object) =>
+      drawHitboxes({ ctx, object, scale: game.scale }),
+    );
+  }
+
   if (pointer) {
     ctx.save();
     ctx.rotate(state.rotation);
@@ -467,6 +490,7 @@ const render = (now: number) => {
 typeSelect.value = state.type;
 gridInput.checked = state.grid;
 mountPointsInput.checked = state.mountPoints;
+hitboxesInput.checked = state.hitboxes;
 spinInput.checked = state.spin;
 zoomInput.value = String(state.zoom);
 state.zoom = zoomInput.valueAsNumber;
@@ -489,6 +513,8 @@ controls.onchange = ({ target }) => {
     state.grid = gridInput.checked;
   } else if (target === mountPointsInput) {
     state.mountPoints = mountPointsInput.checked;
+  } else if (target === hitboxesInput) {
+    state.hitboxes = hitboxesInput.checked;
   } else if (target === spinInput) {
     state.spin = spinInput.checked;
   } else if (target === hullPaint) {

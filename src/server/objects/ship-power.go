@@ -8,6 +8,7 @@ type powerRates struct {
 
 func (s *Ship) powerRates() powerRates {
 	var rates powerRates
+
 	var mounts [16]*simulation.Mount
 
 	for _, mount := range s.AppendMounts(mounts[:0]) {

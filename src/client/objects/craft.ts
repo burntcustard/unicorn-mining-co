@@ -41,6 +41,8 @@ import { applyForce } from '../physics/apply-force';
 import { outerEdges } from '../utilities/polygon';
 import { type Contact, type Collider } from '../collision/types';
 import { cargoContactAllowed } from './modules/cargo-hatch';
+import { hullColliders } from '../collision/hull-colliders';
+import { convexParts } from '../utilities/triangulate';
 import { Module } from './modules/module';
 import {
   type Pose,
@@ -98,6 +100,75 @@ const collisionCaches = new WeakMap<
 
 const drillColliders = new WeakMap<Segment, Collider>();
 
+const hullFlightOffsets = new WeakMap<
+  HullSegmentPlan[],
+  (Vec.Value | undefined)[] | null
+>();
+
+const flightStates = new WeakMap<
+  Craft,
+  { source: Segment[]; controllers: Segment[]; progress?: number }
+>();
+
+const flightStateOf = (craft: Craft) => {
+  let state = flightStates.get(craft);
+
+  if (!state || state.source !== craft.segments) {
+    state = {
+      source: craft.segments,
+      controllers: craft.segments.filter(
+        (segment) => segment.mount && segment.module.behavior === 'flightMode',
+      ),
+    };
+
+    flightStates.set(craft, state);
+  }
+
+  return state;
+};
+
+const controllerProgress = (segment: Segment) =>
+  segment.mount?.module === segment.module &&
+  segment.module.mount === segment.mount &&
+  !(segment.mount.health < 1) &&
+  !(segment.mount.hull.health < 1)
+    ? Math.max(0, Math.min(1, segment.activationProgress || 0))
+    : 0;
+
+const flightOffsetsOf = (plans: HullSegmentPlan[]) => {
+  const cached = hullFlightOffsets.get(plans);
+
+  if (cached !== undefined) return cached;
+
+  if (!plans.some((plan) => plan.flightOffset)) {
+    hullFlightOffsets.set(plans, null);
+    return null;
+  }
+
+  const resolve = (
+    index: number,
+    visited: Set<number>,
+  ): Vec.Value | undefined => {
+    const plan = plans[index];
+
+    if (!plan || visited.has(index)) return;
+
+    if (plan.flightOffset) return Vec.create(...plan.flightOffset);
+    visited.add(index);
+
+    for (const connection of plan.connections || []) {
+      const offset = resolve(connection, visited);
+
+      if (offset) return offset;
+    }
+  };
+
+  const offsets = plans.map((_, index) => resolve(index, new Set()));
+
+  hullFlightOffsets.set(plans, offsets);
+  return offsets;
+};
+
 const collisionOutlines = new WeakMap<
   ShapeOutline,
   { x: number; y: number; shapeOutline: ShapeOutline }
@@ -108,7 +179,8 @@ import { approach } from '../utilities/approach';
 const centerOf = (segments: Segment[]) =>
   Vec.scale(
     segments.reduce(
-      (center, { middle }) => Vec.add(center, Vec.create(...middle!)),
+      (center, { middle, localPosition }) =>
+        Vec.add(center, Vec.add(Vec.create(...middle!), localPosition)),
       Vec.create(),
     ),
     1 / segments.length,
@@ -208,6 +280,8 @@ export class Craft extends GameObject {
 
         return {
           points: points?.map(([x, y]) => [x, y]),
+          collisionParts: points && convexParts(points),
+          shades: segment.shades,
           radius: () => radius,
           localPosition: Vec.clone(segment.localPosition),
           health: (segment.mount || segment).health,
@@ -242,6 +316,7 @@ export class Craft extends GameObject {
   // A broken module keeps its shape long enough to tumble away as wreckage,
   // while the original mount is immediately free again for the dock menu.
   detach(mount: Mount) {
+    this.updateFlightMode();
     const mountedSegments = this.segmentsAtMount(mount);
     const wreckageSegments = mountedSegments.filter(
       (segment) => segment.wreckage !== false,
@@ -347,6 +422,7 @@ export class Craft extends GameObject {
     }
 
     mount.module = craftModule;
+    mount.retractionDistance = this.weaponRetractionDistance;
     // With no exposed inactive body, structural health tracks active integrity.
     mount.health =
       craftModule && (craftModule.health || craftModule.healthActivated);
@@ -359,7 +435,10 @@ export class Craft extends GameObject {
         fits.includes(craftModule.constructor as typeof Module),
       )!;
 
-      mount.localPosition = Vec.create(point.x, point.y);
+      mount.localPosition = Vec.add(
+        Vec.create(point.x, point.y),
+        mount.hull?.localPosition || Vec.create(),
+      );
       this.cargoContents = this.cargoContents.filter(
         (object) => object !== craftModule,
       );
@@ -375,6 +454,7 @@ export class Craft extends GameObject {
     }
 
     this.segments.sort((a, b) => a.zIndex - b.zIndex);
+    this.updateFlightMode();
   }
 
   // Restore the original hull data, including any pieces and mounting points
@@ -420,13 +500,58 @@ export class Craft extends GameObject {
     outerEdges(outlinesOf(hulls));
     // A surviving core anchors flight and the hull kept attached to it.
     this.cockpit = hulls.find(({ core }) => core);
+    this.updateFlightMode();
+  }
+
+  connectedHullGroups(hulls: Segment[]) {
+    const groups = outerEdges(outlinesOf(hulls));
+
+    if (!this.hullSegments.some((plan) => plan.connections)) return groups;
+    const neighbors = hulls.map(
+      (_segment, index) =>
+        new Set(groups.find((group) => group.includes(index)) || [index]),
+    );
+
+    hulls.forEach((segment, index) => {
+      for (const connection of segment.module.connections || []) {
+        const other = hulls.findIndex(
+          (hull) => hull.module === this.hullSegments[connection],
+        );
+
+        if (other >= 0) {
+          neighbors[index].add(other);
+          neighbors[other].add(index);
+        }
+      }
+    });
+
+    const left = new Set(hulls.map((_, index) => index));
+    const connected: number[][] = [];
+
+    for (let index = hulls.length - 1; index >= 0; index--) {
+      if (!left.delete(index)) continue;
+      const group = [index];
+
+      for (let at = 0; at < group.length; at++) {
+        [...neighbors[group[at]]]
+          .sort((a, b) => b - a)
+          .forEach((other) => {
+            if (left.delete(other)) group.push(other);
+          });
+      }
+
+      connected.push(group);
+    }
+
+    return connected;
   }
 
   fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
+    this.updateFlightMode();
     const center = hulls.length && centerOf(hulls);
     const groups = destroyed
       ? hulls.map((_, i) => [i])
-      : outerEdges(outlinesOf(hulls));
+      : this.connectedHullGroups(hulls);
     const core =
       !destroyed &&
       groups.find((group) => group.includes(hulls.indexOf(this.cockpit)));
@@ -511,6 +636,8 @@ export class Craft extends GameObject {
   }
 
   hitbox(collidingOnly = false) {
+    this.updateFlightMode();
+
     if (
       this.transitTime ||
       (this.dockedTo !== undefined && this.dockedTo !== 0)
@@ -663,7 +790,13 @@ export class Craft extends GameObject {
       collider.position = position;
       const drillTip = segment.module.drillTip;
 
-      if (collider.radius) colliders.push(collider);
+      if (collider.radius) {
+        if (segment.collisionParts) {
+          colliders.push(...hullColliders(collider));
+        } else {
+          colliders.push(collider);
+        }
+      }
 
       if (drillTip?.radius) {
         let tip = drillColliders.get(segment);
@@ -900,7 +1033,8 @@ export class Craft extends GameObject {
 
         if (mount) {
           if (!unchanged) this.fit(module, mount);
-          mount.health = state.health;
+          mount.health =
+            (module.health || module.healthActivated) && state.health;
           mount.healthActivated =
             state.healthActivated ?? module.healthActivated;
 
@@ -914,6 +1048,8 @@ export class Craft extends GameObject {
         this.cargoContents.push(module);
       }
     });
+
+    this.updateFlightMode();
   }
 
   momentum(position: Vec.Value) {
@@ -945,6 +1081,7 @@ export class Craft extends GameObject {
     drawHull,
     pose = this,
   }: CraftRenderOptions = {}) {
+    this.updateFlightMode();
     const { ctx } = game;
     const glow =
       zIndex === renderingLayers.glowBelowShips ||
@@ -1078,6 +1215,70 @@ export class Craft extends GameObject {
     });
   }
 
+  get flightBoostFactor() {
+    return flightStateOf(this).controllers.reduce(
+      (boost, segment) =>
+        Math.max(
+          boost,
+          1 + controllerProgress(segment) * (segment.module.flightBoost - 1),
+        ),
+      1,
+    );
+  }
+
+  /*
+   * Moving roots carry their directed descendants and fitted modules together.
+   * The authored geometry stays immutable; offsets also feed ordinary colliders.
+   */
+  updateFlightMode() {
+    const offsets = flightOffsetsOf(this.hullSegments);
+
+    if (!offsets) return;
+    const state = flightStateOf(this);
+    const progress = state.controllers.reduce(
+      (value, segment) => Math.max(value, controllerProgress(segment)),
+      0,
+    );
+
+    if (state.progress === progress) return;
+    state.progress = progress;
+
+    this.segments.forEach((segment) => {
+      if (!segment.hull) return;
+      const offset = offsets[this.hullSegments.indexOf(segment.module)];
+
+      if (!offset) return;
+      const base = segment.module.localPosition;
+      const x = (base?.x || 0) + offset.x * progress;
+      const y = (base?.y || 0) + offset.y * progress;
+
+      if (segment.localPosition.x !== x || segment.localPosition.y !== y) {
+        // Checkpoints retain vector references, so changed poses need new ones.
+        segment.localPosition = Vec.create(x, y);
+      }
+
+      segment.mounts?.forEach((mount) => {
+        const point =
+          mount.mountPoints?.find(
+            ({ fits }) =>
+              mount.module &&
+              fits.includes(mount.module.constructor as typeof Module),
+          ) || mount.mountPoints?.[0];
+
+        if (!point) return;
+        const position = Vec.create(point.x + x, point.y + y);
+        const delta = Vec.subtract(position, mount.localPosition);
+
+        if (!delta.x && !delta.y) return;
+        mount.localPosition = position;
+
+        this.segmentsAtMount(mount).forEach((part) => {
+          part.localPosition = Vec.add(part.localPosition, delta);
+        });
+      });
+    });
+  }
+
   /**
    * Throw a group of this ship's segments off as a loose body of its own:
    * rebased around `origin`, carrying the motion it had while attached, and
@@ -1157,7 +1358,7 @@ export class Craft extends GameObject {
     }
 
     // Hydrated player ships can have lost all cores already.
-    if (this.cockpit || this.playerId !== undefined) {
+    if (this.cockpit || this.playerId !== undefined || this.kind === 'ship') {
       // Count first; most ticks nothing is broken and nothing is allocated.
       const segments = this.segments;
       let brokenMount = false;
@@ -1180,14 +1381,23 @@ export class Craft extends GameObject {
         }
       }
 
-      if (!brokenMount && cores > 0 && !brokenHull) return;
+      const missingEssential = this.hullSegments.some(
+        (plan) =>
+          plan.essential &&
+          !segments.some(
+            (segment) =>
+              segment.hull && segment.module === plan && !(segment.health < 1),
+          ),
+      );
+
+      if (!brokenMount && cores > 0 && !brokenHull && !missingEssential) return;
       this.mounts
         .filter(({ health, module }) => module && health < 1)
         .forEach((mount) => this.detach(mount));
       const all = this.segments.filter(({ hull }) => hull);
       const hulls = all.filter(({ health }) => !(health < 1));
       // Keep a surviving core section alive when the engine section is lost.
-      const lost = !hulls.some(({ core }) => core);
+      const lost = missingEssential || !hulls.some(({ core }) => core);
 
       if (!lost && (!this.cockpit || this.cockpit.health < 1)) {
         this.cockpit = hulls.find(({ core }) => core);
@@ -1309,9 +1519,12 @@ export class Craft extends GameObject {
         segment.expandingTick = this.world?.tick;
       }
     });
+
+    this.updateFlightMode();
   }
 
   updateVisual(dt: number) {
+    this.updateFlightMode();
     const previous = visualPhases.get(this);
     const phases = new Map<number | Module, number[]>();
 

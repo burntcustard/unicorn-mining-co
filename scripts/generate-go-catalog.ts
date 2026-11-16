@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { colors, paintColors } from '../src/specs/colors';
 import { pirateDialog } from '../src/specs/dialog/pirate';
+import { marauderSpec } from '../src/specs/npcs/marauder';
 import { pirateSpec } from '../src/specs/npcs/pirate';
 import { collectorSpec } from '../src/specs/npcs/collector';
 import { collectorDialog } from '../src/specs/dialog/collector';
@@ -99,6 +100,7 @@ const simulation = {
 
 const catalog = {
   npcMovement,
+  marauderSpec,
   pirateSpec,
   collectorSpec,
   collectorDialog,

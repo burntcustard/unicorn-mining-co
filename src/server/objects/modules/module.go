@@ -43,6 +43,8 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 
 	for _, part := range spec.Model {
 		plan := &simulation.SegmentPlan{
+			MirrorWithMount:    part.MirrorWithMount,
+			NoWreckage:         part.Wreckage != nil && !*part.Wreckage,
 			Color:              part.Color,
 			WreckageColor:      part.WreckageColor,
 			Covers:             part.Covers,
@@ -68,13 +70,31 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 		}
 
 		if !part.TurretBase && (spec.Behavior == "weapon" || spec.Behavior == "beam") {
-			radius := max(
-				simulation.RadiusOf(plan.Points.Points, simulation.Point{}),
-				simulation.RadiusOf(plan.Points.Points, simulation.Point{spec.RetractionDistance, 0}),
-			)
+			authored := plan.Points.Points
+			radius := simulation.RadiusOf(authored, simulation.Point{})
+			defaultRadius := max(radius, simulation.RadiusOf(authored, simulation.Point{spec.RetractionDistance, 0}))
+
+			retractionDistance := func(segment *simulation.Segment) float64 {
+				if segment.Mount != nil && segment.Mount.RetractionDistance != nil {
+					return *segment.Mount.RetractionDistance
+				}
+
+				return spec.RetractionDistance
+			}
+
 			plan.Points = nil
 
-			plan.Radius = func(*simulation.Segment) float64 { return radius }
+			plan.Radius = func(segment *simulation.Segment) float64 {
+				if spec.Telescoping {
+					return radius
+				}
+
+				if segment.Mount == nil || segment.Mount.RetractionDistance == nil {
+					return defaultRadius
+				}
+
+				return max(radius, simulation.RadiusOf(authored, simulation.Point{retractionDistance(segment), 0}))
+			}
 
 			plan.DynamicPoints = func(segment *simulation.Segment) *simulation.ShapeOutline {
 				side := 1.0
@@ -91,8 +111,15 @@ func NewModule(id string, props simulation.ObjectProperties, catalog specs.Catal
 					progress = math.Min(1, progress*(1+spec.DischargeDuration/spec.ActivationDuration))
 				}
 
+				distance := retractionDistance(segment) * (1 - progress)
+
 				for i := range outline.Points {
-					outline.Points[i][0] -= spec.RetractionDistance * (1 - progress)
+					if spec.Telescoping {
+						outline.Points[i][0] *= math.Max(0, 1-distance/spec.BarrelLength)
+					} else {
+						outline.Points[i][0] -= distance
+					}
+
 					outline.Points[i][1] *= side
 				}
 

@@ -26,16 +26,22 @@ type ModuleData struct {
 }
 
 type Mount struct {
-	MountPoints     []specs.MountPoint
-	LocalPosition   Vec.Vector
-	Health          float64
-	HealthActivated *float64
-	Module          Module
-	Fits            []string
-	Hull            *Segment
+	RetractionDistance *float64
+	MountPoints        []specs.MountPoint
+	LocalPosition      Vec.Vector
+	Health             float64
+	HealthActivated    *float64
+	Module             Module
+	Fits               []string
+	Hull               *Segment
 }
 
 type SegmentPlan struct {
+	MirrorWithMount                                    bool
+	FlightOffset                                       *[2]float64
+	CollisionParts                                     [][][]float64
+	Connections                                        []int
+	Essential                                          bool
 	WreckageColor                                      string
 	Color                                              string
 	Health                                             *float64
@@ -55,6 +61,7 @@ type SegmentPlan struct {
 }
 
 type Segment struct {
+	PartColliders []*collision.Collider
 	outlineKey    [2]float64
 	cachedOutline *ShapeOutline
 	SegmentPlan

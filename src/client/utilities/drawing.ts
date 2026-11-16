@@ -34,7 +34,16 @@ export const shapePath = (points: number[][], unclosed = false) => {
   if (cached) return cached;
   const path = createPath();
 
-  points.forEach(([x, y]) => path.lineTo(x, y));
+  points.forEach(([x, y, cx, cy, dx, dy], index) => {
+    if (index && dx !== undefined) {
+      path.bezierCurveTo(cx, cy, dx, dy, x, y);
+    } else if (index && cx !== undefined) {
+      path.quadraticCurveTo(cx, cy, x, y);
+    } else {
+      path.lineTo(x, y);
+    }
+  });
+
   unclosed || path.closePath();
 
   if (Object.isFrozen(points)) {
@@ -80,7 +89,17 @@ export const linesPath = (lines: number[][][]) => {
   const path = createPath();
 
   lines.forEach((points) => {
-    points.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
+    points.forEach(([x, y, cx, cy, dx, dy], index) => {
+      if (!index) {
+        path.moveTo(x, y);
+      } else if (dx !== undefined) {
+        path.bezierCurveTo(cx, cy, dx, dy, x, y);
+      } else if (cx !== undefined) {
+        path.quadraticCurveTo(cx, cy, x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    });
   });
 
   if (Object.isFrozen(lines)) linePaths.set(lines, path);
@@ -98,6 +117,9 @@ export const drawSegment = ({
   ctx: CanvasRenderingContext2D;
   segment: Segment;
 }) => {
+  const lineJoin = ctx.lineJoin;
+
+  if (segment.lineJoin) ctx.lineJoin = segment.lineJoin;
   const points =
     typeof segment.points === 'function'
       ? segment.points(segment)
@@ -122,6 +144,8 @@ export const drawSegment = ({
     );
     ctx.restore();
   }
+
+  ctx.lineJoin = lineJoin;
 };
 
 // A sheet with one edge running out along one line of points and back along

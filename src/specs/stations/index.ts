@@ -7,7 +7,6 @@ export const stationSpecs = { 'corral-5': corral5, 'corral-6': corral6 };
 
 export type StationId = keyof typeof stationSpecs;
 
-export const stationSpecList = Object.values(stationSpecs);
 export const stationSpecsById = new Map<StationId, StationSpec>([
   ['corral-5', corral5],
   ['corral-6', corral6],

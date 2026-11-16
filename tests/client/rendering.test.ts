@@ -37,6 +37,7 @@ import {
   ShieldGenerator,
   ShieldGeneratorMd,
   ThrusterSingleSm,
+  ThrusterCrescent,
   ThrusterSingleMd,
   ThrusterSingleLg,
   ThrusterSingleXl,
@@ -359,6 +360,7 @@ for (const craft of [remote, station]) {
 }
 const draws = [];
 const strokes = [];
+const strokeOptions = [];
 const strokePaths = [];
 const styles = [];
 const transforms = [];
@@ -372,9 +374,12 @@ game.ctx = {
   fillText() {},
   strokeStyle: '#000',
   fillStyle: '#000',
+  lineJoin: 'bevel',
+  lineWidth: 3,
   save() {
     saves++;
-    styles.push({ strokeStyle: this.strokeStyle, fillStyle: this.fillStyle });
+    styles.push({ strokeStyle: this.strokeStyle, fillStyle: this.fillStyle,
+      lineJoin: this.lineJoin, lineWidth: this.lineWidth });
   },
   restore() {
     saves--;
@@ -391,6 +396,7 @@ game.ctx = {
   arc() {},
   stroke(path) {
     strokes.push(this.strokeStyle);
+    strokeOptions.push([this.lineJoin, this.lineWidth]);
     strokePaths.push(path);
   },
   clip() {
@@ -664,6 +670,84 @@ for (const [Type, size] of [
     22,
     'all single sizes retain the existing forward thrust',
   );
+}
+// A thruster model owns its flare geometry. Mirrored mounts retain the same
+// palette, activation envelope, immutable model, and caller stroke options.
+{
+  const points = [[0,-2],[-2,-4],[-9,-3],[-6,2],[0,2]];
+  const original = JSON.stringify(points);
+  const craft = new Ship({
+    shades: colors.cyan,
+    hullSegments: [{health: 100, core: true,
+      points: [[-20,-20],[20,0],[-20,20]],
+      mounts: [
+        [{x: -20, y: -8, fits: [ThrusterCrescent.definitionId]}],
+        [{x: -20, y: 8, fits: [ThrusterCrescent.definitionId]}],
+        [{x: -20, y: 0, fits: [ThrusterSingleSm.definitionId]}],
+      ],
+    }],
+  });
+  const engines = [-1,1].map((side,index) => {
+    const engine = new ThrusterCrescent();
+
+    engine.model = engine.model.map(part => ({...part, points,
+      lineJoin: 'miter', lineWidth: 2, mirrorWithMount: true}));
+    craft.fit(engine,craft.mounts[index]);
+    const segment = craft.segmentsAtMount(engine.mount)[0];
+    const expected = points.map(([x,y])=>[x,side*y]);
+
+    assert.deepEqual(segment.points.map(([x,y])=>[x,y]),expected,
+      'the model reflects its local Y coordinates for a negative-side mount');
+    assert(Object.isFrozen(segment.points) && segment.points.every(Object.isFrozen),
+      'both mounted model outlines are immutable');
+    assert.equal(segment.localPosition.x,-20);
+    assert.equal(segment.localPosition.y,side*8);
+
+    for (const progress of [0,.25,1]) {
+      segment.activationProgress = progress;
+      draws.length = strokeOptions.length = 0;
+      const before = [game.ctx.lineJoin, game.ctx.lineWidth];
+
+      engine.render({segment});
+      assert.deepEqual([game.ctx.lineJoin, game.ctx.lineWidth],before,
+        'a module restores its caller stroke options');
+      if (!progress) {
+        assert.equal(draws.length,0,'an inactive model flare is absent');
+        continue;
+      }
+
+      assert.deepEqual(Reflect.get(draws[0].path,'vertices'),
+        expected.map(([x,y])=>[x*progress,y*progress]),
+        'activation preserves every model side and angle by uniform scaling');
+      assert.deepEqual(strokeOptions.at(-1),['miter',2]);
+      assert.equal(draws[0].style,engine.shades[0]);
+      assert.equal(strokes.at(-1),engine.shades[2],'model flares retain the module palette');
+    }
+
+    segment.activationProgress = 0;
+    segment.phase = .5;
+    draws.length = 0;
+    engine.render({segment});
+    assert.deepEqual(Reflect.get(draws[0].path,'vertices'),
+      expected.map(([x,y])=>[x*.5,y*.5]),
+      'model flares use the existing held-pulse envelope');
+    return engine;
+  });
+
+  assert.equal(JSON.stringify(points),original,'mirroring never mutates shared model coordinates');
+  assert.equal(engines[0].constructor,ThrusterCrescent);
+  assert.notEqual(ThrusterCrescent,ThrusterSingleSm,'the Crescent engine has an independent module identity');
+  const ordinary = new ThrusterSingleSm();
+
+  craft.fit(ordinary,craft.mounts[2]);
+  const ordinarySegment = craft.segmentsAtMount(ordinary.mount)[0];
+
+  ordinarySegment.activationProgress = 1;
+  draws.length = 0;
+  ordinary.render({segment: ordinarySegment});
+  assert.deepEqual(Reflect.get(draws[0].path,'vertices'),
+    [[0,-ordinarySegment.flareSize],[-ordinarySegment.flareSize*2.5,0],[0,ordinarySegment.flareSize]],
+    'an ordinary small thruster retains its triangular flare');
 }
 // Thruster visibility is presentation only: synthetic nozzles retain the
 // original full-power timing while low power and rapid pulses remain readable.
@@ -970,7 +1054,7 @@ for (const [id, Type] of moduleTypesById) {
       'each spec part retains one runtime segment',
     );
     parts.forEach((segment, index) => {
-      if (segment.catches) return;
+      if (segment.catches || (!segment.points && !segment.radius) || (Array.isArray(segment.points) && !segment.points.length)) return;
       segment.activationProgress = 0.75;
       segment.phase = 0.25;
       const beforeDraw = draws.length;

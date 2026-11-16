@@ -15,7 +15,7 @@ export const stripIfdef = (
   source: string,
   flags: Record<string, boolean> = {},
 ) =>
-  source.replace(ifdefPattern, (match, condition, flag, body) =>
+  source.replace(ifdefPattern, (_match, condition, flag, body) =>
     (condition === 'ifdef') === !!flags[flag] ? body : '',
   );
 

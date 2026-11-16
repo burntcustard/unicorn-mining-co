@@ -20,7 +20,7 @@ export function installExampleModules() {
   for (const [key, example] of exampleModuleEntries) {
     const id = key as ModuleId;
     const original = moduleSpecList[moduleIds.indexOf(id)];
-    const authored = { ...example, category: original.category };
+    const authored = example;
     const runtime = moduleSpecForSimulation(authored);
     const Type = moduleTypesById.get(id)!;
 

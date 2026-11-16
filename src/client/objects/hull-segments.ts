@@ -22,13 +22,30 @@ export const makeSegment = (
   segmentPlan: HullSegmentPlan,
   mount?: Mount,
 ): Segment => {
+  const mountPoint =
+    craftModule.behavior === 'thruster'
+      ? mount?.mountPoints?.find(({ fits }) =>
+          fits.includes(craftModule.constructor as typeof Module),
+        )
+      : undefined;
+
+  if (
+    segmentPlan.mirrorWithMount &&
+    mount &&
+    mount.localPosition.y < 0 &&
+    Array.isArray(segmentPlan.points)
+  ) {
+    segmentPlan = {
+      ...segmentPlan,
+      points: segmentPlan.points.map(([x, y]) => [x, -y]),
+    };
+  }
+
   const { points } = segmentPlan;
   const fixedPoints = Array.isArray(points) ? points : undefined;
   const shape = fixedPoints?.[0] && shapeOf(fixedPoints, mount);
   const thrusterOffset = segmentPlan.thrusterNozzleSide
-    ? (mount?.mountPoints?.find(({ fits }) =>
-        fits.includes(craftModule.constructor as typeof Module),
-      )?.thrusterOffset ?? 0)
+    ? (mountPoint?.thrusterOffset ?? 0)
     : 0;
 
   // Model vertices are shared specs. Edge markings remain mutable;
@@ -39,6 +56,18 @@ export const makeSegment = (
     Object.freeze(fixedPoints);
     lockedOutlines.add(fixedPoints);
   }
+
+  for (const outline of [
+    ...(segmentPlan.collisionParts || []),
+    ...(segmentPlan.shapeOutline || []),
+  ]) {
+    if (outline && !Object.isFrozen(outline)) {
+      outline.forEach(Object.freeze);
+      Object.freeze(outline);
+    }
+  }
+
+  if (segmentPlan.shapeOutline) Object.freeze(segmentPlan.shapeOutline);
 
   // A thruster's flare is up about as soon as the key is down, unless told
   // otherwise, either on the module itself or (as the shield's bubble does)
@@ -69,6 +98,7 @@ export const makeSegment = (
       catches: undefined,
       flareSize: undefined,
       thrusterNozzleSide: undefined,
+      mirrorWithMount: undefined,
       facing: undefined,
       middle: undefined,
       reach: undefined,

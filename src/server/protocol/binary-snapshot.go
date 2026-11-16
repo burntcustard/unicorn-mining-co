@@ -759,12 +759,10 @@ func AppendSnapshot(destination []byte, value Snapshot, protocol specs.Protocol)
 	return w.data, nil
 }
 
-// Append helpers share the wire primitives with the authoritative replication
-// writer while allowing its reusable arena to own the backing storage.
-func AppendEntityRecord(destination []byte, value EntityRecord, ids specs.Protocol) ([]byte, error) {
-	return AppendEntityRecordDelta(destination, value, ids, nil)
-}
-
+/*
+AppendEntityRecordDelta shares wire primitives with the authoritative replication
+writer while allowing its reusable arena to own the backing storage.
+*/
 func AppendEntityRecordDelta(destination []byte, value EntityRecord, ids specs.Protocol, delta *ModuleDelta) ([]byte, error) {
 	w := writer{data: destination, moduleDelta: delta}
 	err := w.record(value, ids, 0)

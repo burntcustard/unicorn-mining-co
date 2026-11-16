@@ -487,6 +487,16 @@ export class Ship extends Craft {
     );
   }
 
+  get engines(): Module[] {
+    return this.modules.filter(
+      (module) =>
+        module.forwardThrust &&
+        module.mount &&
+        !(module.mount.health < 1) &&
+        !(module.mount.hull.health < 1),
+    );
+  }
+
   get engine(): any {
     for (const segment of this.segments) {
       if (!segment.hull || !segment.mounts) continue;
@@ -585,7 +595,8 @@ export class Ship extends Craft {
       (this.thrusterTotal('forward') / mountCount) *
       this.launchThrottle ** 2 *
       this.fuelThrottle *
-      this.thrusterPower
+      this.thrusterPower *
+      this.flightBoostFactor
     );
   }
 
@@ -734,7 +745,8 @@ export class Ship extends Craft {
       (this.thrusterTotal('rotation') / mountCount) *
       this.launchThrottle ** 2 *
       this.fuelThrottle *
-      this.thrusterPower
+      this.thrusterPower *
+      this.flightBoostFactor
     );
   }
 

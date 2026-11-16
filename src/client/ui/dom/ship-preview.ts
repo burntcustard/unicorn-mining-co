@@ -155,6 +155,17 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
       return;
     }
 
+    const box = canvas.getBoundingClientRect();
+    const ratio = Math.min(devicePixelRatio, 2);
+    const width = Math.round(box.width * ratio),
+      height = Math.round(box.height * ratio);
+
+    if (width === 0 || height === 0) {
+      previousTime = 0;
+      updateAutogunSounds({ crafts: [], dt: 0 });
+      return;
+    }
+
     const dt = Math.min((time - (previousTime || time)) / 1000, 0.05);
 
     previousTime = time;
@@ -176,11 +187,6 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
     } else {
       previousTime = 0;
     }
-
-    const box = canvas.getBoundingClientRect();
-    const ratio = Math.min(devicePixelRatio, 2);
-    const width = Math.round(box.width * ratio),
-      height = Math.round(box.height * ratio);
 
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;

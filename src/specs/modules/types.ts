@@ -5,10 +5,12 @@ import type { ItemSpec } from '../items/types';
 
 type ModuleModelPart = {
   // Draw the normal edge outline; false draws only the fill and any markings.
-  outline: boolean;
+  outline?: boolean;
   catches?: boolean;
   flareSize?: number;
   thrusterNozzleSide?: number;
+  // Reflect local Y for a mount on the craft's negative Y side.
+  mirrorWithMount?: boolean;
   points?: number[][];
   radius?: number;
   // Circular support below the barrels, fixed in place during deployment.
@@ -16,11 +18,13 @@ type ModuleModelPart = {
   lines?: number[][][];
   // Width of this part's lines in game units; defaults to the outline width.
   lineWidth?: number;
+  lineJoin?: CanvasLineJoin;
   covers?: boolean;
   fillAlpha?: number;
   color?: string;
   // Detached paint tones use the neutral white palette.
   wreckageColor?: string;
+  wreckage?: false;
   // Milliseconds after a shot before this part lights again.
   rechargeDelay?: number;
   rechargeColor?: string;
@@ -46,14 +50,15 @@ type ModuleValues = {
   // Generation is MW (MJ/s); storage capacity is MJ.
   powerGenerated?: number;
   powerCapacity?: number;
-  mass: number;
-  health: number;
+  mass?: number;
+  // Zero without activated health means the module has no damageable body.
+  health?: number;
   // Optional separate health pool for the exposed active module or shield bubble.
   healthActivated?: number;
   // Milliseconds to restore the active pool while inactive; blocks activation until full.
   rechargeDuration?: number;
-  price: number;
-  zIndex: RenderingLayer;
+  price?: number;
+  zIndex?: RenderingLayer;
   shades?: readonly string[];
   // Milliseconds spent moving between retracted and extended positions.
   activationDuration?: number;
@@ -67,6 +72,7 @@ type ModuleValues = {
   // Milliseconds spent shutting down before retraction begins.
   dischargeDuration?: number;
   retractionDistance?: number;
+  telescoping?: boolean;
   muzzleFlash?: EffectSpec;
   // Backwards impulse per shot, scaled by the firing ship's mass.
   recoil?: number;
@@ -107,6 +113,8 @@ type ModuleValues = {
   collisionMargin?: number;
   forwardThrust?: number;
   rotationalThrust?: number;
+  // Full flight-mode multiplier; deployment interpolates from 1.
+  flightBoost?: number;
   offset?: number;
   grinds?: boolean;
   beam?: boolean;
@@ -131,6 +139,10 @@ type ModuleValues = {
 export type ModuleSpec = ModuleValues &
   (
     | {
+        behavior: 'flightMode';
+        flightBoost: number;
+      }
+    | {
         behavior: 'powerPlant';
         powerGenerated: number;
         model: (ModuleModelPart & { points: number[][] })[];
@@ -141,9 +153,8 @@ export type ModuleSpec = ModuleValues &
         forwardThrust: number;
         rotationalThrust: number;
         model: (ModuleModelPart & {
-          flareSize: number;
           thrusterNozzleSide: number;
-        })[];
+        } & ({ flareSize: number } | { points: number[][] }))[];
       }
     | {
         behavior: 'cargoHatch';

@@ -2520,6 +2520,12 @@ checkUi: try {
   const bays = await check('fixture.checkStationBay()');
   const chat = await check('fixture.checkChat()');
 
+  assert.deepEqual(
+    await check(`fixture.previewEmptyCanvas()`),
+    [true, true, true],
+    'zero-sized previews stop drawing and resume after a resize',
+  );
+
   await check(`document.querySelector('.dock-screen').hidden = true`);
   const hud = await check('fixture.checkHud()');
 
@@ -2699,7 +2705,7 @@ checkUi: try {
           const panel = document.querySelector('.hud-map');
           const map = panel.getBoundingClientRect();
           const overlay = document.querySelector('.hud-overlay').getBoundingClientRect();
-          const button = panel.querySelector('button').getBoundingClientRect();
+          const button = panel.querySelector('[data-map-toggle]').getBoundingClientRect();
           const canvas = panel.querySelector('canvas');
           const ctx = canvas.getContext('2d');
           const radius = Math.min(canvas.width, canvas.height) / 2;
@@ -2796,7 +2802,7 @@ checkUi: try {
         assert(
           await check(`(() => {
             const panel = document.querySelector('.hud-map');
-            const button = panel.querySelector('button');
+            const button = panel.querySelector('[data-map-toggle]');
             const expanded = panel.getBoundingClientRect();
             const animate = () => {
               button.click();
@@ -2804,7 +2810,7 @@ checkUi: try {
               const transition = panel.getAnimations().find(animation => animation.transitionProperty === 'width');
               if (!transition || transition.effect.getTiming().duration !== 100) return null;
               transition.pause();
-              transition.currentTime = 50;
+              transition.currentTime = transition.effect.getTiming().delay + 50;
               const middle = panel.getBoundingClientRect();
               transition.finish();
               const end = panel.getBoundingClientRect();
@@ -3098,6 +3104,18 @@ checkUi: try {
       mobile: false,
     });
 
+    assert(
+      await check(`(() => {
+        const summary = document.querySelector('.dock-power-summary');
+        const power = summary.querySelector('h2');
+        const handling = document.querySelector('.dock-handling h2');
+        const lineHeight = element => getComputedStyle(element).lineHeight;
+        return lineHeight(power) === lineHeight(summary)
+          && lineHeight(handling) === lineHeight(summary);
+      })()`),
+      `power and handling headings share the summary line height at ${width}px`,
+    );
+
     await hover(`[data-loadout] [data-key="mount:${powerMount}"]`);
     const beforePreview = await check(`(() => {
       const bounds = (selector) => {
@@ -3166,6 +3184,24 @@ checkUi: try {
   await check('fixture.endInstrumentPreview()');
   await click('[data-tab="outfitting"]');
 
+  const checkEnergyLegend = async (highlighted: string[], message: string) => {
+    assert(
+      await check(`(() => {
+        const expected = ${JSON.stringify(highlighted)};
+        const items = [...document.querySelectorAll('.dock-energy-legend > span')];
+        return items.length === 3 && items.every(item => {
+          let opacity = 1;
+          for (let node = item; node && !node.matches('.dock-screen'); node = node.parentElement) {
+            opacity *= Number(getComputedStyle(node).opacity);
+          }
+          return !item.hasAttribute('style')
+            && opacity === (expected.includes(item.textContent.toLowerCase()) ? 1 : 0.5);
+        });
+      })()`),
+      message,
+    );
+  };
+
   for (const name of ['Search Light', 'Power Plant', 'Thruster']) {
     const key =
       await check(`Array.from(document.querySelectorAll('[data-loadout] [data-key]'))
@@ -3173,6 +3209,48 @@ checkUi: try {
 
     await click(`[data-loadout] [data-key="${key}"]`);
     await check('fixture.refresh(); fixture.refresh(); fixture.refresh()');
+    assert(
+      await check(`(() => {
+        const output = document.querySelector('[data-output]');
+        const storage = document.querySelector('[data-instrument-storage]');
+        const bars = [...document.querySelectorAll('.dock-power-label')];
+        const readout = (label, value) => {
+          let node = value;
+          let opacity = 1;
+          while (node && !node.matches('.dock-screen')) {
+            opacity *= Number(getComputedStyle(node).opacity);
+            node = node.parentElement;
+          }
+          return label.classList.contains('text-muted')
+            && getComputedStyle(label).color === 'rgb(187, 187, 204)'
+            && getComputedStyle(value).color === 'rgb(238, 238, 255)'
+            && opacity === 1;
+        };
+        return readout(output.previousElementSibling, output)
+          && readout(storage.previousElementSibling, storage)
+          && bars.length === 2
+          && bars.every(bar => readout(bar.children[0], bar.children[1]));
+      })()`),
+      `${name} keeps power readouts at their normal colors and opacity`,
+    );
+
+    if (name !== 'Thruster') {
+      assert(
+        await check(`(() => {
+          const power = document.querySelector('[data-module-power]');
+          const labels = [...power.querySelectorAll('.text-muted')];
+          return labels.length === 2 && labels.every(label =>
+            getComputedStyle(label).color === 'rgb(187, 187, 204)'
+            && getComputedStyle(label.nextElementSibling).color === 'rgb(238, 238, 255)');
+        })()`),
+        `${name} power detail labels and values use the handling stat colors`,
+      );
+      await checkEnergyLegend(
+        [name === 'Search Light' ? 'utility' : 'core'],
+        `${name} highlights its energy category`,
+      );
+    }
+
     assert.equal(
       await check(
         `document.querySelectorAll('[data-mass-panel]:not([hidden])').length`,
@@ -3243,6 +3321,40 @@ checkUi: try {
       );
     }
   }
+
+  await click('[data-key="mount:4"]');
+  await checkEnergyLegend(
+    ['offense'],
+    'selecting the Horn Drill highlights offense',
+  );
+  assert(
+    await check(`(() => {
+      const legend = document.querySelector('.dock-energy-legend .text-orange');
+      const bar = document.querySelector('.dock-energy .ui-power-part[title^="Horn Drill:"]');
+      return bar && getComputedStyle(legend).color === getComputedStyle(bar).backgroundColor;
+    })()`),
+    'the offense legend and Horn Drill power bar use the same category color',
+  );
+  await hover('[data-key="mount:5"]');
+  await checkEnergyLegend(
+    ['utility'],
+    'hovering the Search Light highlights utility',
+  );
+  await hover('[data-title]');
+  await checkEnergyLegend(
+    ['offense'],
+    'leaving the hover restores the selected offense category',
+  );
+  await hover('[data-key="hull:4"]');
+  await checkEnergyLegend(
+    ['offense', 'utility'],
+    'hovering a hull highlights all of its module categories',
+  );
+  await click('[data-tab="outfitting"]');
+  await checkEnergyLegend(
+    ['core', 'offense', 'utility'],
+    'clearing the preview restores all legend colors',
+  );
 
   for (const activation of ['Enter', ' ', 'click']) {
     await click('[data-tab="outfitting"]');
@@ -4784,7 +4896,7 @@ checkUi: try {
   await focusDock('[data-candidates] button:last-child');
   await pressKey('Tab');
   await expectFocus(
-    '[data-command="SELL"]',
+    '[data-command="EQUIP"]',
     'Tab from the last compatible module reaches the selected card actions',
   );
   await waitForFitting('active && progress === 1');
@@ -4802,7 +4914,10 @@ checkUi: try {
   );
   assert.deepEqual(await committedDockState(), activatedCandidate);
   await checkDetailArrowNavigation();
-  await focusDock('[data-command="SELL"]');
+  await focusDock('[data-command="EQUIP"]');
+  await pressKey('ArrowDown');
+  await expectFocus('[data-command="SELL"]', 'Down moves from Equip to Sell');
+  await focusDock('[data-command="EQUIP"]');
   await pressKey('Tab', { shift: true });
   await expectFocus(
     '[data-candidates] button:last-child',

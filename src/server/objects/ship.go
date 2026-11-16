@@ -476,6 +476,21 @@ func (s *Ship) Stranded() bool {
 	})
 }
 
+func (s *Ship) Engines() []simulation.Module {
+	engines := []simulation.Module{}
+	var buffer [16]simulation.Module
+
+	for _, module := range s.AppendModules(buffer[:0]) {
+		data := module.ModuleBase()
+
+		if data.Spec.ForwardThrust != 0 && data.Mount != nil && !(data.Mount.Health < 1) && data.Mount.Hull.Health >= 1 {
+			engines = append(engines, module)
+		}
+	}
+
+	return engines
+}
+
 func (s *Ship) Engine() simulation.Module {
 	for _, segment := range s.Segments {
 		if !segment.Hull || segment.Health < 1 {
@@ -583,13 +598,13 @@ func (s *Ship) LaunchThrottle() float64 {
 func (s *Ship) ForwardThrust() float64 {
 	forward, _, _ := s.thrusterOutput()
 	throttle := s.LaunchThrottle()
-	return forward * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
+	return forward * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor()
 }
 
 func (s *Ship) RotationalThrust() float64 {
 	_, rotational, _ := s.thrusterOutput()
 	throttle := s.LaunchThrottle()
-	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower
+	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor()
 }
 
 func (s *Ship) AngularAcceleration() float64 {
@@ -743,6 +758,8 @@ func (s *Ship) Update(dt float64) {
 		f := s.Rules.Flight
 		throttle := s.LaunchThrottle()
 		forward, rotational, _ := s.thrusterOutput()
+		boost := s.flightBoostFactor()
+		forward, rotational = forward*boost, rotational*boost
 		fuelThrottle := s.FuelThrottle()
 		forward = forward * (throttle * throttle) * fuelThrottle * s.ThrusterPower
 		thrust := rotational * (throttle * throttle) * fuelThrottle * s.ThrusterPower * s.AngularThrust / s.Mass
@@ -797,7 +814,7 @@ func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
 			p[j] = simulation.Point(point)
 		}
 
-		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex}
+		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex, Shades: segment.Shades, CollisionParts: segment.CollisionParts, Connections: segment.Connections, Essential: segment.Essential, FlightOffset: segment.FlightOffset}
 
 		for _, mount := range segment.Mounts {
 			plan.Mounts = append(plan.Mounts, simulation.NewMount(mount))
@@ -870,7 +887,13 @@ func CreatePlayerShip(world *simulation.World, props Properties) *Ship {
 	}
 
 	for _, entry := range world.Specification.ShipSpecs[id].InitialLoadout {
-		ship.Fit(modules.Create(entry.Module, simulation.ObjectProperties{World: world}, world.Specification), ship.Mounts()[entry.Mount])
+		module := modules.Create(entry.Module, simulation.ObjectProperties{World: world}, world.Specification)
+
+		if entry.Shades != nil {
+			module.Base().Shades = entry.Shades
+		}
+
+		ship.Fit(module, ship.Mounts()[entry.Mount])
 	}
 
 	ship.StoredPower = ship.PowerCapacity()

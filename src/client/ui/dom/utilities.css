@@ -43,6 +43,18 @@ kbd {
   color: #bbc;
 }
 
+.text-violet {
+  color: #e6f;
+}
+
+.text-orange {
+  color: #fa3;
+}
+
+.text-green {
+  color: #3f7;
+}
+
 .text-secondary {
   color: #ddd;
 }

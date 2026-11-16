@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -127,13 +128,20 @@ func TestHangarBuyingPilotingAndSelling(t *testing.T) {
 	starter := p.ship
 	balance := p.profile.Credits
 
+	availableShips := []string{"mustang", "arrow", "crotus", "courser", "moth", "finch", "kestrel"}
+
 	for _, station := range catalog.StationSpecs {
-		if len(station.ShipsForSale) != len(catalog.ShipSpecs) {
-			t.Fatal("station does not offer every ship")
+		if len(station.ShipsForSale) != len(availableShips) {
+			t.Fatal("station does not offer the explicit ship selection")
 		}
 
-		for _, offer := range station.ShipsForSale {
+		for index, offer := range station.ShipsForSale {
 			spec := catalog.ShipSpecs[offer.Ship]
+
+			if offer.Ship != availableShips[index] {
+				t.Fatal("station changed its explicit ship selection")
+			}
+
 			price := spec.Price
 
 			for _, entry := range spec.InitialLoadout {
@@ -142,6 +150,14 @@ func TestHangarBuyingPilotingAndSelling(t *testing.T) {
 
 			if offer.Price != price {
 				t.Fatal("purchase price does not include standard equipment")
+			}
+		}
+	}
+
+	for id := range catalog.ShipSpecs {
+		if !slices.Contains(availableShips, id) {
+			if err := s.applyHangarAction(p, protocol.Control{HangarCommand: "BUY", Text: id}); err == nil || p.ship != starter || p.profile.Credits != balance {
+				t.Fatal("a ship absent from this station's offers can be bought", id, err)
 			}
 		}
 	}
@@ -375,17 +391,17 @@ func TestHangarUsesEachStationsOwnOffers(t *testing.T) {
 	}
 
 	first.ShipsForSale = []specs.ShipOffer{{Ship: "mustang", Price: 100}}
-	second.ShipsForSale = []specs.ShipOffer{{Ship: "finch", Price: 200}}
+	second.ShipsForSale = []specs.ShipOffer{{Ship: "crescent", Price: 200}}
 	p.ship.DockedTo = &first.ID
 	p.profile.Credits = 300
 	hangarAction(t, s, p, "BUY", 0, "mustang")
 
-	if err := s.applyHangarAction(p, protocol.Control{HangarCommand: "BUY", Text: "finch"}); err == nil {
+	if err := s.applyHangarAction(p, protocol.Control{HangarCommand: "BUY", Text: "crescent"}); err == nil {
 		t.Fatal("bought a model not sold at this station")
 	}
 
 	p.ship.DockedTo = &second.ID
-	hangarAction(t, s, p, "BUY", 0, "finch")
+	hangarAction(t, s, p, "BUY", 0, "crescent")
 
 	if p.profile.Credits != 0 || len(p.ownedShips()) != 3 {
 		t.Fatal("station-specific prices not used")

@@ -25,6 +25,44 @@ import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
 import { rotatePoint } from '${process.cwd()}/src/client/utilities/geometry.ts';
 
 const world = createWorld();
+// Ship overrides keep fixed cannons fixed and telescope recessed barrels.
+for (const shipType of ['crescent', 'courser']) {
+  const craft = createPlayerShip(world, { shipType, playerId: 1 });
+  if (shipType === 'crescent') {
+    craft.fit(new CannonSm());
+    craft.fit(new CannonSm());
+  }
+  const guns = craft.mounts.filter(mount => mount.module instanceof CannonSm);
+  assert.equal(guns.length, 2);
+  const travel = craft.weaponRetractionDistance;
+  const mounts = guns.map(mount => ({ ...mount.localPosition }));
+  const checkBarrels = progress => {
+    for (const mount of guns) {
+      const part = craft.segmentsAtMount(mount)[0];
+      const points = part.points(part);
+      assert.equal(Math.min(...points.map(([x]) => x)), 0, 'the barrel base stays fixed');
+      assert.equal(Math.max(...points.map(([x]) => x)), 26 - travel * (1 - progress), 'only barrel length changes');
+      if (shipType === 'crescent' && progress === 0) {
+        assert(points.every(([x, y]) => Math.abs(x + mount.localPosition.x) + Math.abs(y + mount.localPosition.y) <= 16), 'the retracted barrel fits entirely beneath the center square');
+      }
+    }
+    assert.deepEqual(guns.map(mount => mount.localPosition), mounts, 'deployment never moves the mounts');
+  };
+  checkBarrels(0);
+  controlShip(craft, { ...playerInput, autogunActive: true }, []);
+  craft.updateModules(CannonSm.activationDuration / 2);
+  checkBarrels(0.5);
+  controlShip(craft, { ...playerInput, flightMode: true }, []);
+  craft.updateModules(CannonSm.activationDuration / 2);
+  checkBarrels(0);
+  controlShip(craft, { ...playerInput, autogunActive: true }, []);
+  craft.updateModules(CannonSm.activationDuration);
+  checkBarrels(1);
+  controlShip(craft, { ...playerInput, flightMode: true }, []);
+  craft.updateModules(CannonSm.activationDuration);
+  checkBarrels(0);
+}
+
 for (const shipType of ['courser', 'crotus']) {
   const rejoining = createPlayerShip(world, { shipType, playerId: 1 });
   controlShip(rejoining, { ...playerInput, autogunActive: true }, []);

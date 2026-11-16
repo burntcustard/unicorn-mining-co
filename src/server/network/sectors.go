@@ -10,6 +10,7 @@ import (
 	"github.com/burntcustard/unicorn-mining-co/src/server/gameplay"
 	ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
 	"github.com/burntcustard/unicorn-mining-co/src/server/npc/collector"
+	"github.com/burntcustard/unicorn-mining-co/src/server/npc/marauder"
 	"github.com/burntcustard/unicorn-mining-co/src/server/npc/pirate"
 	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
 	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
@@ -19,6 +20,7 @@ import (
 )
 
 type sectorRuntime struct {
+	marauders  *marauder.Manager
 	collectors *collector.Manager
 	pirates    *pirate.Manager
 	world      *simulation.World
@@ -115,6 +117,12 @@ func (s *GameSession) activateSector(id string) {
 		environment := &sectorEnvironment{session: s, runtime: runtime, sector: id}
 		runtime.collectors = collector.New(environment)
 		runtime.pirates = pirate.New(environment)
+		runtime.marauders = marauder.New(environment)
+
+		runtime.marauders.OtherShips = func(visit func(*objects.Ship)) {
+			runtime.pirates.ForEachShip(visit)
+			runtime.collectors.ForEachShip(visit)
+		}
 
 		for kind, links := range [][]simulation.SectorLink{s.sectorMap.Links, s.sectorMap.WormholeLinks} {
 			for _, link := range links {
@@ -656,11 +664,12 @@ type SectorView struct {
 	Environment ai.Environment
 	Pirates     *pirate.Manager
 	Collectors  *collector.Manager
+	Marauders   *marauder.Manager
 }
 
 func (s *GameSession) VisitSectors(visit func(SectorView)) {
 	for id, runtime := range s.sectors {
-		visit(SectorView{ID: id, World: runtime.world, Environment: runtime.collectors.Environment, Pirates: runtime.pirates, Collectors: runtime.collectors})
+		visit(SectorView{ID: id, World: runtime.world, Environment: runtime.collectors.Environment, Pirates: runtime.pirates, Collectors: runtime.collectors, Marauders: runtime.marauders})
 	}
 }
 

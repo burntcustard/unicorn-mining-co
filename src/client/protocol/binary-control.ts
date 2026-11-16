@@ -349,6 +349,7 @@ export function encodeClientMessage(
       writer.byte(
         +(message.offset !== undefined) |
           ((code >> 7) & 62) |
+          ((code >> 6) & 128) |
           (message.input.targetId === undefined ? 0 : 64),
       );
 
@@ -558,7 +559,7 @@ export function decodeClientMessage(
       const code = reader.byte();
       const hasOffset = reader.byte();
 
-      if (code >= 192 || hasOffset > 127) {
+      if (code >= 192) {
         throw new Error('Invalid binary control');
       }
 
@@ -575,7 +576,9 @@ export function decodeClientMessage(
         tick,
         sequence,
         input: {
-          ...unpackPlayerInput(code | ((hasOffset & 62) << 7)),
+          ...unpackPlayerInput(
+            code | ((hasOffset & 62) << 7) | ((hasOffset & 128) << 6),
+          ),
           ...(targetId !== undefined && { targetId }),
         },
         ...(offset !== undefined && { offset }),

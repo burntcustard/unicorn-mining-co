@@ -45,9 +45,13 @@ export const createPlayerShip = (
 
   shipSpecsById
     .get(properties.shipType ?? 'mustang')!
-    .initialLoadout.forEach(({ mount, module }) =>
-      ship.fit(new (moduleTypesById.get(module)!)(), ship.mounts[mount]),
-    );
+    .initialLoadout.forEach(({ mount, module, shades }) => {
+      ship.fit(
+        new (moduleTypesById.get(module)!)({ ...(shades && { shades }) }),
+        ship.mounts[mount],
+      );
+    });
+
   ship.storedPower = ship.powerCapacity;
   return ship;
 };

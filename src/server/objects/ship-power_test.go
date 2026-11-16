@@ -152,15 +152,45 @@ func TestCompactShipPowerStorage(t *testing.T) {
 	saved := objects.CaptureShip(ship)
 	saved.StoredPower = nil
 
-	if _, err := objects.RestoreShip(saved, world, 1); err == nil {
-		t.Fatal("missing stored energy accepted")
+	if ship.PowerCapacity() <= 0 {
+		t.Fatal("test ship has no power capacity")
 	}
 
-	for _, stored := range []float64{-1, ship.PowerCapacity() + 1} {
+	restored, err := objects.RestoreShip(saved, world, 1)
+
+	if err != nil || restored.StoredPower != restored.PowerCapacity() {
+		t.Fatal("missing stored energy did not default to full capacity", err)
+	}
+
+	for _, stored := range []float64{-1, math.NaN(), math.Inf(1), math.Inf(-1)} {
 		saved.StoredPower = &stored
 
 		if _, err := objects.RestoreShip(saved, world, 1); err == nil {
 			t.Fatal("invalid stored energy accepted", stored)
 		}
+	}
+}
+
+func TestCompactShipPowerCapacityReduced(t *testing.T) {
+	catalog, _ := specs.Load()
+	plant := catalog.ModuleSpecs["powerPlant2V"]
+	newCapacity := plant.PowerCapacity
+	plant.PowerCapacity = newCapacity + 16
+	catalog.ModuleSpecs["powerPlant2V"] = plant
+	oldWorld := simulation.CreateWorld(25, catalog)
+	ship := objects.CreatePlayerShip(oldWorld, objects.Properties{})
+	saved := objects.CaptureShip(ship)
+
+	plant.PowerCapacity = newCapacity
+	catalog.ModuleSpecs["powerPlant2V"] = plant
+	newWorld := simulation.CreateWorld(25, catalog)
+	restored, err := objects.RestoreShip(saved, newWorld, 1)
+
+	if err != nil {
+		t.Fatal("old ship failed to restore after capacity reduction", err)
+	}
+
+	if *saved.StoredPower <= restored.PowerCapacity() || restored.StoredPower != restored.PowerCapacity() {
+		t.Fatal("stored energy was not clamped to the reduced capacity", *saved.StoredPower, restored.StoredPower, restored.PowerCapacity())
 	}
 }

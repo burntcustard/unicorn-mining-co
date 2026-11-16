@@ -326,7 +326,7 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 					return nil, fmt.Errorf("missing saved module type")
 				}
 
-				id := s.ModuleTypes[i]
+				id := c.restoredModuleType(s.ModuleTypes[i], m.Mount)
 				m.Type = slices.Index(c.Catalog.ModuleIDs, id)
 
 				if _, exists := c.Catalog.ModuleSpecs[id]; !exists || m.Type < 0 {

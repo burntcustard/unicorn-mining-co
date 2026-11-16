@@ -23,7 +23,7 @@ export const fitsOf = (ship: Ship, mount: Mount) => {
   );
   const ids = (moduleRows.get(ship) || []).filter((id) => modulesById.has(id));
 
-  modulesById.forEach((module, id) => {
+  modulesById.forEach((_module, id) => {
     if (!ids.includes(id)) ids.push(id);
   });
 

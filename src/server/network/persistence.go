@@ -167,7 +167,7 @@ func (s *GameSession) worldRecord() persistence.World {
 
 	for id, runtime := range s.sectors {
 		w := runtime.world
-		states[id] = persistence.SectorState{Tick: w.Tick, RandomState: w.Random.State, NextEntityID: w.NextEntityID, NextObjectID: w.NextObjectID, PirateDispatchAt: runtime.pirates.DispatchAt, NPCs: append(runtime.pirates.Capture(), runtime.collectors.Capture()...), NPCDispatch: runtime.collectors.CaptureDispatch()}
+		states[id] = persistence.SectorState{Tick: w.Tick, RandomState: w.Random.State, NextEntityID: w.NextEntityID, NextObjectID: w.NextObjectID, PirateDispatchAt: runtime.pirates.DispatchAt, NPCs: append(append(runtime.pirates.Capture(), runtime.collectors.Capture()...), runtime.marauders.Capture()...), NPCDispatch: runtime.collectors.CaptureDispatch(), MarauderDispatch: runtime.marauders.CaptureDispatch()}
 	}
 
 	s.players.ForEach(func(p *playerRecord, _ string) {
@@ -581,6 +581,10 @@ func (s *GameSession) restoreNPCs(sectors map[string]persistence.SectorState, np
 		runtime := s.sectors[sector]
 		runtime.pirates.DispatchAt = state.PirateDispatchAt
 
+		if err := runtime.marauders.RestoreDispatch(state.MarauderDispatch); err != nil {
+			return fmt.Errorf("restore marauder dispatch in %s: %w", sector, err)
+		}
+
 		if err := runtime.collectors.RestoreDispatch(state.NPCDispatch); err != nil {
 			return fmt.Errorf("restore collector dispatch in %s: %w", sector, err)
 		}
@@ -629,6 +633,8 @@ func (s *GameSession) restoreNPCs(sectors map[string]persistence.SectorState, np
 				err = runtime.pirates.Restore(ship, saved.State)
 			case "collector":
 				err = runtime.collectors.Restore(ship, saved.State)
+			case "marauder":
+				err = runtime.marauders.Restore(ship, saved.State)
 			default:
 				err = fmt.Errorf("unknown saved NPC kind %q", saved.Kind)
 			}

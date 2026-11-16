@@ -9,6 +9,10 @@ type MountPoint struct {
 }
 
 type HullSegment struct {
+	FlightOffset   *[2]float64    `json:"flightOffset"`
+	CollisionParts [][][]float64  `json:"collisionParts"`
+	Connections    []int          `json:"connections"`
+	Essential      bool           `json:"essential"`
 	Side           float64        `json:"side"`
 	DisablePhysics bool           `json:"disablePhysics"`
 	DockSegment    bool           `json:"dockSegment"`
@@ -21,20 +25,22 @@ type HullSegment struct {
 }
 
 type InitialModule struct {
-	Mount  int    `json:"mount"`
-	Module string `json:"module"`
+	Shades []string `json:"shades"`
+	Mount  int      `json:"mount"`
+	Module string   `json:"module"`
 }
 
 type Ship struct {
-	Price          float64         `json:"price"`
-	FuelCapacity   float64         `json:"fuelCapacity"`
-	InitialLoadout []InitialModule `json:"initialLoadout"`
-	Name           string          `json:"name"`
-	CargoSpace     int             `json:"cargoSpace"`
-	Drag           float64         `json:"drag"`
-	HullMass       float64         `json:"hullMass"`
-	AngularThrust  float64         `json:"angularThrust"`
-	Radius         float64         `json:"radius"`
-	TurnRate       float64         `json:"turnRate"`
-	HullSegments   []HullSegment   `json:"hullSegments"`
+	WeaponRetractionDistance *float64        `json:"weaponRetractionDistance"`
+	Price                    float64         `json:"price"`
+	FuelCapacity             float64         `json:"fuelCapacity"`
+	InitialLoadout           []InitialModule `json:"initialLoadout"`
+	Name                     string          `json:"name"`
+	CargoSpace               int             `json:"cargoSpace"`
+	Drag                     float64         `json:"drag"`
+	HullMass                 float64         `json:"hullMass"`
+	AngularThrust            float64         `json:"angularThrust"`
+	Radius                   float64         `json:"radius"`
+	TurnRate                 float64         `json:"turnRate"`
+	HullSegments             []HullSegment   `json:"hullSegments"`
 }

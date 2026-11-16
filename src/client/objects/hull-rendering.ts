@@ -21,12 +21,14 @@ export const drawHullSegment = ({
       ? 0
       : +!!segment.hull;
 
-  ctx.fillStyle = hullSegmentFill({
-    ctx,
-    segment,
-    worn,
-    rotation: pose.rotation,
-  });
+  ctx.fillStyle =
+    segment.color ||
+    hullSegmentFill({
+      ctx,
+      segment,
+      worn,
+      rotation: pose.rotation,
+    });
 
   ctx.strokeStyle = segment.shades[2];
   drawSegment({ ctx, segment });

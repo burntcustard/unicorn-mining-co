@@ -29,6 +29,7 @@ type Properties struct {
 type geometrySource struct{ identity byte }
 
 type Craft struct {
+	SuppressDrops bool
 	// Negative time counts down departure; positive time counts down arrival, in seconds.
 	TransitTime  float64
 	TransitGate  int64
@@ -133,8 +134,11 @@ func NewCraft(props Properties, plans []*simulation.SegmentPlan, catalog specs.C
 				plan.Color = segment.Color
 			}
 
-			if outline := segment.Outline(); outline != nil {
+			outline := segment.Outline()
+
+			if outline != nil {
 				plan.Points = &simulation.ShapeOutline{Points: append([]simulation.Point{}, outline.Points...)}
+				plan.CollisionParts = simulation.ConvexParts(outline.Points)
 			}
 
 			c.HullSegments[i] = plan
@@ -160,7 +164,7 @@ func centerOf(segments []*simulation.Segment) Vec.Vector {
 	center := Vec.Vector{}
 
 	for _, s := range segments {
-		center = Vec.Add(center, Vec.Create(s.Middle[0], s.Middle[1]))
+		center = Vec.Add(center, Vec.Add(s.LocalPosition, Vec.Create(s.Middle[0], s.Middle[1])))
 	}
 
 	return Vec.Scale(center, 1/float64(len(segments)))
@@ -256,6 +260,7 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 	}
 
 	mount.Module = module
+	mount.RetractionDistance = c.Catalog.ShipSpecs[c.DefinitionID].WeaponRetractionDistance
 	mount.Health = 0
 
 	if module != nil {
@@ -276,6 +281,10 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 			}
 		} else {
 			mount.HealthActivated = nil
+
+			if mount.Health == 0 {
+				mount.Health = math.NaN()
+			}
 		}
 
 		c.CargoContents = slices.DeleteFunc(c.CargoContents, func(e simulation.Entity) bool { return e == module })
@@ -292,6 +301,7 @@ func (c *Craft) Fit(module simulation.Module, mount *simulation.Mount) {
 	}
 
 	c.sortSegments()
+	c.updateFlightMode()
 
 	if ship, ok := c.Self.(*Ship); ok {
 		ship.UpdateMass()
@@ -360,6 +370,8 @@ func (c *Craft) FixHull() {
 			break
 		}
 	}
+
+	c.updateFlightMode()
 }
 
 func (c *Craft) Launch() {
@@ -475,6 +487,8 @@ func (c *Craft) SetHullHealth(values []float64) {
 			break
 		}
 	}
+
+	c.updateFlightMode()
 }
 
 func (c *Craft) ModuleStates() []ModuleState {
@@ -603,7 +617,7 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 
 				mount.Health = math.NaN()
 
-				if state.Health != nil {
+				if state.Health != nil && (module.ModuleBase().Spec.Health != 0 || module.ModuleBase().Spec.HealthActivated != nil) {
 					mount.Health = *state.Health
 				}
 
@@ -630,6 +644,8 @@ func (c *Craft) SetModuleStates(states []ModuleState) {
 			c.CargoContents = append(c.CargoContents, module)
 		}
 	}
+
+	c.updateFlightMode()
 }
 
 func (c *Craft) Wreckage() []WreckageSegment {
@@ -793,6 +809,8 @@ func (c *Craft) UpdateModules(dt float64) {
 			}
 		}
 	}
+
+	c.updateFlightMode()
 }
 
 func (c *Craft) Momentum(position Vec.Vector) Vec.Vector {
@@ -939,7 +957,7 @@ func (c *Craft) Detach(mount *simulation.Mount) {
 		c.CargoContents = slices.DeleteFunc(c.CargoContents, func(e simulation.Entity) bool { return e == destroyed })
 	}
 
-	if len(segments) == 0 {
+	if len(segments) == 0 || c.SuppressDrops {
 		return
 	}
 
@@ -976,7 +994,7 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 			groups = append(groups, []int{i})
 		}
 	} else {
-		groups = simulation.OuterEdges(outlinesOf(hulls))
+		groups = c.connectedHullGroups(hulls)
 	}
 
 	core := -1
@@ -993,7 +1011,7 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 	fragments := []*Craft{}
 
 	for i, g := range groups {
-		if i == core {
+		if i == core || c.SuppressDrops {
 			continue
 		}
 
@@ -1044,6 +1062,10 @@ func (c *Craft) Fracture(hulls []*simulation.Segment, destroyed, wreckage bool) 
 		contents := c.CargoContents
 		c.CargoContents = nil
 
+		if c.SuppressDrops {
+			contents = nil
+		}
+
 		for _, e := range contents {
 			o := e.Base()
 			o.World = c.World
@@ -1081,7 +1103,7 @@ func (c *Craft) Update(dt float64) {
 
 	// Hydration removes broken cores before updating; owned ships must still
 	// resolve fatal damage even when no core leaves a cockpit behind.
-	if c.Cockpit == nil && c.PlayerID == nil {
+	if c.Cockpit == nil && c.PlayerID == nil && c.Kind != "ship" {
 		return
 	}
 
@@ -1101,7 +1123,13 @@ func (c *Craft) Update(dt float64) {
 		}
 	}
 
-	if !brokenMount && cores > 0 && !brokenHull {
+	missingEssential := slices.ContainsFunc(c.HullSegments, func(plan *simulation.SegmentPlan) bool {
+		return plan.Essential && !slices.ContainsFunc(c.Segments, func(segment *simulation.Segment) bool {
+			return segment.Hull && segment.HullPlan == plan && !(segment.Health < 1)
+		})
+	})
+
+	if !brokenMount && cores > 0 && !brokenHull && !missingEssential {
 		return
 	}
 
@@ -1130,7 +1158,7 @@ func (c *Craft) Update(dt float64) {
 		}
 	}
 
-	lost := cores == 0
+	lost := cores == 0 || missingEssential
 
 	if !lost && (c.Cockpit == nil || c.Cockpit.Health < 1) {
 		for _, segment := range hulls {
@@ -1163,6 +1191,8 @@ func (c *Craft) GeometrySource() any {
 func (c *Craft) Hitbox() []*collision.Collider { return c.hitbox(false) }
 
 func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
+	c.updateFlightMode()
+
 	if c.TransitTime != 0 || c.DockedTo != nil && *c.DockedTo != 0 {
 		// Invalidate the geometry token so physics removes cached fixtures too.
 		c.source = nil
@@ -1181,8 +1211,13 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		}
 
 		d := s.ModuleSpec()
+		retractionDistance := d.RetractionDistance
 
-		if (d.Behavior == "weapon" || d.Behavior == "beam") && d.RetractionDistance > 0 && s.ActivationProgress == 0 {
+		if s.Mount != nil && s.Mount.RetractionDistance != nil {
+			retractionDistance = *s.Mount.RetractionDistance
+		}
+
+		if (d.Behavior == "weapon" || d.Behavior == "beam") && retractionDistance > 0 && s.ActivationProgress == 0 {
 			continue
 		}
 
@@ -1323,7 +1358,11 @@ func (c *Craft) hitbox(collidingOnly bool) []*collision.Collider {
 		collider.Position = position
 
 		if radius != 0 && !math.IsNaN(radius) {
-			colliders = append(colliders, collider)
+			if s.CollisionParts != nil {
+				colliders = append(colliders, hullColliders(collider, s)...)
+			} else {
+				colliders = append(colliders, collider)
+			}
 		}
 
 		if d.DrillTip.Radius != 0 {

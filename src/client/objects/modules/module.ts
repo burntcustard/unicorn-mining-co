@@ -30,6 +30,10 @@ export class Module extends GameObject {
   aimRotation = 0;
   static [key: string]: any;
   static definitionId: ModuleId;
+  static mass = 0;
+  static health = 0;
+  static price = 0;
+  static category: ModuleCategory = 'utility';
   declare health: number;
   declare name: string;
   declare category: ModuleCategory;
@@ -105,6 +109,13 @@ export class Module extends GameObject {
             : undefined;
 
         if (!shape) return;
+
+        if (segment.lineJoin) ctx.lineJoin = segment.lineJoin;
+
+        if (segment.lineWidth !== undefined) {
+          ctx.lineWidth = segment.lineWidth;
+        }
+
         const shades = this.shades || segment.shades;
         const color =
           segment.fillShade === undefined

@@ -1,73 +1,10 @@
+import { triangulate } from './triangulate';
 import { DrawingPath } from './drawing-path';
 
 const strokes = new WeakMap<
   DrawingPath,
   Map<string, { revision: number; path: DrawingPath }>
 >();
-
-function triangulate(points: number[][]) {
-  const list = points.map((_, i) => i);
-
-  if (
-    points.length > 2 &&
-    Math.hypot(
-      points[0][0] - points.at(-1)![0],
-      points[0][1] - points.at(-1)![1],
-    ) < 1e-7
-  ) {
-    list.pop();
-  }
-
-  const area = list.reduce((sum, i, at) => {
-    const next = points[list[(at + 1) % list.length]];
-
-    return sum + points[i][0] * next[1] - points[i][1] * next[0];
-  }, 0);
-
-  if (area < 0) list.reverse();
-  const output: number[] = [];
-  const cross = (a: number[], b: number[], c: number[]) =>
-    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-
-  while (list.length > 3) {
-    let found = false;
-
-    for (let at = 0; at < list.length; at++) {
-      const a = list[(at + list.length - 1) % list.length],
-        b = list[at],
-        c = list[(at + 1) % list.length];
-
-      if (cross(points[a], points[b], points[c]) <= 1e-9) continue;
-
-      if (
-        list.some(
-          (i) =>
-            i !== a &&
-            i !== b &&
-            i !== c &&
-            cross(points[a], points[b], points[i]) >= -1e-9 &&
-            cross(points[b], points[c], points[i]) >= -1e-9 &&
-            cross(points[c], points[a], points[i]) >= -1e-9,
-        )
-      ) {
-        continue;
-      }
-
-      output.push(...points[a], ...points[b], ...points[c]);
-      list.splice(at, 1);
-      found = true;
-      break;
-    }
-
-    if (!found) return undefined;
-  }
-
-  if (list.length === 3) {
-    output.push(...points[list[0]], ...points[list[1]], ...points[list[2]]);
-  }
-
-  return new Float32Array(output);
-}
 
 const meshes = new WeakMap<
   DrawingPath,
@@ -204,7 +141,9 @@ export function strokePath(
           continue;
         }
 
-        if (join === 'round' || cap === 'round') {
+        const endpoint = !contour.closed && (i === 0 || i === p.length - 1);
+
+        if (endpoint ? cap === 'round' : join === 'round') {
           result.moveTo(p[i][0] + half, p[i][1]);
           result.arc(p[i][0], p[i][1], half, 0, Math.PI * 2);
           result.closePath();
@@ -224,6 +163,21 @@ export function strokePath(
                 at[0] - (u[1] / ul) * half * sense,
                 at[1] + (u[0] / ul) * half * sense,
               );
+
+              if (join === 'miter' && (u[0] * v[1] - u[1] * v[0]) * sense < 0) {
+                const divisor = 1 + (u[0] * v[0] + u[1] * v[1]) / (ul * vl);
+                const x = -(u[1] / ul + v[1] / vl) / divisor;
+                const y = (u[0] / ul + v[0] / vl) / divisor;
+
+                // Match Canvas's default miter limit, beveling very sharp turns.
+                if (Math.hypot(x, y) <= 10) {
+                  result.lineTo(
+                    at[0] + x * half * sense,
+                    at[1] + y * half * sense,
+                  );
+                }
+              }
+
               result.lineTo(
                 at[0] - (v[1] / vl) * half * sense,
                 at[1] + (v[0] / vl) * half * sense,

@@ -49,6 +49,8 @@ type Environment interface {
 type SpawnOptions struct {
 	DefinitionID, Name string
 	Home               protocol.StationDescription
+	Position           *Vec.Vector
+	Rotation           float64
 	Credits            *float64
 	Hostile            bool
 	Configure          func(*objects.Ship)
@@ -62,7 +64,13 @@ func Spawn(env Environment, options SpawnOptions) *objects.Ship {
 	world := env.World()
 	id, observerID := simulation.EntityID(world), env.NextObserverID()
 	homeID := env.StationID(options.Home)
-	ship := objects.CreatePlayerShip(world, objects.Properties{DefinitionID: options.DefinitionID, ObjectProperties: simulation.ObjectProperties{World: world, ID: &id, PlayerID: &observerID, Position: options.Home.Position, Name: &options.Name}, DockedTo: &homeID})
+	position, docked := options.Home.Position, &homeID
+
+	if options.Position != nil {
+		position, docked = *options.Position, nil
+	}
+
+	ship := objects.CreatePlayerShip(world, objects.Properties{DefinitionID: options.DefinitionID, ObjectProperties: simulation.ObjectProperties{World: world, ID: &id, PlayerID: &observerID, Position: position, Rotation: options.Rotation, Name: &options.Name}, DockedTo: docked})
 	ship.Hostile = options.Hostile
 
 	if options.Configure != nil {
@@ -72,7 +80,11 @@ func Spawn(env Environment, options SpawnOptions) *objects.Ship {
 	simulation.AddEntity(world, ship)
 	Observe(env, ship, options.Credits)
 	env.SyncRegions()
-	ship.Launch()
+
+	if docked != nil {
+		ship.Launch()
+	}
+
 	return ship
 }
 

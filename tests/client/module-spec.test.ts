@@ -12,6 +12,8 @@ import {
 import { renderingLayers } from '../../src/specs/rendering-layers';
 import { exampleWeapon } from '../../src/specs/modules/offense/example-weapon';
 import { testBuildPlugin } from '../support/build-plugin.ts';
+import { buildPrePlugin } from '../../plugins/build-plugins';
+import { moduleTypesById } from '../../src/client/objects/modules';
 
 const spec: ModuleSpec = {
   behavior: 'weapon',
@@ -124,19 +126,21 @@ for (const category of moduleCategoryIds) {
         typeof authored !== 'object' ||
         !('behavior' in authored) ||
         !('name' in authored) ||
-        !('health' in authored) ||
-        !('mass' in authored) ||
-        !('price' in authored)
+        // The shared shield template has no size and is not a concrete module.
+        (authored.behavior === 'shieldGenerator' &&
+          !('shieldRadius' in authored))
       ) {
         continue;
       }
 
       discoveredIds.push(id);
+
       assert.deepEqual(
         moduleSpecs[id as ModuleId],
-        { ...authored, category },
-        `${file} must be registered in its folder's category`,
+        authored,
+        `${file} must be registered without changing its authored spec`,
       );
+      assert.equal(moduleTypesById.get(id as ModuleId)!.category, category);
     }
   }
 }
@@ -153,16 +157,17 @@ const categoryBundle = await rolldown({
       resolveId: (id) => (id === categoryEntry ? id : undefined),
       load: (id) =>
         id === categoryEntry
-          ? `import { moduleSpecList } from './specs/modules';
+          ? `import { moduleTypes } from './client/objects/modules';
 import { moduleCategories } from './specs/modules/categories';
 export function inspectCategories() {
-  return moduleSpecList.map(spec => {
-    const metadata = moduleCategories.get(spec.category);
-    return [spec.category, metadata.name, metadata.color];
+  return moduleTypes.map(Type => {
+    const metadata = moduleCategories.get(Type.category);
+    return [Type.category, metadata.name, metadata.color];
   });
 }`
           : undefined,
     },
+    buildPrePlugin(),
     testBuildPlugin(),
   ],
 });
@@ -183,10 +188,11 @@ try {
 
   assert.deepEqual(
     built.inspectCategories(),
-    moduleSpecList.map((spec) => {
-      const metadata = moduleCategories.get(spec.category)!;
+    moduleIds.map((id) => {
+      const Type = moduleTypesById.get(id)!;
+      const metadata = moduleCategories.get(Type.category)!;
 
-      return [spec.category, metadata.name, metadata.color];
+      return [Type.category, metadata.name, metadata.color];
     }),
     'folder categories and UI metadata must agree after production mangling',
   );
@@ -197,7 +203,9 @@ try {
 for (const module of moduleSpecList) {
   const spec: ModuleSpec = module;
 
-  assert(Number.isFinite(module.mass) && module.mass > 0);
+  const mass = spec.mass ?? 0;
+
+  assert(Number.isFinite(mass) && mass >= 0);
   const idle = spec.power ?? 0;
   const active = spec.powerActivated ?? 0;
 

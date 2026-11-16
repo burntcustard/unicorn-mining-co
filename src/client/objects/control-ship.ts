@@ -1,4 +1,9 @@
-import { CargoHatch, SearchLight, HornDrill } from './modules/index';
+import {
+  CargoHatch,
+  SearchLight,
+  HornDrill,
+  FlightMode,
+} from './modules/index';
 import { ShieldGeneratorModule } from './modules/shield-generator';
 import { PlasmaAccelerator, KineticWeapon } from './modules/weapon';
 import { Laser } from './modules/laser';
@@ -9,6 +14,14 @@ import { type SimulationEvent } from '../protocol/events';
 type ModuleInputOptions = { input: PlayerInput; active: boolean };
 
 export const moduleControls = [
+  {
+    Type: FlightMode,
+    input: 'flightMode',
+    readInput: (input: PlayerInput) => !!input.flightMode,
+    writeInput: ({ input, active }: ModuleInputOptions) => {
+      input.flightMode = active;
+    },
+  },
   {
     Type: Laser,
     input: 'laserActive',
