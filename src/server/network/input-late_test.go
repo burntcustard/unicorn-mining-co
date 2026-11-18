@@ -74,7 +74,7 @@ func TestLateInputWireTap(t *testing.T) {
 		packet := []byte{0x55, 0x43, 1, byte(session.World.Specification.Protocol.ControlMessageIDs["input"])}
 		packet = binary.AppendUvarint(packet, staleTick)
 		packet = binary.AppendUvarint(packet, edge.sequence)
-		packet = append(packet, edge.code, edge.flags)
+		packet = append(packet, edge.code, edge.flags, 0)
 		packet = binary.LittleEndian.AppendUint64(packet, math.Float64bits(edge.offset))
 		message, err := protocol.DecodeClientControl(packet, session.World.Specification.Protocol, session.World.Specification.Simulation.SimulationStep)
 

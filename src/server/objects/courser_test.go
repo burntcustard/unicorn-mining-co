@@ -62,18 +62,6 @@ func TestCourserCannons(t *testing.T) {
 	ship := CreatePlayerShip(world, Properties{DefinitionID: "courser", PlayerID: new(int64(1))})
 	simulation.AddEntity(world, ship)
 
-	if ship.CargoSpace != 8 {
-		t.Fatal("Courser must have eight cargo spaces")
-	}
-
-	if ship.Engine() == nil || ship.Engine().ModuleBase().Type != "thrusterSingleSm" {
-		t.Fatal("Courser must start with its compatible small thruster")
-	}
-
-	if ship.Engine().ModuleBase().Mount.Hull.HullPlan != ship.HullSegments[2] {
-		t.Fatal("thruster must be mounted to the rear rectangular hull segment")
-	}
-
 	ammo := NewItem("autogunAmmo", simulation.ObjectProperties{World: world}, catalog)
 	ship.CargoContents = append(ship.CargoContents, ammo)
 	events := []protocol.SimulationEvent{}

@@ -221,14 +221,13 @@ export const initKeys = ({
     pressed.clear();
     consumedKeys.clear();
 
-    Object.assign(playerInput, emptyPlayerInput(), {
-      fire: false,
-      cargoRelease: false,
-      plasmaActive: false,
-      autogunActive: false,
-      laserActive: false,
-    });
+    Object.assign(playerInput, emptyPlayerInput());
 
+    moduleKeyControls.forEach(({ writeInput }) =>
+      writeInput(playerInput, false),
+    );
+
+    updateMovement(pressed, playerInput);
     onChange({ ...playerInput });
   };
 

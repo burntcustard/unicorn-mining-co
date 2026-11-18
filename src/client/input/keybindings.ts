@@ -29,7 +29,8 @@ export type KeyAction =
   | 'mapZoomOut'
   | 'telemetry'
   | 'requestGateAccess'
-  | 'flightMode';
+  | 'flightMode'
+  | 'thrustBoost';
 
 export const bindingModes = ['hold', 'toggle'] as const;
 
@@ -76,6 +77,7 @@ export const defaultKeybindings: Keybindings = {
   mapZoomIn: { keys: ['=', '+'], mode: 'press' },
   mapZoomOut: { keys: ['-'], mode: 'press' },
   flightMode: { keys: ['c'], mode: 'toggle' },
+  thrustBoost: { keys: ['Shift'], mode: 'hold' },
 };
 
 // Module actions are one-byte protocol tags; binding fields are mangled
@@ -86,6 +88,9 @@ export const moduleBinding = (
   switch (action) {
     case 'flightMode':
       return defaultKeybindings.flightMode;
+
+    case 'thrustBoost':
+      return defaultKeybindings.thrustBoost;
 
     case 'cargoHatch':
       return defaultKeybindings.cargoHatch;
@@ -121,6 +126,7 @@ export const updateMovement = (
     binding.keys.some((key) => pressed.has(key.toLowerCase()));
 
   input.fire = held(defaultKeybindings.fire);
+  input.thrustBoost = held(defaultKeybindings.thrustBoost);
   input.thrust = Number(held(defaultKeybindings.forwardThrust));
   input.turn =
     Number(held(defaultKeybindings.turnRight)) -
@@ -148,6 +154,7 @@ export const bindingEntries: [string, KeyBinding][] = [
   ['Zoom map in', defaultKeybindings.mapZoomIn],
   ['Zoom map out', defaultKeybindings.mapZoomOut],
   [flightMode.name, defaultKeybindings.flightMode],
+  ['Thrust booster', defaultKeybindings.thrustBoost],
 ];
 
 // Derive input property names from object keys so production property mangling
@@ -216,8 +223,8 @@ try {
 
   if (
     Array.isArray(saved) &&
-    (saved.length === bindingEntries.length ||
-      saved.length === bindingEntries.length - 1) &&
+    saved.length >= bindingEntries.length - 2 &&
+    saved.length <= bindingEntries.length &&
     saved.every(
       (entry) =>
         Array.isArray(entry) &&
@@ -249,6 +256,7 @@ const keyLabels = new Map([
   ['ArrowDown', '↓'],
   ['ArrowLeft', '←'],
   ['ArrowRight', '→'],
+  ['Shift', '⇧'],
 ]);
 
 /**

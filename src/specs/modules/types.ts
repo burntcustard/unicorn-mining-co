@@ -43,7 +43,7 @@ type ModuleValues = {
   // Idle draw and total activated draw, in MW.
   power?: number;
   powerActivated?: number;
-  // Total draw during initial weapon charging and between shots, in MW.
+  // Total draw while charging or recharging, in MW.
   powerCharging?: number;
   // Total draw while a fully deployed beam weapon fires, in MW.
   powerFiring?: number;
@@ -115,6 +115,17 @@ type ModuleValues = {
   rotationalThrust?: number;
   // Full flight-mode multiplier; deployment interpolates from 1.
   flightBoost?: number;
+  booster?: {
+    multiplier: number;
+    // Milliseconds of thrust increase, followed by an activation lockout.
+    duration: number;
+    cooldown: number;
+    // Milliseconds to reach the full thrust increase.
+    rampDuration?: number;
+    // Milliseconds to restore each spent charge.
+    recharge: number;
+    charges: number;
+  };
   offset?: number;
   grinds?: boolean;
   beam?: boolean;
@@ -146,6 +157,10 @@ export type ModuleSpec = ModuleValues &
         behavior: 'powerPlant';
         powerGenerated: number;
         model: (ModuleModelPart & { points: number[][] })[];
+      }
+    | {
+        behavior: 'thrustBooster';
+        booster: NonNullable<ModuleValues['booster']>;
       }
     | {
         behavior: 'thruster';

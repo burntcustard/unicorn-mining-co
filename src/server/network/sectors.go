@@ -202,7 +202,30 @@ func (s *GameSession) Tick(ticks uint64) {
 	previous := s.currentSector
 	s.beginTickPlayers()
 	defer s.endTickPlayers()
-	s.updateGates(float64(ticks) * s.World.Specification.Simulation.SimulationStep)
+	dt := float64(ticks) * s.World.Specification.Simulation.SimulationStep
+	s.updateGates(dt)
+
+	updateDockedShip := func(ship *objects.Ship) {
+		if ship.Dead || ship.DockedTo == nil || *ship.DockedTo == 0 || ship.World.Entities.Has(ship.ID) {
+			return
+		}
+
+		ship.UpdatePower(dt)
+		ship.UpdateModules(dt)
+	}
+
+	for _, entry := range s.tickPlayers {
+		p := entry.player
+
+		if !p.noShip {
+			updateDockedShip(p.ship)
+		}
+
+		for _, ship := range p.storedShips {
+			updateDockedShip(ship)
+		}
+	}
+
 	// Take a stable list: travel can lazily instantiate another sector this tick.
 	ids := make([]string, 0, len(s.sectors))
 

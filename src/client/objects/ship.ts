@@ -56,6 +56,7 @@ export class Ship extends Craft {
   static angularInertiaScale = flight.angularInertiaScale;
   kind = 'ship';
   firing = false;
+  thrustBoostHeld = false;
   declare targetId?: number;
   declare fuelCapacity: number;
   declare angularThrust: number;
@@ -65,14 +66,158 @@ export class Ship extends Craft {
   thrusterPower = 1;
   systemsPower = 1;
 
+  triggerThrustBoost(pressed: boolean) {
+    const previous = this.thrustBoostHeld;
+
+    this.thrustBoostHeld = pressed;
+
+    if (
+      !pressed ||
+      previous ||
+      this.dead ||
+      !this.cockpit ||
+      this.dockedTo ||
+      this.transitTime ||
+      this.launching ||
+      this.fuel <= 0 ||
+      !this.rawForwardThrust ||
+      this.systemsPower <= 0
+    ) {
+      return;
+    }
+
+    const boosters = this.mounts.filter(
+      (mount): mount is Mount & { module: Module } =>
+        Boolean(mount.module && mount.module.booster),
+    );
+
+    if (boosters.some(({ module }) => module.fireCooldown > 1e-9)) return;
+    const ready = boosters.filter(
+      ({ module, health, hull }) =>
+        health >= 1 &&
+        hull.health >= 1 &&
+        (module.chargeCooldown || 0) <=
+          (module.booster.charges - 1) * module.booster.recharge + 1e-9,
+    );
+
+    if (!ready.length) return;
+
+    for (const mount of boosters) {
+      const module = mount.module;
+      const booster = module.booster;
+      const active = ready.includes(mount);
+
+      module.fireCooldown = booster.duration + booster.cooldown;
+
+      if (active) {
+        module.chargeCooldown = Math.min(
+          booster.charges * booster.recharge,
+          (module.chargeCooldown || 0) + booster.recharge,
+        );
+      }
+
+      for (const segment of this.segmentsAtMount(mount)) {
+        this.setSegmentActive(segment, Number(active));
+      }
+    }
+  }
+
+  get thrustBoostFactor() {
+    return this.thrustBoosterMultiplier(false);
+  }
+
+  get thrustBoostSpeedFactor() {
+    return this.thrustBoosterMultiplier(true);
+  }
+
+  private thrustBoosterMultiplier(speedLimit: boolean) {
+    if (this.dead || this.dockedTo || this.transitTime) return 1;
+
+    return this.mounts.reduce((factor, mount) => {
+      const module = mount.module;
+
+      if (!module || !module.booster) return factor;
+      const booster = module.booster;
+      const ramp = booster.rampDuration
+        ? Math.max(
+            0,
+            Math.min(
+              1,
+              (booster.duration + booster.cooldown - module.fireCooldown) /
+                booster.rampDuration,
+            ),
+          )
+        : 1;
+      const progress =
+        ramp *
+        (speedLimit
+          ? booster.cooldown > 0
+            ? Math.min(1, module.fireCooldown / booster.cooldown)
+            : 1
+          : Number(module.fireCooldown > booster.cooldown + 1e-9));
+
+      return mount.health >= 1 &&
+        mount.hull.health >= 1 &&
+        module.fireCooldown > 1e-9 &&
+        this.segmentsAtMount(mount).some((segment) => segment.active === 1)
+        ? factor *
+            (1 + (booster.multiplier - 1) * progress * this.modulePower(module))
+        : factor;
+    }, 1);
+  }
+
+  updateThrustBoosters(dt: number) {
+    for (const mount of this.mounts) {
+      const module = mount.module;
+
+      if (!module || !module.booster) continue;
+
+      const segments = this.segmentsAtMount(mount);
+      const boostRemaining = segments.some((segment) => segment.active === 1)
+        ? Math.max(0, module.fireCooldown - module.booster.cooldown)
+        : 0;
+      const rechargeTime = Math.max(0, dt - boostRemaining);
+
+      module.fireCooldown = Math.max(0, (module.fireCooldown || 0) - dt);
+
+      if (mount.health >= 1 && mount.hull.health >= 1) {
+        module.chargeCooldown = Math.max(
+          0,
+          (module.chargeCooldown || 0) -
+            rechargeTime * this.modulePower(module),
+        );
+      }
+
+      if (
+        module.fireCooldown <= 1e-9 ||
+        this.dead ||
+        this.dockedTo ||
+        this.transitTime ||
+        mount.health < 1 ||
+        mount.hull.health < 1
+      ) {
+        for (const segment of segments) {
+          this.setSegmentActive(segment, 0);
+        }
+      }
+    }
+  }
+
+  override updateModules(dt: number) {
+    this.updateThrustBoosters(dt);
+    super.updateModules(dt);
+  }
+
   get powerEntries() {
-    return this.mounts.flatMap(({ module, health }) => {
+    return this.mounts.flatMap(({ module, health, healthActivated }) => {
       if (!module || health < 1) return [];
       const active =
         module.forwardThrust ||
-        this.segments.some(
-          (segment) => segment.module === module && segment.active,
-        );
+        ((!module.booster ||
+          module.fireCooldown > module.booster.cooldown + 1e-9) &&
+          this.segments.some(
+            (segment) => segment.module === module && segment.active,
+          ));
       const firing =
         module.powerFiring &&
         this.moduleFiring(module) &&
@@ -85,6 +230,12 @@ export class Ship extends Craft {
             segment.active === 1 &&
             segment.activationProgress === 1,
         );
+      const charging =
+        ((active || !module.chargeDuration) && module.chargeCooldown > 1e-9) ||
+        (active && module.fireCooldown > 1e-9) ||
+        (!active &&
+          module.rechargeDuration &&
+          healthActivated < module.healthActivated - 1e-9);
 
       return [
         {
@@ -92,12 +243,11 @@ export class Ship extends Craft {
           value:
             (firing
               ? module.powerFiring
-              : active
-                ? module.powerCharging &&
-                  Math.max(module.chargeCooldown, module.fireCooldown) > 1e-9
-                  ? module.powerCharging
-                  : module.powerActivated
-                : module.power) ?? 0,
+              : module.powerCharging && charging
+                ? module.powerCharging
+                : active
+                  ? module.powerActivated
+                  : module.power) ?? 0,
         },
       ];
     });
@@ -572,7 +722,12 @@ export class Ship extends Craft {
             ? turn === -segment.thrusterNozzleSide
               ? 1
               : forward * flight.steeringEase
-            : forward;
+            : turn
+              ? Math.max(
+                  forward * (1 - Math.abs(turn) * (1 - flight.steeringEase)),
+                  Math.abs(turn) * flight.steeringEase,
+                )
+              : forward;
         segment.active *=
           this.launchThrottle * this.fuelThrottle * this.thrusterPower;
       }
@@ -596,7 +751,8 @@ export class Ship extends Craft {
       this.launchThrottle ** 2 *
       this.fuelThrottle *
       this.thrusterPower *
-      this.flightBoostFactor
+      this.flightBoostFactor *
+      this.thrustBoostFactor
     );
   }
 
@@ -689,7 +845,10 @@ export class Ship extends Craft {
   // Only a crewed ship flies: wreckage and stations have no cockpit to fly from
   get maxSpeed() {
     return (
-      (this.cockpit && flight.speedPerThrust * this.forwardThrust) ||
+      (this.cockpit &&
+        ((flight.speedPerThrust * this.forwardThrust) /
+          this.thrustBoostFactor) *
+          this.thrustBoostSpeedFactor) ||
       flight.uncrewedMaxSpeed
     );
   }
@@ -746,7 +905,8 @@ export class Ship extends Craft {
       this.launchThrottle ** 2 *
       this.fuelThrottle *
       this.thrusterPower *
-      this.flightBoostFactor
+      this.flightBoostFactor *
+      this.thrustBoostFactor
     );
   }
 

@@ -51,10 +51,7 @@ assert.match(
 );
 assert.doesNotMatch(moduleThrusterMarkup(engine), /°\/s/);
 assert.equal(moduleThrusterMarkup(plant, ship.turnRate), '');
-assert.match(
-  modulePowerMarkup(plant),
-  /Storage<\/span><span class="text-lg">64 MJ/,
-);
+assert.match(modulePowerMarkup(plant), /Storage<\/span><span[^>]*>64 MJ/);
 
 assert.equal(ship.storedPower, ship.powerCapacity, 'new ships start charged');
 

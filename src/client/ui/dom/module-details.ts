@@ -22,12 +22,34 @@ export const moduleWeaponMarkup = (module: Module | typeof Module) => {
   return `<div class="flex items-center gap-12">${stat('Damage', weaponNumber(module.damage), beam ? 'Damage per 1/30 second of continuous beam' : 'Direct-hit damage per shot')}${stat('ROF', beam ? '∞' : `${weaponNumber(rate)}/s`, 'Fully powered rate of fire')}${aoe > 0 ? stat('AOE', `${aoe} m`, 'Explosion radius') : ''}</div>`;
 };
 
-export const modulePowerMarkup = (module: Module | typeof Module) =>
-  module.forwardThrust
-    ? ''
-    : module.powerGenerated
-      ? `<div class="flex items-center gap-12"><div><span class="block text-muted text-sm uppercase">Generation</span><span class="text-lg">${module.powerGenerated.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Storage</span><span class="text-lg">${module.powerCapacity ?? 0} MJ</span></div></div>`
-      : `<h3 class="text-sm uppercase">Power consumption</h3><div class="flex items-center gap-12 mt-4"><div><span class="block text-muted text-sm uppercase">Idle</span><span class="text-lg">${(module.power ?? 0).toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Active</span><span class="text-lg">${(module.powerActivated ?? 0).toFixed(1)} MW</span></div>${module.powerFiring ? `<div><span class="block text-muted text-sm uppercase">Firing</span><span class="text-lg">${module.powerFiring.toFixed(1)} MW</span></div>` : ''}${module.powerCharging ? `<div><span class="block text-muted text-sm uppercase">Charging</span><span class="text-lg">${module.powerCharging.toFixed(1)} MW</span></div>` : ''}</div>`;
+export const modulePowerMarkup = (module: Module | typeof Module) => {
+  if (module.forwardThrust) return '';
+
+  if (module.powerGenerated) {
+    return `<div class="flex items-center gap-12 mt-6"><div><span class="block text-muted text-sm uppercase">Generation</span><span class="text-color text-lg">${module.powerGenerated.toFixed(1)} MW</span></div><div><span class="block text-muted text-sm uppercase">Storage</span><span class="text-color text-lg">${module.powerCapacity ?? 0} MJ</span></div></div>`;
+  }
+
+  const row = (label: string, value: number) =>
+    `<div class="flex items-center justify-between gap-3 text-muted text-sm mt-6"><span class="uppercase">${label}</span><span>${value.toFixed(1)} MW</span></div>`;
+  const { booster, powerActivated = 0, powerCharging } = module;
+
+  return [
+    booster
+      ? `<div class="flex items-center justify-between gap-3 text-muted text-sm mt-6"><span class="uppercase">Thrust boost</span><span>+${weaponNumber((booster.multiplier - 1) * 100)}%</span></div>`
+      : '',
+    row('Idle power', module.power ?? 0),
+    powerCharging === powerActivated ? '' : row('Active power', powerActivated),
+    module.powerFiring ? row('Firing power', module.powerFiring) : '',
+    powerCharging === undefined
+      ? ''
+      : row(
+          booster || module.rechargeDuration
+            ? 'Recharge power'
+            : 'Charging power',
+          powerCharging,
+        ),
+  ].join('');
+};
 
 export const moduleThrusterMarkup = (
   module: Module | typeof Module,

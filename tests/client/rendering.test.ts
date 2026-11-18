@@ -10,6 +10,7 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 const root = process.cwd();
 const scenario = `
 import { installExampleModules } from '${root}/tests/support/example-modules.ts';
+import { createBoosterShip } from '${root}/tests/support/booster-ship.ts';
 installExampleModules();
 import assert from 'node:assert/strict';
 import { renderingLayers } from '${root}/src/specs/rendering-layers.ts';
@@ -26,6 +27,10 @@ import {
 import { Projectile } from '${root}/src/client/objects/projectile.ts';
 import { crotus } from '${root}/src/specs/ships/crotus.ts';
 import { Ship } from '${root}/src/client/objects/ship.ts';
+import { EntityState } from '${root}/src/client/simulation/entity-state.ts';
+import { FramePrediction } from '${root}/src/client/prediction/frame-prediction.ts';
+import { controlShip } from '${root}/src/client/objects/control-ship.ts';
+import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import { Station } from '${root}/src/client/objects/station.ts';
 import { NavBeacon } from '${root}/src/client/objects/nav-beacon.ts';
@@ -749,6 +754,300 @@ for (const [Type, size] of [
     [[0,-ordinarySegment.flareSize],[-ordinarySegment.flareSize*2.5,0],[0,ordinarySegment.flareSize]],
     'an ordinary small thruster retains its triangular flare');
 }
+// Single nozzles bend their tip toward either turn while retaining the base.
+for (const points of [undefined, [[0,-2],[-12,0],[0,2]]]) {
+  const ship = createBoosterShip();
+  const engine = new ThrusterSingleSm();
+  engine.activationDuration = .2;
+  engine.model = [{flareSize: 8, thrusterNozzleSide: 0, ...(points ? {points} : {})}];
+  ship.fit(engine,ship.mounts[0]);
+  const nozzle = ship.segmentsAtMount(engine.mount)[0];
+  for (const forward of [0,1]) {
+    const tips = [];
+    for (const turn of [-1,1]) {
+      ship.fly(forward,turn);
+      ship.updateModules(.2);
+      ship.updateVisual(.2);
+      ship.updateVisual(1);
+      assert.equal(nozzle.activationProgress,.5);
+      draws.length = 0;
+      engine.render({segment: nozzle,craft: ship});
+      const outline = Reflect.get(draws[0].path,'vertices');
+      const tip = outline.reduce((best,point) => point[0] < best[0] ? point : best);
+      assert(Math.sign(tip[1]) === turn,'the exhaust tip bends toward the requested turn');
+      assert(Math.abs(tip[1]/tip[0]) < .3,'the steering angle stays subtle');
+      tips.push(tip);
+      assert.equal(outline[0][0],0,'the bend keeps the nozzle base fixed');
+    }
+    assert.equal(tips[0][0],tips[1][0]);
+    assert.equal(tips[0][1],-tips[1][1],'left/right exhaust bends mirror each other');
+  }
+}
+// Every change follows the same persistent presentation state at any frame rate.
+{
+  const samples = [];
+  for (const fps of [30,60,120]) {
+    const ship = createBoosterShip();
+    const engine = new ThrusterSingleSm();
+    engine.activationDuration = .01;
+    engine.model = [{flareSize: 8,thrusterNozzleSide: 0}];
+    ship.fit(engine,ship.mounts[0]);
+    const nozzle = ship.segmentsAtMount(engine.mount)[0];
+    let boost = 1;
+    Object.defineProperty(ship,'thrustBoostFactor',{get: () => boost});
+    ship.fly(1,0);
+    ship.updateModules(1);
+    ship.updateVisual(1);
+    const tip = () => {
+      draws.length = 0;
+      engine.render({segment: nozzle,craft: ship});
+      return Reflect.get(draws[0].path,'vertices')[1];
+    };
+    const recorded = [];
+    for (const [factor,turn] of [[1.8,0],[1,0],[1,1],[1,-1],[1,0]]) {
+      const before = tip();
+      boost = factor;
+      ship.fly(1,turn);
+      ship.updateModules(.01);
+      ship.updateVisual(0);
+      assert.deepEqual(tip(),before,'target changes never move the drawn tip immediately');
+      const width = turn ? .5 : 1;
+      const target = [-20*factor*width,4*factor*width*turn];
+      const startDistance = Math.hypot(before[0]-target[0],before[1]-target[1]);
+      let previousDistance = startDistance;
+      for (let frame = 1; frame <= fps/5; frame++) {
+        ship.updateVisual(1/fps);
+        const current = tip();
+        const distance = Math.hypot(current[0]-target[0],current[1]-target[1]);
+        assert(distance <= previousDistance+1e-10,'the transition converges without overshooting');
+        previousDistance = distance;
+        if (frame === fps/10 || frame === fps/5) recorded.push(current);
+      }
+      assert(previousDistance < startDistance*.051,'a 200 ms transition covers at least 95% of the change');
+      ship.updateVisual(1);
+      assert.deepEqual(tip(),target,'settled flares reach the exact target');
+    }
+    // Rapid direction changes retarget the current position, not a stale endpoint.
+    ship.fly(1,1);
+    ship.updateModules(.01);
+    ship.updateVisual(.05);
+    const midway = tip();
+    ship.fly(1,-1);
+    ship.updateModules(.01);
+    ship.updateVisual(0);
+    assert.deepEqual(tip(),midway);
+    const checkpoint = new EntityState(ship);
+    const state = ship.moduleStates;
+    const flare = structuredClone(nozzle.flare);
+    ship.moduleStates = state;
+    ship.updateVisual(0);
+    const rebuilt = ship.segmentsAtMount(ship.engine.mount)[0];
+    assert.deepEqual(rebuilt.flare,flare,'module reconstruction preserves the in-progress transition');
+    checkpoint.restore();
+    ship.updateVisual(0);
+    assert.deepEqual(ship.segmentsAtMount(ship.engine.mount)[0].flare,flare,
+      'mechanics rewinds do not rewind presentation');
+    ship.fly(0,0);
+    ship.updateModules(1);
+    ship.updateVisual(.2);
+    const fading = ship.segmentsAtMount(ship.engine.mount)[0];
+    assert.equal(fading.phase,0);
+    assert(fading.flare.width > 0,'the visual tail outlives the inactive target');
+    draws.length = 0;
+    ship.render({zIndex: renderingLayers.glowBelowShips});
+    assert(draws.length > 0,'the craft keeps drawing the smoothly fading glow');
+    ship.updateVisual(1);
+    assert.equal(fading.flare.width,0,'settled inactive flares fully disappear');
+    samples.push(recorded);
+  }
+  for (const records of samples.slice(1)) records.forEach((point,index) => {
+    for (let axis = 0; axis < 2; axis++) assert(Math.abs(point[axis]-samples[0][index][axis]) < 1e-9,
+      '30, 60 and 120 Hz transitions agree at the same elapsed times');
+  });
+}
+// Releasing turn while holding forward must animate on the display prediction,
+// including frames that reuse the same solved tick and input changes mid-tick.
+for (const turn of [-1,1]) {
+  const world = createWorld();
+  const ship = addEntity(world,createBoosterShip({world,playerId: 1}));
+  world.players.set(1,{id: 1,shipId: ship.id});
+  let input = {...emptyPlayerInput(),thrust: 1,turn};
+  controlShip(ship,input,[]);
+  ship.updateModules(1);
+  ship.updateVisual(1);
+  const prediction = new FramePrediction();
+  const drawnTip = craft => {
+    const segment = craft.segmentsAtMount(craft.engine.mount)[0];
+    draws.length = 0;
+    segment.module.render({segment,craft});
+    return Reflect.get(draws[0].path,'vertices')[1];
+  };
+  const sample = elapsed => {
+    const copy = prediction.sample({world,playerId: 1,
+      input: {input,changes: []},elapsed}).entities.get(ship.id);
+    const segment = copy.segmentsAtMount(copy.engine.mount)[0];
+    const mechanics = [segment.active,segment.activationProgress,copy.position.x,copy.position.y];
+    const original = structuredClone(ship.segmentsAtMount(ship.engine.mount)[0].flare);
+    assert.deepEqual([segment.active,segment.activationProgress,copy.position.x,copy.position.y],mechanics,
+      'presentation synchronization preserves predicted mechanics');
+    assert.deepEqual(ship.segmentsAtMount(ship.engine.mount)[0].flare,original,
+      'display synchronization does not change the source animation');
+    return copy;
+  };
+  const before = drawnTip(ship);
+  sample(.01);
+  input = {...input,turn: 0};
+  controlShip(ship,input,[]);
+  ship.updateVisual(0);
+  assert.deepEqual(drawnTip(ship),before,'releasing turn retains the current flare position');
+  for (let frame = 1; frame <= 12; frame++) {
+    ship.updateModules(1/60);
+    ship.updateVisual(1/60);
+    const copy = sample(.01);
+    assert.deepEqual(drawnTip(copy),drawnTip(ship),
+      'the predicted display uses the current eased flare instead of stale tick state');
+    if (frame === 6) assert(Math.abs(drawnTip(copy)[1]) > 0,
+      'the bend is still returning to straight after 100 ms');
+    if (frame % 3 === 0) world.tick++;
+  }
+}
+// The live boost ramp drives the visible length without a size jump.
+{
+  const ship = createBoosterShip();
+  const engine = new ThrusterSingleSm();
+  engine.model = [{flareSize: 8, thrusterNozzleSide: 0}];
+  ship.fit(engine,ship.mounts[0]);
+  ship.fly(1,0);
+  const nozzle = ship.segmentsAtMount(engine.mount)[0];
+  nozzle.activationProgress = 1;
+  const boosters = ship.modules.filter(module => module.booster);
+  for (const module of boosters) module.booster = {...module.booster,rampDuration: .2};
+  ship.triggerThrustBoost(true);
+  for (const progress of [0,.25,.5,.75,1]) {
+    if (progress) ship.updateModules(.05);
+    draws.length = 0;
+    engine.render({segment: nozzle,craft: ship});
+    const length = -Reflect.get(draws[0].path,'vertices')[1][0];
+    const factor = boosters.reduce((value,module) =>
+      value*(1+(module.booster.multiplier-1)*progress),1);
+    assert(Math.abs(length-8*2.5*factor) < 1e-9,
+      'flare length follows the same gradual multiplier as thrust and max speed');
+  }
+}
+// Boost changes nozzle length and glow independently, including modeled and
+// mirrored multi-nozzle flares. A spent charge remains lit during its burst.
+{
+  const near = (actual, expected) => assert(Math.abs(actual-expected) < 1e-10,
+    actual+' != '+expected);
+  const glowAlpha = (module, options) => {
+    const fill = game.ctx.fill;
+    let alpha = 0;
+    try {
+      game.ctx.fill = () => {alpha = game.ctx.globalAlpha};
+      module.renderGlow(options);
+    } finally {
+      game.ctx.fill = fill;
+    }
+    return alpha;
+  };
+  for (const count of [0,1,2]) {
+    const ship = createBoosterShip();
+    const engine = new ThrusterSingleSm();
+    engine.model = [-1,0,1].map(side => ({flareSize: 8, thrusterNozzleSide: side,
+      ...(side === 1 ? {points: [[0,-2],[-9,-3],[-6,2],[0,2]]} : {})}));
+    ship.fit(engine,ship.mounts[0]);
+    ship.fly(1,0);
+    const nozzles = ship.segmentsAtMount(engine.mount);
+    for (const segment of nozzles) segment.activationProgress = 1;
+    const vertices = segment => {
+      draws.length = 0;
+      engine.render({segment,craft: ship});
+      return Reflect.get(draws[0].path,'vertices');
+    };
+    const normal = nozzles.map(vertices);
+    const normalGlow = nozzles.map(segment => glowAlpha(engine,{segment,craft: ship}));
+    const boosters = ship.mounts.filter(mount => mount.module?.booster);
+    const dots = boosters.map(mount => ship.segmentsAtMount(mount)
+      .filter(segment => segment.rechargeDelay !== undefined));
+    const normalDots = dots.map(segments => segments.map(segment =>
+      glowAlpha(segment.module,{segment,craft: ship})));
+    for (const [index,mount] of boosters.entries()) {
+      mount.module.booster = {...mount.module.booster,multiplier: 1.4+index*.2,rampDuration: 0};
+      if (index >= count) mount.module.chargeCooldown =
+        mount.module.booster.charges*mount.module.booster.recharge;
+    }
+    ship.triggerThrustBoost(true);
+    const factor = boosters.slice(0,count).reduce((value,mount) =>
+      value*mount.module.booster.multiplier,1);
+    near(ship.thrustBoostFactor,factor);
+    for (const [index,segment] of nozzles.entries()) {
+      const actual = vertices(segment);
+      for (const [at,[x,y]] of normal[index].entries()) {
+        near(actual[at][0],x*factor);
+        near(actual[at][1],y);
+      }
+      near(glowAlpha(engine,{segment,craft: ship}),normalGlow[index]*(count ? 1.5 : 1));
+    }
+    for (const [index,segments] of dots.entries()) {
+      for (const [at,segment] of segments.entries()) {
+        const alpha = glowAlpha(segment.module,{segment,craft: ship});
+        if (index < count) {
+          assert(alpha > normalDots[index][at], 'active half glows are brighter than ready glows');
+        } else {
+          near(alpha,0);
+        }
+        if (index < count) {
+          draws.length = 0;
+          segment.module.render({segment,craft: ship});
+          assert.equal(draws.filter(draw=>draw.style===segment.module.shades[2]).length,2,
+            'the spent dot keeps its charged color throughout the burst');
+        }
+      }
+    }
+    ship.updateModules(boosters[0].module.booster.duration);
+    if (count) assert(ship.thrustBoostSpeedFactor > 1,'speed recovery is still in progress');
+    for (const [index,segment] of nozzles.entries()) {
+      assert.deepEqual(vertices(segment),normal[index],'normal flare length returns during recovery');
+      near(glowAlpha(engine,{segment,craft: ship}),normalGlow[index]);
+    }
+    for (const [index,segments] of dots.slice(0,count).entries()) {
+      for (const [at,segment] of segments.entries()) {
+        near(glowAlpha(segment.module,{segment,craft: ship}),
+          0);
+      }
+    }
+  }
+}
+// Active booster dots have a larger halo, independent of stacked thrust.
+{
+  const Type = moduleTypesById.get('thrustBooster');
+  const module = new Type();
+  const segment = {active: 1,rechargeDelay: 1,
+    glow: {offset: [0,0],radius: 5,alpha: .2,stops: [[0,'#fff'],[1,'#000',0]]}};
+  const sample = () => {
+    const create = game.ctx.createRadialGradient, fill = game.ctx.fill;
+    let radius = 0, alpha = 0;
+    try {
+      game.ctx.createRadialGradient = (...args) => {
+        radius = args[5];
+        return {addColorStop() {}};
+      };
+      game.ctx.fill = () => {alpha = game.ctx.globalAlpha};
+      module.renderGlow({segment});
+    } finally {
+      game.ctx.createRadialGradient = create;
+      game.ctx.fill = fill;
+    }
+    return {radius,alpha};
+  };
+  const normal = sample();
+  module.fireCooldown = module.booster.duration+module.booster.cooldown;
+  const active = sample();
+  assert(active.radius > normal.radius, 'active half glows have a larger halo');
+  assert(active.alpha > normal.alpha, 'active half glows are brighter');
+  module.fireCooldown = module.booster.cooldown;
+  assert.deepEqual(sample(),normal,'the larger halo ends with the burst');
+}
 // Thruster visibility is presentation only: synthetic nozzles retain the
 // original full-power timing while low power and rapid pulses remain readable.
 {
@@ -781,21 +1080,23 @@ for (const [Type, size] of [
   };
 
   for (const fps of [30,60,120]) {
-    const {nozzle, step, flare} = fixture();
+    const {ship, nozzle, step, flare} = fixture();
     const dt = 1/fps;
 
     for (const power of [1,0]) {
       for (let frame = 0; frame < fps; frame++) {
         step(power, dt);
-        assert(Math.abs(flare() - nozzle.activationProgress) < 1e-12,
-          'full held thrust retains every sample of the normal ramp and release');
+        assert(flare() >= 0 && flare() <= 1,
+          'the shared visual easing keeps the normal thrust envelope bounded');
       }
     }
 
     step(.25, .2);
+    ship.updateVisual(1);
     assert.equal(nozzle.activationProgress, .25, 'visual gain does not change simulated activation');
     assert.equal(flare(), .5, 'sustained quarter thrust has a half-height flare');
     step(0, .2);
+    ship.updateVisual(1);
     assert.equal(flare(), 0, 'sustained zero thrust extinguishes the envelope');
 
     for (let frame = 0; frame < fps * 3; frame++) {
@@ -806,6 +1107,7 @@ for (const [Type, size] of [
       }
     }
     step(0, .2);
+    ship.updateVisual(1);
     assert.equal(flare(), 0);
   }
 
@@ -826,9 +1128,11 @@ for (const [Type, size] of [
   };
 
   step(1, .2);
+  ship.updateVisual(1);
   const fullGlow = glow();
   step(0, .2);
   step(.25, .2);
+  ship.updateVisual(1);
   const lowGlow = glow();
 
   assert.equal(lowGlow.radius, fullGlow.radius / 2);
@@ -856,12 +1160,14 @@ for (const [Type, size] of [
   const turning = fixture();
 
   turning.step(0, .2, 1);
+  turning.ship.updateVisual(1);
   assert.equal(turning.flare(turning.segments[0]), 1, 'turning lights the active side nozzle');
-  assert.equal(turning.flare(turning.segments[1]), 0);
+  assert.equal(turning.flare(turning.segments[1]), .5);
   assert.equal(turning.flare(turning.segments[2]), 0);
   turning.ship.velocity = Vec.create(100, 200);
   turning.ship.spin = 1;
   turning.step(0, .2);
+  turning.ship.updateVisual(1);
   assert(turning.segments.every(segment => turning.flare(segment) === 0),
     'coasting and passive rotation do not light any nozzle');
 
@@ -1062,7 +1368,7 @@ for (const [id, Type] of moduleTypesById) {
       module.render({ segment, craft, scenery: [] });
       const fill = draws[beforeDraw];
       assert(fill, 'each visible model part draws its fill');
-      if (model[index].outline)
+      if (model[index].outline !== false)
         assert.equal(
           strokePaths[beforeStroke],
           fill.path,

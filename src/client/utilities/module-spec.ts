@@ -19,6 +19,16 @@ export const moduleSpecForSimulation = (spec: ModuleSpec): ModuleSpec => {
 
   if (value.fireInterval !== undefined) value.fireInterval /= 1000;
 
+  if (value.booster) {
+    value.booster = {
+      ...value.booster,
+      rampDuration: (value.booster.rampDuration || 0) / 1000,
+      duration: value.booster.duration / 1000,
+      cooldown: value.booster.cooldown / 1000,
+      recharge: value.booster.recharge / 1000,
+    };
+  }
+
   if (value.projectile) {
     value.projectile = {
       ...value.projectile,

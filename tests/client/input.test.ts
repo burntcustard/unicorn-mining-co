@@ -114,9 +114,11 @@ assert.deepEqual(
   'the first control is recorded and sent before synchronous audio setup',
 );
 window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+input.playerInput.flightMode = true;
 input.setMenuInput(true);
 assert.equal(input.playerInput.thrust, 0);
 assert.equal(input.playerInput.fire, false);
+assert.equal(input.playerInput.flightMode, false);
 assert.equal(
   changes.at(-1).thrust,
   0,
@@ -179,6 +181,45 @@ assert.equal(
   'gameplay resumes with a fresh key press',
 );
 window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp' }));
+changes.length = 0;
+
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+assert.equal(input.playerInput.thrustBoost, true);
+assert.equal(changes.at(-1).thrustBoost, true, 'Shift sends the press edge');
+const boostChanges = changes.length;
+
+window.dispatchEvent(
+  new KeyboardEvent('keydown', { key: 'Shift', repeat: true }),
+);
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+assert.equal(
+  changes.length,
+  boostChanges,
+  'holding Shift cannot repeat boosts',
+);
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift' }));
+assert.equal(input.playerInput.thrustBoost, false);
+assert.equal(changes.at(-1).thrustBoost, false, 'Shift sends the release edge');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+assert.equal(
+  changes.length,
+  boostChanges + 2,
+  'a fresh Shift press can boost again',
+);
+window.dispatchEvent(new Event('blur'));
+assert.equal(input.playerInput.thrustBoost, false, 'blur releases boost input');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+input.setMenuInput(true);
+assert.equal(input.playerInput.thrustBoost, false, 'menus release boost input');
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+assert.equal(input.playerInput.thrustBoost, false, 'menu keys cannot boost');
+input.setMenuInput(false);
+input.defaultKeybindings.thrustBoost.keys = ['z'];
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
+assert.equal(input.playerInput.thrustBoost, true, 'boost can be rebound');
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'z' }));
+assert.equal(input.playerInput.thrustBoost, false);
+input.defaultKeybindings.thrustBoost.keys = ['Shift'];
 changes.length = 0;
 
 let fpsToggles = 0;

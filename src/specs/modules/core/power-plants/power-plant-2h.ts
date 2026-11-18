@@ -15,6 +15,6 @@ export const powerPlant2H = {
   description: 'A heavy-duty power plant for medium ships.',
   mass: 485,
   price: 1125,
-  powerGenerated: 5.0,
+  powerGenerated: 8.3,
   powerCapacity: 48,
 } satisfies ModuleSpec;

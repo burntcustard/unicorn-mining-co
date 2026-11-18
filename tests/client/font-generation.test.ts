@@ -39,8 +39,15 @@ const thinSpace = font.glyf[font.cmap[0x2009]];
 const filledStar = font.glyf[font.cmap['★'.codePointAt(0)!]];
 const outlinedStar = font.glyf[font.cmap['☆'.codePointAt(0)!]];
 const infinity = font.glyf[font.cmap['∞'.codePointAt(0)!]];
+const shift = font.glyf[font.cmap['⇧'.codePointAt(0)!]];
 
 assert.equal(infinity.contours.length, 3, 'infinity has two enclosed loops');
+assert.equal(shift.contours.length, 2, 'the Shift arrow has a hollow center');
+assert.equal(
+  shift.advanceWidth,
+  space.advanceWidth,
+  'the Shift arrow fits one key label cell',
+);
 
 assert.equal(filledStar.contours.length, 1, 'the solid star has no hole');
 assert.equal(outlinedStar.contours.length, 2, 'the outlined star has a hole');

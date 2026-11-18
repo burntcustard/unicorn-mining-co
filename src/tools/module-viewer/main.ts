@@ -17,43 +17,61 @@ import {
 import { catalog } from './catalog';
 import { createModulePreview } from './model-preview';
 import { renderThrusterComparison } from './thruster-comparison';
+import { renderPowerPlantComparison } from './power-plant-comparison';
 
-const moduleTab = document.querySelector<HTMLButtonElement>('#modules-tab')!;
-const comparisonTab =
-  document.querySelector<HTMLButtonElement>('#comparison-tab')!;
-const modulePanel = document.querySelector<HTMLElement>('#modules-panel')!;
-const comparisonPanel =
-  document.querySelector<HTMLElement>('#comparison-panel')!;
+const tabs = [
+  {
+    tab: document.querySelector<HTMLButtonElement>('#modules-tab')!,
+    panel: document.querySelector<HTMLElement>('#modules-panel')!,
+  },
+  {
+    tab: document.querySelector<HTMLButtonElement>('#comparison-tab')!,
+    panel: document.querySelector<HTMLElement>('#comparison-panel')!,
+    render: () =>
+      renderThrusterComparison(
+        document.querySelector<HTMLElement>('#thruster-comparison')!,
+      ),
+  },
+  {
+    tab: document.querySelector<HTMLButtonElement>(
+      '#power-plant-comparison-tab',
+    )!,
+    panel: document.querySelector<HTMLElement>(
+      '#power-plant-comparison-panel',
+    )!,
+    render: () =>
+      renderPowerPlantComparison(
+        document.querySelector<HTMLElement>('#power-plant-comparison')!,
+      ),
+  },
+];
+
 const moduleControls = document.querySelector<HTMLElement>('#module-controls')!;
-const comparison = document.querySelector<HTMLElement>('#thruster-comparison')!;
 const category = document.querySelector<HTMLSelectElement>('#category')!;
 const folder = document.querySelector<HTMLSelectElement>('#folder')!;
 const models = document.querySelector<HTMLInputElement>('#models')!;
 const grid = document.querySelector<HTMLDivElement>('#modules')!;
 let cleanups: (() => void)[] = [];
-let comparisonRendered = false;
-
-const tabs = [moduleTab, comparisonTab];
 
 const selectTab = (index: number) => {
-  tabs.forEach((tab, tabIndex) => {
+  tabs.forEach((entry, tabIndex) => {
+    const { tab, panel } = entry;
     const selected = index === tabIndex;
 
     tab.setAttribute('aria-selected', String(selected));
     tab.tabIndex = selected ? 0 : -1;
+    panel.hidden = !selected;
+
+    if (selected && entry.render) {
+      entry.render();
+      entry.render = undefined;
+    }
   });
 
   moduleControls.hidden = index !== 0;
-  modulePanel.hidden = index !== 0;
-  comparisonPanel.hidden = index !== 1;
-
-  if (index === 1 && !comparisonRendered) {
-    renderThrusterComparison(comparison);
-    comparisonRendered = true;
-  }
 };
 
-tabs.forEach((tab, index) => {
+tabs.forEach(({ tab }, index) => {
   tab.onclick = () => selectTab(index);
 
   tab.onkeydown = (event) => {
@@ -71,7 +89,7 @@ tabs.forEach((tab, index) => {
     if (next === undefined) return;
     event.preventDefault();
     selectTab(next);
-    tabs[next].focus();
+    tabs[next].tab.focus();
   };
 });
 
@@ -131,11 +149,11 @@ const rebuild = () => {
         <h2 class="leading-tight text-lg uppercase" data-title></h2>
         <p class="mt-4" data-description></p>
         <div class="mt-6" data-weapon-stats></div>
-        <div class="mt-6" data-module-power></div>
         <div data-thruster-stats></div>
         <div class="flex items-center justify-between gap-3 text-muted text-sm mt-6" data-weapon-dps title="Maximum direct-hit damage per second while firing continuously">
           <span class="uppercase">DPS</span><span data-dps></span>
         </div>
+        <div data-module-power></div>
         <div class="flex items-center justify-between gap-3 text-muted text-sm mt-6" data-mass-panel>
           <span class="uppercase">Mass</span><span data-mass></span>
         </div>

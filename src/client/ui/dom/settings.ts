@@ -2,6 +2,7 @@ import html from './settings.html?raw';
 import { createScreen, query, ui } from './ui';
 import {
   bindingEntries,
+  defaultKeybindings,
   bindingModes,
   bindingModeLabel,
   hasBindingMode,
@@ -106,7 +107,10 @@ export const createSettings = () => {
 
     controls.append(button);
     row.append(text, controls);
-    (hasBindingMode(binding) ? moduleBindings : bindings).append(row);
+    (hasBindingMode(binding) || binding === defaultKeybindings.thrustBoost
+      ? moduleBindings
+      : bindings
+    ).append(row);
     return button;
   });
 
@@ -146,7 +150,7 @@ export const createSettings = () => {
       const key = event.key.toLowerCase();
 
       if (
-        ['shift', 'control', 'alt', 'meta'].includes(key) ||
+        ['control', 'alt', 'meta'].includes(key) ||
         event.ctrlKey ||
         event.metaKey ||
         event.altKey

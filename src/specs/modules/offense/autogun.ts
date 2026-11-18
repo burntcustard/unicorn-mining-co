@@ -15,7 +15,7 @@ export const autogun = {
   health: 0,
   healthActivated: 20,
   power: 0.1,
-  powerActivated: 1.6,
+  powerActivated: 1.2,
   price: 600,
   zIndex: renderingLayers.modulesBelowShipHull,
   shades: colors.violet,

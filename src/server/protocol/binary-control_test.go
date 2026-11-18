@@ -160,7 +160,7 @@ func TestWeaponControls(t *testing.T) {
 
 	for _, flags := range []byte{0, 2, 4, 8, 6, 10, 12, 14, 16, 18, 30} {
 		for _, offset := range []bool{false, true} {
-			packet := writer{data: []byte{0x55, 0x43, 1, 1, 0, 1, 0, flags}}
+			packet := writer{data: []byte{0x55, 0x43, 1, 1, 0, 1, 0, flags, 0}}
 
 			if offset {
 				packet.data[7] |= 1
@@ -184,7 +184,7 @@ func TestWeaponControls(t *testing.T) {
 
 func TestCargoReleaseInputFlag(t *testing.T) {
 	catalog, _ := specs.Load()
-	packet := []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 32}
+	packet := []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 32, 0}
 	control, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep)
 
 	if err != nil || !control.Input.CargoRelease || control.Input.Fire {
@@ -199,16 +199,39 @@ func TestCargoReleaseInputFlag(t *testing.T) {
 	}
 }
 
-func TestFlightModeFlagAlongsideTargetOffsetAndAllControls(t *testing.T) {
+func TestThrustBoostAlongsideTargetOffsetAndAllControls(t *testing.T) {
 	catalog, _ := specs.Load()
-	packet := writer{data: []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 127, 255}}
+	packet := writer{data: []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 127, 255, 1}}
 	packet.number(.01)
 	packet.signed(1 << 45)
 	control, err := DecodeClientControl(packet.data, catalog.Protocol, catalog.Simulation.SimulationStep)
 	input := control.Input
 
-	if err != nil || !input.FlightMode || !input.CargoRelease || !input.Fire || !input.PlasmaActive || !input.AutogunActive || !input.LaserActive || !input.HornDrill || !input.CargoHatch || !input.SearchLight || !input.ShieldGenerator || !input.Launch || input.Thrust != 1 || input.Turn != -1 || input.TargetID == nil || *input.TargetID != 1<<45 || !control.HasOffset || control.Offset != .01 {
-		t.Fatalf("flight mode interfered with another packed flag: %+v %v", control, err)
+	if err != nil || !input.ThrustBoost || !input.FlightMode || !input.CargoRelease || !input.Fire || !input.PlasmaActive || !input.AutogunActive || !input.LaserActive || !input.HornDrill || !input.CargoHatch || !input.SearchLight || !input.ShieldGenerator || !input.Launch || input.Thrust != 1 || input.Turn != -1 || input.TargetID == nil || *input.TargetID != 1<<45 || !control.HasOffset || control.Offset != .01 {
+		t.Fatalf("thrust boost interfered with another packed flag: %+v %v", control, err)
+	}
+}
+
+func TestThrustBoostInputFlags(t *testing.T) {
+	catalog, _ := specs.Load()
+
+	for _, extraControls := range []byte{0, 1, 2, 128, 255} {
+		packet := []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 0, extraControls}
+		control, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep)
+
+		if extraControls > 1 {
+			if err == nil {
+				t.Fatalf("unknown extension controls accepted: %d", extraControls)
+			}
+		} else if err != nil || control.Input.ThrustBoost != (extraControls == 1) || control.Input.FlightMode || control.Input.Fire {
+			t.Fatalf("thrust boost input lost: flags=%d control=%+v err=%v", extraControls, control, err)
+		}
+	}
+
+	packet := []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 0}
+
+	if _, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
+		t.Fatal("input without extension controls accepted")
 	}
 }
 
@@ -221,7 +244,7 @@ func TestTargetInput(t *testing.T) {
 
 	for _, targetID := range []int64{0, -1, 1 << 45, (1 << 53) - 1, -((1 << 53) - 1)} {
 		for _, offset := range []bool{false, true} {
-			packet := writer{data: []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 64 | 8 | 2}}
+			packet := writer{data: []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 64 | 8 | 2, 0}}
 
 			if offset {
 				packet.data[7] |= 1
@@ -238,7 +261,7 @@ func TestTargetInput(t *testing.T) {
 	}
 
 	for _, target := range [][]byte{nil, {0x80, 0}, {0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x20}} {
-		packet := append([]byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 64}, target...)
+		packet := append([]byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, 1, 0, 64, 0}, target...)
 
 		if _, err := DecodeClientControl(packet, catalog.Protocol, catalog.Simulation.SimulationStep); err == nil {
 			t.Fatalf("invalid target accepted: %x", target)

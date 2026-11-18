@@ -30,6 +30,14 @@ type Projectile struct {
 }
 
 type Module struct {
+	Booster *struct {
+		Multiplier   float64 `json:"multiplier"`
+		Duration     float64 `json:"duration"`
+		RampDuration float64 `json:"rampDuration"`
+		Cooldown     float64 `json:"cooldown"`
+		Recharge     float64 `json:"recharge"`
+		Charges      int     `json:"charges"`
+	} `json:"booster"`
 	FlightBoost           float64     `json:"flightBoost"`
 	PowerCapacity         float64     `json:"powerCapacity"`
 	FuelUsage             float64     `json:"fuelUsage"`

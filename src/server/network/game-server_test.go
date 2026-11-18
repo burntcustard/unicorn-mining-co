@@ -266,7 +266,7 @@ func TestGameServerInputEdgesBetweenTicks(t *testing.T) {
 		code     byte
 		offset   float64
 	}{{1, 128, 0}, {2, 64, .125}, {2, 128, .2}} {
-		packet := []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, change.sequence, change.code, 1}
+		packet := []byte{0x55, 0x43, 1, byte(catalog.Protocol.ControlMessageIDs["input"]), 0, change.sequence, change.code, 1, 0}
 		packet = binary.LittleEndian.AppendUint64(packet, math.Float64bits(change.offset))
 		frames = append(frames, maskedFrame(OpBinary, true, packet)...)
 	}

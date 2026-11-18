@@ -372,7 +372,7 @@ test('live CPU reads renew credentials after workload preparation', async () => 
     await writeFile(
       join(directory, 'fly'),
       `#!/usr/bin/env node
-const fs = require('node:fs');
+import fs from 'node:fs';
 const file = ${JSON.stringify(join(directory, 'counter'))};
 if (process.argv[2] === 'machine') {
   console.log(JSON.stringify([{id:'fixture',state:'started',config:{guest:{cpus:2}}}]));

@@ -7,6 +7,7 @@ import gun from './autogun.svg?raw';
 import laser from './laser.svg?raw';
 import plasma from './plasma-accelerator.svg?raw';
 import plant from './power-plant.svg?raw';
+import booster from './thrust-booster.svg?raw';
 import empty from './empty.svg?raw';
 
 export const icons = new Map([
@@ -19,5 +20,6 @@ export const icons = new Map([
   ['./laser.svg', laser],
   ['./plasma-accelerator.svg', plasma],
   ['./power-plant.svg', plant],
+  ['./thrust-booster.svg', booster],
   ['./empty.svg', empty],
 ]);

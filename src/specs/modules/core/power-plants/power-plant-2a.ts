@@ -13,8 +13,8 @@ export const powerPlant2A = {
   model: powerPlantModel2,
   name: 'Power Plant 2a',
   description: 'An advanced power plant for medium ships.',
-  mass: 305,
-  price: 3000,
-  powerGenerated: 5.4,
+  mass: 275,
+  price: 4500,
+  powerGenerated: 9.2,
   powerCapacity: 48,
 } satisfies ModuleSpec;

@@ -92,3 +92,44 @@ func TestCargoThrusterDoesNotPowerShip(t *testing.T) {
 		t.Fatal("a cargo thruster kept the ship operational")
 	}
 }
+
+func TestSingleNozzleTurningFlare(t *testing.T) {
+	ship, world, _ := thrustBoosterFixture(t)
+	catalog := world.Specification
+
+	for _, id := range []string{"thrusterSingleSm", "thrusterSingleMd"} {
+		engine := modules.Create(id, simulation.ObjectProperties{World: world}, catalog)
+		ship.Fit(engine, ship.Mounts()[0])
+
+		for _, control := range [][3]float64{{0, 1, .5}, {0, -1, .5}, {1, 1, .5}, {1, -1, .5}, {1, .5, .75}, {1, 0, 1}, {0, 0, 0}} {
+			ship.Fly(control[0], control[1])
+
+			for _, segment := range ship.SegmentsAtMount(engine.ModuleBase().Mount) {
+				if math.Abs(segment.Active-control[2]) > 1e-9 {
+					t.Fatalf("%s forward=%g turn=%g: flare=%g, want %g", id, control[0], control[1], segment.Active, control[2])
+				}
+			}
+		}
+	}
+
+	engine := modules.Create("thrusterDualSm", simulation.ObjectProperties{World: world}, catalog)
+	ship.Fit(engine, ship.Mounts()[0])
+
+	for _, turn := range []float64{-1, 1} {
+		for _, forward := range []float64{0, 1} {
+			ship.Fly(forward, turn)
+
+			for _, segment := range ship.SegmentsAtMount(engine.ModuleBase().Mount) {
+				expected := forward * ship.Rules.Flight.SteeringEase
+
+				if turn == -segment.ThrusterNozzleSide {
+					expected = 1
+				}
+
+				if segment.Active != expected {
+					t.Fatal("dual nozzles lost differential steering")
+				}
+			}
+		}
+	}
+}

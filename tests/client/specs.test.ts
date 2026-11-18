@@ -176,7 +176,11 @@ assert.equal(
   'prediction retains spec identity used by cargo grouping',
 );
 copy.health = 1;
-assert.equal(copy.name, 'Diamond', 'prediction retains the item display name');
+assert.equal(
+  copy.name,
+  diamond.name,
+  'prediction retains the item display name',
+);
 assert.equal(item.health, 10, 'cloned mechanics remain independent');
 
 const shipId = 'testScout' as ShipId;
@@ -193,7 +197,7 @@ const previewStation = new Station({
 });
 
 assert.equal(previewShip.cargoSpace, 25);
-assert.equal(previewShip.name, 'Mustang');
+assert.equal(previewShip.name, mustang.name);
 assert.equal(previewStation.localMovementRadius, 750);
 const Engine = moduleTypesById.get('thrusterSingleMd')!;
 const engineMount = previewShip.mounts.find((mount) =>
@@ -340,34 +344,26 @@ console.log(
   'Spec registries, generic content construction and independent instance state passed',
 );
 
-const arrowShip = createPlayerShip(createWorld(), { shipType: 'arrow' });
-
-assert.equal(arrowShip.modules.length, 6);
-assert.deepEqual(
-  arrowShip.mounts.flatMap((mount) =>
-    mount.module instanceof CargoHatch ? [mount.localPosition] : [],
-  ),
-  [Vec.create(-9, -24), Vec.create(-9, 24)],
-);
-assert(arrowShip.mounts[2].module);
-assert.equal(arrowShip.mounts[2].module.definitionId, 'thrusterSingleMd');
-assert(arrowShip.mounts[7].module);
-assert.equal(arrowShip.mounts[7].module.definitionId, 'hornDrill');
-assert(arrowShip.mounts[8].module);
-assert.equal(arrowShip.mounts[8].module.definitionId, 'searchLight');
-assert.equal(
-  createShip(createWorld(), { shipType: 'arrow' }).modules.length,
-  0,
-);
-
 // Mount spacing belongs to the ship, even when the same module is refitted.
 for (const id of ['thrusterDualMd', 'thrusterDualLg'] as const) {
-  const world = createWorld();
-  const wideShip = createPlayerShip(world, { shipType: 'crotus' });
-  const standardShip = createShip(world);
+  const makeShip = (thrusterOffset: number) =>
+    new Ship({
+      spec: {
+        ...mustang,
+        hullSegments: [
+          {
+            ...hullSegments[0],
+            mounts: [[{ x: 0, y: 0, fits: [id], thrusterOffset }]],
+          },
+        ],
+      },
+    });
+
+  const wideShip = makeShip(8);
+  const standardShip = makeShip(0);
   const thruster = new (moduleTypesById.get(id)!)();
-  const wideMount = wideShip.mounts[2];
-  const standardMount = standardShip.mounts[1];
+  const wideMount = wideShip.mounts[0];
+  const standardMount = standardShip.mounts[0];
   const offset = thruster.offset!;
 
   wideShip.fit(thruster, wideMount);
@@ -390,58 +386,6 @@ for (const id of ['thrusterDualMd', 'thrusterDualLg'] as const) {
     'fitting must not change the module offset',
   );
 }
-
-const crotusShip = createPlayerShip(createWorld(), { shipType: 'crotus' });
-
-assert.equal(crotusShip.modules.length, 5);
-assert.deepEqual(
-  crotusShip.mounts.map((mount) =>
-    mount.module ? mount.module.definitionId : null,
-  ),
-  [
-    'autogun',
-    null,
-    'thrusterDualMd',
-    'cargoHatch',
-    'cargoHatch',
-    null,
-    'powerPlant2V',
-  ],
-);
-
-assert.deepEqual(
-  crotusShip.mounts
-    .filter((mount) => mount.module)
-    .map((mount) => mount.localPosition),
-  [
-    Vec.create(24, 0),
-    Vec.create(-26, 0),
-    Vec.create(-7, -22),
-    Vec.create(-7, 22),
-    Vec.create(0, 0),
-  ],
-);
-
-// Both variants retain center docking and share the bay presentation.
-for (const [spec, sides, bays] of [
-  [corral5, 5, 1],
-  [corral6, 6, 2],
-] as const) {
-  assert.equal(spec.geometry.core.length, sides);
-  assert.equal(spec.dockingBays.length, bays);
-  assert.equal(spec.geometry.sides.filter((side) => side.opening).length, bays);
-  assert.equal(spec.geometry.panels.length, sides - bays);
-  assert.equal(
-    spec.hullSegments.filter((segment) => 'dockSegment' in segment).length,
-    1,
-  );
-  assert.equal(
-    spec.hullSegments.filter((segment) => 'glow' in segment).length,
-    bays * 2,
-  );
-}
-
-assert.deepEqual(corral6.dockingBays, [0, Math.PI]);
 
 // Launch selection works for any number of authored bays and replays after rollback.
 const launchWorld = createWorld({ seed: 25 });

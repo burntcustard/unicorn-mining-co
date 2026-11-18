@@ -544,7 +544,11 @@ export const createHud = ({
         rows.forEach(({ Type, element: row }) => {
           const active = ship.moduleActive({ module: Type });
 
-          attribute(row, 'aria-pressed', String(active));
+          attribute(
+            row,
+            Type.behavior === 'thrustBooster' ? 'data-active' : 'aria-pressed',
+            String(active),
+          );
         });
 
         const entries = ship.powerEntries.sort(
@@ -632,9 +636,9 @@ export const createHud = ({
           '[data-distance]',
           `${Math.round(Vec.distance(ship.position, (poses.get(target.id) || target).position)).toLocaleString('en-US')}\u2009m`,
         );
+        text('[data-name]', target.name.replaceAll('\n', ' '));
 
         if (target !== previousTarget) {
-          text('[data-name]', target.name.replaceAll('\n', ' '));
           text('[data-kind]', targetKinds.get(target.kind!) || '');
           const price = target.price;
 

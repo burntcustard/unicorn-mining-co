@@ -3,7 +3,7 @@ import { thrusters } from '../../client/objects/modules';
 import { type Module } from '../../client/objects/modules/module';
 import { createWorld } from '../../client/simulation/world';
 import { shipStats } from '../../client/ui/dom/ship-stats';
-import './thruster-comparison.css';
+import { createComparisonMetric } from './comparison';
 
 export const thrusterComparison = () => {
   const ship = createPlayerShip(createWorld());
@@ -51,12 +51,12 @@ export const renderThrusterComparison = (container: HTMLElement) => {
   const notes = document.createElement('p');
 
   heading.textContent = 'Thruster comparison';
-  description.className = 'thruster-comparison-description';
+  description.className = 'module-comparison-description';
   description.textContent =
     'Full-power performance on an otherwise stock Mustang.';
-  wrapper.className = 'thruster-comparison-scroll';
-  table.className = 'thruster-comparison-table';
-  table.innerHTML = `<caption class="thruster-comparison-caption">Thruster mass, price, and Mustang performance</caption>
+  wrapper.className = 'module-comparison-scroll';
+  table.className = 'module-comparison-table';
+  table.innerHTML = `<caption class="module-comparison-caption">Thruster mass, price, and Mustang performance</caption>
     <thead><tr><th scope="col">Thruster</th><th scope="col">Mass</th><th scope="col">Price</th><th scope="col">Max speed <span>m/s</span></th><th scope="col">Acceleration <span>m/s²</span></th><th scope="col">Turn rate <span>°/s</span></th></tr></thead>`;
 
   rows.forEach((row) => {
@@ -66,13 +66,13 @@ export const renderThrusterComparison = (container: HTMLElement) => {
     const price = document.createElement('td');
 
     tr.className = row.stock
-      ? 'thruster-comparison-stock'
+      ? 'module-comparison-stock'
       : row.compatible
         ? ''
-        : 'thruster-comparison-incompatible';
+        : 'module-comparison-incompatible';
 
     if (row.Type.definitionId === 'thrusterTriple') {
-      tr.classList.add('thruster-comparison-triple');
+      tr.classList.add('module-comparison-triple');
     }
 
     name.scope = 'row';
@@ -82,23 +82,9 @@ export const renderThrusterComparison = (container: HTMLElement) => {
     tr.append(name, mass, price);
 
     metrics.forEach(({ key }, index) => {
-      const cell = document.createElement('td');
-      const chart = document.createElement('div');
-      const track = document.createElement('span');
-      const bar = document.createElement('span');
-      const value = document.createElement('span');
-
-      chart.className = 'thruster-comparison-metric';
-      track.className = 'thruster-comparison-track';
-      bar.className = 'thruster-comparison-bar';
-      bar.setAttribute('aria-hidden', 'true');
-      bar.style.width = `${(row[key] / maximum[index]) * 100}%`;
-      value.className = 'thruster-comparison-value';
-      value.textContent = Math.round(row[key]).toLocaleString('en-US');
-      track.append(bar);
-      chart.append(track, value);
-      cell.append(chart);
-      tr.append(cell);
+      tr.append(
+        createComparisonMetric({ value: row[key], maximum: maximum[index] }),
+      );
     });
 
     body.append(tr);
@@ -106,7 +92,7 @@ export const renderThrusterComparison = (container: HTMLElement) => {
 
   table.append(body);
   wrapper.append(table);
-  notes.className = 'thruster-comparison-notes';
+  notes.className = 'module-comparison-notes';
   notes.textContent =
     '* Does not fit the Mustang; its performance is hypothetical. Prices are in unicredits. The stock power plant cannot continuously supply some thrusters at full power.';
   container.replaceChildren(heading, description, wrapper, notes);

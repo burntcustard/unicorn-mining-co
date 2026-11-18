@@ -10,6 +10,8 @@ The stars `★` and `☆` use identical paths. The generator fills the closed pa
 `★`, keeping its outer edge identical to the outlined `☆`.
 Both use a thinner outline with pointed joins instead of the usual bevels.
 
+The hollow upward arrow `⇧` (`U+21E7`) labels the Shift key.
+
 Letters, digits and other symbols have a 13-unit advance. Full stops and commas
 use a 6-unit advance, with the same stroke weight, so numbers stay compact.
 This spacing is built into the font and needs no CSS feature setting. Canvas
@@ -25,7 +27,7 @@ characters instead.
 The thin space (`U+2009`, `&#8201;` in HTML) advances 6.5 units, exactly half
 the width of the regular space, and has no visible outline.
 
-- Preview: `npm run tool:font-viewer`, then open the URL Vite prints (starting at port 3100)
-  with the other frontend stopped. Saving glyphs updates the preview automatically.
+- Preview: `npm run tool:font-viewer`, then open the URL Vite prints
+  (starting at port 3100). Saving glyphs updates the preview automatically.
 - Generate: `npm run font` writes `gemetric.woff2`. Production builds also do this.
 - Test: `npm run test font-generation font-viewer text-rendering`.

@@ -429,10 +429,11 @@ export class NetworkClient {
       const ship = this.world.entities.get(this.shipId!);
 
       if (ship instanceof Ship) {
-        moduleControls.forEach(({ Type, writeInput }) =>
+        moduleControls.forEach(({ Type, input, writeInput }) =>
           writeInput({
             input: playerInput,
-            active: ship.moduleActive({ module: Type }),
+            active:
+              input !== 'thrustBoost' && ship.moduleActive({ module: Type }),
           }),
         );
       }
@@ -988,6 +989,7 @@ export class NetworkClient {
     now?: number;
   }) {
     if (!this.connected) return false;
+    const previousTick = this.world.tick;
 
     // A nearby snapshot can still exceed the last confirmed prediction horizon.
     // Adopt it directly rather than trying to step past that hard limit.
@@ -1082,6 +1084,19 @@ export class NetworkClient {
         world: this.world,
         predicted: this.predictFrame({ now }),
         shipId: this.shipId,
+      });
+    }
+
+    const elapsed = (this.world.tick - previousTick) * simulationStep;
+
+    if (elapsed > 0) {
+      this.ownedShips?.forEach((ship) => {
+        if (ship.dead || !ship.dockedTo || this.world.entities.has(ship.id)) {
+          return;
+        }
+
+        ship.updatePower(elapsed);
+        ship.updateModules(elapsed);
       });
     }
 

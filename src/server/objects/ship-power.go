@@ -31,16 +31,21 @@ func (s *Ship) powerRates() powerRates {
 			}
 		}
 
+		if spec.Booster != nil && module.FireCooldown <= spec.Booster.Cooldown+1e-9 {
+			active = false
+		}
+
+		charging := (active || spec.ChargeDuration <= 0) && module.ChargeCooldown > 1e-9 ||
+			active && module.FireCooldown > 1e-9 ||
+			!active && spec.RechargeDuration > 0 && mount.HealthActivated != nil && spec.HealthActivated != nil && *mount.HealthActivated < *spec.HealthActivated-1e-9
 		usage := spec.Power
 
-		if active {
+		if active && firing && spec.PowerFiring > 0 {
+			usage = spec.PowerFiring
+		} else if charging && spec.PowerCharging > 0 {
+			usage = spec.PowerCharging
+		} else if active {
 			usage = spec.PowerActivated
-
-			if spec.PowerFiring > 0 && firing {
-				usage = spec.PowerFiring
-			} else if spec.PowerCharging > 0 && max(module.ChargeCooldown, module.FireCooldown) > 1e-9 {
-				usage = spec.PowerCharging
-			}
 		}
 
 		rates.generation += spec.PowerGenerated
