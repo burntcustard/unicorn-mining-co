@@ -203,21 +203,6 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 		ship.Name = s.Name
 	}
 
-	if s.Type == "excel15" && len(ship.HullSegments) == 9 {
-		// The oldest layout split the center nose panel in two.
-		if len(s.Hull) == 12 {
-			s.Hull = slices.Replace(slices.Clone(s.Hull), 2, 4, s.Hull[2]+s.Hull[3])
-		}
-
-		// Each side of the nose now includes its former inner panel.
-		if len(s.Hull) == 11 {
-			upperInner, lowerInner := s.Hull[9], s.Hull[10]
-			s.Hull = slices.Clone(s.Hull[:9])
-			s.Hull[3] += upperInner
-			s.Hull[6] += lowerInner
-		}
-	}
-
 	if len(s.Hull) != len(ship.HullSegments) {
 		return nil, fmt.Errorf("saved hull does not match %q", s.Type)
 	}

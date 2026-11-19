@@ -16,6 +16,12 @@ const cockpitTip = [27, 0];
 const noseShoulder = [8, 12];
 const noseTaperStart = [34, noseShoulder[1]];
 const noseRailEnd = [55, noseBase[1]];
+const rearNoseCollisionPart = [
+  noseBase,
+  noseRailEnd,
+  [noseRailEnd[0], 0],
+  cockpitTip,
+];
 const tipEnd = [73, 4];
 const railExitX = 65;
 const noseRailExit = [
@@ -86,6 +92,11 @@ export const excel15 = {
         ...centeredOutline([noseBase, noseRailEnd, noseRailExit, tipEnd]),
         cockpitTip,
       ],
+      collisionParts: [
+        rearNoseCollisionPart,
+        rearNoseCollisionPart.map(([x, y]) => [x, -y]),
+        centeredOutline([noseRailEnd, noseRailExit, tipEnd]),
+      ],
     },
     ...[-1, 1].flatMap((side): HullSegmentSpecification[] => {
       const reflect = (points: number[][]) =>
@@ -117,6 +128,16 @@ export const excel15 = {
             noseRailExit,
             noseRailEnd,
           ]),
+          collisionParts: [
+            reflect([noseBase, cockpitRearEdge[1], wingShoulder, noseShoulder]),
+            reflect([
+              noseBase,
+              noseShoulder,
+              noseTaperStart,
+              noseRailExit,
+              noseRailEnd,
+            ]),
+          ],
           mounts: [
             [
               {
