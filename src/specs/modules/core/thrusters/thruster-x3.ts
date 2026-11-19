@@ -10,7 +10,7 @@ export const thrusterTriple = {
   powerActivated: 3.6,
   price: 1800,
   fuelUsage: 0.07,
-  forwardThrust: 22,
+  forwardThrust: 21,
   rotationalThrust: 23,
   offset: 14,
   model: [

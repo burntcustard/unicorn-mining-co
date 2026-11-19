@@ -8,6 +8,7 @@ normal frontend and Go server on ports 3000/3001. Captures are saved in
 | Suite                | Command                                       |
 | -------------------- | --------------------------------------------- |
 | Rendering            | `npm run benchmark -- --browser chrome`       |
+| Mustang movement     | `npm run benchmark:movement`                  |
 | NPC collection       | `npm run benchmark:npc:collection -- --watch` |
 | NPC                  | `npm run benchmark:npc -- --scenario all`     |
 | Server CPU, local    | `npm run benchmark:server:local -- --cores 2` |
@@ -55,6 +56,49 @@ GOFLAGS=-overlay=/tmp/unicorn-pirate-rendering/overlay.json npm run dev:server
 
 Replace the existing Go watcher for this configuration, keep Vite running, and
 restore ordinary `npm run dev:server` afterward.
+
+## Mustang movement
+
+The benchmark opens a visible Chromium window and flies the stock Mustang and
+every compatible thruster on its stock loadout. The browser holds forward
+thrust for four seconds, coasts for thirteen, holds right turn for one and a
+half, and releases it for one. Each case starts at rest on a clear lane with
+a full tank and empty cargo.
+
+Build first, then prepare a fresh private world with the local Go watcher
+stopped. Start the watcher with the benchmark overlay, which provisions
+loadouts at Play. Use the regular Vite frontend on port 3000.
+
+```sh
+npm run build
+export DATABASE_PATH="$(mktemp -d /tmp/unicorn-mustang.XXXXXX)/world.sqlite"
+npm run reset-world:local
+overlay=$(node benchmarking/movement/fixture.ts)
+GOFLAGS="-overlay=$overlay" npm run dev:server
+```
+
+With the watcher and `npm run dev -- --strictPort` running, start the benchmark
+from another terminal. Set `CHROME_BIN` if your Chromium executable has a
+different name from `google-chrome`.
+
+```sh
+npm run benchmark:movement -- --output benchmarking/_local/movement/current.json
+```
+
+The JSON includes the revision, world seed, and speed and spin from
+authoritative server snapshots. Each phase starts with the last snapshot
+before the corresponding control change. Forward acceleration is averaged
+over 10–30% of peak speed, and coast deceleration over 90–70% of release
+speed. Turning acceleration and deceleration use the first three full
+ticks after the turn or release. The report also includes peak speed,
+peak turn rate, and the time to coast to half speed. Linear units are
+meters and seconds, and angular units are radians and seconds.
+
+For a comparison, repeat with the other revision's frontend and server and
+its own fresh world. Run the same `fixture.ts` and `run.ts` by absolute path
+from the checkout under test. After the suite, stop the overlay watcher.
+Restart the normal watcher without the benchmark environment to return
+to your usual world.
 
 ## NPC
 

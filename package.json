@@ -19,6 +19,7 @@
     "benchmark": "node benchmarking/rendering/run.ts",
     "benchmark:latency:live": "node benchmarking/latency/run.ts --target live",
     "benchmark:latency:local": "node benchmarking/latency/run.ts --target local",
+    "benchmark:movement": "node benchmarking/movement/run.ts",
     "benchmark:npc": "node benchmarking/npc/run.ts",
     "benchmark:npc:collection": "node benchmarking/npc/collection-run.ts",
     "benchmark:npc:prepare": "node benchmarking/npc/fixture.ts",
