@@ -23,6 +23,7 @@ export const propertyNames = [
   'recharge',
   'charges',
   'collisionParts',
+  'cargoPickupOffset',
   'connections',
   'flightOffset',
   'flightMode',

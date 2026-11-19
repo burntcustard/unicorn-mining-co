@@ -5,5 +5,7 @@ export type MountPointSpec = {
   y: number;
   // Extra outward distance per thruster nozzle along the local Y axis.
   thrusterOffset?: number;
+  // Override the cargo pickup point's inward distance from this mount.
+  cargoPickupOffset?: number;
   fits: ModuleId[];
 };

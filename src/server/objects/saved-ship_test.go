@@ -58,6 +58,56 @@ func TestRestoreShipRejectsDuplicateOwnedIDs(t *testing.T) {
 	}
 }
 
+func TestRestoreExcel15WithEarlierNoseLayouts(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := objects.CreatePlayerShip(world, objects.Properties{DefinitionID: "excel15"})
+	saved := objects.CaptureShip(ship)
+	want := []float64{50, 50, 25, 45, 70, 110, 49, 65, 120}
+
+	for _, layout := range []struct {
+		name string
+		hull []float64
+	}{
+		{"split center", []float64{50, 50, 20, 5, 3, 70, 110, 4, 65, 120, 42, 45}},
+		{"joined center", []float64{50, 50, 25, 3, 70, 110, 4, 65, 120, 42, 45}},
+		{"parallel rails", want},
+	} {
+		t.Run(layout.name, func(t *testing.T) {
+			saved := saved
+			saved.Hull = layout.hull
+			restored, err := objects.RestoreShip(saved, world, 1)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			after := objects.CaptureShip(restored)
+
+			if !slices.Equal(after.Hull, want) {
+				t.Fatalf("restored hull %v, want %v", after.Hull, want)
+			}
+
+			if len(after.Modules) != len(saved.Modules) {
+				t.Fatalf("restored %d modules, want %d", len(after.Modules), len(saved.Modules))
+			}
+
+			for _, module := range after.Modules {
+				if !slices.ContainsFunc(saved.Modules, func(previous objects.SavedShipModule) bool {
+					return previous.ID == module.ID && previous.Mount == module.Mount
+				}) {
+					t.Fatalf("module %s changed mount", module.Type)
+				}
+			}
+		})
+	}
+}
+
 func TestCompactShipRestoresConditionAndCargo(t *testing.T) {
 	catalog, _ := specs.Load()
 	w := simulation.CreateWorld(25, catalog)

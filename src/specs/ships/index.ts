@@ -8,6 +8,7 @@ import { finch } from './finch';
 import { kestrel } from './kestrel';
 import { crescent } from './crescent';
 import { excel8 } from './excel-8';
+import { excel15 } from './excel-15';
 
 export const shipSpecs = {
   mustang,
@@ -19,6 +20,7 @@ export const shipSpecs = {
   kestrel,
   crescent,
   excel8,
+  excel15,
 };
 
 export type ShipId = keyof typeof shipSpecs;
@@ -32,6 +34,7 @@ export const stationShipIds: readonly ShipId[] = [
   'finch',
   'kestrel',
   'excel8',
+  'excel15',
 ];
 
 export const shipSpecsById = new Map<ShipId, ShipSpec>(

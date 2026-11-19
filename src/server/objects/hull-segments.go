@@ -105,10 +105,15 @@ func makeSegment(object *simulation.GameObject, zIndex int, module simulation.Mo
 
 	offset := spec.Offset
 
-	if plan.ThrusterNozzleSide != 0 && mount != nil && module != nil {
+	if mount != nil && module != nil && (plan.ThrusterNozzleSide != 0 || s.Catches) {
 		for _, point := range mount.MountPoints {
 			if slices.Contains(point.Fits, module.ModuleBase().Type) {
-				offset += point.ThrusterOffset
+				if s.Catches && point.CargoPickupOffset != nil {
+					offset = *point.CargoPickupOffset
+				} else if plan.ThrusterNozzleSide != 0 {
+					offset += point.ThrusterOffset
+				}
+
 				break
 			}
 		}

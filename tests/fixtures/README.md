@@ -41,6 +41,7 @@ rates changed only fuel values in the fixed replay, preserving all other fields.
 Thrust boosters add an unset extra control byte to the 48 recorded input
 packets and the Excel-8 offer to the station ship listing. The remaining
 recorded messages and action timing are unchanged.
+The Excel-15 adds a 6,810$ offer to that same station ship listing.
 Full ship records also include the replicated
 `firing` boolean, initially false in these actions. The test decodes newly emitted packets through the
 client codec and checks every message against those fixed records, including
