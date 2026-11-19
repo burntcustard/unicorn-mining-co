@@ -733,11 +733,27 @@ func (c *Craft) modulePower(module simulation.Module) float64 {
 }
 
 func (c *Craft) UpdateModules(dt float64) {
+	if ship, ok := c.Self.(*Ship); ok {
+		ship.updateThrustBoosters(dt)
+	}
+
+	docked := c.DockedTo != nil && *c.DockedTo != 0
+
+	if docked {
+		for _, s := range c.Segments {
+			c.setSegmentActive(s, 0)
+		}
+	}
+
 	var modules [16]simulation.Module
 
 	for _, module := range c.AppendModules(modules[:0]) {
 		data := module.ModuleBase()
 		mount := data.Mount
+
+		if docked && mount != nil && data.Spec.Behavior == "weapon" {
+			data.FireCooldown = math.Max(0, data.FireCooldown-dt)
+		}
 
 		if data.Spec.RechargeDuration <= 0 || mount == nil || mount.Health < 1 || mount.HealthActivated == nil {
 			continue
@@ -761,10 +777,6 @@ func (c *Craft) UpdateModules(dt float64) {
 	}
 
 	for index, s := range c.Segments {
-		if c.DockedTo != nil && *c.DockedTo != 0 {
-			c.setSegmentActive(s, 0)
-		}
-
 		target := s.Active
 
 		if s.Module != nil {

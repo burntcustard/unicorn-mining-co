@@ -124,6 +124,8 @@ const createMountControls = ({
       ? undefined
       : options.find(({ type }) => type === attachments[key]) || defaultOption;
   const module = attached ? new attached.Type() : 0;
+  const booster =
+    !!module && module.behavior === 'thrustBooster' && craft instanceof Ship;
 
   const initial = craft.initialLoadout?.find(
     (entry: { mount: number }) => entry.mount === craft.mounts.indexOf(mount),
@@ -140,7 +142,7 @@ const createMountControls = ({
       : control
         ? moduleBinding(control.input).mode
         : 'toggle';
-  const firing = mode !== 'toggle';
+  const firing = booster || mode !== 'toggle';
   const row = document.createElement('div');
   const label = document.createElement('label');
   const checkbox = document.createElement('input');
@@ -158,7 +160,7 @@ const createMountControls = ({
   const release = () => {
     if (module instanceof Weapon || module instanceof Laser) {
       firingModules.delete(module);
-    } else {
+    } else if (!booster) {
       setActive(false);
     }
 
@@ -166,6 +168,12 @@ const createMountControls = ({
   };
 
   const fire = () => {
+    if (booster) {
+      craft.triggerThrustBoost(true);
+      craft.triggerThrustBoost(false);
+      return;
+    }
+
     if (module instanceof Weapon || module instanceof Laser) {
       firingModules.add(module);
     } else {
@@ -190,8 +198,9 @@ const createMountControls = ({
 
   checkbox.type = 'checkbox';
   checkbox.hidden =
-    firing && !(module instanceof Weapon || module instanceof Laser);
-  checkbox.checked = !!module && (activation[key] ?? false);
+    booster ||
+    (firing && !(module instanceof Weapon || module instanceof Laser));
+  checkbox.checked = !booster && !!module && (activation[key] ?? false);
   checkbox.disabled = !module;
   checkbox.dataset.module = key;
   setActive(checkbox.checked);
@@ -208,9 +217,12 @@ const createMountControls = ({
   select.className = 'text-xs';
   select.setAttribute('aria-label', `Module for ${mountLabel}`);
   button.type = 'button';
-  button.textContent = 'Fire';
+  button.textContent = booster ? 'Boost' : 'Fire';
   button.hidden = !firing;
-  button.setAttribute('aria-label', `Fire ${attached?.name} at ${mountLabel}`);
+  button.setAttribute(
+    'aria-label',
+    `${booster ? 'Boost' : 'Fire'} ${attached?.name} at ${mountLabel}`,
+  );
 
   checkbox.onchange = () => {
     activation[key] = checkbox.checked;

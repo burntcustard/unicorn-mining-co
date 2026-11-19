@@ -105,7 +105,12 @@ func CaptureEntity(entity simulation.Entity) SavedEntity {
 	}
 
 	if m, ok := entity.(simulation.Module); ok {
-		s.ModuleType = m.ModuleBase().Type
+		data := m.ModuleBase()
+		s.ModuleType = data.Type
+
+		if data.Spec.Booster != nil && (data.ChargeCooldown > 0 || data.FireCooldown > 0) {
+			s.Modules = []ModuleState{{ChargeCooldown: savedPointer(&data.ChargeCooldown), FireCooldown: savedPointer(&data.FireCooldown)}}
+		}
 	}
 
 	if item, ok := entity.(*Item); ok {
@@ -248,6 +253,18 @@ func RestoreEntity(s SavedEntity, world *simulation.World) (simulation.Entity, e
 		}
 
 		entity = modules.Create(s.ModuleType, props, world.Specification)
+
+		if data := entity.(simulation.Module).ModuleBase(); data.Spec.Booster != nil && len(s.Modules) > 0 {
+			state := s.Modules[0]
+
+			if state.ChargeCooldown != nil {
+				data.ChargeCooldown = *state.ChargeCooldown
+			}
+
+			if state.FireCooldown != nil {
+				data.FireCooldown = *state.FireCooldown
+			}
+		}
 	} else {
 		switch o.Kind {
 		case "projectile":

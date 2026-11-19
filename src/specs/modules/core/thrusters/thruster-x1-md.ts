@@ -10,8 +10,8 @@ export const thrusterSingleMd = {
   powerActivated: 0.9,
   price: 200,
   fuelUsage: 0.04,
-  forwardThrust: 20,
-  rotationalThrust: 14,
+  forwardThrust: 16,
+  rotationalThrust: 12,
   model: [
     {
       outline: true,

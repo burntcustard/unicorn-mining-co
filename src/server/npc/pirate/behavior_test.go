@@ -122,14 +122,14 @@ func waitingEncounter(t *testing.T) (*fixture, *testhost.Human, *pirate) {
 
 func TestWaitingPirateFollowsWithoutRestartingItsDemand(t *testing.T) {
 	s, p, npc := waitingEncounter(t)
-	warnedAt := npc.WarnedAt
-	startingPosition := npc.ship.Position
-	followed := false
-	settled := false
+	warnedAt, startingPosition := npc.WarnedAt, npc.ship.Position
+	followed, settled := false, false
+	// Briefly outpace the pirate independently of the player's thruster balance.
+	maximum := p.Craft.Rules.Flight.ThrustScale * p.Craft.ForwardThrust() / p.Craft.Mass
 
 	for tick := 0; tick < 30*23; tick++ {
 		if tick < 30*4 {
-			p.Input = protocol.Input{Thrust: .35}
+			p.Input = protocol.Input{Thrust: npc.ship.MaxSpeed() * 1.2 * p.Craft.Drag / maximum}
 		} else {
 			p.Input = protocol.Input{}
 		}

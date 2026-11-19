@@ -24,3 +24,4 @@ export { thrusterDualMd } from './thrusters/thruster-x2-md';
 export { thrusterDualLg } from './thrusters/thruster-x2-lg';
 export { thrusterDualXl } from './thrusters/thruster-x2-xl';
 export { thrusterTriple } from './thrusters/thruster-x3';
+export { thrustBooster } from './thrust-booster';

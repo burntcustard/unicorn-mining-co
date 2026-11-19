@@ -112,12 +112,19 @@ const hud = createHud({
         Type === control || Type.prototype instanceof control,
     )!;
 
-    control.writeInput({
-      input: playerInput,
-      active: !control.readInput(playerInput),
-    });
+    if (control.input === 'thrustBoost') {
+      for (const active of [false, true, false]) {
+        network.recordInput({ input: { ...playerInput, thrustBoost: active } });
+      }
+    } else {
+      control.writeInput({
+        input: playerInput,
+        active: !control.readInput(playerInput),
+      });
 
-    network.recordInput({ input: { ...playerInput } });
+      network.recordInput({ input: { ...playerInput } });
+    }
+
     unlockAudio();
     network.sendActivity();
   },

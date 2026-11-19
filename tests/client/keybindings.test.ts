@@ -44,9 +44,9 @@ try {
   });
 
   assert.equal(
-    defaults.bindingEntries.at(-1)![1],
+    defaults.bindingEntries.at(-2)![1],
     defaults.defaultKeybindings.flightMode,
-    'the new binding is appended after every existing saved binding index',
+    'flight mode keeps its existing saved binding index',
   );
   assert.equal(
     defaults.bindingEntries.filter(([, binding]) => binding.keys.includes('c'))
@@ -54,6 +54,23 @@ try {
     1,
     'flight mode has a dedicated default key',
   );
+
+  assert.deepEqual(defaults.defaultKeybindings.thrustBoost, {
+    keys: ['Shift'],
+    mode: 'hold',
+  });
+
+  assert.equal(
+    defaults.bindingEntries.at(-1)![1],
+    defaults.defaultKeybindings.thrustBoost,
+    'thrust boost is appended after every existing saved binding index',
+  );
+  assert(!defaults.hasBindingMode(defaults.defaultKeybindings.thrustBoost));
+  assert.equal(
+    defaults.moduleBinding('thrustBoost'),
+    defaults.defaultKeybindings.thrustBoost,
+  );
+  assert.equal(defaults.keyLabel('Shift'), '⇧');
 
   defaults.defaultKeybindings.forwardThrust.keys = ['q'];
   defaults.defaultKeybindings.targetNext.keys = ['n'];
@@ -64,6 +81,7 @@ try {
   defaults.defaultKeybindings.sectorMap.keys = ['m'];
   defaults.defaultKeybindings.flightMode.keys = ['x'];
   defaults.defaultKeybindings.flightMode.mode = 'hold';
+  defaults.defaultKeybindings.thrustBoost.keys = ['z'];
   defaults.saveBindings();
   const reloaded = await loadBindings('reloaded');
 
@@ -81,12 +99,17 @@ try {
     mode: 'hold',
   });
 
+  assert.deepEqual(reloaded.defaultKeybindings.thrustBoost, {
+    keys: ['z'],
+    mode: 'hold',
+  });
+
   assert.deepEqual(reloaded.bindingModes, ['hold', 'toggle']);
 
   const currentSaved = JSON.parse(localStorage.getItem('unicorn-controls')!);
-  const legacySaved = currentSaved.slice(0, -1);
+  const legacySaved = currentSaved.slice(0, -2);
   const previousBindings = reloaded.bindingEntries
-    .slice(0, -1)
+    .slice(0, -2)
     .map(([label, binding]) => [label, [...binding.keys], binding.mode]);
 
   localStorage.setItem('unicorn-controls', JSON.stringify(legacySaved));
@@ -94,7 +117,7 @@ try {
 
   assert.deepEqual(
     legacy.bindingEntries
-      .slice(0, -1)
+      .slice(0, -2)
       .map(([label, binding]) => [label, [...binding.keys], binding.mode]),
     previousBindings,
     'all old saved keys and modes retain their original action indexes',
@@ -105,12 +128,34 @@ try {
     mode: 'toggle',
   });
 
+  assert.deepEqual(legacy.defaultKeybindings.thrustBoost, {
+    keys: ['Shift'],
+    mode: 'hold',
+  });
+
   legacy.saveBindings();
   const upgraded = JSON.parse(localStorage.getItem('unicorn-controls')!);
 
-  assert.deepEqual(upgraded.slice(0, -1), legacySaved);
-  assert.deepEqual(upgraded.at(-1), [['c'], 1]);
+  assert.deepEqual(upgraded.slice(0, -2), legacySaved);
+  assert.deepEqual(upgraded.at(-2), [['c'], 1]);
+  assert.deepEqual(upgraded.at(-1), [['Shift'], 0]);
   assert.equal(upgraded.length, legacy.bindingEntries.length);
+
+  localStorage.setItem(
+    'unicorn-controls',
+    JSON.stringify(currentSaved.slice(0, -1)),
+  );
+  const withoutBoost = await loadBindings('legacy-without-thrust-boost');
+
+  assert.deepEqual(withoutBoost.defaultKeybindings.flightMode, {
+    keys: ['x'],
+    mode: 'hold',
+  });
+
+  assert.deepEqual(withoutBoost.defaultKeybindings.thrustBoost, {
+    keys: ['Shift'],
+    mode: 'hold',
+  });
 
   localStorage.setItem(
     'unicorn-controls',
@@ -139,6 +184,11 @@ try {
   assert.deepEqual(reloaded.defaultKeybindings.flightMode, {
     keys: ['c'],
     mode: 'toggle',
+  });
+
+  assert.deepEqual(reloaded.defaultKeybindings.thrustBoost, {
+    keys: ['Shift'],
+    mode: 'hold',
   });
 } finally {
   if (saved === null) {

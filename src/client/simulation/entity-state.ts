@@ -33,6 +33,7 @@ const fields = [
   'dockedTo',
   'forward',
   'firing',
+  'thrustBoostHeld',
   'targetId',
   'fuel',
   'storedPower',

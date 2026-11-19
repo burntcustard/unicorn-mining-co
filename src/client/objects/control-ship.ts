@@ -3,6 +3,7 @@ import {
   SearchLight,
   HornDrill,
   FlightMode,
+  ThrustBooster,
 } from './modules/index';
 import { ShieldGeneratorModule } from './modules/shield-generator';
 import { PlasmaAccelerator, KineticWeapon } from './modules/weapon';
@@ -78,6 +79,14 @@ export const moduleControls = [
       input.hornDrill = active;
     },
   },
+  {
+    Type: ThrustBooster,
+    input: 'thrustBoost',
+    readInput: (input: PlayerInput) => !!input.thrustBoost,
+    writeInput: ({ input, active }: ModuleInputOptions) => {
+      input.thrustBoost = active;
+    },
+  },
 ] as const;
 
 export const controlShip = (
@@ -86,6 +95,7 @@ export const controlShip = (
   events: SimulationEvent[],
 ) => {
   ship.targetId = input.targetId;
+  ship.triggerThrustBoost(!!input.thrustBoost);
 
   if (ship.transitTime) {
     ship.firing = false;
@@ -102,6 +112,8 @@ export const controlShip = (
   );
 
   moduleControls.forEach(({ Type, input: command, readInput }) => {
+    if (command === 'thrustBoost') return;
+
     const enabled =
       readInput(input) || (command === 'cargoHatch' && !!input.cargoRelease);
 

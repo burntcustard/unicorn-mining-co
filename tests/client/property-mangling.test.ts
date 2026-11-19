@@ -281,6 +281,45 @@ export function inspectSettings(keys) {
   const screen = createSettings();
   screen.update();
   return buttons.map(button => button.textContent);
+}
+export function rebindShift() {
+  const buttons = [];
+  const nodes = new Map();
+  const element = () => ({
+    children: [],
+    listeners: new Map(),
+    setAttribute() {},
+    addEventListener(type, callback) { this.listeners.set(type, callback); },
+    append(...children) {
+      this.children.push(...children);
+      buttons.push(...children.filter(child => child.className === 'ui-button text-center'));
+    },
+    querySelectorAll() { return []; },
+    showModal() { this.open = true; },
+    close(value) { this.open = false; this.returnValue = value; },
+  });
+  globalThis.document = { createElement: element };
+  globalThis.settingsQuery = selector => {
+    if (!nodes.has(selector)) nodes.set(selector, element());
+    return nodes.get(selector);
+  };
+  const screen = createSettings();
+  const button = buttons.at(-1);
+  const boostRow = nodes.get('[data-module-bindings]').children.at(-1);
+  const moduleRow = boostRow.children[0].textContent === bindingEntries.at(-1)[0]
+    && !nodes.get('[data-bindings]').children.includes(boostRow)
+    && boostRow.children[1].children.length === 1
+    && boostRow.children[1].children[0] === button;
+  const dialog = nodes.get('[data-binding-dialog]');
+  const labels = [];
+  for (const key of ['z', 'Shift']) {
+    button.listeners.get('ui-press')();
+    dialog.listeners.get('keydown')({ key, stopPropagation() {}, preventDefault() {} });
+    labels.push(button.textContent);
+    if (dialog.open) throw Error('Binding capture remained open');
+  }
+  delete globalThis.settingsQuery;
+  return [labels, bindingEntries.at(-1)[1].keys, moduleRow];
 }`;
         }
 
@@ -290,7 +329,7 @@ export function inspectSettings(keys) {
 
         if (id.endsWith('/ui/dom/ui.ts')) {
           return `export const createScreen = () => ({ element: { querySelectorAll: () => [] } });
-export const query = () => ({ addEventListener() {}, append() {} });
+export const query = (_, selector) => globalThis.settingsQuery?.(selector) || ({ addEventListener() {}, append() {} });
 export const ui = { back() {} };`;
         }
       },
@@ -329,6 +368,11 @@ try {
     '↓ / ↑ / ← / → / q',
     'settings arrow glyphs survive production mangling',
   );
+  assert.deepEqual(
+    built.rebindShift(),
+    [['z', '⇧'], ['Shift'], true],
+    'the momentary Modules row can rebind Shift and show its glyph in production',
+  );
 } finally {
   await settingsBundle.close();
 }
@@ -365,6 +409,18 @@ export function pressModuleKeys() {
   stop();
   return [toggled, firing, released];
 }
+export function pressBoostKey() {
+  globalThis.window = new EventTarget();
+  const transitions = [];
+  const stop = initKeys({ onChange(input) {
+    transitions.push(!!unpackPlayerInput(packPlayerInput(input)).thrustBoost);
+  } });
+  window.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Shift', repeat: false }));
+  window.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Shift', repeat: true }));
+  window.dispatchEvent(Object.assign(new Event('keyup'), { key: 'Shift' }));
+  stop();
+  return transitions;
+}
 export function writeModuleInputs() {
   const input = emptyPlayerInput();
   const restored = moduleControls.map((control) => {
@@ -400,14 +456,19 @@ try {
   );
 
   assert.deepEqual(built.pressModuleKeys(), [
-    [11791, [true, true, true, true, true, true, true, true]],
-    [12047, [true, true, true, true, true, true, true, true]],
-    [11791, [true, true, true, true, true, true, true, true]],
+    [11791, [true, true, true, true, true, true, true, true, false]],
+    [12047, [true, true, true, true, true, true, true, true, false]],
+    [11791, [true, true, true, true, true, true, true, true, false]],
   ]);
   assert.deepEqual(
     built.writeModuleInputs(),
-    [[8192, 2048, 512, 1024, 2, 4, 8, 1], 0],
+    [[8192, 2048, 512, 1024, 2, 4, 8, 1, 16384], 0],
     'restoring and clearing each module input survives production property mangling',
+  );
+  assert.deepEqual(
+    built.pressBoostKey(),
+    [true, false],
+    'Shift press and release survive production input property mangling',
   );
 } finally {
   await inputBundle.close();

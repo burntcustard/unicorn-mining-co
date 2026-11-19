@@ -1,4 +1,5 @@
 import type { RenderingLayer } from '../specs/rendering-layers';
+import type { MountPointSpec } from '../specs/mounts';
 import * as Vec from './utilities/vector';
 import { type Module } from './objects/modules/module';
 
@@ -13,12 +14,9 @@ export type Pose = { position: Vec.Value; rotation: number };
 export type Mount = {
   [key: string]: any;
   localPosition: Vec.Value;
-  mountPoints?: {
-    x: number;
-    y: number;
-    thrusterOffset?: number;
+  mountPoints?: (Omit<MountPointSpec, 'fits'> & {
     fits: (typeof Module)[];
-  }[];
+  })[];
   health?: number;
   module?: Module | 0;
 };

@@ -52,7 +52,7 @@ Object.assign(globalThis, {
   Option: class extends Element {
     constructor(text, value) { super(); this.textContent = text; this.value = value; }
   },
-  Path2D: class { moveTo() {} lineTo() {} quadraticCurveTo() {} closePath() {} arc() {} },
+  Path2D: class { moveTo() {} lineTo() {} quadraticCurveTo() {} closePath() {} arc() {} rect() {} },
   localStorage: { getItem: () => JSON.stringify({ selected: { ship: '../../specs/ships/courser.ts#courser' } }), setItem() {} },
   devicePixelRatio: 1,
   requestAnimationFrame: callback => { frame = callback; return 1; },
@@ -175,13 +175,10 @@ window.onpagehide();
 assert.equal(visibleBeams(laserMounts[0]), 0);
 
 const specSelect = elements.get('#spec');
-const shipOptions = specSelect.children.map(option => option.textContent);
-assert(!shipOptions.includes('Manta'), 'the removed ship is absent from the viewer');
 hitboxes.checked = true;
 elements.get('.viewer-controls').onchange({ target: hitboxes });
-assert(!shipOptions.includes('Crystal'), 'the removed crystal ship is absent from the viewer');
-for (const name of ['Crescent']) {
-  const option = specSelect.children.find(option => option.textContent === name);
+for (const option of specSelect.children.slice(0, 1)) {
+  const name = option.textContent;
   assert(option, name + ' appears in the viewer');
   specSelect.value = option.value;
   elements.get('.viewer-controls').onchange({ target: specSelect });
@@ -199,6 +196,23 @@ for (const name of ['Crescent']) {
 }
 hitboxes.checked = false;
 elements.get('.viewer-controls').onchange({ target: hitboxes });
+const boosterOption = specSelect.children.find(option => option.textContent === 'Booster fixture');
+assert(boosterOption, 'the test ship appears in the viewer');
+specSelect.value = boosterOption.value;
+elements.get('.viewer-controls').onchange({ target: specSelect });
+const excel = viewer.previewObject;
+const boosterMounts = excel.mounts.filter(mount => mount.module?.behavior === 'thrustBooster');
+assert.equal(boosterMounts.length, 2, 'the fixture supplies two boosters');
+const boosterRows = boosterMounts.map(mount => rows()[excel.mounts.indexOf(mount)]);
+assert(boosterRows.every(row => row.children[0].children[0].hidden), 'boosters have no toggle checkbox');
+assert(boosterRows.every(row => row.children[2].textContent === 'Boost' && !row.children[2].hidden));
+press(boosterRows[0].children[2]);
+assert(boosterMounts.every(mount => mount.module.fireCooldown > 0), 'one Boost button triggers both ready boosters');
+const boosterMultiplier = boosterMounts.reduce((factor, mount) => factor * mount.module.booster.multiplier, 1);
+assert.equal(excel.thrustBoostFactor, 1, 'boost starts at normal thrust');
+excel.updateModules(boosterMounts[0].module.booster.rampDuration);
+assert.equal(excel.thrustBoostFactor, boosterMultiplier, 'the viewer uses the multiplicative ship boost');
+boosterRows[0].children[2].onpointerup();
 const typeSelect = elements.get('#object-type');
 typeSelect.value = 'navBeacon';
 elements.get('.viewer-controls').onchange({ target: typeSelect });
@@ -272,7 +286,9 @@ const bundle = await rolldown({
                   `import * as ship${index} from '../../specs/ships/${file}';`,
               )
               .join('\n') +
-            '\n' +
+            "\nimport { boosterShipSpec } from '" +
+            process.cwd() +
+            "/tests/support/booster-ship.ts';\n" +
             readFileSync(id, 'utf8').replace(
               /const specs = import\.meta\.glob[\s\S]*?\n\);/,
               `const specs = { ${shipFiles
@@ -290,7 +306,8 @@ const bundle = await rolldown({
                     fits: mount.fits.includes('cannonSm') ? ['cannonSm', 'laser'] : mount.fits,
                   }))),
                 })),
-              } };`,
+              } };
+              specs['../../specs/ships/booster-fixture.ts'] = { boosterFixture: boosterShipSpec };`,
             )
           );
         }

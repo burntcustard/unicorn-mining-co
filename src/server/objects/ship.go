@@ -15,6 +15,7 @@ import (
 )
 
 type Ship struct {
+	thrustBoostHeld    bool
 	cargoReleaseHeld   bool
 	releasingCargo     bool
 	cargoReleaseHatch  int
@@ -598,13 +599,13 @@ func (s *Ship) LaunchThrottle() float64 {
 func (s *Ship) ForwardThrust() float64 {
 	forward, _, _ := s.thrusterOutput()
 	throttle := s.LaunchThrottle()
-	return forward * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor()
+	return forward * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor() * s.thrustBoostFactor()
 }
 
 func (s *Ship) RotationalThrust() float64 {
 	_, rotational, _ := s.thrusterOutput()
 	throttle := s.LaunchThrottle()
-	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor()
+	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor() * s.thrustBoostFactor()
 }
 
 func (s *Ship) AngularAcceleration() float64 {
@@ -617,7 +618,7 @@ func (s *Ship) MaximumTurnRate() float64 {
 
 func (s *Ship) MaxSpeed() float64 {
 	if s.Cockpit != nil {
-		speed := s.Rules.Flight.SpeedPerThrust * s.ForwardThrust()
+		speed := s.Rules.Flight.SpeedPerThrust * s.ForwardThrust() / s.thrustBoostFactor() * s.thrustBoostSpeedFactor()
 
 		if speed != 0 {
 			return speed
@@ -643,6 +644,8 @@ func (s *Ship) Fly(forward, turn float64) {
 			} else {
 				segment.Active = forward * s.Rules.Flight.SteeringEase
 			}
+		} else if turn != 0 {
+			segment.Active = math.Max(forward*(1-math.Abs(turn)*(1-s.Rules.Flight.SteeringEase)), math.Abs(turn)*s.Rules.Flight.SteeringEase)
 		}
 
 		segment.Active *= s.LaunchThrottle() * s.FuelThrottle() * s.ThrusterPower
@@ -758,7 +761,7 @@ func (s *Ship) Update(dt float64) {
 		f := s.Rules.Flight
 		throttle := s.LaunchThrottle()
 		forward, rotational, _ := s.thrusterOutput()
-		boost := s.flightBoostFactor()
+		boost := s.flightBoostFactor() * s.thrustBoostFactor()
 		forward, rotational = forward*boost, rotational*boost
 		fuelThrottle := s.FuelThrottle()
 		forward = forward * (throttle * throttle) * fuelThrottle * s.ThrusterPower

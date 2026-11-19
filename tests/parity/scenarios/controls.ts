@@ -61,6 +61,7 @@ const client: ClientMessage[] = [
       laserActive: true,
       cargoRelease: true,
       flightMode: true,
+      thrustBoost: true,
       targetId: -130,
     },
   },

@@ -10,8 +10,8 @@ export const thrusterDualSm = {
   powerActivated: 1.2,
   price: 250,
   fuelUsage: 0.05,
-  forwardThrust: 10,
-  rotationalThrust: 12,
+  forwardThrust: 12,
+  rotationalThrust: 13,
   offset: 8,
   model: [
     {

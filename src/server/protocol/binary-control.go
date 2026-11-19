@@ -18,7 +18,7 @@ type Input struct {
 	HornDrill, CargoHatch, SearchLight, ShieldGenerator bool
 	Launch, Fire, CargoRelease                          bool
 	PlasmaActive, AutogunActive, LaserActive            bool
-	FlightMode                                          bool
+	FlightMode, ThrustBoost                             bool
 	Thrust, Turn                                        float64
 }
 
@@ -340,8 +340,15 @@ func DecodeClientControl(data []byte, ids specs.Protocol, step float64) (Control
 			return Control{}, ErrControl
 		}
 
+		extraControls, err := r.byte()
+
+		if err != nil || extraControls > 1 {
+			return Control{}, ErrControl
+		}
+
 		message.Input = Input{
 			FlightMode:   hasOffset&128 != 0,
+			ThrustBoost:  extraControls&1 != 0,
 			CargoRelease: hasOffset&32 != 0, Fire: hasOffset&2 != 0, PlasmaActive: hasOffset&4 != 0, AutogunActive: hasOffset&8 != 0, LaserActive: hasOffset&16 != 0, HornDrill: code&1 != 0, CargoHatch: code&2 != 0,
 			SearchLight: code&4 != 0, ShieldGenerator: code&8 != 0,
 			Launch: code&16 != 0, Thrust: float64((code >> 5) & 1),

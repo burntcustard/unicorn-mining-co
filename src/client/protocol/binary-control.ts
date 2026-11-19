@@ -42,6 +42,7 @@ const {
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const hex = '0123456789abcdef';
+const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 
 export const isPlayerToken = (value: string | null): value is string =>
   value !== null && uuidPattern.test(value);
@@ -268,7 +269,7 @@ class ControlReader {
       throw new Error('Invalid message');
     }
 
-    const value = new TextDecoder('utf-8', { fatal: true }).decode(
+    const value = decoder.decode(
       this.bytes.subarray(this.offset, this.offset + length),
     );
 
@@ -283,10 +284,9 @@ class ControlReader {
 
     if (length > 64 || length > this.remaining) throw new Error('Invalid name');
 
-    const value = new TextDecoder('utf-8', {
-      fatal: true,
-      ignoreBOM: true,
-    }).decode(this.bytes.subarray(this.offset, this.offset + length));
+    const value = decoder.decode(
+      this.bytes.subarray(this.offset, this.offset + length),
+    );
 
     this.offset += length;
 
@@ -352,6 +352,7 @@ export function encodeClientMessage(
           ((code >> 6) & 128) |
           (message.input.targetId === undefined ? 0 : 64),
       );
+      writer.byte((code >> 14) & 1);
 
       if (message.offset !== undefined) {
         if (message.offset < 0 || message.offset >= simulationStep) {
@@ -558,8 +559,9 @@ export function decodeClientMessage(
       const sequence = reader.unsigned();
       const code = reader.byte();
       const hasOffset = reader.byte();
+      const extraControls = reader.byte();
 
-      if (code >= 192) {
+      if (code >= 192 || extraControls > 1) {
         throw new Error('Invalid binary control');
       }
 
@@ -577,7 +579,10 @@ export function decodeClientMessage(
         sequence,
         input: {
           ...unpackPlayerInput(
-            code | ((hasOffset & 62) << 7) | ((hasOffset & 128) << 6),
+            code |
+              ((hasOffset & 62) << 7) |
+              ((hasOffset & 128) << 6) |
+              (extraControls << 14),
           ),
           ...(targetId !== undefined && { targetId }),
         },

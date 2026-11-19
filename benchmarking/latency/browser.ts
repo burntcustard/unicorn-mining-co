@@ -73,7 +73,7 @@ export async function openLatencyBrowser({
   preloadSource = '',
 }: {
   options: ReturnType<typeof parseLatencyOptions>;
-  production: Awaited<ReturnType<typeof loadLatencyAssets>>;
+  production?: Pick<Awaited<ReturnType<typeof loadLatencyAssets>>, 'assets'>;
   signal: AbortSignal;
   registerClose: (close: () => Promise<void>) => void;
   pageCount?: number;
@@ -272,7 +272,7 @@ export async function openLatencyBrowser({
         document || request.pathname === gameUrl.pathname
           ? 'index.html'
           : basename(request.pathname);
-      const value = production.assets.get(name);
+      const value = production?.assets.get(name);
 
       if (value) intercepted.add(name);
       return value;
@@ -404,14 +404,16 @@ export async function openLatencyBrowser({
         });
       });
 
-      await send('Fetch.enable', {
-        patterns: [
-          {
-            urlPattern: gameUrl.origin + '/*',
-            requestStage: 'Request',
-          },
-        ],
-      });
+      if (production) {
+        await send('Fetch.enable', {
+          patterns: [
+            {
+              urlPattern: gameUrl.origin + '/*',
+              requestStage: 'Request',
+            },
+          ],
+        });
+      }
 
       pages.push({
         evaluate: async (expression, command) => {

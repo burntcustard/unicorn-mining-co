@@ -44,6 +44,7 @@ import { cargoContactAllowed } from './modules/cargo-hatch';
 import { hullColliders } from '../collision/hull-colliders';
 import { convexParts } from '../utilities/triangulate';
 import { Module } from './modules/module';
+import type { ThrusterFlareState } from './modules/thruster';
 import {
   type Pose,
   type Mount,
@@ -91,7 +92,9 @@ type CraftProperties = {
 };
 
 // Presentation survives mechanics rewinds and segment rebuilds by module ID.
-const visualPhases = new WeakMap<Craft, Map<number | Module, number[]>>();
+type ModuleVisualState = { phase?: number; flare?: ThrusterFlareState };
+
+const visualPhases = new WeakMap<Craft, Map<number, ModuleVisualState[]>>();
 
 const collisionCaches = new WeakMap<
   Craft,
@@ -1024,6 +1027,7 @@ export class Craft extends GameObject {
       module.health = state.mount >= 0 ? Type.health : state.health;
       module.fireCooldown = state.fireCooldown ?? 0;
       module.chargeCooldown = state.chargeCooldown ?? 0;
+
       module.aimRotation = state.aimRotation ?? 0;
 
       module.shades = state.shades ? shadesOf(state.shades) : undefined;
@@ -1109,7 +1113,10 @@ export class Craft extends GameObject {
                   ? segment.module.renderGlow
                   : (segment.beam ?? segment.module.beam)) ||
                 (!segment.activationProgress &&
-                  !(segment.module.forwardThrust && segment.phase) &&
+                  !(
+                    segment.module.forwardThrust &&
+                    (segment.phase || segment.flare?.width)
+                  ) &&
                   (!glow || segment.module.forwardThrust)) ||
                 (segment.mount || segment).health < 1
               ) {
@@ -1124,7 +1131,7 @@ export class Craft extends GameObject {
               }
 
               if (glow) {
-                segment.module.renderGlow({ segment });
+                segment.module.renderGlow({ segment, craft: this });
               } else {
                 if (zIndex === renderingLayers.stationFloor) {
                   collectSpectrum(ctx, segment, segment.prism, pose);
@@ -1450,7 +1457,15 @@ export class Craft extends GameObject {
   }
 
   updateModules(dt: number) {
+    if (this.dockedTo) {
+      this.segments.forEach((segment) => this.setSegmentActive(segment, 0));
+    }
+
     this.modules.forEach((module) => {
+      if (this.dockedTo && module.mount && module.behavior === 'weapon') {
+        module.fireCooldown = Math.max(0, (module.fireCooldown || 0) - dt);
+      }
+
       if (
         !module.rechargeDuration ||
         !module.mount ||
@@ -1480,7 +1495,6 @@ export class Craft extends GameObject {
     });
 
     this.segments.forEach((segment) => {
-      if (this.dockedTo) this.setSegmentActive(segment, 0);
       const target = !((segment.mount || segment).health < 1)
         ? segment.active *
           (segment.module ? this.modulePower(segment.module) : 1)
@@ -1526,26 +1540,47 @@ export class Craft extends GameObject {
   updateVisual(dt: number) {
     this.updateFlightMode();
     const previous = visualPhases.get(this);
-    const phases = new Map<number | Module, number[]>();
+    const phases = new Map<number, ModuleVisualState[]>();
 
     this.mounts.forEach(({ module }) => {
       if (!module || !module.updateVisual) return;
       const segments = this.segmentsAtMount(module.mount);
-      const key = module.id ?? module;
+      const key = module.id;
       const stored = previous?.get(key);
 
       segments.forEach((segment, index) => {
-        if (stored?.[index] !== undefined) segment.phase = stored[index];
+        Object.assign(segment, stored?.[index]);
       });
 
       module.updateVisual({ dt, segments, craft: this });
       phases.set(
         key,
-        segments.map((segment) => segment.phase),
+        segments.map(({ phase, flare }) => ({ phase, flare })),
       );
     });
 
     visualPhases.set(this, phases);
+  }
+
+  /*
+   * Display prediction reuses solved mechanics between frames. Draw its modules
+   * with the source craft's current presentation rather than tick-old copies.
+   */
+  syncVisualState(source: Craft) {
+    const states = visualPhases.get(source);
+
+    if (!states || source === this) return;
+
+    this.mounts.forEach(({ module }) => {
+      if (!module) return;
+      const stored = states.get(module.id);
+
+      if (!stored) return;
+
+      this.segmentsAtMount(module.mount).forEach((segment, index) => {
+        Object.assign(segment, stored[index]);
+      });
+    });
   }
 
   get wreckage(): WreckageSegment[] | undefined {

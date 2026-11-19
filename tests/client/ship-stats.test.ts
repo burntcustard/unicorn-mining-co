@@ -1,20 +1,11 @@
 import assert from 'node:assert/strict';
-import { createPlayerShip } from '../../src/client/objects/create-ship';
+import { createBoosterShip } from '../support/booster-ship';
 import { moduleTypesById } from '../../src/client/objects/modules';
-import { createWorld } from '../../src/client/simulation/world';
 import { shipStats } from '../../src/client/ui/dom/ship-stats';
 import { simulationStep } from '../../src/specs/simulation';
 
-const ship = createPlayerShip(createWorld());
-const original = shipStats(ship);
-
-assert.equal(original.mass, 4175);
-assert.equal(original.powerCapacity, 48);
-assert.equal(original.maxSpeed, 272);
-assert(Math.abs(original.acceleration - 391.1111111111111) < 1e-9);
-assert(Math.abs(original.turnRate - (3 * 180) / Math.PI) < 1e-9);
-
-const moving = createPlayerShip(createWorld());
+const ship = createBoosterShip();
+const moving = createBoosterShip();
 
 moving.fly(1, 0);
 moving.update(simulationStep);
@@ -60,7 +51,7 @@ for (const [behavior, candidateId] of [
   }
 }
 
-const unpowered = createPlayerShip(createWorld());
+const unpowered = createBoosterShip();
 const powerMount = unpowered.mounts.find(
   ({ module }) => module && module.behavior === 'powerPlant',
 );

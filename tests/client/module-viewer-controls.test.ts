@@ -75,6 +75,19 @@ class OptionElement extends Element {
   }
 }
 
+const pressKey = (element: Element, key: string) => {
+  let prevented = false;
+
+  element.onkeydown!({
+    key,
+    preventDefault: () => {
+      prevented = true;
+    },
+  });
+
+  assert(prevented);
+};
+
 class Path {
   moveTo() {}
   lineTo() {}
@@ -91,10 +104,13 @@ const controls = new Map(
     '#modules',
     '#modules-tab',
     '#comparison-tab',
+    '#power-plant-comparison-tab',
     '#modules-panel',
     '#comparison-panel',
+    '#power-plant-comparison-panel',
     '#module-controls',
     '#thruster-comparison',
+    '#power-plant-comparison',
   ].map((selector) => [selector, new Element()]),
 );
 let observers = 0;
@@ -135,16 +151,21 @@ try {
   const grid = controls.get('#modules')!;
   const moduleTab = controls.get('#modules-tab')!;
   const comparisonTab = controls.get('#comparison-tab')!;
+  const powerPlantTab = controls.get('#power-plant-comparison-tab')!;
   const modulePanel = controls.get('#modules-panel')!;
   const comparisonPanel = controls.get('#comparison-panel')!;
+  const powerPlantPanel = controls.get('#power-plant-comparison-panel')!;
   const moduleControls = controls.get('#module-controls')!;
   const comparison = controls.get('#thruster-comparison')!;
+  const powerPlantComparison = controls.get('#power-plant-comparison')!;
   const ids = () => grid.children.map((card) => card.dataset.module);
 
   assert.equal(models.checked, false);
   assert.equal(observers, 0, 'models are not rendered initially');
   assert.equal(grid.children.length, catalog.length);
   assert(grid.children.every((card) => card.children.length === 1));
+  assert.equal(comparison.children.length, 0);
+  assert.equal(powerPlantComparison.children.length, 0);
   category.value = 'core';
   category.onchange!();
   assert.deepEqual(
@@ -169,25 +190,40 @@ try {
   assert.equal(modulePanel.hidden, true);
   assert.equal(moduleControls.hidden, true);
   assert.equal(comparisonPanel.hidden, false);
+  assert.equal(powerPlantPanel.hidden, true);
   assert.equal(comparisonTab.attributes['aria-selected'], 'true');
   assert.equal(moduleTab.tabIndex, -1);
   assert(comparison.children.length > 0, 'comparison is rendered');
-  let prevented = false;
+  const thrusterHeading = comparison.children[0];
 
-  comparisonTab.onkeydown!({
-    key: 'Home',
-    preventDefault: () => {
-      prevented = true;
-    },
-  });
+  pressKey(comparisonTab, 'ArrowRight');
+  assert.equal(comparisonPanel.hidden, true);
+  assert.equal(powerPlantPanel.hidden, false);
+  assert.equal(powerPlantTab.attributes['aria-selected'], 'true');
+  assert.equal(powerPlantTab.tabIndex, 0);
+  assert.equal(powerPlantTab.focused, true);
+  assert(powerPlantComparison.children.length > 0);
+  const powerPlantHeading = powerPlantComparison.children[0];
 
-  assert(prevented);
+  pressKey(powerPlantTab, 'Home');
   assert.equal(modulePanel.hidden, false);
   assert.equal(moduleControls.hidden, false);
   assert.equal(comparisonPanel.hidden, true);
+  assert.equal(powerPlantPanel.hidden, true);
   assert.equal(moduleTab.attributes['aria-selected'], 'true');
   assert.equal(moduleTab.focused, true);
   assert.equal(folder.value, 'thrusters', 'switching tabs preserves filters');
+
+  pressKey(moduleTab, 'End');
+  assert.equal(powerPlantPanel.hidden, false);
+  assert.equal(powerPlantComparison.children[0], powerPlantHeading);
+  pressKey(powerPlantTab, 'ArrowRight');
+  assert.equal(modulePanel.hidden, false, 'forward navigation wraps');
+  pressKey(moduleTab, 'ArrowLeft');
+  assert.equal(powerPlantPanel.hidden, false, 'backward navigation wraps');
+  comparisonTab.onclick!();
+  assert.equal(comparison.children[0], thrusterHeading);
+  moduleTab.onclick!();
 
   models.checked = true;
   models.onchange!();

@@ -76,6 +76,7 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
   const updateAutogunSounds = createAutogunSoundUpdater();
   let buffers: HTMLCanvasElement[];
   let ship: Ship;
+  let liveSource: Ship | undefined;
   let hullIndex = -1;
   let loadout = '';
   let frame = 0;
@@ -133,6 +134,7 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
         segment,
         +(
           active &&
+          !(liveSource && segment.module.booster) &&
           (active === 'all'
             ? !segment.hull && !(segment.module instanceof SearchLight)
             : !!activeMount && segment.mount === activeMount) &&
@@ -171,6 +173,27 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
     previousTime = time;
     ship.updateModules(dt);
     updateActivation();
+
+    const sourceMounts = liveSource?.mounts;
+
+    ship.mounts.forEach(({ module }, index) => {
+      const source = sourceMounts?.[index]?.module;
+
+      if (
+        !source ||
+        !module ||
+        module === fitting ||
+        module.definitionId !== source.definitionId
+      ) {
+        return;
+      }
+
+      module.fireCooldown = source.fireCooldown;
+
+      // Weapon warmup belongs to its deployment demonstration, not the berth.
+      if (!module.chargeDuration) module.chargeCooldown = source.chargeCooldown;
+    });
+
     ship.updateVisual(dt);
 
     updateAutogunSounds({
@@ -181,7 +204,14 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
     if (
       ship.segments.some(
         (segment) => segment.active || segment.activationProgress,
-      )
+      ) ||
+      (liveSource &&
+        ship.modules.some(
+          (module) =>
+            module.mount &&
+            (module.fireCooldown > 0 ||
+              (!module.chargeDuration && module.chargeCooldown > 0)),
+        ))
     ) {
       requestDraw();
     } else {
@@ -413,6 +443,8 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
               saved[3].map(([type, mount]) => [type, mount]),
             ],
       );
+
+      liveSource = live?.world && live.dockedTo ? live : undefined;
 
       // Equipping the displayed fitting commits its existing animation state.
       if (

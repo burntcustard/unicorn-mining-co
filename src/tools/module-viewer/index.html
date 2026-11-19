@@ -36,6 +36,16 @@
         >
           Thruster comparison
         </button>
+        <button
+          id="power-plant-comparison-tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="power-plant-comparison-panel"
+          tabindex="-1"
+          type="button"
+        >
+          Power plant comparison
+        </button>
       </nav>
       <div id="module-controls">
         <label class="mt-4 mb-2" for="category">Category</label>
@@ -62,6 +72,14 @@
         hidden
       >
         <div id="thruster-comparison"></div>
+      </section>
+      <section
+        id="power-plant-comparison-panel"
+        role="tabpanel"
+        aria-labelledby="power-plant-comparison-tab"
+        hidden
+      >
+        <div id="power-plant-comparison"></div>
       </section>
     </main>
     <script type="module" src="./main.ts"></script>

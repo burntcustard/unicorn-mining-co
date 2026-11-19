@@ -27,6 +27,7 @@ import {
   thrusterDualXl,
   thrusterTriple,
   thrusterCrescent,
+  thrustBooster,
 } from './core';
 
 import {
@@ -94,6 +95,7 @@ export {
   powerPlant4L,
   flightMode,
   thrusterCrescent,
+  thrustBooster,
 };
 
 // Stable wire IDs: folder and category order must not change these indexes.
@@ -140,6 +142,7 @@ export const moduleIds = [
   'powerPlant4L',
   'flightMode',
   'thrusterCrescent',
+  'thrustBooster',
 ] as const;
 
 export type ModuleId = (typeof moduleIds)[number];
@@ -187,6 +190,7 @@ export const moduleSpecs = {
   powerPlant4L,
   flightMode,
   thrusterCrescent,
+  thrustBooster,
 };
 
 export const moduleSpecList: ModuleSpec[] = Object.values(moduleSpecs);
@@ -239,6 +243,7 @@ export const stationModuleIds: readonly ModuleId[] = [
   'powerPlant4H',
   'powerPlant4V',
   'powerPlant4L',
+  'thrustBooster',
 ];
 
 // Each power plant mount accepts all four ratings of its assigned size.

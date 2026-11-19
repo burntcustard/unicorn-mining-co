@@ -33,7 +33,7 @@ for (const bytes of [
 const controls: ClientMessage[] = [
   { type: 'sectorMap', position: { x: -12500.25, y: 62000.5 } },
   { type: 'gateAccess', gateId: 2 ** 45 },
-  { type: 'chat', channel: 0, text: 'Hello 🦄 <script> sector' },
+  { type: 'chat', channel: 0, text: '\ufeffHello 🦄 <script> sector' },
   { type: 'chat', channel: 1, text: '🦄'.repeat(240) },
   {
     type: 'input',
@@ -113,6 +113,12 @@ const controls: ClientMessage[] = [
     sequence: 10,
     input: { ...emptyPlayerInput(), flightMode: true },
   },
+  {
+    type: 'input',
+    tick: 10,
+    sequence: 11,
+    input: { ...emptyPlayerInput(), thrustBoost: true },
+  },
   { type: 'dock', action: 'buyAmmo' },
   { type: 'dock', action: 'buyAmmo', sequence: 42 },
   { type: 'dock', action: 'buyStock', objectIds: [42], sequence: 43 },
@@ -162,6 +168,7 @@ for (const targetId of [
         fire: true,
         autogunActive: true,
         flightMode: true,
+        thrustBoost: true,
       },
       ...(offset !== undefined && { offset }),
     };
@@ -176,6 +183,7 @@ for (const targetId of [
       !sameInput(message.input, { ...message.input, targetId: undefined }),
     );
     assert(!sameInput(message.input, { ...message.input, flightMode: false }));
+    assert(!sameInput(message.input, { ...message.input, thrustBoost: false }));
   }
 }
 
@@ -188,6 +196,16 @@ assert(
 );
 assert(!sameInput(flightInput, emptyPlayerInput()));
 assert(!sameInput(emptyPlayerInput(), flightInput));
+
+const boostInput = { ...emptyPlayerInput(), thrustBoost: true };
+
+assert.equal(packPlayerInput(boostInput), 1 << 14);
+assert.deepEqual(unpackPlayerInput(packPlayerInput(boostInput)), boostInput);
+assert(
+  sameInput(emptyPlayerInput(), { ...emptyPlayerInput(), thrustBoost: false }),
+);
+assert(!sameInput(boostInput, emptyPlayerInput()));
+assert(!sameInput(emptyPlayerInput(), boostInput));
 
 for (const turn of [-1, 0, 1]) {
   const message: ClientMessage = {
@@ -209,6 +227,7 @@ for (const turn of [-1, 0, 1]) {
       laserActive: true,
       cargoRelease: true,
       flightMode: true,
+      thrustBoost: true,
       targetId: -130,
     },
   };
@@ -237,6 +256,7 @@ for (const turn of [-1, 0, 1]) {
     'offset and target payloads do not move',
   );
   assert.deepEqual(decodeClientMessage(encoded), message);
+  assert.equal(encoded[8], 1, 'thrust boost composes with every other control');
 
   assert(
     sameInput(unpackPlayerInput(packPlayerInput(message.input)), {
@@ -265,7 +285,7 @@ for (const message of [
     channel: 1,
     senderRole: 'user',
     sender: 'Jump Gate',
-    text: 'Access granted.',
+    text: '\ufeffAccess granted.',
   },
   ...[0, 281474976710999].map((cargoDemand) => ({
     type: 'chat' as const,
@@ -385,8 +405,8 @@ const input = encodeClientMessage({
 
 assert.deepEqual(
   [...input],
-  [0x55, 0x43, 1, 1, 1, 1, 0, 0],
-  'untargeted inputs retain their wire format',
+  [0x55, 0x43, 1, 1, 1, 1, 0, 0, 0],
+  'input controls include an extension byte for thrust boost',
 );
 
 const flightPacket = encodeClientMessage({
@@ -398,8 +418,8 @@ const flightPacket = encodeClientMessage({
 
 assert.deepEqual(
   [...flightPacket],
-  [0x55, 0x43, 1, 1, 1, 1, 0, 128],
-  'flight mode uses the previously unused high flag without changing legacy input bytes',
+  [0x55, 0x43, 1, 1, 1, 1, 0, 128, 0],
+  'flight mode keeps its existing high flag bit',
 );
 
 assert.deepEqual(decodeClientMessage(flightPacket), {
@@ -432,6 +452,9 @@ for (const invalid of [
   Uint8Array.from([...hello, 0]), // trailing byte
   Uint8Array.from([0x55, 0x43, 1, 4, 0x80, 0]), // noncanonical varint
   changed(input, 6, 192), // invalid input control bits
+  changed(input, 8, 2), // unknown extension control bit
+  changed(input, 8, 255), // unknown extension control bits
+  input.slice(0, -1), // missing extension control byte
   changed(input, 7, 64), // missing target ID
   Uint8Array.from([...changed(input, 7, 64), 0x80, 0]), // noncanonical target ID
   Uint8Array.from([
@@ -483,10 +506,6 @@ assert.throws(
       encodeServerControl({ type: 'progress', unlockedPaints: 0x10000 }),
     ),
   /Invalid binary control/,
-);
-
-console.log(
-  'Binary client and server controls round-trip and reject invalid frames',
 );
 
 assert.throws(() =>

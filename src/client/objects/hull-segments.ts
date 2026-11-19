@@ -23,7 +23,7 @@ export const makeSegment = (
   mount?: Mount,
 ): Segment => {
   const mountPoint =
-    craftModule.behavior === 'thruster'
+    craftModule.behavior === 'thruster' || segmentPlan.catches
       ? mount?.mountPoints?.find(({ fits }) =>
           fits.includes(craftModule.constructor as typeof Module),
         )
@@ -47,6 +47,9 @@ export const makeSegment = (
   const thrusterOffset = segmentPlan.thrusterNozzleSide
     ? (mountPoint?.thrusterOffset ?? 0)
     : 0;
+  const offset =
+    (segmentPlan.catches ? mountPoint?.cargoPickupOffset : undefined) ??
+    (craftModule.offset || 0) + thrusterOffset;
 
   // Model vertices are shared specs. Edge markings remain mutable;
   // changed geometry supplies another outline, including animated models.
@@ -136,8 +139,7 @@ export const makeSegment = (
           (segmentPlan.thrusterNozzleSide ||
             (craftModule.behavior === 'cargoHatch' && mount
               ? -Math.sign(mount.localPosition.y)
-              : 0)) *
-            ((craftModule.offset || 0) + thrusterOffset),
+              : 0)) * offset,
         ),
       ),
       zIndex:

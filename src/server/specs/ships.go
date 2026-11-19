@@ -2,10 +2,11 @@
 package specs
 
 type MountPoint struct {
-	ThrusterOffset float64  `json:"thrusterOffset"`
-	X              float64  `json:"x"`
-	Y              float64  `json:"y"`
-	Fits           []string `json:"fits"`
+	CargoPickupOffset *float64 `json:"cargoPickupOffset"`
+	ThrusterOffset    float64  `json:"thrusterOffset"`
+	X                 float64  `json:"x"`
+	Y                 float64  `json:"y"`
+	Fits              []string `json:"fits"`
 }
 
 type HullSegment struct {

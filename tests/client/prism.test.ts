@@ -624,6 +624,35 @@ await bundle.close();
     center(traceBeam(ship, lamp, [source], source)).at.x < 30,
     'the rest of the source can still block its beam',
   );
+
+  const hull = { hull: true } as import('../../src/client/types').Segment;
+
+  source.hitbox = () =>
+    [
+      [-5, 5],
+      [5, 15],
+      [25, 35],
+    ].map(([start, end]) => ({
+      owner: source,
+      position: source.position,
+      rotation: 0,
+      radius: end,
+      friction: 0,
+      physics: true,
+      segment: hull,
+      shapeOutline: [
+        [start, -5],
+        [end, -5],
+        [end, 5],
+        [start, 5],
+      ],
+    }));
+
+  assert.equal(
+    center(traceBeam(ship, lamp, [source], source)).at.x,
+    25,
+    'the beam passes through adjoining hull panels and stops at a separate panel',
+  );
 }
 
 {

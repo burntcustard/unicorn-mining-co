@@ -9,6 +9,7 @@ import (
 
 func (s *Ship) Control(input protocol.Input, events *[]protocol.SimulationEvent) {
 	s.TargetID = input.TargetID
+	s.TriggerThrustBoost(input.ThrustBoost)
 
 	if s.cargoReleaseHeld && !input.CargoRelease {
 		s.CancelCargoRelease()

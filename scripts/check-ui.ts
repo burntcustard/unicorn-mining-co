@@ -6,13 +6,20 @@ import {
   mkdtemp,
   rm,
 } from 'node:fs/promises';
-import { extname, resolve, sep } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
 import { rolldown } from 'rolldown';
 import { buildPlugin, buildPrePlugin } from '../plugins/build-plugins.ts';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import WebSocket from 'ws';
+import { stationShipIds } from '../src/specs/ships';
+import {
+  bindingEntries,
+  bindingModeLabel,
+  hasBindingMode,
+} from '../src/client/input/keybindings';
 
 type CdpReply = Record<string, any>;
 
@@ -110,7 +117,7 @@ await writeFile(
   `${fixtureDirectory}/index.html`,
   `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">${stylesheets.map((name) => `<link rel="stylesheet" href="../${name}">`).join('')}</head><body><canvas id="canvas"></canvas><script type="module" src="fixture.js"></script></body></html>`,
 );
-const profile = await mkdtemp('/tmp/unicorn-ui-browser-');
+const profile = await mkdtemp(join(tmpdir(), 'unicorn-ui-browser-'));
 const chrome = spawn(
   process.env.CHROME_BIN || 'chromium',
   [
@@ -151,6 +158,10 @@ const connect = async (url: string) => {
 
   const events: CdpReply[] = [];
   const listeners: ((event: CdpReply) => void)[] = [];
+
+  ws.on('close', () => {
+    pending.forEach(({ reject }) => reject(new Error('Browser disconnected')));
+  });
 
   ws.on('message', (data) => {
     const msg = JSON.parse((data as Buffer).toString());
@@ -725,12 +736,14 @@ checkUi: try {
     assert(
       await check(`(() => {
       const groups = [...document.querySelectorAll('.ui-binding-modes')];
-      return groups.length === 8 && groups.every((group, index) => {
+      const expected = ${JSON.stringify(bindingEntries.filter(([, binding]) => hasBindingMode(binding)).map(([label, binding]) => [label, bindingModeLabel(binding.mode)]))};
+      return groups.length === expected.length && groups.every((group, index) => {
         const buttons = [...group.querySelectorAll('button')];
         const boxes = buttons.map(button => button.getBoundingClientRect());
         return group.nextElementSibling?.tagName === 'BUTTON' &&
+          group.getAttribute('aria-label') === expected[index][0] + ' activation mode' &&
           buttons.map(button => button.textContent).join('/') === 'Hold/Toggle' &&
-          buttons.find(button => button.getAttribute('aria-pressed') === 'true').textContent === (index === 7 ? 'Hold' : 'Toggle') &&
+          buttons.find(button => button.getAttribute('aria-pressed') === 'true').textContent === expected[index][1] &&
           boxes.slice(1).every((box, i) => Math.abs(box.left - boxes[i].right + 2) < 0.1);
       });
     })()`),
@@ -815,30 +828,31 @@ checkUi: try {
       ),
       'Up from the first module control returns to Ship controls',
     );
-    const moduleRows = await check(
-      `document.querySelectorAll('[data-module-bindings] > div').length`,
+    const modeRow = '[data-module-bindings] > div:has(.ui-binding-modes)';
+    const modeRows = await check(
+      `document.querySelectorAll('${modeRow}').length`,
     );
 
     for (const column of [0, 1, 2]) {
       await check(
-        `document.querySelectorAll('[data-module-bindings] > div')[0].querySelectorAll('button')[${column}].focus()`,
+        `document.querySelectorAll('${modeRow}')[0].querySelectorAll('button')[${column}].focus()`,
       );
 
-      for (let row = 1; row < moduleRows; row++) {
+      for (let row = 1; row < modeRows; row++) {
         await pressKey('ArrowDown');
         assert(
           await check(
-            `document.activeElement === document.querySelectorAll('[data-module-bindings] > div')[${row}].querySelectorAll('button')[${column}]`,
+            `document.activeElement === document.querySelectorAll('${modeRow}')[${row}].querySelectorAll('button')[${column}]`,
           ),
           `Down retains column ${column} between module rows`,
         );
       }
 
-      for (let row = moduleRows - 2; row >= 0; row--) {
+      for (let row = modeRows - 2; row >= 0; row--) {
         await pressKey('ArrowUp');
         assert(
           await check(
-            `document.activeElement === document.querySelectorAll('[data-module-bindings] > div')[${row}].querySelectorAll('button')[${column}]`,
+            `document.activeElement === document.querySelectorAll('${modeRow}')[${row}].querySelectorAll('button')[${column}]`,
           ),
           `Up retains column ${column} between module rows`,
         );
@@ -878,14 +892,32 @@ checkUi: try {
     }
 
     await check(
-      `document.querySelector('[data-module-bindings] > :last-child button').focus()`,
+      `[...[...document.querySelectorAll('${modeRow}')].at(-1).querySelectorAll('button')].at(-1).focus()`,
     );
+    await pressKey('ArrowDown');
+    assert(
+      await check(`(() => {
+        const row = document.querySelector('[data-module-bindings] > :last-child');
+        return row.firstElementChild.textContent === 'Thrust booster'
+          && row.querySelectorAll('button').length === 1
+          && row.querySelector('button') === document.activeElement;
+      })()`),
+      'Down reaches the momentary Boost module binding without mode buttons',
+    );
+    await pressKey('ArrowUp');
+    assert(
+      await check(
+        `document.activeElement === [...[...document.querySelectorAll('${modeRow}')].at(-1).querySelectorAll('button')].at(-1)`,
+      ),
+      'Up from Boost returns to the previous module binding',
+    );
+    await pressKey('ArrowDown');
     await pressKey('ArrowDown');
     assert(await check(`document.activeElement.matches('[data-reset]')`));
 
     await check(`(() => {
       document.querySelector('[data-back]').focus();
-      document.querySelector('[data-module-bindings] > :last-child').scrollIntoView({ block: 'center' });
+      document.querySelector('[aria-label="Release cargo activation mode"]').scrollIntoView({ block: 'center' });
     })()`);
 
     await c.send('Input.dispatchMouseEvent', {
@@ -896,7 +928,7 @@ checkUi: try {
 
     const topModeAtBorder = () =>
       check(`(() => {
-      const group = document.querySelector('[data-module-bindings] > :last-child .ui-binding-modes');
+      const group = document.querySelector('[aria-label="Release cargo activation mode"]');
       const hold = group.querySelector('button');
       const box = hold.getBoundingClientRect();
       return document.elementFromPoint(box.right - 1, box.y + box.height / 2)?.textContent;
@@ -908,12 +940,12 @@ checkUi: try {
       'the pressed Hold button paints above its unpressed neighbor at their shared border',
     );
     await check(
-      `document.querySelector('[data-module-bindings] > :last-child .ui-binding-modes button').focus()`,
+      `document.querySelector('[aria-label="Release cargo activation mode"] button').focus()`,
     );
     await pressKey('Tab');
     assert(
       await check(
-        `document.activeElement.matches('[data-module-bindings] > :last-child .ui-binding-modes button:last-child:focus-visible')`,
+        `document.activeElement.matches('[aria-label="Release cargo activation mode"] button:last-child:focus-visible')`,
       ),
     );
     assert.equal(
@@ -923,7 +955,7 @@ checkUi: try {
     );
     await check(`document.querySelector('[data-back]').focus()`);
     await hover(
-      '[data-module-bindings] > :last-child .ui-binding-modes button:last-child',
+      '[aria-label="Release cargo activation mode"] button:last-child',
     );
     assert.equal(
       await topModeAtBorder(),
@@ -1267,6 +1299,13 @@ checkUi: try {
       'conflicting keys keep the dialog open with feedback',
     );
     await pressKey('Shift');
+    assert(
+      await check(
+        `document.querySelector('[data-binding-dialog]').open && document.querySelector('[data-binding-dialog] .ui-status').textContent.includes('Thrust boost')`,
+      ),
+      'Shift participates in normal binding conflict checks',
+    );
+    await pressKey('Alt');
     assert(
       await check(
         `document.querySelector('[data-binding-dialog]').open && document.querySelector('[data-binding-dialog] .ui-status').textContent.includes('reserved')`,
@@ -3238,12 +3277,21 @@ checkUi: try {
       assert(
         await check(`(() => {
           const power = document.querySelector('[data-module-power]');
+          if (${name === 'Search Light'}) {
+            const health = document.querySelector('[data-health-panel]');
+            return power.children.length === 2 && [...power.children].every(row =>
+              row.className === health.className && [...row.children].every(part =>
+                getComputedStyle(part).color === 'rgb(187, 187, 204)'
+                && getComputedStyle(part).fontSize === getComputedStyle(health).fontSize));
+          }
           const labels = [...power.querySelectorAll('.text-muted')];
+          const accent = getComputedStyle(document.querySelector('[data-category]')).color;
           return labels.length === 2 && labels.every(label =>
             getComputedStyle(label).color === 'rgb(187, 187, 204)'
-            && getComputedStyle(label.nextElementSibling).color === 'rgb(238, 238, 255)');
+            && label.nextElementSibling.matches('.text-color.text-lg')
+            && getComputedStyle(label.nextElementSibling).color === accent);
         })()`),
-        `${name} power detail labels and values use the handling stat colors`,
+        `${name} power details retain their intended sizes and colors`,
       );
       await checkEnergyLegend(
         [name === 'Search Light' ? 'utility' : 'core'],
@@ -3376,13 +3424,13 @@ checkUi: try {
           && columns[1].textContent.trim() === 'ROF∞'
           && columns.every(column => column.querySelector('.text-lg'))
           && Math.abs(boxes[0].y - boxes[1].y) < 1 && boxes[0].right <= boxes[1].left
-          && stats.getBoundingClientRect().bottom <= power.getBoundingClientRect().top
+          && stats.getBoundingClientRect().bottom <= dps.getBoundingClientRect().top
           && !dps.hidden && dps.className === health.className
           && dps.querySelector('[data-dps]').textContent.trim() === '6'
-          && power.getBoundingClientRect().bottom <= dps.getBoundingClientRect().top
+          && dps.getBoundingClientRect().bottom <= power.getBoundingClientRect().top
           && document.fonts.check('16px Gemetric', '∞');
       })()`),
-      'laser details show damage and infinity above power and compact DPS below',
+      'laser details show large damage and rate above compact DPS and power rows',
     );
 
     if (process.env.UI_CAPTURE_DIR && activation === 'Enter') {
@@ -5390,8 +5438,8 @@ checkUi: try {
   );
   assert.deepEqual(
     await check(`fixture.moduleLineWidths()`),
-    [[4, 4], [4, 1.25], 4],
-    'model line widths inherit the current default or use the part override without changing its outline',
+    [[4, 4], [1.25, 1.25], 4],
+    'model strokes inherit the default or use the part override without leaking their width',
   );
   assert.deepEqual(
     await check(`fixture.previewOcclusion()`),
@@ -5989,11 +6037,11 @@ checkUi: try {
         && columns[1].textContent.trim() === 'ROF6.25/s'
         && !dps.hidden && dps.className === health.className
         && dps.querySelector('[data-dps]').textContent.trim() === '18.75'
-        && power.getBoundingClientRect().bottom <= dps.getBoundingClientRect().top
+        && dps.getBoundingClientRect().bottom <= power.getBoundingClientRect().top
         && boxes.every(box => Math.abs(box.y - boxes[0].y) < 1)
         && boxes[0].right <= boxes[1].left;
     })()`),
-    'autogun details show damage and ROF above power and compact DPS below',
+    'autogun details show damage and ROF above compact DPS and power',
   );
   assert.equal(
     await check(`document.querySelector('[data-title]').textContent`),
@@ -6662,7 +6710,7 @@ checkUi: try {
       await check(
         `document.querySelectorAll('[data-ships-for-sale] button').length`,
       ),
-      7,
+      stationShipIds.length,
     );
     assert(
       await check(`(() => {

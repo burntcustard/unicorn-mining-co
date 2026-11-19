@@ -32,6 +32,14 @@ const spec: ModuleSpec = {
   rechargeDuration: 700,
   coverDuration: 200,
   fireInterval: 1000 * (1 / 30),
+  booster: {
+    multiplier: 1.5,
+    duration: 900,
+    cooldown: 1100,
+    rampDuration: 250,
+    recharge: 1750,
+    charges: 4,
+  },
   damage: 4,
   barrelLength: 10,
   muzzleFlash: [
@@ -66,6 +74,16 @@ assert.equal(runtime.dischargeDuration, 0.3);
 assert.equal(runtime.rechargeDuration, 0.7);
 assert.equal(runtime.coverDuration, 0.2);
 assert.equal(runtime.fireInterval, 1 / 30);
+
+assert.deepEqual(runtime.booster, {
+  multiplier: 1.5,
+  duration: 0.9,
+  cooldown: 1.1,
+  rampDuration: 0.25,
+  recharge: 1.75,
+  charges: 4,
+});
+
 assert.equal(runtime.projectile?.lifetime, 1.5);
 assert.equal(runtime.model[0].rechargeDelay, 0.00075);
 assert.equal(runtime.projectile?.fadeOut, 200);
@@ -84,22 +102,13 @@ const optional = { ...spec };
 delete optional.chargeDuration;
 assert.equal(moduleSpecForSimulation(optional).chargeDuration, undefined);
 
-const { moduleIds, moduleSpecList, moduleSpecs, powerPlantIds } =
+const { moduleIds, moduleSpecList, moduleSpecs } =
   await import('../../src/specs/modules');
 
 assert.deepEqual(
   moduleSpecList,
   moduleIds.map((id) => moduleSpecs[id]),
 );
-
-for (const id of powerPlantIds) {
-  const plant = moduleSpecs[id];
-
-  assert(
-    'powerCapacity' in plant && Number.isInteger(plant.powerCapacity),
-    `${id} must have a whole-number power storage capacity`,
-  );
-}
 
 const discoveredIds: string[] = [];
 

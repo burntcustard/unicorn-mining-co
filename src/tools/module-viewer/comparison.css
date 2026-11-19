@@ -1,14 +1,14 @@
-.thruster-comparison-description,
-.thruster-comparison-notes {
+.module-comparison-description,
+.module-comparison-notes {
   margin-block: 1rem;
   color: #bbc;
 }
 
-.thruster-comparison-scroll {
+.module-comparison-scroll {
   overflow-x: auto;
 }
 
-.thruster-comparison-table {
+.module-comparison-table {
   width: 100%;
   min-width: 68rem;
   border-collapse: collapse;
@@ -16,7 +16,7 @@
   font-size: 0.875rem;
 }
 
-.thruster-comparison-caption {
+.module-comparison-caption {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -25,35 +25,35 @@
   white-space: nowrap;
 }
 
-.thruster-comparison-table :is(th, td) {
+.module-comparison-table :is(th, td) {
   padding: 0.75rem 1rem 0.75rem 0;
 }
 
-.thruster-comparison-table thead th {
+.module-comparison-table thead th {
   color: #bbc;
   font-weight: normal;
   vertical-align: bottom;
   white-space: nowrap;
 }
 
-.thruster-comparison-table tbody th {
+.module-comparison-table tbody th {
   font-weight: normal;
   white-space: nowrap;
 }
 
-.thruster-comparison-table tbody td:nth-child(-n + 3) {
+.module-comparison-table tbody td:nth-child(-n + 3) {
   white-space: nowrap;
 }
 
-.thruster-comparison-table tbody tr {
+.module-comparison-table tbody tr {
   border-top: 1px solid rgb(255 255 255 / 0.08);
 }
 
-.thruster-comparison-table tbody tr.thruster-comparison-stock th {
+.module-comparison-table tbody tr.module-comparison-stock th {
   font-weight: bold;
 }
 
-.thruster-comparison-metric {
+.module-comparison-metric {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 2.5rem;
   gap: 0.5rem;
@@ -62,29 +62,29 @@
   min-width: 10rem;
 }
 
-.thruster-comparison-track {
+.module-comparison-track {
   min-width: 0;
 }
 
-.thruster-comparison-bar {
+.module-comparison-bar {
   display: block;
   height: 1.25rem;
   background: #a195ff;
 }
 
-.thruster-comparison-stock .thruster-comparison-bar {
+.module-comparison-stock .module-comparison-bar {
   background: #36e69e;
 }
 
-.thruster-comparison-incompatible .thruster-comparison-bar {
+.module-comparison-incompatible .module-comparison-bar {
   background: #76589c;
 }
 
-.thruster-comparison-triple .thruster-comparison-bar {
+.module-comparison-triple .module-comparison-bar {
   background: #ffab51;
 }
 
-.thruster-comparison-value {
+.module-comparison-value {
   min-width: 2.5rem;
   font-variant-numeric: tabular-nums;
 }

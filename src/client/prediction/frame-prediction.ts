@@ -331,7 +331,6 @@ export class FramePrediction {
       const modules = entity.modules;
 
       if (!modules.length) return;
-      const liveModules = source.modules;
       const angles = this.endpoint?.get(entity.id)?.modules;
 
       modules.forEach((module) => {
@@ -357,18 +356,9 @@ export class FramePrediction {
                 Math.atan2(Math.sin(turn), Math.cos(turn)) *
                   (dt / simulationStep);
         }
-
-        const live = liveModules.find(
-          (candidate) => candidate.id === module.id,
-        );
-
-        if (!live || live.constructor !== module.constructor) return;
-        const segments = source.segmentsAtMount(live.mount);
-
-        entity.segmentsAtMount(module.mount).forEach((segment, index) => {
-          if (segments[index]) segment.phase = segments[index].phase;
-        });
       });
+
+      entity.syncVisualState(source);
     });
 
     return this.world;

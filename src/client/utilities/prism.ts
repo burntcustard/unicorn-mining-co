@@ -372,6 +372,12 @@ export const traceBeam = (
     points: ShapeOutline;
   }[] = [];
 
+  const hullIntervals: {
+    start: number;
+    end: number;
+    points: ShapeOutline;
+  }[] = [];
+
   const lens = Vec.add(
     ship.position,
     rotatePoint(lamp.localPosition, ship.rotation),
@@ -437,17 +443,33 @@ export const traceBeam = (
         points,
       );
 
-      // A lens embedded in its own housing must not be blocked by the exit face.
       if (object.id === owner?.id) {
         let inside = false;
+        const crossings: number[] | undefined = collider.segment?.hull
+          ? []
+          : undefined;
 
         outline.forEach(([x, y], index) => {
           const [nextX, nextY] = outline[(index + 1) % outline.length];
 
-          if (y > 0 !== nextY > 0 && x + ((nextX - x) * -y) / (nextY - y) > 0) {
-            inside = !inside;
-          }
+          if (y > 0 === nextY > 0) return;
+          const crossing = x + ((nextX - x) * -y) / (nextY - y);
+
+          if (crossing > 0) inside = !inside;
+          crossings?.push(crossing);
         });
+
+        if (crossings) {
+          crossings.sort((a, b) => a - b);
+
+          for (let i = 0; i < crossings.length; i += 2) {
+            hullIntervals.push({
+              start: crossings[i],
+              end: crossings[i + 1],
+              points: outline,
+            });
+          }
+        }
 
         if (inside) return;
       }
@@ -460,21 +482,38 @@ export const traceBeam = (
     .filter(({ rock }) => rock)
     .map(({ points }) => points);
 
-  const bounds = polygons.map(({ points, object, rock }) => {
-    let left = Infinity;
-    let right = -Infinity;
-    let top = Infinity;
-    let bottom = -Infinity;
+  // Follow the hull around an embedded lens until the beam's centerline reaches
+  // open space. A seam in that housing should not cast its own shadow.
+  const housing = new Set<ShapeOutline>();
+  let exit = 0;
 
-    points.forEach(([x, y]) => {
-      left = Math.min(left, x);
-      right = Math.max(right, x);
-      top = Math.min(top, y);
-      bottom = Math.max(bottom, y);
+  hullIntervals.sort((a, b) => a.start - b.start);
+
+  for (const { start, end, points } of hullIntervals) {
+    if (end <= 0) continue;
+
+    if (start > (exit ? exit + inset : 0)) break;
+    exit = Math.max(exit, end);
+    housing.add(points);
+  }
+
+  const bounds = polygons
+    .filter(({ points }) => !housing.has(points))
+    .map(({ points, object, rock }) => {
+      let left = Infinity;
+      let right = -Infinity;
+      let top = Infinity;
+      let bottom = -Infinity;
+
+      points.forEach(([x, y]) => {
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      });
+
+      return { left, right, top, bottom, shapeOutline: points, object, rock };
     });
-
-    return { left, right, top, bottom, shapeOutline: points, object, rock };
-  });
 
   // A rock outside the cone's bounds cannot be the first crossing.
   const candidates = bounds.filter(({ left, right, top, bottom }) => {

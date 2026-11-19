@@ -14,10 +14,9 @@ import {
 import { Module } from './module';
 import { PowerPlant } from './power-plant';
 import { FlightMode } from './flight-mode';
+import { ThrustBooster } from './thrust-booster';
 
 export { PowerPlant } from './power-plant';
-
-const powerPlants = powerPlantIds.map((id) => PowerPlant.define(id));
 
 import { CargoHatch, CargoHatchPair } from './cargo-hatch';
 import { SearchLight } from './search-light';
@@ -41,8 +40,11 @@ import {
   ThrusterTriple,
 } from './thruster';
 
+const powerPlants = powerPlantIds.map((id) => PowerPlant.define(id));
+
 export {
   FlightMode,
+  ThrustBooster,
   PlasmaAcceleratorTurret,
   AutogunTurret,
   LaserTurret,
@@ -102,6 +104,7 @@ export const moduleTypesById = new Map<ModuleId, typeof Module>(
     AutogunTurret,
     LaserTurret,
     FlightMode,
+    ThrustBooster,
   ].map((Type) => [Type.definitionId, Type]),
 );
 export const moduleTypes = moduleIds.map((id) => moduleTypesById.get(id)!);

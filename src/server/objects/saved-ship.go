@@ -34,6 +34,7 @@ type SavedShip struct {
 }
 
 type SavedShipModule struct {
+	ChargeCooldown  float64  `json:"chargeCooldown,omitempty"`
 	HealthActivated *float64 `json:"healthActivated,omitempty"`
 	FireCooldown    float64  `json:"fireCooldown,omitempty"`
 	AimRotation     float64  `json:"aimRotation,omitempty"`
@@ -47,15 +48,17 @@ type SavedShipModule struct {
 }
 
 type SavedCargo struct {
-	Mined   bool     `json:"mined,omitempty"`
-	Rounds  *int     `json:"rounds,omitempty"`
-	ID      int64    `json:"id"`
-	Type    string   `json:"type"`
-	Module  bool     `json:"module,omitempty"`
-	Health  *float64 `json:"health,omitempty"`
-	Paint   *int     `json:"paint,omitempty"`
-	Message *string  `json:"message,omitempty"`
-	Unlock  string   `json:"unlock,omitempty"`
+	ChargeCooldown float64  `json:"chargeCooldown,omitempty"`
+	FireCooldown   float64  `json:"fireCooldown,omitempty"`
+	Mined          bool     `json:"mined,omitempty"`
+	Rounds         *int     `json:"rounds,omitempty"`
+	ID             int64    `json:"id"`
+	Type           string   `json:"type"`
+	Module         bool     `json:"module,omitempty"`
+	Health         *float64 `json:"health,omitempty"`
+	Paint          *int     `json:"paint,omitempty"`
+	Message        *string  `json:"message,omitempty"`
+	Unlock         string   `json:"unlock,omitempty"`
 }
 
 func finiteHealth(value float64) *float64 {
@@ -115,6 +118,10 @@ func CaptureShip(ship *Ship) SavedShip {
 			m.FireCooldown = data.FireCooldown
 		}
 
+		if data.Spec.Booster != nil {
+			m.ChargeCooldown = data.ChargeCooldown
+		}
+
 		part := 0
 
 		for _, segment := range ship.Segments {
@@ -142,6 +149,11 @@ func CaptureShip(ship *Ship) SavedShip {
 
 		if m, ok := entity.(simulation.Module); ok {
 			cargo.Module, cargo.Type, cargo.Paint = true, m.ModuleBase().Type, savedPaint(o.Shades, ship.Catalog)
+
+			if m.ModuleBase().Spec.Booster != nil {
+				cargo.ChargeCooldown = m.ModuleBase().ChargeCooldown
+				cargo.FireCooldown = m.ModuleBase().FireCooldown
+			}
 		} else if o.Resource >= 0 && o.Resource < len(ship.Catalog.ItemIDs) {
 			cargo.Type = ship.Catalog.ItemIDs[o.Resource]
 
@@ -271,6 +283,10 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 			state.FireCooldown = savedPointer(&m.FireCooldown)
 		}
 
+		if catalog.ModuleSpecs[m.Type].Booster != nil && m.ChargeCooldown > 0 {
+			state.ChargeCooldown = savedPointer(&m.ChargeCooldown)
+		}
+
 		for _, active := range m.Active {
 			state.Segments = append(state.Segments, ModuleSegmentState{Active: active[0], ActivationProgress: active[1]})
 		}
@@ -300,6 +316,12 @@ func RestoreShip(s SavedShip, world *simulation.World, playerID int64) (*Ship, e
 			}
 
 			entity = modules.Create(cargo.Type, props, catalog)
+
+			if module := entity.(simulation.Module).ModuleBase(); module.Spec.Booster != nil {
+				module.ChargeCooldown = cargo.ChargeCooldown
+				module.FireCooldown = cargo.FireCooldown
+			}
+
 			shades, err := restorePaint(cargo.Paint, catalog)
 
 			if err != nil {

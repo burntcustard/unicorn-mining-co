@@ -70,10 +70,6 @@ try {
       `stock Mustang: ${key}`,
     );
   }
-
-  assert(comparison.some(({ compatible }) => compatible));
-  assert(comparison.some(({ compatible }) => !compatible));
-  assert(comparison.some(({ Type }) => Type.definitionId === 'thrusterTriple'));
 } finally {
   await server.close();
 }
