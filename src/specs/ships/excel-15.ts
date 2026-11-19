@@ -1,27 +1,24 @@
 import { powerPlantIdsBySize } from '../modules';
 import type { HullSegmentSpecification, ShipSpec } from './types';
 
-const centeredOutline = (edge: number[][], tip?: number[]) => [
-  ...edge.map(([x, y]) => [x, -y]),
-  ...(tip ? [tip] : []),
-  ...edge.slice().reverse(),
-];
-
-const cockpitRearEdge = [
-  [-20, 7],
-  [-4, 8],
-];
+// Hull points on the positive-y side, plus points on the centerline.
+const rearHullInnerCorner = [-51, 8];
+const rearHullOuterCorner = [-51, 18];
+const rearHullChamfer = [-48, 21];
+const thrusterBayRear = [-39, 7];
+const cockpitRear = [-20, 7];
+const cockpitShoulder = [-4, 8];
+const wingTrailingRoot = [-42, 22];
+const wingRoot = [-22, 22];
+const wingShoulder = [-4, 14];
+const wingTrailingTip = [-21, 42];
+const wingLeadingTip = [0.3, 42];
 const noseBase = [24, 4];
 const cockpitTip = [27, 0];
 const noseShoulder = [8, 12];
 const noseTaperStart = [34, noseShoulder[1]];
 const noseRailEnd = [55, noseBase[1]];
-const rearNoseCollisionPart = [
-  noseBase,
-  noseRailEnd,
-  [noseRailEnd[0], 0],
-  cockpitTip,
-];
+const noseRailCenter = [noseRailEnd[0], 0];
 const tipEnd = [73, 4];
 const railExitX = 65;
 const noseRailExit = [
@@ -30,37 +27,36 @@ const noseRailExit = [
     ((tipEnd[1] - noseTaperStart[1]) * (railExitX - noseTaperStart[0])) /
       (tipEnd[0] - noseTaperStart[0]),
 ];
-const wingShoulder = [-4, 14];
+const rearNoseCollisionPart = [
+  noseBase,
+  noseRailEnd,
+  noseRailCenter,
+  cockpitTip,
+];
 
 export const excel15 = {
   name: 'Excel-15',
   price: 3600,
   fuelCapacity: 145,
-  cargoSpace: 8,
+  cargoSpace: 14,
   drag: 1750,
   hullMass: 2800,
   radius: 72,
-  angularThrust: 4600,
+  angularThrust: 3800,
   turnRate: 2,
   initialLoadout: [
     { mount: 0, module: 'thrusterDualMd' },
     { mount: 1, module: 'powerPlant2V' },
-    { mount: 2, module: 'searchLight' },
     { mount: 3, module: 'cargoHatch' },
-    { mount: 4, module: 'thrustBooster' },
-    { mount: 5, module: 'autogun' },
     { mount: 6, module: 'cargoHatch' },
-    { mount: 7, module: 'thrustBooster' },
-    { mount: 8, module: 'autogun' },
   ],
   hullSegments: [
     {
       health: 50,
       points: [
-        [-39, -7],
-        [-20, -7],
-        [-20, 7],
-        [-39, 7],
+        ...[thrusterBayRear, cockpitRear].map(([x, y]) => [x, -y]),
+        cockpitRear,
+        thrusterBayRear,
       ],
       mounts: [
         [
@@ -83,99 +79,108 @@ export const excel15 = {
     {
       health: 50,
       core: true,
-      points: centeredOutline([...cockpitRearEdge, noseBase], cockpitTip),
+      points: [
+        ...[cockpitRear, cockpitShoulder, noseBase].map(([x, y]) => [x, -y]),
+        cockpitTip,
+        noseBase,
+        cockpitShoulder,
+        cockpitRear,
+      ],
       mounts: [[{ x: 28, y: 0, fits: ['searchLight'] }]],
     },
     {
       health: 35,
       points: [
-        ...centeredOutline([noseBase, noseRailEnd, noseRailExit, tipEnd]),
+        ...[noseBase, noseRailEnd, noseRailExit, tipEnd].map(([x, y]) => [
+          x,
+          -y,
+        ]),
+        tipEnd,
+        noseRailExit,
+        noseRailEnd,
+        noseBase,
         cockpitTip,
       ],
       collisionParts: [
         rearNoseCollisionPart,
         rearNoseCollisionPart.map(([x, y]) => [x, -y]),
-        centeredOutline([noseRailEnd, noseRailExit, tipEnd]),
+        [
+          ...[noseRailEnd, noseRailExit, tipEnd].map(([x, y]) => [x, -y]),
+          tipEnd,
+          noseRailExit,
+          noseRailEnd,
+        ],
       ],
     },
-    ...[-1, 1].flatMap((side): HullSegmentSpecification[] => {
-      const reflect = (points: number[][]) =>
-        points.map(([x, y]) => [x, side * y]);
-
-      const wingRoot = [-22, 20];
-      const wingTrailingRoot = [-42, 21];
-      const wingInnerEdge = [
-        [-20, 7],
-        [-4, 8],
-      ];
-      const outerWing = [
-        wingShoulder,
-        [0.3, 42],
-        [-21, 42],
-        wingTrailingRoot,
-        wingRoot,
-      ];
-
-      return [
-        {
-          health: 49,
-          points: reflect([
+    ...[-1, 1].flatMap((side): HullSegmentSpecification[] => [
+      {
+        health: 49,
+        points: [
+          noseBase,
+          cockpitShoulder,
+          wingShoulder,
+          noseShoulder,
+          noseTaperStart,
+          noseRailExit,
+          noseRailEnd,
+        ].map(([x, y]) => [x, side * y]),
+        collisionParts: [
+          [noseBase, cockpitShoulder, wingShoulder, noseShoulder].map(
+            ([x, y]) => [x, side * y],
+          ),
+          [
             noseBase,
-            cockpitRearEdge[1],
-            wingShoulder,
             noseShoulder,
             noseTaperStart,
             noseRailExit,
             noseRailEnd,
-          ]),
-          collisionParts: [
-            reflect([noseBase, cockpitRearEdge[1], wingShoulder, noseShoulder]),
-            reflect([
-              noseBase,
-              noseShoulder,
-              noseTaperStart,
-              noseRailExit,
-              noseRailEnd,
-            ]),
+          ].map(([x, y]) => [x, side * y]),
+        ],
+        mounts: [
+          [
+            {
+              x: 34,
+              y: side * 10,
+              cargoPickupOffset: 0,
+              fits: ['cargoHatch'],
+            },
           ],
-          mounts: [
-            [
-              {
-                x: 34,
-                y: side * 10,
-                cargoPickupOffset: 0,
-                fits: ['cargoHatch'],
-              },
-            ],
+        ],
+      },
+      {
+        health: 70,
+        points: [
+          rearHullInnerCorner,
+          thrusterBayRear,
+          cockpitRear,
+          wingRoot,
+          wingTrailingRoot,
+          rearHullChamfer,
+          rearHullOuterCorner,
+        ].map(([x, y]) => [x, side * y]),
+        mounts: [[{ x: -35, y: side * 14.5, fits: ['thrustBooster'] }]],
+      },
+      {
+        health: 120,
+        points: [
+          cockpitRear,
+          cockpitShoulder,
+          wingShoulder,
+          wingLeadingTip,
+          wingTrailingTip,
+          wingTrailingRoot,
+          wingRoot,
+        ].map(([x, y]) => [x, side * y]),
+        mounts: [
+          [
+            {
+              x: -12,
+              y: side * 33,
+              fits: ['autogun', 'plasmaAccelerator', 'laser'],
+            },
           ],
-        },
-        {
-          health: 70,
-          points: reflect([
-            [-51, 8],
-            [-39, 7],
-            [-20, 7],
-            wingRoot,
-            wingTrailingRoot,
-            [-48, 21],
-            [-51, 18],
-          ]),
-          mounts: [[{ x: -33, y: side * 14, fits: ['thrustBooster'] }]],
-        },
-        {
-          health: 120,
-          points: reflect([...wingInnerEdge, ...outerWing]),
-          mounts: [
-            [
-              {
-                x: -12,
-                y: side * 33,
-                fits: ['autogun', 'plasmaAccelerator', 'laser'],
-              },
-            ],
-          ],
-        },
-      ];
-    }),
+        ],
+      },
+    ]),
   ],
 } satisfies ShipSpec;
