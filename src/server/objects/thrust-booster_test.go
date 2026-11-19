@@ -52,11 +52,13 @@ func thrustBoosterFixture(t *testing.T, rampDuration ...float64) (*Ship, *simula
 		}
 
 		x := float64(index * 12)
+
 		shipSpec.HullSegments = append(shipSpec.HullSegments, specs.HullSegment{
 			Core: index == 0, Health: new(100.0),
 			Points: []specs.Point{{x - 6, -6}, {x + 6, -6}, {x + 6, 6}, {x - 6, 6}},
 			Mounts: [][]specs.MountPoint{{{X: x, Fits: fits}}},
 		})
+
 		shipSpec.InitialLoadout = append(shipSpec.InitialLoadout, specs.InitialModule{Mount: index, Module: id})
 	}
 
