@@ -1,0 +1,905 @@
+// Port of src/client/objects/ship.ts.
+package objects
+
+import (
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/collision"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/objects/modules"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/physics"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/specs"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/utilities"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
+	"math"
+	"slices"
+)
+
+type Ship struct {
+	thrustBoostHeld    bool
+	cargoReleaseHeld   bool
+	releasingCargo     bool
+	cargoReleaseHatch  int
+	cargoReleaseTime   float64
+	thrusterMountCount int
+	*Craft
+	NPCState, TargetLabel                    string
+	TargetID                                 *int64
+	Firing                                   bool
+	Fuel, FuelCapacity                       float64
+	StoredPower, ThrusterPower, SystemsPower float64
+	DragCoefficient, AngularThrust           float64
+}
+
+func (s *Ship) Cargo() *[]simulation.Entity { return &s.CargoContents }
+
+func (s *Ship) CargoCapacity() int { return s.CargoSpace }
+
+func (s *Ship) HandleContacts(contacts []collision.Contact, events *[]protocol.SimulationEvent, world *simulation.World, dt float64) {
+	type drillContact struct {
+		contact       collision.Contact
+		drill, target *collision.Collider
+	}
+
+	drills := utilities.NewOrderedMap[*simulation.Segment, drillContact]()
+
+	for _, contact := range contacts {
+		var own *collision.Collider
+
+		if contact.Collider.Owner == s.Self {
+			own = contact.Collider
+		} else if contact.Other.Owner == s.Self {
+			own = contact.Other
+		}
+
+		if own == nil {
+			continue
+		}
+
+		segment, _ := own.Segment.(*simulation.Segment)
+
+		if segment == nil {
+			continue
+		}
+
+		if hatch, ok := segment.Module.(*modules.CargoHatch); ok {
+			hatch.Collect(s, contact, events, world)
+		}
+
+		if _, ok := segment.Module.(*modules.HornDrill); !ok || own != segment.DrillCollider {
+			continue
+		}
+
+		target := contact.Collider
+
+		if target == own {
+			target = contact.Other
+		}
+
+		current, ok := drills.Get(segment)
+
+		if !ok || contact.Depth > current.contact.Depth {
+			drills.Set(segment, drillContact{contact, own, target})
+		}
+	}
+
+	drills.ForEach(func(value drillContact, segment *simulation.Segment) {
+		segment.Module.(*modules.HornDrill).Drill(s, segment, value.target, value.contact.Point, events, world, dt, Damage, func(c *collision.Collider) string { return collision.OutlineColorOf(c, s.Catalog.Colors) })
+	})
+}
+
+func (s *Ship) HullHealthTotal() float64 {
+	sum := 0.0
+
+	for _, segment := range s.Segments {
+		if segment.Hull {
+			sum += segment.Health
+		}
+	}
+
+	return sum
+}
+
+func (s *Ship) HullMaxHealth() float64 {
+	sum := 0.0
+
+	for _, plan := range s.HullSegments {
+		if plan.Health != nil {
+			sum += *plan.Health
+		}
+	}
+
+	return sum
+}
+
+func integer32(value float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0
+	}
+
+	return float64(int32(uint32(int64(math.Mod(math.Trunc(value), 4294967296)))))
+}
+
+func (s *Ship) RepairCost(mount *simulation.Mount) float64 {
+	if mount == nil {
+		return s.HullMaxHealth() - integer32(s.HullHealthTotal())
+	}
+
+	if mount.Module != nil {
+		maximum := mount.Module.Base().Health
+
+		if maximum == 0 && mount.Module.ModuleBase().Spec.HealthActivated != nil {
+			maximum = *mount.Module.ModuleBase().Spec.HealthActivated
+		}
+
+		return maximum - integer32(mount.Health)
+	}
+
+	return 0
+}
+
+func (s *Ship) ApplyDockAction(action protocol.DockAction, credits *float64) (protocol.DockAction, bool) {
+	mounts := s.Mounts()
+	var mount *simulation.Mount
+
+	if action.HasMount && action.Mount >= 0 && action.Mount < int64(len(mounts)) {
+		mount = mounts[action.Mount]
+	}
+
+	switch action.Action {
+	case "refuel":
+		cost := s.RefuelCost()
+
+		if s.TradeStation() == nil || !(cost > 0) || *credits < cost {
+			return action, false
+		}
+
+		*credits -= cost
+		s.Fuel = s.FuelCapacity
+	case "buyStock":
+		station := s.TradeStation()
+
+		if station == nil || len(action.ObjectIDs) == 0 || len(s.CargoContents)+len(action.ObjectIDs) > s.CargoSpace {
+			return action, false
+		}
+
+		seen := map[int64]bool{}
+		objects := []simulation.Entity{}
+		cost := 0.0
+
+		for _, id := range action.ObjectIDs {
+			if seen[id] {
+				return action, false
+			}
+
+			seen[id] = true
+
+			index := slices.IndexFunc(station.CargoContents, func(e simulation.Entity) bool { return e.Base().ID == id })
+
+			if index < 0 {
+				return action, false
+			}
+
+			object := station.CargoContents[index]
+
+			if module, ok := object.(simulation.Module); ok && !slices.Contains(s.Catalog.StationModuleIDs, module.ModuleBase().Type) {
+				return action, false
+			}
+
+			objects = append(objects, object)
+			cost += object.Base().Price
+		}
+
+		if math.IsNaN(cost) || *credits < cost {
+			return action, false
+		}
+
+		station.CargoContents = slices.DeleteFunc(station.CargoContents, func(e simulation.Entity) bool { return seen[e.Base().ID] })
+
+		for _, object := range objects {
+			delete(station.moduleSellers, object.Base().ID)
+			object.Base().Mined = false
+		}
+
+		s.CargoContents = append(s.CargoContents, objects...)
+		*credits -= cost
+
+		if s.World.EntityChanged != nil {
+			s.World.EntityChanged(station, false)
+		}
+	case "sell":
+		ids := action.ObjectIDs
+
+		if len(ids) == 0 {
+			return action, false
+		}
+
+		seen := map[int64]bool{}
+		objects := []simulation.Entity{}
+		inventory := slices.Clone(s.CargoContents)
+
+		for _, mount := range mounts {
+			if mount.Module != nil {
+				inventory = append(inventory, mount.Module)
+			}
+		}
+
+		for _, id := range ids {
+			if seen[id] {
+				return action, false
+			}
+
+			seen[id] = true
+
+			index := slices.IndexFunc(inventory, func(object simulation.Entity) bool { return object.Base().ID == id })
+
+			if index < 0 {
+				return action, false
+			}
+
+			found := inventory[index]
+			_, module := found.(simulation.Module)
+
+			if !module && !found.Base().Item {
+				return action, false
+			}
+
+			objects = append(objects, found)
+		}
+
+		for _, object := range objects {
+			if module, ok := object.(simulation.Module); ok && module.ModuleBase().Mount != nil {
+				s.Fit(nil, module.ModuleBase().Mount)
+			}
+		}
+
+		s.CargoContents = slices.DeleteFunc(s.CargoContents, func(e simulation.Entity) bool { return seen[e.Base().ID] })
+
+		sum := 0.0
+
+		for _, e := range objects {
+			price := e.Base().Price
+
+			if !math.IsNaN(price) {
+				sum += price
+			}
+		}
+
+		if station := s.TradeStation(); station != nil {
+			for _, object := range objects {
+				if module, ok := object.(simulation.Module); ok {
+					if !slices.Contains(s.Catalog.StationModuleIDs, module.ModuleBase().Type) {
+						continue
+					}
+
+					// Cargo module IDs are local to a ship; station stock shares one namespace.
+					object.Base().ID = simulation.EntityID(s.World)
+
+					if station.moduleSellers == nil {
+						station.moduleSellers = map[int64]int64{}
+					}
+
+					station.moduleSellers[object.Base().ID] = s.ID
+				}
+
+				station.CargoContents = append(station.CargoContents, object)
+			}
+
+			if s.World.EntityChanged != nil {
+				s.World.EntityChanged(station, false)
+			}
+		}
+
+		*credits += sum
+	case "buyAmmo":
+		if station := s.TradeStation(); station != nil {
+			for _, object := range station.CargoContents {
+				if object.Base().Item && object.Base().Resource == s.Catalog.ItemSpecs["autogunAmmo"].Resource {
+					_, ok := s.ApplyDockAction(protocol.DockAction{Action: "buyStock", ObjectIDs: []int64{object.Base().ID}}, credits)
+					return action, ok
+				}
+			}
+		}
+
+		return action, false
+	case "buy":
+		if action.Module < 0 || action.Module >= int64(len(s.Catalog.ModuleIDs)) {
+			return action, false
+		}
+
+		id := s.Catalog.ModuleIDs[action.Module]
+		d := s.Catalog.ModuleSpecs[id]
+
+		if !slices.Contains(s.Catalog.StationModuleIDs, id) || *credits < d.Price {
+			return action, false
+		}
+
+		if action.HasMount {
+			if mount == nil || mount.Module != nil || !slices.Contains(mount.Fits, id) {
+				return action, false
+			}
+		} else if len(s.CargoContents) >= s.CargoSpace {
+			return action, false
+		}
+
+		if action.HasModuleID && (slices.ContainsFunc(s.Modules(), func(module simulation.Module) bool {
+			return module.Base().ID == action.ModuleID
+		}) || slices.ContainsFunc(s.CargoContents, func(object simulation.Entity) bool {
+			return object.Base().ID == action.ModuleID
+		})) {
+			return action, false
+		}
+
+		props := simulation.ObjectProperties{World: s.World}
+
+		if action.HasModuleID {
+			props.ID = &action.ModuleID
+		}
+
+		module := modules.Create(id, props, s.Catalog)
+		*credits -= d.Price
+
+		if mount != nil {
+			s.Fit(module, mount)
+		} else {
+			s.CargoContents = append(s.CargoContents, module)
+		}
+
+		action.ModuleID = module.Base().ID
+		action.HasModuleID = true
+	case "equip":
+		var module simulation.Module
+
+		for _, m := range s.Modules() {
+			if m.Base().ID == action.ModuleID {
+				module = m
+				break
+			}
+		}
+
+		if mount == nil || module == nil || !slices.Contains(mount.Fits, module.ModuleBase().Type) {
+			return action, false
+		}
+
+		s.Fit(module, mount)
+	case "repairHull":
+		index := action.HullIndex
+
+		if index < 0 || index >= int64(len(s.HullSegments)) || s.HullSegments[index].Health == nil {
+			return action, false
+		}
+
+		health := s.HullHealth()
+		maximum := *s.HullSegments[index].Health
+		cost := maximum - math.Floor(health[index])
+
+		if !(cost > 0) || *credits < cost {
+			return action, false
+		}
+
+		*credits -= cost
+		health[index] = maximum
+		s.SetHullHealth(health)
+	case "repair":
+		if !action.HasMount {
+			if action.HasModuleID {
+				return action, false
+			}
+
+			cost := s.RepairCost(nil)
+
+			if !(cost > 0) || *credits < cost {
+				return action, false
+			}
+
+			*credits -= cost
+			s.FixHull()
+		} else {
+			if mount == nil || mount.Module == nil || mount.Module.Base().ID != action.ModuleID {
+				return action, false
+			}
+
+			cost := s.RepairCost(mount)
+
+			if !(cost > 0) || *credits < cost {
+				return action, false
+			}
+
+			*credits -= cost
+			mount.Health = mount.Module.Base().Health
+
+			if mount.Health == 0 && mount.Module.ModuleBase().Spec.HealthActivated != nil {
+				mount.Health = *mount.Module.ModuleBase().Spec.HealthActivated
+				mount.HealthActivated = new(mount.Health)
+			}
+		}
+	case "paint":
+		if action.Paint < 0 || action.Paint >= int64(len(s.Catalog.PaintColors)) {
+			return action, false
+		}
+
+		var module simulation.Module
+
+		if action.HasModuleID {
+			if action.HasMount {
+				if mount != nil {
+					module = mount.Module
+				}
+			} else {
+				for _, m := range s.Modules() {
+					if m.Base().ID == action.ModuleID {
+						module = m
+						break
+					}
+				}
+			}
+		}
+
+		if action.HasMount && (mount == nil || mount.Module == nil || mount.Module.Base().ID != action.ModuleID) || action.HasModuleID && module == nil {
+			return action, false
+		}
+
+		shades := s.Catalog.PaintColors[action.Paint]
+
+		if module != nil {
+			module.Base().Shades = shades
+		} else {
+			s.Shades = shades
+		}
+
+		for _, segment := range s.Segments {
+			if module != nil && segment.Module == module || module == nil && segment.Hull {
+				segment.Shades = shades
+			}
+		}
+	case "remove":
+		if mount == nil {
+			return action, false
+		}
+
+		s.Fit(nil, mount)
+	default:
+		return action, false
+	}
+
+	return action, true
+}
+
+/*
+Stranded ships remain alive, but cannot fly until they regain an engine or fuel.
+*/
+func (s *Ship) Stranded() bool {
+	if s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
+		return false
+	}
+
+	return (s.Engine() == nil || s.Fuel <= 0) && slices.ContainsFunc(s.Segments, func(segment *simulation.Segment) bool {
+		return segment.Hull && segment.Core && !(segment.Health < 1)
+	})
+}
+
+func (s *Ship) Engines() []simulation.Module {
+	engines := []simulation.Module{}
+	var buffer [16]simulation.Module
+
+	for _, module := range s.AppendModules(buffer[:0]) {
+		data := module.ModuleBase()
+
+		if data.Spec.ForwardThrust != 0 && data.Mount != nil && !(data.Mount.Health < 1) && data.Mount.Hull.Health >= 1 {
+			engines = append(engines, module)
+		}
+	}
+
+	return engines
+}
+
+func (s *Ship) Engine() simulation.Module {
+	for _, segment := range s.Segments {
+		if !segment.Hull || segment.Health < 1 {
+			continue
+		}
+
+		for _, m := range segment.Mounts {
+			module := m.Module
+
+			if module == nil {
+				continue
+			}
+
+			data := module.ModuleBase()
+
+			if data.Spec.ForwardThrust != 0 && data.Mount != nil && !(data.Mount.Health < 1) {
+				return module
+			}
+		}
+	}
+
+	return nil
+}
+
+// Thruster output is averaged over every compatible hull mount, including
+// mounts on hull segments that have been destroyed. Fuel is consumed by each
+// working thruster independently.
+func (s *Ship) thrusterOutput() (forward, rotational, fuel float64) {
+	for _, segment := range s.Segments {
+		if !segment.Hull || segment.Health < 1 {
+			continue
+		}
+
+		for _, mount := range segment.Mounts {
+			if mount.Module == nil || mount.Health < 1 {
+				continue
+			}
+
+			spec := mount.Module.ModuleBase().Spec
+
+			if spec.ForwardThrust != 0 {
+				forward += spec.ForwardThrust
+				rotational += spec.RotationalThrust
+				fuel += spec.FuelUsage
+			}
+		}
+	}
+
+	if s.thrusterMountCount > 0 {
+		forward /= float64(s.thrusterMountCount)
+		rotational /= float64(s.thrusterMountCount)
+	} else {
+		forward, rotational = 0, 0
+	}
+
+	return forward, rotational, fuel
+}
+
+func (s *Ship) LowFuel() bool { return s.Fuel < s.FuelCapacity*s.Rules.Flight.LowFuelThreshold }
+
+func (s *Ship) FuelThrottle() float64 {
+	if s.Fuel <= 0 {
+		return 0
+	}
+
+	if s.LowFuel() {
+		return s.Rules.Flight.LowFuelSpeed
+	}
+
+	return 1
+}
+
+func (s *Ship) RefuelCost() float64 {
+	missing := s.FuelCapacity - s.Fuel
+
+	if missing <= 0.5 {
+		return 0
+	}
+
+	return math.Ceil(missing * s.Rules.Flight.FuelPrice)
+}
+
+func (s *Ship) ConsumeFuel(dt float64) {
+	if s.Cockpit == nil || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 {
+		return
+	}
+
+	_, _, fuel := s.thrusterOutput()
+	usage := fuel * s.ThrusterPower * math.Max(s.Forward, math.Abs(s.Turn)/2)
+	reserve := s.FuelCapacity * s.Rules.Flight.LowFuelThreshold
+	normal := math.Min(math.Max(0, s.Fuel-reserve), usage*dt)
+	s.Fuel = math.Max(0, s.Fuel-normal-(usage*dt-normal)*s.Rules.Flight.LowFuelUsage)
+}
+
+func (s *Ship) LaunchThrottle() float64 {
+	f := s.Rules.Flight
+
+	if s.Launching > f.LaunchHalfThreshold && s.Launching <= f.LaunchHalfEnd {
+		return f.LaunchThrottle
+	}
+
+	return 1
+}
+
+func (s *Ship) ForwardThrust() float64 {
+	forward, _, _ := s.thrusterOutput()
+	throttle := s.LaunchThrottle()
+	return forward * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor() * s.thrustBoostFactor()
+}
+
+func (s *Ship) RotationalThrust() float64 {
+	_, rotational, _ := s.thrusterOutput()
+	throttle := s.LaunchThrottle()
+	return rotational * (throttle * throttle) * s.FuelThrottle() * s.ThrusterPower * s.flightBoostFactor() * s.thrustBoostFactor()
+}
+
+func (s *Ship) AngularAcceleration() float64 {
+	return s.RotationalThrust() * s.AngularThrust / s.Mass
+}
+
+func (s *Ship) MaximumTurnRate() float64 {
+	return s.TurnRate * s.AngularAcceleration() / s.Rules.Flight.SpinDivisor
+}
+
+func (s *Ship) MaxSpeed() float64 {
+	if s.Cockpit != nil {
+		speed := s.Rules.Flight.SpeedPerThrust * s.ForwardThrust() / s.thrustBoostFactor() * s.thrustBoostSpeedFactor()
+
+		if speed != 0 {
+			return speed
+		}
+	}
+
+	return s.Rules.Flight.UncrewedMaxSpeed
+}
+
+func (s *Ship) Fly(forward, turn float64) {
+	s.Forward, s.Turn = forward, turn
+
+	for _, segment := range s.Segments {
+		if segment.ModuleSpec().ForwardThrust == 0 {
+			continue
+		}
+
+		segment.Active = forward
+
+		if turn != 0 && segment.ThrusterNozzleSide != 0 {
+			if turn == -segment.ThrusterNozzleSide {
+				segment.Active = 1
+			} else {
+				segment.Active = forward * s.Rules.Flight.SteeringEase
+			}
+		} else if turn != 0 {
+			segment.Active = math.Max(forward*(1-math.Abs(turn)*(1-s.Rules.Flight.SteeringEase)), math.Abs(turn)*s.Rules.Flight.SteeringEase)
+		}
+
+		segment.Active *= s.LaunchThrottle() * s.FuelThrottle() * s.ThrusterPower
+	}
+}
+
+func (s *Ship) fireWeapons(dt float64) {
+	if s.World == nil || s.PlayerID == nil || s.Dead || s.DockedTo != nil && *s.DockedTo != 0 || s.Launching != 0 {
+		return
+	}
+
+	var modules [16]simulation.Module
+
+	for _, module := range s.AppendModules(modules[:0]) {
+		m := module.ModuleBase()
+
+		if m.Spec.Behavior != "weapon" || m.Mount == nil {
+			continue
+		}
+
+		m.FireCooldown -= dt
+		active := false
+
+		for _, segment := range s.Segments {
+			if segment.Module == module && segment.Active != 0 && segment.ActivationProgress == 1 && *segment.TargetHealth() > 0 {
+				active = true
+				break
+			}
+		}
+
+		if !s.Firing || !active || m.ChargeCooldown > 1e-9 {
+			m.FireCooldown = math.Max(0, m.FireCooldown)
+			continue
+		}
+
+		for m.FireCooldown <= 1e-9 {
+			if m.Spec.Ammo != nil {
+				index := slices.IndexFunc(s.CargoContents, func(item simulation.Entity) bool {
+					ammo, ok := item.(*Item)
+					return ok && ammo.Resource == *m.Spec.Ammo && ammo.Rounds != nil && *ammo.Rounds > 0
+				})
+
+				if index < 0 {
+					m.FireCooldown = 0
+					break
+				}
+
+				ammo := s.CargoContents[index].(*Item)
+				*ammo.Rounds--
+
+				if *ammo.Rounds == 0 {
+					s.CargoContents = slices.Delete(s.CargoContents, index, index+1)
+				}
+			}
+
+			spec := m.Spec
+
+			rotation := s.Rotation + m.AimRotation
+			position := s.weaponPosition(m, spec.BarrelLength+spec.Projectile.Radius+1)
+			velocity := Vec.Add(s.Velocity, simulation.RotatePoint(Vec.Create(spec.Projectile.Speed, 0), rotation))
+			id := simulation.EntityID(s.World)
+			projectile := NewProjectile(m.Type, simulation.ObjectProperties{World: s.World, ID: &id, Position: position, Velocity: velocity, PlayerID: s.PlayerID}, s.Catalog)
+			simulation.AddEntity(s.World, projectile)
+
+			if spec.Recoil != 0 {
+				physics.ApplyForce(s, simulation.RotatePoint(Vec.Create(-spec.Recoil, 0), rotation), 0)
+			}
+
+			m.FireCooldown += spec.FireInterval
+		}
+	}
+}
+
+func (s *Ship) Update(dt float64) {
+	s.updateCargoRelease(dt)
+	s.UpdatePower(dt)
+
+	if s.TransitTime != 0 {
+		spec := s.Catalog.PortalSpec
+
+		if portal, ok := s.World.Entities.Get(s.TransitGate); ok {
+			remaining := -s.TransitTime - spec.TransitScaleDuration/1000
+			ratio := 1.0
+
+			if s.TransitTime < 0 && remaining > dt {
+				ratio = dt / remaining
+			}
+
+			s.Position = Vec.AddScaled(s.Position, Vec.Subtract(portal.Base().Position, s.Position), ratio)
+		}
+
+		s.Velocity, s.Spin = Vec.Vector{}, 0
+		s.Fly(0, 0)
+		s.UpdateModules(dt)
+
+		if s.TransitTime < 0 {
+			s.TransitTime = min(-1e-6, s.TransitTime+dt)
+		} else {
+			s.TransitTime = max(0, s.TransitTime-dt)
+
+		}
+
+		return
+	}
+
+	if s.Launching != 0 {
+		s.Launching = max(0, s.Launching-dt)
+
+		s.Fly(s.Forward, s.Turn)
+	}
+
+	if s.Cockpit != nil && (s.DockedTo == nil || *s.DockedTo == 0) {
+		f := s.Rules.Flight
+		throttle := s.LaunchThrottle()
+		forward, rotational, _ := s.thrusterOutput()
+		boost := s.flightBoostFactor() * s.thrustBoostFactor()
+		forward, rotational = forward*boost, rotational*boost
+		fuelThrottle := s.FuelThrottle()
+		forward = forward * (throttle * throttle) * fuelThrottle * s.ThrusterPower
+		thrust := rotational * (throttle * throttle) * fuelThrottle * s.ThrusterPower * s.AngularThrust / s.Mass
+		push := ((f.ThrustScale * forward) / s.Mass) * s.Forward * dt
+		target := (s.Turn * s.TurnRate * thrust * (throttle * throttle)) / f.SpinDivisor
+		s.Spin = utilities.Approach(s.Spin, target, thrust*dt)
+		s.Velocity = simulation.MovePoint(s.Velocity, s.Rotation+s.Spin*dt, push)
+	}
+
+	throttle := s.FuelThrottle()
+	s.ConsumeFuel(dt)
+
+	if throttle != s.FuelThrottle() {
+		s.Fly(s.Forward, s.Turn)
+	}
+
+	s.Craft.Update(dt)
+	s.updateTurrets(dt)
+	s.fireWeapons(dt)
+}
+
+func (s *Ship) ShipBase() *Ship { return s }
+
+func (s *Ship) ResetBiting() {
+	for _, segment := range s.Segments {
+		segment.Biting = false
+	}
+}
+
+func NewShip(id string, props Properties, catalog specs.Catalog) *Ship {
+	d, ok := catalog.ShipSpecs[id]
+
+	if !ok {
+		panic("Unknown ship spec: " + id)
+	}
+
+	if props.Drag == nil {
+		props.Drag = &d.Drag
+	}
+
+	if props.Radius == nil {
+		props.Radius = &d.Radius
+	}
+
+	plans := make([]*simulation.SegmentPlan, len(d.HullSegments))
+
+	for i, segment := range d.HullSegments {
+		health := segment.Health
+		p := make([]simulation.Point, len(segment.Points))
+
+		for j, point := range segment.Points {
+			p[j] = simulation.Point(point)
+		}
+
+		plan := &simulation.SegmentPlan{Health: health, Points: &simulation.ShapeOutline{Points: p}, Core: segment.Core, ZIndex: segment.ZIndex, Shades: segment.Shades, CollisionParts: segment.CollisionParts, Connections: segment.Connections, Essential: segment.Essential, FlightOffset: segment.FlightOffset}
+
+		for _, mount := range segment.Mounts {
+			plan.Mounts = append(plan.Mounts, simulation.NewMount(mount))
+		}
+
+		plans[i] = plan
+	}
+
+	ship := &Ship{Craft: NewCraft(props, plans, catalog), ThrusterPower: 1, SystemsPower: 1, DragCoefficient: d.Drag, AngularThrust: d.AngularThrust}
+
+	for _, plan := range ship.HullSegments {
+		for _, mount := range plan.Mounts {
+			for _, id := range mount.Fits {
+				if catalog.ModuleSpecs[id].ForwardThrust != 0 {
+					ship.thrusterMountCount++
+					break
+				}
+			}
+		}
+	}
+
+	ship.Self = ship
+	ship.Kind = "ship"
+	ship.AngularInertiaScale = catalog.Simulation.Flight.AngularInertiaScale
+
+	if props.AngularInertiaScale != nil {
+		ship.AngularInertiaScale = *props.AngularInertiaScale
+	}
+
+	ship.Name = d.Name
+
+	if props.Name != nil {
+		ship.Name = *props.Name
+	}
+
+	if id != "mustang" {
+		ship.DefinitionID = id
+	}
+
+	ship.UpdateMass()
+
+	ship.FuelCapacity, ship.Fuel = d.FuelCapacity, d.FuelCapacity
+	ship.CargoSpace = d.CargoSpace
+	ship.TurnRate = d.TurnRate
+	return ship
+}
+
+func CreateShip(world *simulation.World, props Properties) *Ship {
+	if props.ID == nil {
+		id := simulation.EntityID(world)
+		props.ID = &id
+	}
+
+	props.World = world
+
+	if props.DefinitionID == "" {
+		props.DefinitionID = "mustang"
+	}
+
+	return NewShip(props.DefinitionID, props, world.Specification)
+}
+
+func CreatePlayerShip(world *simulation.World, props Properties) *Ship {
+	ship := CreateShip(world, props)
+
+	id := ship.DefinitionID
+
+	if id == "" {
+		id = "mustang"
+	}
+
+	for _, entry := range world.Specification.ShipSpecs[id].InitialLoadout {
+		module := modules.Create(entry.Module, simulation.ObjectProperties{World: world}, world.Specification)
+
+		if entry.Shades != nil {
+			module.Base().Shades = entry.Shades
+		}
+
+		ship.Fit(module, ship.Mounts()[entry.Mount])
+	}
+
+	ship.StoredPower = ship.PowerCapacity()
+
+	return ship
+}

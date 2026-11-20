@@ -9,6 +9,7 @@ import {
   ownMiningFracture,
   ProtocolClient,
   replicatedAsteroidHealth,
+  summarizePostStartupSnapshotCadence,
 } from '../../benchmarking/server/client.ts';
 import {
   advanceSurvey,
@@ -86,6 +87,45 @@ assert(!isOrdinaryAmmoItem({ ...ammoItem, resource: 0 }, ammoCatalog));
 assert(!isOrdinaryAmmoItem({ ...ammoItem, rounds: 99999 }, ammoCatalog));
 
 assert.equal(matrix.length, 20);
+
+const startupSnapshots = [4780, 4900, 5060, 5093, 5126].map((at) => ({
+  at,
+  type: 'snapshot',
+}));
+
+const postStartupCadence = summarizePostStartupSnapshotCadence({
+  snapshots: startupSnapshots,
+  start: 4800,
+  end: 5150,
+  cutoff: 5000,
+});
+
+assert.equal(postStartupCadence?.durationMs, 150);
+assert.equal(postStartupCadence?.snapshotGapMs.count, 2);
+assert.equal(postStartupCadence?.longestSnapshotGapMs, 33);
+assert.equal(postStartupCadence?.longestSnapshotSilenceMs, 60);
+
+const steadyCadence = summarizePostStartupSnapshotCadence({
+  snapshots: startupSnapshots,
+  start: 5080,
+  end: 5150,
+  cutoff: 5000,
+});
+
+assert.equal(steadyCadence?.durationMs, 70);
+assert.equal(steadyCadence?.snapshotGapMs.count, 2);
+assert.equal(steadyCadence?.longestSnapshotGapMs, 33);
+assert.equal(steadyCadence?.longestSnapshotSilenceMs, 33);
+
+assert.equal(
+  summarizePostStartupSnapshotCadence({
+    snapshots: startupSnapshots,
+    start: 4800,
+    end: 5000,
+    cutoff: 5000,
+  }),
+  null,
+);
 
 assert.deepEqual(
   matrix.slice(0, 5),

@@ -23,7 +23,7 @@ const env = {
   ASSET_DIR: resolve('dist'),
 };
 
-const executable = resolve('bin/server');
+const executable = resolve(process.env.TEST_SERVER_EXECUTABLE ?? 'bin/server');
 let server: ReturnType<typeof spawn> | undefined;
 const sockets: WebSocket[] = [];
 

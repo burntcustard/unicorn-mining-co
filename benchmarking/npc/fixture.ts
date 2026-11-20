@@ -18,11 +18,11 @@ import (
  "strconv"
  "strings"
  "time"
- "github.com/burntcustard/unicorn-mining-co/src/server/objects"
- ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
- "github.com/burntcustard/unicorn-mining-co/src/server/protocol"
- "github.com/burntcustard/unicorn-mining-co/src/server/simulation"
- Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/objects"
+ ai "github.com/burntcustard/unicorn-mining-co/src/server-go/npc"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/protocol"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+ Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
 )
 
 type collectorBenchmarkEvent struct {
@@ -395,7 +395,7 @@ export function prepareNPCFixture({
     'Use between 3 and 48 fixture items',
   );
   const output = resolve(directory);
-  const sourcePath = resolve('src/server/network/game-session.go');
+  const sourcePath = resolve('src/server-go/network/game-session.go');
   const source = readFileSync(sourcePath, 'utf8');
   const events = '\ts.sectors[s.currentSector].pirates.ItemsCollected(events)';
   const receive =
@@ -483,7 +483,7 @@ export function prepareNPCFixture({
       '(!s.World.Players.Has(p.playerID) && !npcBenchmarkViewer(p)) || p.socket.BufferedBytes()',
     ],
   ]) {
-    const original = resolve('src/server/network', filename);
+    const original = resolve('src/server-go/network', filename);
     const contents = readFileSync(original, 'utf8');
 
     assert.equal(
@@ -512,7 +512,7 @@ export function prepareNPCFixture({
         Replace: {
           ...extraReplacements,
           [sourcePath]: session,
-          [resolve('src/server/network/collector-benchmark-fixture.go')]:
+          [resolve('src/server-go/network/collector-benchmark-fixture.go')]:
             helper,
         },
       },

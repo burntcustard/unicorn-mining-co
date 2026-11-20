@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/network"
-	ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
-	"github.com/burntcustard/unicorn-mining-co/src/server/npc/collector"
-	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
-	"github.com/burntcustard/unicorn-mining-co/src/server/persistence"
-	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
-	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/network"
+	ai "github.com/burntcustard/unicorn-mining-co/src/server-go/npc"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/npc/collector"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/persistence"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/specs"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
 )
 
 type collectorReplayItem struct {

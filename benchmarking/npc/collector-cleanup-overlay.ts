@@ -13,11 +13,11 @@ import (
  "slices"
  "syscall"
  "time"
- "github.com/burntcustard/unicorn-mining-co/src/server/objects"
- "github.com/burntcustard/unicorn-mining-co/src/server/npc/collector"
- "github.com/burntcustard/unicorn-mining-co/src/server/protocol"
- "github.com/burntcustard/unicorn-mining-co/src/server/simulation"
- Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/objects"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/npc/collector"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/protocol"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+ Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
 )
 
 type collectorCleanupTelemetryState struct {
@@ -160,7 +160,7 @@ export function prepareCollectorCleanupOverlay({
   baseOverlay?: string;
 }) {
   const output = resolve(directory);
-  const sourcePath = resolve('src/server/network/game-session.go');
+  const sourcePath = resolve('src/server-go/network/game-session.go');
 
   const inherited = baseOverlay
     ? (JSON.parse(readFileSync(baseOverlay, 'utf8')) as {
@@ -196,7 +196,8 @@ export function prepareCollectorCleanupOverlay({
   const replacements = {
     ...inherited.Replace,
     [sourcePath]: session,
-    [resolve('src/server/network/collector-cleanup-telemetry.go')]: telemetry,
+    [resolve('src/server-go/network/collector-cleanup-telemetry.go')]:
+      telemetry,
   };
 
   writeFileSync(
@@ -211,7 +212,7 @@ export function prepareCollectorCleanupOverlay({
   writeFileSync(telemetry, helper);
 
   if (deterministicChecks) {
-    const dispatchPath = resolve('src/server/npc/collector/dispatch.go');
+    const dispatchPath = resolve('src/server-go/npc/collector/dispatch.go');
     const dispatch = readFileSync(
       inherited.Replace[dispatchPath] || dispatchPath,
       'utf8',
@@ -233,7 +234,7 @@ export function prepareCollectorCleanupOverlay({
     const sampler = resolve(output, 'collector-cleanup-random.go');
 
     writeFileSync(sampler, checkRandom);
-    replacements[resolve('src/server/npc/collector/cleanup-random.go')] =
+    replacements[resolve('src/server-go/npc/collector/cleanup-random.go')] =
       sampler;
   }
 

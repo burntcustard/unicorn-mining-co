@@ -5,7 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/specs"
 )
 
 //go:embed example-modules.json

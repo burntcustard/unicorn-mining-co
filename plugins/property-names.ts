@@ -84,6 +84,8 @@ export const propertyNames = [
   'mapRange',
   'toggleMap',
   'asteroidPositions',
+  'asteroidSplice',
+  'removedEntityIds',
   'setShown',
   'sectorName',
   'transitTime',

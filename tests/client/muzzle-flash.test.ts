@@ -9,9 +9,12 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { fixtureSource } from '../support/fixture-source.ts';
 
 const root = process.cwd();
+const nativeFixture = process.env.UNICORN_MUZZLE_FLASHES_FIXTURE;
 const fixtures = execFileSync(
-  'go',
-  ['run', 'src/server/testtools/muzzle-flashes/main.go'],
+  nativeFixture || 'go',
+  nativeFixture
+    ? []
+    : ['run', 'src/server-go/testtools/muzzle-flashes/main.go'],
   { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
 );
 
@@ -122,10 +125,10 @@ for (const fixture of fixtures) for (const [delay, skipTick] of timings) {
   assert(shots > 0, 'the regression checks sustained firing after tap/hold transitions');
   assert.equal(
     effects.length, fixture.frames.reduce((sum, frame) => sum + frame.shots, 0),
-    fixture.weapon + ': every Go shot produces one flash, delay=' + delay + ', skipTick=' + skipTick,
+    fixture.weapon + ': every server shot produces one flash, delay=' + delay + ', skipTick=' + skipTick,
   );
 }
-console.log('Tap/hold muzzle flashes survive real Go snapshots and clock corrections');
+console.log('Tap/hold muzzle flashes survive real server snapshots and clock corrections');
 `;
 
 const entryId = `${root}/src/__muzzle_flash_test.ts`;

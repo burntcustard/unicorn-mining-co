@@ -15,11 +15,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
-	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
-	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
-	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/specs"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
 	"math"
  "os"
 	"path/filepath"
@@ -702,7 +702,7 @@ try {
     tests.replaceAll('__REPORT_DIRECTORY__', JSON.stringify(directory)),
   );
   replacements.Replace[
-    resolve('src/server/network/npc-benchmark-fixture_test.go')
+    resolve('src/server-go/network/npc-benchmark-fixture_test.go')
   ] = testFile;
   writeFileSync(overlay, JSON.stringify(replacements));
 
@@ -712,7 +712,7 @@ try {
       'test',
       '-overlay',
       overlay,
-      './src/server/network',
+      './src/server-go/network',
       '-run',
       '^TestNPCFixture',
       '-count=1',

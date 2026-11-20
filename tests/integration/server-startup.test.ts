@@ -14,7 +14,11 @@ try {
   owner.listen(`${database}.control.sock`);
   await once(owner, 'listening');
 
-  const server = spawn(resolve('bin/server'), [], {
+  const executable = resolve(
+    process.env.TEST_SERVER_EXECUTABLE ?? 'bin/server',
+  );
+
+  const server = spawn(executable, [], {
     env: {
       ...process.env,
       DATABASE_PATH: database,
@@ -34,7 +38,7 @@ try {
 
   assert.notEqual(code, 0);
   assert.match(log, /a live maintenance service already owns/);
-  assert.doesNotMatch(log, /Go server listening/);
+  assert.doesNotMatch(log, /server listening/);
   await assert.rejects(
     stat(database),
     { code: 'ENOENT' },

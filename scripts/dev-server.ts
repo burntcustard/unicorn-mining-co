@@ -1,6 +1,11 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { watch } from 'node:fs';
 
+const rust = process.argv.includes('--rust');
+const executable = rust
+  ? './src/server-rust/target/release/unicorn-mining-server'
+  : './bin/server';
+
 let server: ChildProcess;
 let command: ChildProcess;
 let timer: ReturnType<typeof setTimeout>;
@@ -50,15 +55,28 @@ const rebuild = async () => {
 
   try {
     await stopServer();
-    await run(process.execPath, [
-      '--import',
-      'tsx',
-      'scripts/generate-go-catalog.ts',
-    ]);
-    await run('go', ['build', '-o', 'bin/server', './src/server']);
+
+    if (rust) {
+      await run('cargo', [
+        'build',
+        '--locked',
+        '--release',
+        '--manifest-path',
+        'src/server-rust/Cargo.toml',
+        '--target-dir',
+        'src/server-rust/target',
+      ]);
+    } else {
+      await run(process.execPath, [
+        '--import',
+        'tsx',
+        'scripts/generate-go-catalog.ts',
+      ]);
+      await run('go', ['build', '-o', 'bin/server', './src/server-go']);
+    }
 
     if (!stopping) {
-      server = spawn('./bin/server', [], {
+      server = spawn(executable, [], {
         stdio: 'inherit',
         env: { ...process.env, APP_ENV: 'development' },
       });
@@ -81,7 +99,9 @@ const rebuild = async () => {
 
 // A managed benchmark keeps its compiled simulation fixed until capture ends.
 const watchers = (
-  process.env.NPC_BENCHMARK_SESSION ? [] : ['src/server', 'src/specs']
+  process.env.NPC_BENCHMARK_SESSION
+    ? []
+    : [rust ? 'src/server-rust/src' : 'src/server-go', 'src/specs']
 ).map((directory) =>
   watch(directory, { recursive: true }, (_, filename) => {
     if (
@@ -92,7 +112,7 @@ const watchers = (
       return;
     }
 
-    if (!/\.(go|ts)$/.test(filename)) return;
+    if (!(rust ? /\.(rs|ts)$/ : /\.(go|ts)$/).test(filename)) return;
     clearTimeout(timer);
 
     timer = setTimeout(() => {

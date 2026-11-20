@@ -8,8 +8,8 @@ import { pathToFileURL } from 'node:url';
  */
 export function prepareMovementFixture(directory: string) {
   const output = resolve(directory);
-  const sessionPath = resolve('src/server/network/game-session.go');
-  const fixturePath = resolve('src/server/network/movement-benchmark.go');
+  const sessionPath = resolve('src/server-go/network/game-session.go');
+  const fixturePath = resolve('src/server-go/network/movement-benchmark.go');
   const play =
     'func (s *GameSession) play(p *playerRecord) {\n\tif s.World.Players.Has(p.playerID) {\n\t\treturn\n\t}\n';
   const session = readFileSync(sessionPath, 'utf8');

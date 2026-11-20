@@ -66,10 +66,13 @@ WHITE - Unlocked by default from the start of the game.
    [localhost:3001](http://localhost:3001/). It serves the client and WebSocket
    on the same port. `npm run preview` also works with `start:server` running.
 
-Port 3001 is reserved for the Go server. The dev frontend starts at 3000 and
+Port 3001 is reserved for the local game server. The dev frontend starts at 3000 and
 tools start at 3100, advancing to the next available port when needed. Start
 these in any order and use the URL Vite prints. The frontend proxies game
-connections to the Go server on 3001.
+connections to the server on 3001.
+
+The [Rust server](src/server-rust/MAP.md) uses the same client and TypeScript specs.
+Use `npm run dev:server:rust` in place of the Go watcher to run it locally.
 
 Use `dev` with `dev:server`, or the production build with `start:server`.
 New players start with 2,000 credits. Existing players keep their saved balance.
@@ -242,9 +245,9 @@ Node test files and Go tests. Run a single Node test with `npm run test objects`
 Go filenames work too: `npm run test round_test.go` runs the tests declared in
 that file with their containing package compiled normally.
 Multiple filenames and project-relative directories are supported, and paths
-disambiguate duplicate filenames. For example, `npm run test src/server/network`
-checks the Go network package; `npm run test src/server/physics src/server/collision`
-checks Go physics and collisions; `npm run test src/server tests/parity` runs all
+disambiguate duplicate filenames. For example, `npm run test src/server-go/network`
+checks the Go network package; `npm run test src/server-go/physics src/server-go/collision`
+checks Go physics and collisions; `npm run test src/server-go tests/parity` runs all
 Go and parity checks.
 Selected integration and parity tests prepare their server/catalog and fixtures
 automatically; client-only selections skip the full build.
@@ -356,8 +359,9 @@ reading retained text.
 
 - `src/specs`: typed authored items, modules, ships, stations, and tuning.
 - `src/client`: browser mechanics, prediction, networking, rendering, audio, UI.
-- `src/server`: Go entry point, objects/modules, simulation, networking, physics.
-- `src/server/specs`: generated catalog and Go decoding types.
+- `src/server-go`: Go entry point, objects/modules, simulation, networking, physics.
+- `src/server-go/specs`: generated catalog and Go decoding types.
+- `src/server-rust`: Rust game server and its TypeScript spec build integration.
 - `tests/client`, `tests/linting`, `tests/integration`, `tests/parity`: retained regression suites.
 
 Each item/ship/station type has one spec file. Generic runtime classes

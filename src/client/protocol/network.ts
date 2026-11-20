@@ -182,5 +182,11 @@ export type ServerMessage =
       serverTick: number;
       type: 'load' | 'snapshot';
       entityIds?: number[];
+      removedEntityIds?: number[];
       asteroidPositions?: NetworkVector[];
+      asteroidSplice?: [
+        start: number,
+        deleteCount: number,
+        positions: NetworkVector[],
+      ];
     };

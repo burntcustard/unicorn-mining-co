@@ -9,9 +9,13 @@ import { testBuildPlugin } from '../support/build-plugin';
 import { fixtureSource } from '../support/fixture-source.ts';
 
 const root = process.cwd();
+const nativeFixture = process.env.UNICORN_BEAM_VISIBILITY_FIXTURE;
+const server = nativeFixture ? 'Rust' : 'Go';
 const fixture = execFileSync(
-  'go',
-  ['run', 'src/server/testtools/beam-visibility/main.go'],
+  nativeFixture ?? 'go',
+  nativeFixture
+    ? []
+    : ['run', 'src/server-go/testtools/beam-visibility/main.go'],
   { encoding: 'utf8' },
 );
 const fixtureInput = fixtureSource(JSON.parse(fixture));
@@ -69,7 +73,7 @@ for (const [index, hex] of fixture.packets.entries()) {
   const message = decode(hex);
   if (index === 1 || index === 2) {
     assert.equal(message.fullEntities.find(entity => entity.id === fixture.remoteId).firing,
-      index === 1, 'both firing edges must be present in real Go deltas');
+      index === 1, 'both firing edges must be present in real ${server} deltas');
   }
   client.receive({ message });
   now += simulationStep * 1000;
@@ -87,7 +91,7 @@ const joining = connect();
 joining.receive({ message: decode(fixture.join) });
 assert(render(joining.world.entities.get(fixture.remoteId)) > 0,
   'joining observers see an already firing beam from the initial snapshot');
-console.log('Remote beams follow real Go snapshots, release, retraction, and joining');
+console.log('Remote beams follow real ${server} snapshots, release, retraction, and joining');
 `;
 const entryId = `${root}/src/__beam_visibility_test.ts`;
 

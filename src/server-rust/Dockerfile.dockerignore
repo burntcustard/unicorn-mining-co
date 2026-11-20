@@ -1,0 +1,5 @@
+**
+!bin/
+!bin/server-rust
+!dist/
+!dist/**

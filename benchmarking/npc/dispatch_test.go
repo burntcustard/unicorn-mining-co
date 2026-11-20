@@ -4,12 +4,12 @@ import (
 	"math"
 	"testing"
 
-	"github.com/burntcustard/unicorn-mining-co/src/server/npc/collector"
-	"github.com/burntcustard/unicorn-mining-co/src/server/npc/testhost"
-	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
-	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	"github.com/burntcustard/unicorn-mining-co/src/server/specs"
-	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/npc/collector"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/npc/testhost"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/specs"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
 )
 
 /*

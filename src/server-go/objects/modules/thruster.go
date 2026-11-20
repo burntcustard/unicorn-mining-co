@@ -1,0 +1,16 @@
+// Port of src/client/objects/modules/thruster.ts; rendering-only flare size is omitted.
+package modules
+
+import (
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/specs"
+)
+
+type Thruster struct{ *Module }
+
+func NewThruster(id string, props simulation.ObjectProperties, catalog specs.Catalog) *Thruster {
+	m := &Thruster{NewModule(id, props, catalog)}
+	m.Self = m
+
+	return m
+}

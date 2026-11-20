@@ -34,6 +34,8 @@ export type ProtocolRuntime = {
   decodeServerControl: typeof import('../../src/client/protocol/binary-control.ts').decodeServerControl;
   decodeBinarySnapshot: typeof import('../../src/client/protocol/binary-snapshot.ts').decodeBinarySnapshot;
   mergeModuleStates: typeof import('../../src/client/protocol/binary-snapshot.ts').mergeModuleStates;
+  snapshotAsteroidPositions: typeof import('../../src/client/protocol/binary-snapshot.ts').snapshotAsteroidPositions;
+  snapshotDeltaQuery: typeof import('../../src/client/protocol/binary-snapshot.ts').snapshotDeltaQuery;
   sameInput: typeof import('../../src/client/protocol/input.ts').sameInput;
   catalog: ProtocolCatalog;
 };
@@ -45,7 +47,7 @@ export async function loadProtocolRuntime(directory: string) {
   await mkdir(directory, { recursive: true });
   const source = [
     `export {encodeClientMessage,decodeServerControl} from ${JSON.stringify(resolve('src/client/protocol/binary-control.ts'))};`,
-    `export {decodeBinarySnapshot,mergeModuleStates} from ${JSON.stringify(resolve('src/client/protocol/binary-snapshot.ts'))};`,
+    `export {decodeBinarySnapshot,mergeModuleStates,snapshotAsteroidPositions,snapshotDeltaQuery} from ${JSON.stringify(resolve('src/client/protocol/binary-snapshot.ts'))};`,
     `export {sameInput} from ${JSON.stringify(resolve('src/client/protocol/input.ts'))};`,
     `import {moduleIds,moduleSpecs} from ${JSON.stringify(resolve('src/specs/modules/index.ts'))};`,
     `import {shipSpecs} from ${JSON.stringify(resolve('src/specs/ships/index.ts'))};`,

@@ -1,0 +1,289 @@
+package objects
+
+import (
+	testsupport "github.com/burntcustard/unicorn-mining-co/tests/support"
+	"reflect"
+	"slices"
+	"testing"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/objects/modules"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/specs"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
+)
+
+func TestDockedAutogunPurchaseAndReplacement(t *testing.T) {
+	catalog, err := testsupport.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := CreatePlayerShip(world, Properties{})
+	mount := ship.Mounts()[0]
+	hatch := mount.Module
+	credits := 2000.0
+	buy := protocol.DockAction{Action: "buy", Module: int64(slices.Index(catalog.ModuleIDs, "autogun")), HasModuleID: true, ModuleID: hatch.Base().ID}
+
+	if _, ok := ship.ApplyDockAction(buy, &credits); ok || credits != 2000 || len(ship.CargoContents) != 0 {
+		t.Fatal("duplicate equipment ID was accepted or charged")
+	}
+
+	buy.ModuleID = -1000
+
+	if _, ok := ship.ApplyDockAction(buy, &credits); !ok || mount.Module != hatch || len(ship.CargoContents) != 1 {
+		t.Fatal("purchase must put the autogun in cargo and keep the hatch fitted")
+	}
+
+	gun := ship.CargoContents[0].(simulation.Module)
+
+	for i := 0; i < 3; i++ {
+		for _, module := range []simulation.Module{gun, hatch} {
+			if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "equip", HasMount: true, Mount: 0, HasModuleID: true, ModuleID: module.Base().ID}, &credits); !ok {
+				t.Fatal("owned module could not replace the fitted module")
+			}
+
+			if mount.Module != module || module.ModuleBase().Mount != mount || len(ship.CargoContents) != 1 || ship.CargoContents[0] == module {
+				t.Fatal("replacement did not preserve mount and cargo ownership")
+			}
+
+			if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "remove", HasMount: true, Mount: 0}, &credits); !ok || mount.Module != nil || module.ModuleBase().Mount != nil || len(ship.CargoContents) != 2 {
+				t.Fatal("remove did not clear the mount and stow the module")
+			}
+		}
+	}
+}
+
+func TestSellEquippedAutogunWithFullCargo(t *testing.T) {
+	catalog, err := testsupport.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	world := simulation.CreateWorld(25, catalog)
+	ship := CreatePlayerShip(world, Properties{})
+	station := CreateStation(Properties{ObjectProperties: simulation.ObjectProperties{World: world}}, catalog)
+	simulation.AddEntity(world, station)
+	ship.DockedTo = &station.ID
+	mount := ship.Mounts()[0]
+	gun := modules.Create("autogun", simulation.ObjectProperties{World: world}, catalog)
+	ship.Fit(gun, mount)
+	ammo := NewItem("autogunAmmo", simulation.ObjectProperties{World: world}, catalog)
+	*ammo.Rounds = 150
+	ship.CargoContents = []simulation.Entity{ammo}
+
+	for len(ship.CargoContents) < ship.CargoSpace {
+		ship.CargoContents = append(ship.CargoContents, NewItem("gold", simulation.ObjectProperties{World: world}, catalog))
+	}
+
+	before := slices.Clone(ship.CargoContents)
+	credits := 0.0
+	id := gun.Base().ID
+
+	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "sell", ObjectIDs: []int64{id, 123456789}}, &credits); ok || mount.Module != gun || credits != 0 {
+		t.Fatal("invalid batch partially sold an equipped module")
+	}
+
+	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "sell", ObjectIDs: []int64{id}}, &credits); !ok {
+		t.Fatal("full cargo prevented selling an equipped autogun")
+	}
+
+	if mount.Module != nil || gun.ModuleBase().Mount != nil || !slices.Equal(ship.CargoContents, before) || credits != gun.Base().Price || *ammo.Rounds != 150 {
+		t.Fatal("sale did not free the mount, preserve cargo, and pay exactly once")
+	}
+
+	if !slices.Contains(station.CargoContents, simulation.Entity(gun)) {
+		t.Fatal("sold autogun did not enter station stock")
+	}
+
+	if _, ok := ship.ApplyDockAction(protocol.DockAction{Action: "sell", ObjectIDs: []int64{id}}, &credits); ok || credits != gun.Base().Price {
+		t.Fatal("the same equipped module was sold twice")
+	}
+}
+
+func TestReconciledMountOrder(t *testing.T) {
+	catalog, _ := testsupport.Load()
+
+	for id := range catalog.ShipSpecs {
+		t.Run(id, func(t *testing.T) {
+			world := simulation.CreateWorld(25, catalog)
+			authority := NewShip(id, Properties{World: world}, catalog)
+			predicted := NewShip(id, Properties{World: world}, catalog)
+			full := authority.HullHealth()
+			indexes := []int{}
+
+			for i, plan := range authority.HullSegments {
+				if len(plan.Mounts) > 0 {
+					indexes = append(indexes, i)
+				}
+			}
+
+			if len(indexes) < 2 {
+				return
+			}
+
+			damaged, other := slices.Clone(full), slices.Clone(full)
+			damaged[indexes[0]], other[indexes[1]] = 0, 0
+			authority.SetHullHealth(damaged)
+			predicted.SetHullHealth(other)
+			predicted.SetHullHealth(damaged)
+
+			for i, mount := range authority.Mounts() {
+				if !reflect.DeepEqual(mount.Fits, predicted.Mounts()[i].Fits) {
+					t.Fatal("different damage histories changed serialized mount indexes")
+				}
+			}
+
+			authority.SetHullHealth(full)
+			fresh := NewShip(id, Properties{World: world}, catalog)
+
+			for i, mount := range fresh.Mounts() {
+				if !reflect.DeepEqual(mount.Fits, authority.Mounts()[i].Fits) {
+					t.Fatal("repair did not restore canonical mount indexes")
+				}
+			}
+		})
+	}
+}
+
+func TestModuleMountCoordinates(t *testing.T) {
+	catalog, err := testsupport.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	health := 100.0
+
+	hulls := []specs.HullSegment{{
+		Health: &health,
+		Points: []specs.Point{{-30, -30}, {30, -30}, {30, 30}, {-30, 30}},
+		Mounts: [][]specs.MountPoint{{
+			{X: 3, Y: -29, Fits: []string{"cargoHatch"}},
+			{X: 9, Y: -6, Fits: []string{"autogun"}},
+			{X: 21, Y: -8, Fits: []string{"plasmaAccelerator"}},
+		}},
+	}}
+
+	shipSpec := catalog.ShipSpecs["mustang"]
+	shipSpec.HullSegments = hulls
+	catalog.ShipSpecs["test"] = shipSpec
+	stationSpec := catalog.StationSpecs["corral-5"]
+	stationSpec.HullSegments = hulls
+	catalog.StationSpecs["test"] = stationSpec
+	world := simulation.CreateWorld(25, catalog)
+	playerID := int64(1)
+	props := Properties{ObjectProperties: simulation.ObjectProperties{World: world, PlayerID: &playerID}}
+	ship := NewShip("test", props, catalog)
+	station := NewStation("test", props, catalog)
+
+	for _, craft := range []*Craft{ship.Craft, station.Craft} {
+		mounts := craft.Mounts()
+
+		if len(mounts) != 1 {
+			t.Fatal("coordinate groups must share one mount slot")
+		}
+
+		mount := mounts[0]
+		hatch := modules.Create("cargoHatch", simulation.ObjectProperties{World: world}, catalog)
+		craft.Fit(hatch, nil)
+
+		if mount.Module != hatch || mount.LocalPosition != Vec.Create(3, -29) {
+			t.Fatal("automatic fitting must choose the compatible coordinate group")
+		}
+
+		for _, segment := range craft.SegmentsAtMount(mount) {
+			if segment.LocalPosition != Vec.Create(3, -13) {
+				t.Fatal("cargo offset must use the hatch group's position")
+			}
+		}
+
+		cannon := modules.Create("autogun", simulation.ObjectProperties{World: world}, catalog)
+		craft.Fit(cannon, mount)
+
+		if mount.LocalPosition != Vec.Create(9, -6) {
+			t.Fatal("autogun must use its own mount coordinates")
+		}
+
+		for _, segment := range craft.SegmentsAtMount(mount) {
+			if segment.LocalPosition != Vec.Create(9, -6) {
+				t.Fatal("all weapon segments must use the selected coordinates")
+			}
+		}
+
+		states := craft.ModuleStates()
+		craft.Fit(nil, mount)
+		craft.SetModuleStates(states)
+
+		if mount.LocalPosition != Vec.Create(9, -6) {
+			t.Fatal("restoring module states must select the matching coordinates")
+		}
+
+		plasma := modules.Create("plasmaAccelerator", simulation.ObjectProperties{World: world}, catalog)
+		craft.Fit(plasma, mount)
+
+		if mount.LocalPosition != Vec.Create(21, -8) {
+			t.Fatal("plasma accelerator must use its own coordinates")
+		}
+	}
+
+	ship.SetModuleActive("plasmaAccelerator", true)
+	ship.UpdateModules(3)
+	ship.Firing = true
+	ship.fireWeapons(0)
+
+	for _, entity := range world.Entities.Values() {
+		if projectile, ok := entity.(*Projectile); ok {
+			spec := catalog.ModuleSpecs["plasmaAccelerator"]
+			expected := Vec.Create(21+spec.BarrelLength+spec.Projectile.Radius+1, -8)
+
+			if projectile.Position != expected {
+				t.Fatal("projectiles must spawn from the weapon group's position")
+			}
+
+			return
+		}
+	}
+
+	t.Fatal("expected a fired projectile")
+}
+
+func TestThrusterMountSpacing(t *testing.T) {
+	catalog, _ := testsupport.Load()
+	world := simulation.CreateWorld(25, catalog)
+
+	for _, id := range []string{"thrusterDualMd", "thrusterDualLg"} {
+		t.Run(id, func(t *testing.T) {
+			wide := CreatePlayerShip(world, Properties{DefinitionID: "crotus"})
+			standard := CreateShip(world, Properties{})
+			thruster := modules.Create(id, simulation.ObjectProperties{World: world}, catalog)
+			offset := catalog.ModuleSpecs[id].Offset
+
+			for _, target := range []struct {
+				ship  *Ship
+				extra float64
+			}{{wide, 8}, {standard, 0}, {wide, 8}} {
+				mountIndex := 1
+
+				if target.ship == wide {
+					mountIndex = 2
+				}
+
+				mount := target.ship.Mounts()[mountIndex]
+				target.ship.Fit(thruster, mount)
+				segments := target.ship.SegmentsAtMount(mount)
+
+				if len(segments) != 2 || segments[0].LocalPosition.Y != -offset-target.extra || segments[1].LocalPosition.Y != offset+target.extra {
+					t.Fatal("thruster spacing must follow the current ship mount")
+				}
+			}
+
+			if thruster.ModuleBase().Spec.Offset != offset {
+				t.Fatal("fitting must not change the module offset")
+			}
+		})
+	}
+}

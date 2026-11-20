@@ -44,7 +44,9 @@ export default defineConfig(({ command }) => {
     server: {
       port: 3000,
       proxy,
-      watch: { ignored: ['**/benchmarking/_local/**'] },
+      watch: {
+        ignored: ['**/benchmarking/_local/**', '**/server-rust/target/**'],
+      },
     },
     plugins: [
       buildHtmlPlugin(),

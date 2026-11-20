@@ -1,0 +1,58 @@
+package objects
+
+import (
+	"testing"
+
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/objects/modules"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/specs"
+)
+
+func TestRenderingLayerInheritance(t *testing.T) {
+	catalog, err := specs.Load()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	craftID, moduleID, stationID := int64(1), int64(2), int64(3)
+	craft := NewCraft(Properties{ObjectProperties: simulation.ObjectProperties{ID: &craftID}}, nil, catalog)
+	zero := 0
+	plan := &simulation.SegmentPlan{}
+	module := modules.NewHornDrill(simulation.ObjectProperties{ID: &moduleID}, catalog)
+	module.Spec.ZIndex = nil
+
+	if got := makeSegment(craft.GameObject, craft.ZIndex, module, plan, nil).ZIndex; got != specs.HullZIndex {
+		t.Fatalf("unspecified module layer = %d, want %d", got, specs.HullZIndex)
+	}
+
+	module.Spec.ZIndex = &zero
+
+	if got := makeSegment(craft.GameObject, craft.ZIndex, nil, plan, nil).ZIndex; got != specs.HullZIndex {
+		t.Fatalf("default hull layer = %d, want %d", got, specs.HullZIndex)
+	}
+
+	if got := makeSegment(craft.GameObject, craft.ZIndex, module, plan, nil).ZIndex; got != zero {
+		t.Fatalf("explicit module layer = %d, want 0", got)
+	}
+
+	plan.ZIndex = &zero
+	module.Spec.ZIndex = new(specs.HullZIndex)
+
+	if got := makeSegment(craft.GameObject, craft.ZIndex, module, plan, nil).ZIndex; got != zero {
+		t.Fatalf("explicit segment layer = %d, want 0", got)
+	}
+
+	station := NewStation("corral-5", Properties{ObjectProperties: simulation.ObjectProperties{ID: &stationID}}, catalog)
+	floors := 0
+
+	for _, segment := range station.Segments {
+		if segment.ZIndex == zero {
+			floors++
+		}
+	}
+
+	if floors != 1 {
+		t.Fatalf("station floor segments = %d, want 1", floors)
+	}
+}

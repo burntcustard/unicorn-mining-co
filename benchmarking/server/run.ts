@@ -29,10 +29,12 @@ import {
   type SpreadCorridor,
 } from './workloads.ts';
 import { localServerPid, observeServerCpu } from './observer.ts';
-import { limitServerCores } from './cores.ts';
+import { limitServerCores, type ServerRuntime } from './cores.ts';
+import { observeServerMemory } from './memory.ts';
 import { stopOwnedChild } from '../utilities/owned-child.ts';
 
 const execute = promisify(execFile);
+const startupExclusionMs = 5000;
 
 export const selectServerCpuCases = ({
   players,
@@ -518,13 +520,14 @@ async function main() {
 
   if (args.includes('--help')) {
     console.log(
-      'Usage: npm run benchmark:server:local -- [--cores N] [--players 4|8|16|32] [--workload convoy|spread|contact|module|weapon] [--seconds 30] [--warmup 15] [--prepare-timeout 600] [--repetitions 1] [--output FILE.json.gz]. Use benchmark:server:live for the deployed server; --cores applies only to the local Go server.',
+      'Usage: npm run benchmark:server:local -- [--runtime go|rust] [--cores N] [--players 4|8|16|32] [--workload convoy|spread|contact|module|weapon] [--seconds 30] [--warmup 15] [--prepare-timeout 600] [--repetitions 1] [--output FILE.json.gz] [--memory-output FILE.jsonl]. Use benchmark:server:live for the deployed server. --cores, --runtime and --memory-output apply locally.',
     );
     return;
   }
 
   const allowed = [
     'target',
+    'runtime',
     'cores',
     'prepare-timeout',
     'players',
@@ -533,6 +536,7 @@ async function main() {
     'warmup',
     'repetitions',
     'output',
+    'memory-output',
   ];
   const parsed: Record<string, string> = {};
 
@@ -553,21 +557,30 @@ async function main() {
 
   assert(['local', 'live'].includes(target), '--target must be local or live');
   const local = target === 'local';
+
+  assert(
+    parsed.runtime === undefined ||
+      (local && ['go', 'rust'].includes(parsed.runtime)),
+    '--runtime must be go or rust and requires the local target',
+  );
+  const runtime = parsed.runtime as ServerRuntime | undefined;
+  const runtimeName = runtime === 'rust' ? 'Rust' : 'Go';
   const url = local ? 'http://localhost:3000/' : 'https://unicorn-mining.co/';
   const seconds = Number(parsed.seconds || 30);
   const warmup = Number(parsed.warmup ?? 15);
   const repetitions = Number(parsed.repetitions || 1);
   const prepareTimeout = Number(parsed['prepare-timeout'] || 600);
   const cores = parsed.cores === undefined ? undefined : Number(parsed.cores);
+  const memoryOutput = parsed['memory-output']
+    ? resolve(parsed['memory-output'])
+    : undefined;
 
   assert(
     Number.isFinite(prepareTimeout) && prepareTimeout > 0,
     '--prepare-timeout must be a positive number of seconds',
   );
-  assert(
-    local || cores === undefined,
-    '--cores limits only the local Go server; it never resizes a live machine',
-  );
+  assert(local || cores === undefined, '--cores applies to the local server');
+  assert(local || !memoryOutput, '--memory-output applies to the local server');
 
   assert(
     Number.isFinite(seconds) && seconds >= 5,
@@ -597,6 +610,8 @@ async function main() {
     parsed.output ||
       `benchmarking/_local/server-cpu-${new Date().toISOString().replaceAll(':', '-')}.json.gz`,
   );
+
+  assert(memoryOutput !== output, 'CPU and memory output paths must differ');
   const directory = await mkdtemp(join(tmpdir(), 'unicorn-protocol-'));
   const { runtimePath } = await loadProtocolRuntime(directory);
   const sourcePaths = ['src', 'plugins', 'vite.config.ts'];
@@ -606,6 +621,7 @@ async function main() {
     'benchmarking/server/workloads.ts',
     'benchmarking/server/observer.ts',
     'benchmarking/server/cores.ts',
+    ...(memoryOutput ? ['benchmarking/server/memory.ts'] : []),
     'benchmarking/utilities/protocol-runtime.ts',
     'benchmarking/utilities/snapshot-traffic-metrics.ts',
     'benchmarking/utilities/ship-controls.ts',
@@ -661,6 +677,8 @@ async function main() {
     createdAt: new Date().toISOString(),
     url,
     target,
+    ...(runtime && { runtime }),
+    ...(memoryOutput && { memoryOutput }),
     seconds,
     warmup,
     preparationTimeoutSeconds: prepareTimeout,
@@ -670,10 +688,8 @@ async function main() {
     repetitions,
     checkout,
     matrix: { playerCounts, workloads: workloadNames, selected: cases },
-    setup:
-      'Fresh hello identities with unretained session tokens, normal game-socket binary codecs and delta application; changed keyboard inputs only; immediate requested snapshot receipts. Weapon clients physically dock, buy/equip normally, purchase enough ordinary autogun ammunition for measurement and a five-second reserve, clear the station bay and fan out for10 seconds. Weapons activate/charge during nonfiring warmup; continuous firing is briefly confirmed immediately before measurement. An optional local core limit changes only the Go server affinity and is restored after the suite.',
-    measurement:
-      'Primary CPU uses matching machine busy-counter modes on both targets: selected local logical CPUs or the live Fly machine. Local measurements can include unrestricted load-generator or background processes; supplemental local Go-process CPU isolates the server. Hardware differs and no live process counter is available. Generator timings and traffic are application observations, not browser rendering or wire latency. Allocation counts are unavailable through the public game protocol. Failed cases are retained without reducing player count.',
+    setup: `Fresh hello identities with unretained session tokens, normal game-socket binary codecs and delta application; changed keyboard inputs only; immediate requested snapshot receipts. Weapon clients physically dock, buy/equip normally, purchase enough ordinary autogun ammunition for measurement and a five-second reserve, clear the station bay and fan out for10 seconds. Weapons activate/charge during nonfiring warmup; continuous firing is briefly confirmed immediately before measurement. An optional local core limit changes only the ${runtimeName} server affinity and is restored after the suite.`,
+    measurement: `Primary CPU uses matching machine busy-counter modes on both targets: selected local logical CPUs or the live Fly machine. Local measurements can include unrestricted load-generator or background processes; supplemental local ${runtimeName}-process CPU isolates the server. Hardware differs and no live process counter is available. Generator timings and traffic are application observations, not browser rendering or wire latency. Allocation counts are unavailable through the public game protocol. Failed cases are retained without reducing player count.`,
     host: {
       platform: process.platform,
       node: process.version,
@@ -698,13 +714,29 @@ async function main() {
 
   let coreLimit: Awaited<ReturnType<typeof limitServerCores>>;
   let coreSetup: Promise<Awaited<ReturnType<typeof limitServerCores>>>;
+  let memoryMonitor: Awaited<ReturnType<typeof observeServerMemory>>;
+  let memorySetup: ReturnType<typeof observeServerMemory>;
   let activeWorkers: ClientWorker[] = [];
   let stopping = false;
+
+  const stopMemory = async () => {
+    if (!memorySetup) return;
+
+    try {
+      const monitor = memoryMonitor ?? (await memorySetup);
+
+      monitor.setPhase({ phase: 'cleanup' });
+      await monitor.stop();
+    } catch (error) {
+      report.cleanupErrors.push(`memory timeline: ${inspect(error)}`);
+    }
+  };
 
   const interrupt = (signal: string) => {
     if (stopping) return;
     stopping = true;
     report.interrupted = { signal, at: new Date().toISOString() };
+    memoryMonitor?.setPhase({ phase: 'cleanup' });
 
     void finishInterruptedProtocolCapture({
       workers: activeWorkers,
@@ -713,7 +745,11 @@ async function main() {
         const limit =
           coreLimit ?? (await coreSetup?.catch((): undefined => undefined));
 
-        await limit?.restore();
+        try {
+          await limit?.restore();
+        } finally {
+          await stopMemory();
+        }
       },
       removeDirectory: () => rm(directory, { recursive: true, force: true }),
       save,
@@ -732,13 +768,23 @@ async function main() {
     if (local) {
       coreSetup = beginProtocolCoreSetup({
         findPid: localServerPid,
-        limit: (pid) => limitServerCores({ pid, count: cores }),
+        limit: (pid) => limitServerCores({ pid, count: cores, runtime }),
       });
 
       coreLimit = await coreSetup;
 
       if (stopping) return;
       report.serverCores = coreLimit.metadata;
+
+      if (memoryOutput) {
+        memorySetup = observeServerMemory({
+          pid: coreLimit.metadata.pid,
+          output: memoryOutput,
+        });
+
+        memoryMonitor = await memorySetup;
+      }
+
       await save();
     }
 
@@ -748,6 +794,12 @@ async function main() {
       for (let repetition = 1; repetition <= repetitions; repetition++) {
         if (stopping) break;
         const label = `${configuration.players} players / ${configuration.workload} / ${repetition}`;
+
+        memoryMonitor?.setPhase({
+          phase: 'preparation',
+          ...configuration,
+          repetition,
+        });
 
         console.error(`Preparing ${label}`);
         const workers: ClientWorker[] = [];
@@ -1284,6 +1336,7 @@ async function main() {
               pid: coreLimit?.metadata.pid,
               cpuIds: coreLimit?.metadata.logicalCpuIds,
               steadySince: physicalReadyAt,
+              runtime,
             });
 
           let observer = local ? undefined : await observe();
@@ -1345,6 +1398,10 @@ async function main() {
           }
 
           observer ??= await observe();
+          const postStartupAt =
+            'processStartedBy' in observer && observer.processStartedBy !== null
+              ? observer.processStartedBy + startupExclusionMs
+              : undefined;
 
           if (configuration.workload === 'spread') {
             spreadPreparation.finalClearance = await Promise.all(
@@ -1359,6 +1416,13 @@ async function main() {
           const hostBefore = await hostCpu();
           const startedAt = new Date().toISOString();
           const activeWindow = { start: Date.now(), end: 0 };
+
+          memoryMonitor?.setPhase({
+            phase: 'measurement',
+            ...configuration,
+            repetition,
+          });
+
           const coordinatorAt = performance.now();
           const coordinatorBefore = process.cpuUsage();
           const coordinatorRssAtStart = process.memoryUsage().rss;
@@ -1369,6 +1433,13 @@ async function main() {
           let serverCpu = local ? await observer.finish() : undefined;
 
           activeWindow.end = Date.now();
+
+          memoryMonitor?.setPhase({
+            phase: 'cleanup',
+            ...configuration,
+            repetition,
+          });
+
           const generators = await Promise.all(
             workers.map((worker) => worker.command<WorkerResult>('stop')),
           );
@@ -1401,7 +1472,9 @@ async function main() {
           await pause(3000);
           const clients = (
             await Promise.all(
-              workers.map((worker) => worker.command<ClientResult[]>('report')),
+              workers.map((worker) =>
+                worker.command<ClientResult[]>('report', { postStartupAt }),
+              ),
             )
           )
             .flat()
@@ -1486,6 +1559,12 @@ async function main() {
             serverCadence: {
               ...clientValidation.serverCadence,
               tickSkips: summarizeTickSkips(clients),
+              postStartupSnapshotWindow: {
+                excludedStartupMs: startupExclusionMs,
+                cutoffAt: postStartupAt ?? null,
+                measurement:
+                  'Per-client post-startup gap metrics use the local server process start time, bounded conservatively from Linux process ticks and uptime. An unknown cutoff leaves only the original observations.',
+              },
               measurement:
                 'Shared prior/current tick IDs establish that multiple clients observe the same missing intermediate world state. The server publishes once after a catch-up batch; this can explain shared skips but is not isolated proof of their cause. Cadence concerns remain separate from consumption/headroom qualification.',
             },
@@ -1545,6 +1624,12 @@ async function main() {
             }),
           );
         } catch (error) {
+          memoryMonitor?.setPhase({
+            phase: 'cleanup',
+            ...configuration,
+            repetition,
+          });
+
           const preparationDiagnostics = await Promise.allSettled(
             workers.map(async (worker) =>
               Promise.race([
@@ -1605,6 +1690,7 @@ async function main() {
     try {
       await coreLimit?.restore();
     } finally {
+      await stopMemory();
       await save();
       await rm(directory, { recursive: true, force: true });
     }

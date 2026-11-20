@@ -6,11 +6,17 @@ import { createWorld } from '../../src/client/simulation/world';
 import type { ShipId } from '../../src/specs/ships';
 import * as Vec from '../../src/client/utilities/vector';
 
+const nativeFixture = process.env.UNICORN_NPC_SHIPS_FIXTURE;
+
 const fixtures = JSON.parse(
-  execFileSync('go', ['run', './src/server/testtools/npc-ships'], {
-    encoding: 'utf8',
-    env: { ...process.env, GOEXPERIMENT: 'simd' },
-  }),
+  execFileSync(
+    nativeFixture ?? 'go',
+    nativeFixture ? [] : ['run', './src/server-go/testtools/npc-ships'],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, GOEXPERIMENT: 'simd' },
+    },
+  ),
 );
 
 const near = (actual: number, expected: number) =>

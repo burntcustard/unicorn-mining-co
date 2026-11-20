@@ -24,7 +24,7 @@ import type {
   ReplicatedModule,
 } from '../../src/client/protocol/network';
 
-// Exercise production-mangled field access and tags against the actual Go wire.
+// Exercise production-mangled field access and tags against the server wire.
 const entry = resolve('src/__wire_integration.ts');
 
 const bundle = await rolldown({
@@ -161,16 +161,20 @@ const databaseDirectory = mkdtempSync(
   resolve(tmpdir(), 'unicorn-integration-'),
 );
 
-const server = spawn(resolve('bin/server'), [], {
-  env: {
-    ...process.env,
-    PORT: '0',
-    ASSET_DIR: resolve('dist'),
-    APP_ENV: 'production',
-    DATABASE_PATH: resolve(databaseDirectory, 'world.sqlite'),
+const server = spawn(
+  resolve(process.env.TEST_SERVER_EXECUTABLE ?? 'bin/server'),
+  [],
+  {
+    env: {
+      ...process.env,
+      PORT: '0',
+      ASSET_DIR: resolve('dist'),
+      APP_ENV: 'production',
+      DATABASE_PATH: resolve(databaseDirectory, 'world.sqlite'),
+    },
+    stdio: ['ignore', 'ignore', 'pipe'],
   },
-  stdio: ['ignore', 'ignore', 'pipe'],
-});
+);
 
 const timeout = setTimeout(() => {
   sockets.forEach((socket) => socket.terminate());
@@ -686,7 +690,7 @@ try {
     'Local actor and observer preserve painted module color during animation',
   );
   console.log(
-    'Go assets, health, source/production UC+UM codecs, input acknowledgment and reconnect passed',
+    'Server assets, health, source/production UC+UM codecs, input acknowledgment and reconnect passed',
   );
 } finally {
   clearTimeout(timeout);

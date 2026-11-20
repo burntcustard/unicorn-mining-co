@@ -83,10 +83,10 @@ that view. Pickup allocations remained 32/op, about 2,066 B/op.
 These were the exact paired commands, run before and after each change:
 
 ```bash
-GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOCACHE=/tmp/collector-go-cache go test ./src/server/npc -run '^$' -bench BenchmarkFinchPickup -count=5 -benchtime=1s > /tmp/finch-movement-before-benchmark.log
-GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOCACHE=/tmp/collector-go-cache go test ./src/server/npc -run '^$' -bench BenchmarkFinchPickup -count=5 -benchtime=1s > /tmp/finch-movement-after-benchmark.log
-GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOCACHE=/tmp/collector-go-cache go test ./src/server/network -run '^$' -bench BenchmarkCollectorDiscovery -count=5 -benchtime=1s > /tmp/collector-discovery-before.log
-GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOCACHE=/tmp/collector-go-cache go test ./src/server/network -run '^$' -bench BenchmarkCollectorDiscovery -count=5 -benchtime=1s > /tmp/collector-discovery-after.log
+GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOCACHE=/tmp/collector-go-cache go test ./src/server-go/npc -run '^$' -bench BenchmarkFinchPickup -count=5 -benchtime=1s > /tmp/finch-movement-before-benchmark.log
+GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOCACHE=/tmp/collector-go-cache go test ./src/server-go/npc -run '^$' -bench BenchmarkFinchPickup -count=5 -benchtime=1s > /tmp/finch-movement-after-benchmark.log
+GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOCACHE=/tmp/collector-go-cache go test ./src/server-go/network -run '^$' -bench BenchmarkCollectorDiscovery -count=5 -benchtime=1s > /tmp/collector-discovery-before.log
+GOMEMLIMIT=300MiB GOEXPERIMENT=simd GOCACHE=/tmp/collector-go-cache go test ./src/server-go/network -run '^$' -bench BenchmarkCollectorDiscovery -count=5 -benchtime=1s > /tmp/collector-discovery-after.log
 ```
 
 Separate before-source snapshots were not retained. The movement baseline

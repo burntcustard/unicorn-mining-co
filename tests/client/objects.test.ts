@@ -10,7 +10,8 @@ assert.deepEqual(readdirSync('src').sort(), [
   'client',
   'font.d.ts',
   'reset.css',
-  'server',
+  'server-go',
+  'server-rust',
   'specs',
   'tools',
 ]);

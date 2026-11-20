@@ -17,17 +17,24 @@ export async function runProjectilePrediction({
   group: 'autogun' | 'plasma' | 'repeated' | 'triangles';
 }) {
   const root = process.cwd();
+  const executable = process.env.UNICORN_PROJECTILE_FIXTURE;
 
   const fixtures = JSON.parse(
     execFileSync(
-      'go',
-      ['run', 'src/server/testtools/projectile-prediction/main.go', group],
+      executable ?? 'go',
+      executable
+        ? [group]
+        : [
+            'run',
+            'src/server-go/testtools/projectile-prediction/main.go',
+            group,
+          ],
       { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
     ),
   );
 
   if (!fixtures.length) {
-    throw new Error(`No Go projectile fixtures for ${group}`);
+    throw new Error(`No server projectile fixtures for ${group}`);
   }
 
   const fixture = fixtureSource(fixtures);

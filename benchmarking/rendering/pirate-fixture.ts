@@ -14,10 +14,10 @@ import (
  "path/filepath"
  "slices"
  "time"
- "github.com/burntcustard/unicorn-mining-co/src/server/objects"
- "github.com/burntcustard/unicorn-mining-co/src/server/protocol"
- "github.com/burntcustard/unicorn-mining-co/src/server/simulation"
- Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/objects"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/protocol"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+ Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
 )
 
 type renderingHit struct {
@@ -141,12 +141,12 @@ const roleFixture = String.raw`package pirate
 import (
  "math"
  "slices"
- ai "github.com/burntcustard/unicorn-mining-co/src/server/npc"
- "github.com/burntcustard/unicorn-mining-co/src/server/objects"
- "github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
- "github.com/burntcustard/unicorn-mining-co/src/server/protocol"
- "github.com/burntcustard/unicorn-mining-co/src/server/simulation"
- Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+ ai "github.com/burntcustard/unicorn-mining-co/src/server-go/npc"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/objects"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/objects/modules"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/protocol"
+ "github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+ Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
 )
 
 func(m *Manager) RemoveRendering(victim ai.Player) {
@@ -209,7 +209,7 @@ export function preparePirateRenderingFixture({
   directory: string;
 }) {
   const output = resolve(directory);
-  const sourcePath = resolve('src/server/network/game-session.go');
+  const sourcePath = resolve('src/server-go/network/game-session.go');
   const source = readFileSync(sourcePath, 'utf8');
   const play =
     '\tp.playedAt = s.now()\n\ts.regions.Sync(s.World, s.positions())\n\ts.sendSnapshot(p, nil, nil)';
@@ -257,7 +257,7 @@ export function preparePirateRenderingFixture({
     JSON.stringify({ directory: output }, null, 2),
   );
 
-  const behaviorPath = resolve('src/server/npc/pirate/behavior.go');
+  const behaviorPath = resolve('src/server-go/npc/pirate/behavior.go');
   const behavior = readFileSync(behaviorPath, 'utf8');
   const combat = behavior.replace(
     'cannon = cannon || module.Type == "cannonSm"',
@@ -279,8 +279,10 @@ export function preparePirateRenderingFixture({
         Replace: {
           [sourcePath]: gameSession,
           [behaviorPath]: resolve(output, 'pirate-behavior.go'),
-          [resolve('src/server/network/pirate-rendering-fixture.go')]: helper,
-          [resolve('src/server/npc/pirate/rendering-fixture.go')]: roleHelper,
+          [resolve('src/server-go/network/pirate-rendering-fixture.go')]:
+            helper,
+          [resolve('src/server-go/npc/pirate/rendering-fixture.go')]:
+            roleHelper,
         },
       },
       null,

@@ -12,10 +12,20 @@ import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins';
 import { stripIfdef } from '../../plugins/replace-pre-terser';
 
 const directory = mkdtempSync(resolve(tmpdir(), 'unicorn-trade-'));
-const executable = resolve(directory, 'trade');
+const nativeFixture = process.env.UNICORN_TRADE_FIXTURE;
+const executable = nativeFixture
+  ? resolve(nativeFixture)
+  : resolve(directory, 'trade');
 const root = process.cwd();
 
-execFileSync('go', ['build', '-o', executable, './src/server/testtools/trade']);
+if (!nativeFixture) {
+  execFileSync('go', [
+    'build',
+    '-o',
+    executable,
+    './src/server-go/testtools/trade',
+  ]);
+}
 
 class Socket {
   static OPEN = 1;
@@ -353,7 +363,7 @@ assert(act({ action: 'buyAmmo' }));
 assert.equal(ship().cargoContents.length, settled[1].length + 1);
 client.socket.onclose({ code: 4001 });
 assert.deepEqual(state(), settled, 'disconnect removes unconfirmed trades');
-console.log('Real Go session: immediate trades, partial acknowledgements, rapid module buyback, rejections, and disconnected actions passed');
+console.log('Real server session: immediate trades, partial acknowledgements, rapid module buyback, rejections, and disconnected actions passed');
 };
 `;
 
@@ -378,7 +388,7 @@ try {
 
         const response = await responses.next();
 
-        assert(!response.done, 'Go session terminated before replying');
+        assert(!response.done, 'Server session terminated before replying');
         return JSON.parse(response.value);
       },
     );

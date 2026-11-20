@@ -393,9 +393,12 @@ The benchmark's `--cores 2` controls CPU affinity only; it does not set memory.
 Verify `serverCores.runtimeEnvironment` in the capture before qualifying a
 budget-matched result.
 
-`--cores N` limits the local Go process to any supported positive number of
+`--cores N` limits the local server process to any supported positive number of
 logical CPUs and restores its original affinity afterward. Load clients retain
 access to the host's CPUs. `--players` and `--workload` select individual cases.
+Use `--runtime go` or `--runtime rust` for a local comparison. This records the
+server process's RSS and operating-system memory limit without changing the
+workload. Start each server on port 3001 and reuse the standard Vite proxy.
 Defaults are 15 seconds of warmup and 30 seconds of measurement, controlled by
 `--warmup` and `--seconds`. Setup defaults to ten minutes; use
 `--prepare-timeout N` to allow longer searches. Ships wait with neutral
@@ -414,7 +417,10 @@ nonfiring; measurements can run up to 35 seconds on that supply.
 Results retain CPU counters and their scope, generator CPU/memory/event-loop
 headroom, socket and receipt completion, input acknowledgments and actual work.
 Snapshot rate, gaps and skipped ticks describe server cadence separately from
-client health. Local results include isolated Go-process CPU and busy CPU on the
+client health. Local captures keep the original cadence and record each client's
+snapshot gaps and longest silence after five seconds of server process uptime.
+The cutoff applies to the server's startup across all clients. Local results
+include isolated server-process CPU and busy CPU on the
 selected logical CPUs; Fly machine CPU includes its OS. Compare matching scopes,
 core counts and runtime settings, alongside delivered snapshot rates. Match the
 deployed `GOGC` and `GOMEMLIMIT` values locally. An unset `GOGC` uses Go's default
@@ -423,6 +429,31 @@ machine. Verify the live settings if that configuration has not yet been
 deployed. Check Fly's CPU balance and quota throttling when interpreting live results: settings
 restarts can discard accrued burst credit. Local core affinity does not emulate
 Fly's shared CPU quota.
+
+### Local memory timeline
+
+Add `--memory-output FILE.jsonl` to a local server benchmark to sample the
+server process and its Linux cgroup once per second. The CPU report records
+the timeline path. Samples label workload preparation, measurement, and
+benchmark cleanup. The process and cgroup peak counters retain their lifetime
+high-water values, which can include startup before the benchmark connected.
+For samples from before the server starts, run the reader separately with the
+planned server cgroup path. Stop the standalone reader with Ctrl+C.
+
+```sh
+npm run benchmark:server:local -- --runtime rust --cores 4 --players 32 --memory-output benchmarking/_local/rust-memory.jsonl
+node benchmarking/server/memory.ts --cgroup /path/to/server.scope --output benchmarking/_local/startup-memory.jsonl
+```
+
+Compare runtimes in dedicated server-only cgroups with the same four logical
+CPUs, 1 GiB hard memory limit, swap policy, and disk-backed benchmark worlds.
+The Go runtime's soft `GOMEMLIMIT` is recorded separately from the cgroup
+limit. The cgroup timeline includes total charged memory, anonymous memory,
+file cache, shared memory, kernel memory, memory pressure, swap and OOM
+counters. A file-cache charge can be reclaimed depending on its state.
+Use total charged memory and the kernel peak for observed budget headroom.
+The timeline also includes the cgroup CPU quota and throttle counters when
+available. `null` indicates an unavailable kernel counter.
 
 ## Input latency
 

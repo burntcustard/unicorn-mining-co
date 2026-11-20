@@ -178,7 +178,7 @@ try {
     JSON.stringify({
       Replace: {
         ...base,
-        [resolve('src/server/network/transport_check_test.go')]: file,
+        [resolve('src/server-go/network/transport_check_test.go')]: file,
       },
     }),
   );
@@ -190,7 +190,7 @@ try {
       '-overlay',
       overlay,
       ...(process.argv.includes('--race') ? ['-race'] : []),
-      './src/server/network',
+      './src/server-go/network',
       '-run',
       // Reuse the permanent ordered-receipt and input regression tests.
       '^Test(TransportKernel|Snapshot|Inputs|LateInput)',

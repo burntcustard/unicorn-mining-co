@@ -8,11 +8,20 @@ import { buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { testBuildPlugin } from '../support/build-plugin.ts';
 
+const nativeFixture = process.env.UNICORN_SHIP_DESTRUCTION_FIXTURE;
+const server = nativeFixture ? 'Rust' : 'Go';
+
 const fixtures = JSON.parse(
-  execFileSync('go', ['run', 'src/server/testtools/ship-destruction/main.go'], {
-    encoding: 'utf8',
-    env: { ...process.env, GOEXPERIMENT: 'simd' },
-  }),
+  execFileSync(
+    nativeFixture ?? 'go',
+    nativeFixture
+      ? []
+      : ['run', 'src/server-go/testtools/ship-destruction/main.go'],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, GOEXPERIMENT: 'simd' },
+    },
+  ),
 ).map(
   ({ shipType, hull, before, damaged, settled }: Record<string, unknown>) => [
     shipType,
@@ -169,7 +178,7 @@ for(const uiVisible of [false,true]){
   renderUI({ctx,uiVisible:false,uiWidth:800,uiHeight:600,uiScale:1},[],{shipDestroyed:false,shipStranded:true});
   assert(textAlphas.length>0&&textAlphas.every(alpha=>alpha===1),'a stranded ship gets a visible respawn hint even with a hidden HUD');
 }
-console.log('Go ship destruction snapshots hydrate in source and production');`;
+console.log('${server} ship destruction snapshots hydrate in source and production');`;
 
 for (const production of [false, true]) {
   const entry = `${root}/src/__ship_destruction_test.ts`;

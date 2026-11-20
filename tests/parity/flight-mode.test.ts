@@ -8,11 +8,17 @@ import { emptyPlayerInput } from '../../src/client/protocol/input';
 import { createWorld } from '../../src/client/simulation/world';
 import * as Vec from '../../src/client/utilities/vector';
 
+const nativeFixture = process.env.UNICORN_FLIGHT_MODE_FIXTURE;
+
 const fixture = JSON.parse(
-  execFileSync('go', ['run', './src/server/testtools/flight-mode'], {
-    encoding: 'utf8',
-    env: { ...process.env, GOEXPERIMENT: 'simd' },
-  }),
+  execFileSync(
+    nativeFixture ?? 'go',
+    nativeFixture ? [] : ['run', './src/server-go/testtools/flight-mode'],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, GOEXPERIMENT: 'simd' },
+    },
+  ),
 );
 
 const near = (actual: number, expected: number, label: string) =>

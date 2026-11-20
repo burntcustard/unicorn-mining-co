@@ -3,11 +3,11 @@
 package network
 
 import (
-	"github.com/burntcustard/unicorn-mining-co/src/server/objects"
-	"github.com/burntcustard/unicorn-mining-co/src/server/objects/modules"
-	"github.com/burntcustard/unicorn-mining-co/src/server/protocol"
-	"github.com/burntcustard/unicorn-mining-co/src/server/simulation"
-	Vec "github.com/burntcustard/unicorn-mining-co/src/server/vector"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/objects"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/objects/modules"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/protocol"
+	"github.com/burntcustard/unicorn-mining-co/src/server-go/simulation"
+	Vec "github.com/burntcustard/unicorn-mining-co/src/server-go/vector"
 	"slices"
 	"strings"
 )

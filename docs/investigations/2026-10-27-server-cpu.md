@@ -168,7 +168,7 @@ The synthetic benchmark keeps 32 real connected ships and adds hidden dormant re
 
 This explains why the change can help an aged world, but the live database record count was not exposed by the scratch image and was not measured. The large-record benchmark is not a claim that the current live database has 8,192 dormant players.
 
-Correctness coverage checks connected, departing, and hidden records; travel to another sector; out-of-tick traversal; death-unlock persistence; and event attribution. The source is in [sectors.go](../../src/server/network/sectors.go), [game-session.go](../../src/server/network/game-session.go), [persistence.go](../../src/server/network/persistence.go), and [world-sounds.go](../../src/server/network/world-sounds.go). Benchmark and regression cases are in [replication-cache_test.go](../../src/server/network/replication-cache_test.go).
+Correctness coverage checks connected, departing, and hidden records; travel to another sector; out-of-tick traversal; death-unlock persistence; and event attribution. The source is in [sectors.go](../../src/server-go/network/sectors.go), [game-session.go](../../src/server-go/network/game-session.go), [persistence.go](../../src/server-go/network/persistence.go), and [world-sounds.go](../../src/server-go/network/world-sounds.go). Benchmark and regression cases are in [replication-cache_test.go](../../src/server-go/network/replication-cache_test.go).
 
 ## Original-Phase Experiments
 

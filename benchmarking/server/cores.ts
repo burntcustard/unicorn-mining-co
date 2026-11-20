@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, readlink } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { setTimeout as pause } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { parseProcessStat } from './observer.ts';
 
 const execute = promisify(execFile);
+
+export type ServerRuntime = 'go' | 'rust';
 
 export const parseCpuList = (text: string) => {
   const result = new Set<number>();
@@ -34,16 +37,51 @@ export const selectServerCpus = (allowed: number[], count: number) => {
   return allowed.slice(0, count);
 };
 
-/*
- * Change only the existing Go process. New Go threads inherit a restricted
- * thread's mask; restoration also covers those created during the suite.
+async function cgroupMemoryLimits(pid: number) {
+  const groups = await readFile(`/proc/${pid}/cgroup`, 'utf8');
+  const group = groups.match(/^0::(\/[^\n]*)$/m)?.[1];
+
+  if (!group) return null;
+
+  const limits: Record<string, string> = {};
+  const root = '/sys/fs/cgroup';
+  let current = join(root, group);
+
+  while (current === root || current.startsWith(`${root}/`)) {
+    const limit = await readFile(join(current, 'memory.max'), 'utf8').catch(
+      (): null => null,
+    );
+
+    if (limit !== null) {
+      limits[current.slice(root.length) || '/'] = limit.trim();
+    }
+
+    if (current === root) break;
+    current = dirname(current);
+  }
+
+  const byteLimits = Object.values(limits)
+    .filter((limit) => /^\d+$/.test(limit))
+    .map(Number);
+
+  return {
+    group,
+    limits,
+    effectiveLimitBytes: byteLimits.length ? Math.min(...byteLimits) : null,
+  };
+}
+
+/* New threads inherit their creator's affinity. Restore the threads that
+ * existed when the run began and give later threads the original main mask.
  */
 export async function limitServerCores({
   pid,
   count,
+  runtime,
 }: {
   pid: number;
   count?: number;
+  runtime?: ServerRuntime;
 }) {
   const started = parseProcessStat(await readFile(`/proc/${pid}/stat`, 'utf8'));
   const masks = new Map<string, number[]>();
@@ -73,9 +111,14 @@ export async function limitServerCores({
     '\0',
   );
 
+  const rust = runtime === 'rust';
+  const environmentKeys = rust
+    ? /^(TOKIO_WORKER_THREADS|MALLOC_ARENA_MAX|GLIBC_TUNABLES)=/
+    : /^(GOMAXPROCS|GODEBUG|GOGC|GOMEMLIMIT)=/;
+
   const runtimeEnvironment = Object.fromEntries(
     environment
-      .filter((entry) => /^(GOMAXPROCS|GODEBUG|GOGC|GOMEMLIMIT)=/.test(entry))
+      .filter((entry) => environmentKeys.test(entry))
       .map((entry) => {
         const index = entry.indexOf('=');
 
@@ -83,20 +126,59 @@ export async function limitServerCores({
       }),
   );
 
-  const goBuild = await execute('go', [
-    'version',
-    '-m',
-    `/proc/${pid}/exe`,
-  ]).then(
-    ({ stdout }) =>
-      stdout
-        .split('\n')
-        .filter(
-          (line, index) =>
-            index === 0 || /DefaultGODEBUG=|\bcompiler=/.test(line),
-        ),
-    (): null => null,
-  );
+  const goBuild = !rust
+    ? await execute('go', ['version', '-m', `/proc/${pid}/exe`]).then(
+        ({ stdout }) =>
+          stdout
+            .split('\n')
+            .filter(
+              (line, index) =>
+                index === 0 || /DefaultGODEBUG=|\bcompiler=/.test(line),
+            ),
+        (): null => null,
+      )
+    : null;
+
+  if (runtime === 'go') {
+    assert.match(
+      goBuild?.[0] ?? '',
+      /:\s+go\d+\./,
+      '--runtime go requires a Go server listening on port 3001',
+    );
+  }
+
+  let rustBuild;
+
+  if (rust) {
+    const path = `/proc/${pid}/exe`;
+    const executable = await readlink(path);
+
+    assert(
+      ['unicorn-mining-server', 'server-rust'].includes(basename(executable)),
+      '--runtime rust requires the native Rust server listening on port 3001',
+    );
+    const { stdout } = await execute('sha256sum', [path]);
+
+    rustBuild = {
+      executable,
+      sha256: stdout.trim().split(/\s+/)[0],
+    };
+  }
+
+  let memoryBudget;
+
+  if (runtime) {
+    const [limits, cgroupMemory] = await Promise.all([
+      readFile(`/proc/${pid}/limits`, 'utf8'),
+      cgroupMemoryLimits(pid),
+    ]);
+
+    memoryBudget = {
+      addressSpaceLimit:
+        limits.match(/^Max address space\s+(\S+)/m)?.[1] ?? null,
+      cgroupMemory,
+    };
+  }
 
   let changed = false;
 
@@ -152,7 +234,7 @@ export async function limitServerCores({
         }
       }
 
-      // Default Go GOMAXPROCS observes affinity changes at most once/second.
+      // Keep the pre-preparation settling interval for both runtimes.
       await pause(1500);
     }
   } catch (error) {
@@ -168,18 +250,22 @@ export async function limitServerCores({
       originalMainThreadCpuIds: original,
       originalThreadAffinities: Object.fromEntries(masks),
       runtimeEnvironment,
-      effectiveGOGC: runtimeEnvironment.GOGC ?? '100',
-      gcDefault:
-        'When GOGC is unset, Go uses its default GC percentage of 100; an environment value overrides that default.',
+      effectiveGOGC: rust ? null : (runtimeEnvironment.GOGC ?? '100'),
+      gcDefault: rust
+        ? null
+        : 'When GOGC is unset, Go uses its default GC percentage of 100; an environment value overrides that default.',
       goBuild,
+      ...(rustBuild && { rustBuild }),
+      ...(memoryBudget && { memoryBudget }),
       generatorAffinityChanged: false,
-      scheduler:
-        runtimeEnvironment.GOMAXPROCS ||
-        /(?:^|,)(?:updatemaxprocs|containermaxprocs)=0(?:,|$)/.test(
-          runtimeEnvironment.GODEBUG || '',
-        )
+      scheduler: rust
+        ? 'Tokio worker threads are created at startup. The recorded operating-system affinity limits all of the server threads.'
+        : runtimeEnvironment.GOMAXPROCS ||
+            /(?:^|,)(?:updatemaxprocs|containermaxprocs)=0(?:,|$)/.test(
+              runtimeEnvironment.GODEBUG || '',
+            )
           ? 'An explicit Go runtime setting may keep GOMAXPROCS unchanged; OS affinity still limits execution to the recorded CPUs.'
-          : 'Current Go defaults update GOMAXPROCS from CPU affinity; a1.5-second settling interval precedes preparation. The binary build version is retained; runtime GOMAXPROCS is not directly sampled.',
+          : 'Current Go defaults update GOMAXPROCS from CPU affinity. A 1.5-second settling interval precedes preparation. The binary build version is retained. The benchmark does not sample runtime GOMAXPROCS directly.',
     },
     restore,
   };

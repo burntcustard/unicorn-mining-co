@@ -98,7 +98,16 @@ export const machineCpuDelta = ({
   };
 };
 
-export const parseProcessStat = (text: string) => {
+export const parseProcessStat = (
+  text: string,
+  pageSize?: number,
+): {
+  pid: number;
+  userTicks: number;
+  systemTicks: number;
+  startedTicks: number;
+  residentBytes?: number | null;
+} => {
   const end = text.lastIndexOf(')');
   const fields = text
     .slice(end + 2)
@@ -108,6 +117,7 @@ export const parseProcessStat = (text: string) => {
   const userTicks = Number(fields[11]);
   const systemTicks = Number(fields[12]);
   const startedTicks = Number(fields[19]);
+  const rssPages = Number(fields[21]);
 
   if (
     end < 0 ||
@@ -117,7 +127,18 @@ export const parseProcessStat = (text: string) => {
     throw new Error('Invalid Linux process CPU statistics');
   }
 
-  return { pid, userTicks, systemTicks, startedTicks };
+  return {
+    pid,
+    userTicks,
+    systemTicks,
+    startedTicks,
+    ...(pageSize && {
+      residentBytes:
+        Number.isSafeInteger(rssPages) && rssPages >= 0
+          ? rssPages * pageSize
+          : null,
+    }),
+  };
 };
 
 export const processCpuDelta = ({
@@ -368,6 +389,7 @@ export async function observeServerCpu({
   flyOrg = 'personal',
   steadySince,
   cpuIds,
+  runtime,
 }: {
   url: string;
   pid?: number;
@@ -376,6 +398,7 @@ export async function observeServerCpu({
   flyOrg?: string;
   steadySince?: number;
   cpuIds?: number[];
+  runtime?: 'go' | 'rust';
 }) {
   const target = new URL(url);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(target.hostname);
@@ -386,8 +409,23 @@ export async function observeServerCpu({
       const clockTicks = Number(
         (await execute('getconf', ['CLK_TCK'])).stdout.trim(),
       );
+      const pageSize = runtime
+        ? Number((await execute('getconf', ['PAGESIZE'])).stdout.trim())
+        : undefined;
+      const runtimeName = runtime === 'rust' ? 'Rust' : 'Go';
 
       pid = await localServerPid(pid);
+
+      const bootedBy = await readFile('/proc/uptime', 'utf8').then(
+        (text) => {
+          const uptime = Number.parseFloat(text);
+
+          return Number.isFinite(uptime) && uptime >= 0
+            ? performance.timeOrigin + performance.now() - uptime * 1000
+            : null;
+        },
+        (): null => null,
+      );
 
       const sample = async () => {
         const began = performance.now();
@@ -395,7 +433,7 @@ export async function observeServerCpu({
           readFile(`/proc/${pid}/stat`, 'utf8'),
           readFile('/proc/stat', 'utf8'),
         ]);
-        const stat = parseProcessStat(processText);
+        const stat = parseProcessStat(processText, pageSize);
         const machine = parseMachineCpu(machineText, cpuIds);
         const ended = performance.now();
 
@@ -419,6 +457,11 @@ export async function observeServerCpu({
       return {
         available: true,
         source,
+        // The completed uptime read and the next clock tick bound startup.
+        processStartedBy:
+          bootedBy === null || !(clockTicks > 0)
+            ? null
+            : bootedBy + ((before.stat.startedTicks + 1) * 1000) / clockTicks,
         async finish(_window?: CpuWindow) {
           try {
             const after = await sample();
@@ -447,16 +490,20 @@ export async function observeServerCpu({
                 source: 'local-process-proc-stat',
                 ...processCpu,
                 cpuCounterQuantizationBoundMs: 2000 / clockTicks,
-                scope:
-                  'Supplemental Go-process user/system CPU; excludes load clients and other processes. No equivalent live process counter is available with current SSH credentials.',
+                ...(pageSize && {
+                  residentBytes: {
+                    before: before.stat.residentBytes,
+                    after: after.stat.residentBytes,
+                  },
+                }),
+                scope: `Supplemental ${runtimeName}-process user/system CPU; excludes load clients and other processes. No equivalent live process counter is available with current SSH credentials.`,
               },
               boundaryUncertaintyMs: before.uncertaintyMs + after.uncertaintyMs,
               counterTickMs: 1000 / clockTicks,
               cpuCounterQuantizationBoundMs:
                 (5000 * before.machine.length) / clockTicks,
               samples: { before, after },
-              measurement:
-                'Cumulative selected-machine CPU counters over a monotonic local interval, with supplemental Go-process counters. Raw counters and read-boundary uncertainty are retained.',
+              measurement: `Cumulative selected-machine CPU counters over a monotonic local interval, with supplemental ${runtimeName}-process counters. Raw counters and read-boundary uncertainty are retained.`,
               sampleStartedAt: new Date(
                 performance.timeOrigin + before.at,
               ).toISOString(),

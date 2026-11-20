@@ -18,7 +18,7 @@ const visit = (directory: string) => {
   }
 };
 
-['src/server', 'benchmarking'].forEach(visit);
+['src/server-go', 'benchmarking'].forEach(visit);
 files.sort((a, b) => a.localeCompare(b, 'en-US'));
 
 const check = process.argv.includes('--check');

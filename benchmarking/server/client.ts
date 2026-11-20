@@ -85,6 +85,40 @@ export const ownMiningFracture = ({
       anchor,
     }));
 
+export const summarizePostStartupSnapshotCadence = ({
+  snapshots,
+  start,
+  end,
+  cutoff,
+}: {
+  snapshots: SnapshotTrafficMessage[];
+  start: number;
+  end: number;
+  cutoff: number;
+}) => {
+  start = Math.max(start, cutoff);
+
+  if (start >= end) return null;
+
+  const {
+    durationMs,
+    snapshotGapMs,
+    longestSnapshotGapMs,
+    longestSnapshotSilenceMs,
+  } = summarizeSnapshotTraffic({
+    messages: snapshots.filter(({ at }) => at >= cutoff),
+    start,
+    end,
+  });
+
+  return {
+    durationMs,
+    snapshotGapMs,
+    longestSnapshotGapMs,
+    longestSnapshotSilenceMs,
+  };
+};
+
 export class ProtocolClient {
   readonly options: {
     url: string;
@@ -210,6 +244,11 @@ export class ProtocolClient {
     target.protocol = ['https:', 'wss:'].includes(target.protocol)
       ? 'wss:'
       : 'ws:';
+
+    if (process.env.UNICORN_BENCHMARK_SNAPSHOT_DELTAS === '1') {
+      target.search = options.runtime.snapshotDeltaQuery;
+    }
+
     this.socket = new WebSocket(target, { perMessageDeflate: false });
 
     this.socket.on('open', () =>
@@ -335,11 +374,10 @@ export class ProtocolClient {
         this.inputLead = message.inputLead ?? this.inputLead;
         this.credits = message.credits ?? this.credits;
 
-        if (message.asteroidPositions) {
-          this.asteroidPositions = message.asteroidPositions;
-        } else if (message.type === 'load') {
-          this.asteroidPositions = [];
-        }
+        this.asteroidPositions = options.runtime.snapshotAsteroidPositions(
+          message,
+          this.asteroidPositions,
+        );
 
         this.acknowledgedDock =
           message.acknowledgedDockSequence ?? this.acknowledgedDock;
@@ -379,6 +417,10 @@ export class ProtocolClient {
           for (const id of this.entities.keys()) {
             if (!retained.has(id)) this.entities.delete(id);
           }
+        }
+
+        if (message.removedEntityIds) {
+          for (const id of message.removedEntityIds) this.entities.delete(id);
         }
 
         if (
@@ -1635,7 +1677,7 @@ export class ProtocolClient {
     }
   }
 
-  report(start: number, end: number) {
+  report(start: number, end: number, postStartupAt?: number) {
     const snapshots = this.traffic.filter(
       (message) => message.type === 'snapshot' || message.type === 'load',
     );
@@ -1654,6 +1696,14 @@ export class ProtocolClient {
       sectorName: this.sectorName,
       shipId: this.shipId,
       ...traffic,
+      ...(postStartupAt !== undefined && {
+        postStartupSnapshotCadence: summarizePostStartupSnapshotCadence({
+          snapshots,
+          start,
+          end,
+          cutoff: postStartupAt - performance.timeOrigin,
+        }),
+      }),
       requestedReceipts: this.requestedReceipts,
       sentReceipts: this.sentReceipts,
       receiptFailures: this.receiptFailures,
@@ -1812,6 +1862,7 @@ type WorkerCommand = {
   };
   index?: number;
   at?: number;
+  postStartupAt?: number;
   timeoutMs?: number;
   indices?: number[];
   targets?: { index: number; asteroidId: number; anchor: Vec.Value }[];
@@ -2390,7 +2441,7 @@ async function workerMain() {
         };
       } else if (message.command === 'report') {
         result = clients.map((client) =>
-          client.report(measuredAt, measuredEnd),
+          client.report(measuredAt, measuredEnd, message.postStartupAt),
         );
       } else if (message.command === 'close') {
         await cleanup();

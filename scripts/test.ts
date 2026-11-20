@@ -31,7 +31,7 @@ const testOrder = new Map(
   ].map((file, index) => [file, index]),
 );
 
-const testFiles = ['tests', 'src/server', 'benchmarking/npc']
+const testFiles = ['tests', 'src/server-go', 'benchmarking/npc']
   .flatMap((directory) =>
     readdirSync(directory, { recursive: true, encoding: 'utf8' })
       .filter((file) => /(?:\.test\.(?:mjs|js|ts)|_test\.go)$/.test(file))
@@ -93,7 +93,7 @@ function selectFiles(name: string) {
       [
         resolve(name),
         resolve('tests', name),
-        resolve('src/server', name),
+        resolve('src/server-go', name),
       ].includes(resolve(file)),
   );
   const matches = exact.length
@@ -103,7 +103,7 @@ function selectFiles(name: string) {
           [
             file,
             relative('tests', file),
-            relative('src/server', file),
+            relative('src/server-go', file),
             basename(file),
           ]
             .map(testName)
@@ -167,8 +167,9 @@ const needsFixtures =
   nodeFiles.some((file) => file.startsWith('tests/parity/'));
 
 if (skipBuild) {
+  const serverExecutable = process.env.TEST_SERVER_EXECUTABLE || 'bin/server';
   const artifacts = [
-    ...(!requested.length || needsServer ? ['bin/server'] : []),
+    ...(!requested.length || needsServer ? [serverExecutable] : []),
     ...(!requested.length ? ['dist/index.html'] : []),
   ];
 
@@ -221,7 +222,7 @@ if (needsFixtures) {
 if (!requested.length) {
   await run(
     'go',
-    ['test', './src/server/...', './benchmarking/npc/...'],
+    ['test', './src/server-go/...', './benchmarking/npc/...'],
     goEnv,
   );
 } else {
