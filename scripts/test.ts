@@ -11,6 +11,7 @@ import {
 import { availableParallelism, tmpdir } from 'node:os';
 import { basename, join, relative, resolve, sep } from 'node:path';
 import { run as runTests } from 'node:test';
+import { parseArgs } from 'node:util';
 import testReporter from './test-reporter.ts';
 
 // Start the heavier simulations and integration checks first.
@@ -49,11 +50,33 @@ const testGroups = new Map([
   ],
 ]);
 
-const skipBuild = process.argv.includes('--skip-build');
-const requested = process.argv.slice(2).filter((arg) => arg !== '--skip-build');
-const files = requested.length
-  ? [...new Set(requested.flatMap(selectFiles))]
-  : testFiles;
+const {
+  values: { 'skip-build': skipBuild, suite },
+  positionals: requested,
+} = parseArgs({
+  options: {
+    'skip-build': { type: 'boolean' },
+    suite: { type: 'string' },
+  },
+  allowPositionals: true,
+});
+
+let files = testFiles;
+
+if (suite !== undefined) {
+  if (!['production', 'fixtures', 'standalone'].includes(suite)) {
+    throw new Error('Choose --suite production, fixtures, or standalone');
+  }
+
+  if (requested.length) {
+    throw new Error('Choose a suite or individual tests');
+  }
+
+  files = testFiles.filter((file) => testSuite(file) === suite);
+} else if (requested.length) {
+  files = [...new Set(requested.flatMap(selectFiles))];
+}
+
 const nodeFiles = files.sort(
   (a, b) =>
     (testOrder.get(a) ?? testOrder.size) -
@@ -69,6 +92,18 @@ if (!Number.isInteger(concurrency) || concurrency < 1) {
 
 function testName(name: string) {
   return name.replace(/^\.\//, '').replace(/\.test\.ts$/, '');
+}
+
+function testSuite(file: string) {
+  if (
+    /tests\/parity\/|(?:beam-visibility|muzzle-flash|projectile-prediction(?:-[a-z]+)?|ship-destruction|trade-integration)\.test\.ts$/.test(
+      file,
+    )
+  ) {
+    return 'fixtures';
+  }
+
+  return file.startsWith('tests/integration/') ? 'production' : 'standalone';
 }
 
 function selectFiles(name: string) {
@@ -115,19 +150,15 @@ async function run(command: string, args: string[], env = process.env) {
   if (code !== 0) process.exit(code ?? 1);
 }
 
-const needsServer = nodeFiles.some((file) =>
-  file.startsWith('tests/integration/'),
-);
-const needsFixtures = nodeFiles.some((file) =>
-  /tests\/parity\/|(?:beam-visibility|muzzle-flash|projectile-prediction(?:-[a-z]+)?|ship-destruction|trade-integration)\.test\.ts$/.test(
-    file,
-  ),
-);
+const needsServer = nodeFiles.some((file) => testSuite(file) === 'production');
+const needsFixtures = nodeFiles.some((file) => testSuite(file) === 'fixtures');
+const fullBuild =
+  suite === 'production' || (suite === undefined && !requested.length);
 
 if (skipBuild) {
   const artifacts = [
-    ...(!requested.length || needsServer ? ['bin/server'] : []),
-    ...(!requested.length ? ['dist/index.html'] : []),
+    ...(fullBuild || needsServer ? ['bin/server'] : []),
+    ...(fullBuild ? ['dist/index.html'] : []),
   ];
 
   for (const artifact of artifacts) {
@@ -137,14 +168,12 @@ if (skipBuild) {
       );
     }
   }
-} else {
-  if (requested.length && nodeFiles.length) {
-    await run('npm', ['run', 'typecheck']);
-  }
+} else if (fullBuild) {
+  await run('npm', ['run', 'build']);
+} else if (nodeFiles.length) {
+  await run('npm', ['run', 'typecheck']);
 
-  if (!requested.length) {
-    await run('npm', ['run', 'build']);
-  } else if (needsServer) {
+  if (needsServer) {
     await run('npm', ['run', 'build:server']);
   }
 }
