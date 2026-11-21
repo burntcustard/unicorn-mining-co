@@ -6,11 +6,8 @@ import {
   BinaryField,
 } from '../../src/client/protocol/binary-snapshot';
 
-const output = execFileSync(
-  'go',
-  ['run', 'src/server/testtools/snapshot/main.go'],
-  { encoding: 'utf8' },
-);
+const fixtureExecutable = 'src/server/target/debug/examples/snapshot_fixture';
+const output = execFileSync(fixtureExecutable, [], { encoding: 'utf8' });
 const packets: Record<string, string> = JSON.parse(output);
 const snapshot = decodeBinarySnapshot(Buffer.from(packets.snapshot, 'hex'));
 const edge = decodeBinarySnapshot(Buffer.from(packets.edge, 'hex'));
@@ -99,9 +96,9 @@ assert.deepEqual(asteroid.contents, [0, 2]);
 assert.equal(asteroid.segments?.[0].health, 10);
 assert.equal(asteroid.message, null);
 assert.equal(BinaryField.velocity, 33);
-console.log('Go UM snapshot decoded by TypeScript');
+console.log(`${'Rust'} UM snapshot decoded by TypeScript`);
 
-// These packets come from the Go encoder, including a stale observer whose
+// These packets come from a live encoder, including a stale observer whose
 // baseline predates both the repaint and the later animation change.
 const decodedModuleRecord = (key: string) =>
   decodeBinarySnapshot(Buffer.from(packets[key], 'hex')).fullEntities[0];

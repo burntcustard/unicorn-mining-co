@@ -13,8 +13,10 @@ const fixture = JSON.parse(
   gunzipSync(readFileSync('tests/fixtures/session.json.gz')).toString(),
 );
 
-const go = JSON.parse(
-  execFileSync('go', ['run', './src/server/testtools/session'], {
+const fixtureExecutable = 'src/server/target/debug/examples/session_fixture';
+
+const session = JSON.parse(
+  execFileSync(fixtureExecutable, [], {
     input: JSON.stringify(fixture.actions),
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
@@ -100,20 +102,27 @@ function compare(actual: unknown, expected: unknown, path: string) {
   }
 }
 
-assert.deepEqual(Object.keys(go).sort(), Object.keys(fixture.sockets).sort());
+assert.deepEqual(
+  Object.keys(session).sort(),
+  Object.keys(fixture.sockets).sort(),
+);
 let packets = 0;
 
 for (const [id, socket] of Object.entries(fixture.sockets) as [
   string,
   { code: number; messages: unknown[] },
 ][]) {
-  assert.equal(go[id].code, socket.code);
-  assert.equal(go[id].packets.length, socket.messages.length);
+  assert.equal(session[id].code, socket.code);
+  assert.equal(
+    session[id].packets.length,
+    socket.messages.length,
+    `socket ${id} packet count`,
+  );
 
   const records = new Map<number, ReplicatedEntity>();
 
   socket.messages.forEach((expected, index) => {
-    const actual = decoded(go[id].packets[index], records);
+    const actual = decoded(session[id].packets[index], records);
     const comparable = { ...(expected as Record<string, unknown>) };
 
     // Receipt requests are optional; every present sequence and all gameplay
@@ -128,5 +137,5 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
 }
 
 console.log(
-  `Go session matches ${packets} fixed current messages: input, reconnect, catch-up, backpressure, docking, account updates and respawn`,
+  `${'Rust'} session matches ${packets} fixed current messages: input, reconnect, catch-up, backpressure, docking, account updates and respawn`,
 );

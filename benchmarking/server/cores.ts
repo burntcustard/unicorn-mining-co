@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, readlink } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { setTimeout as pause } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { parseProcessStat } from './observer.ts';
@@ -34,9 +35,42 @@ export const selectServerCpus = (allowed: number[], count: number) => {
   return allowed.slice(0, count);
 };
 
-/*
- * Change only the existing Go process. New Go threads inherit a restricted
- * thread's mask; restoration also covers those created during the suite.
+async function cgroupMemoryLimits(pid: number) {
+  const groups = await readFile(`/proc/${pid}/cgroup`, 'utf8');
+  const group = groups.match(/^0::(\/[^\n]*)$/m)?.[1];
+
+  if (!group) return null;
+
+  const limits: Record<string, string> = {};
+  const root = '/sys/fs/cgroup';
+  let current = join(root, group);
+
+  while (current === root || current.startsWith(`${root}/`)) {
+    const limit = await readFile(join(current, 'memory.max'), 'utf8').catch(
+      (): null => null,
+    );
+
+    if (limit !== null) {
+      limits[current.slice(root.length) || '/'] = limit.trim();
+    }
+
+    if (current === root) break;
+    current = dirname(current);
+  }
+
+  const byteLimits = Object.values(limits)
+    .filter((limit) => /^\d+$/.test(limit))
+    .map(Number);
+
+  return {
+    group,
+    limits,
+    effectiveLimitBytes: byteLimits.length ? Math.min(...byteLimits) : null,
+  };
+}
+
+/* New threads inherit their creator's affinity. Restore the threads that
+ * existed when the run began and give later threads the original main mask.
  */
 export async function limitServerCores({
   pid,
@@ -73,9 +107,12 @@ export async function limitServerCores({
     '\0',
   );
 
+  const environmentKeys =
+    /^(TOKIO_WORKER_THREADS|MALLOC_ARENA_MAX|GLIBC_TUNABLES)=/;
+
   const runtimeEnvironment = Object.fromEntries(
     environment
-      .filter((entry) => /^(GOMAXPROCS|GODEBUG|GOGC|GOMEMLIMIT)=/.test(entry))
+      .filter((entry) => environmentKeys.test(entry))
       .map((entry) => {
         const index = entry.indexOf('=');
 
@@ -83,20 +120,23 @@ export async function limitServerCores({
       }),
   );
 
-  const goBuild = await execute('go', [
-    'version',
-    '-m',
-    `/proc/${pid}/exe`,
-  ]).then(
-    ({ stdout }) =>
-      stdout
-        .split('\n')
-        .filter(
-          (line, index) =>
-            index === 0 || /DefaultGODEBUG=|\bcompiler=/.test(line),
-        ),
-    (): null => null,
-  );
+  const executablePath = `/proc/${pid}/exe`;
+  const [executable, fingerprint, limits, cgroupMemory] = await Promise.all([
+    readlink(executablePath),
+    execute('sha256sum', [executablePath]),
+    readFile(`/proc/${pid}/limits`, 'utf8'),
+    cgroupMemoryLimits(pid),
+  ]);
+
+  const build = {
+    executable,
+    sha256: fingerprint.stdout.trim().split(/\s+/)[0],
+  };
+
+  const memoryBudget = {
+    addressSpaceLimit: limits.match(/^Max address space\s+(\S+)/m)?.[1] ?? null,
+    cgroupMemory,
+  };
 
   let changed = false;
 
@@ -152,7 +192,7 @@ export async function limitServerCores({
         }
       }
 
-      // Default Go GOMAXPROCS observes affinity changes at most once/second.
+      // Keep the pre-preparation settling interval.
       await pause(1500);
     }
   } catch (error) {
@@ -168,18 +208,11 @@ export async function limitServerCores({
       originalMainThreadCpuIds: original,
       originalThreadAffinities: Object.fromEntries(masks),
       runtimeEnvironment,
-      effectiveGOGC: runtimeEnvironment.GOGC ?? '100',
-      gcDefault:
-        'When GOGC is unset, Go uses its default GC percentage of 100; an environment value overrides that default.',
-      goBuild,
+      build,
+      memoryBudget,
       generatorAffinityChanged: false,
       scheduler:
-        runtimeEnvironment.GOMAXPROCS ||
-        /(?:^|,)(?:updatemaxprocs|containermaxprocs)=0(?:,|$)/.test(
-          runtimeEnvironment.GODEBUG || '',
-        )
-          ? 'An explicit Go runtime setting may keep GOMAXPROCS unchanged; OS affinity still limits execution to the recorded CPUs.'
-          : 'Current Go defaults update GOMAXPROCS from CPU affinity; a1.5-second settling interval precedes preparation. The binary build version is retained; runtime GOMAXPROCS is not directly sampled.',
+        'Tokio worker threads are created at startup. OS affinity limits all server threads.',
     },
     restore,
   };

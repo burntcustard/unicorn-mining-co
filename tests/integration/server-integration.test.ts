@@ -24,7 +24,7 @@ import type {
   ReplicatedModule,
 } from '../../src/client/protocol/network';
 
-// Exercise production-mangled field access and tags against the actual Go wire.
+// Exercise production-mangled field access and tags against the server wire.
 const entry = resolve('src/__wire_integration.ts');
 
 const bundle = await rolldown({
@@ -290,7 +290,7 @@ try {
 
             if (welcome && received >= 3 && acknowledged && accountReceived) {
               console.log(
-                `Go ${codec === source ? 'source' : 'production'} codec: load ${loadBytes} B, snapshot ${snapshotBytes} B`,
+                `Server ${codec === source ? 'source' : 'production'} codec: load ${loadBytes} B, snapshot ${snapshotBytes} B`,
               );
               socket.removeAllListeners('message');
               socket.close();
@@ -441,7 +441,7 @@ try {
         assert.deepEqual(
           production[8](packet),
           markers,
-          'production map properties decode Go markers',
+          'production map properties decode server markers',
         );
         assert(
           markers.every((marker) => !marker[0]),
@@ -533,7 +533,7 @@ try {
         assert.deepEqual(
           compact,
           original,
-          'production and source sound codecs agree on the Go audio packet',
+          'production and source sound codecs agree on the server audio packet',
         );
 
         if (
@@ -686,7 +686,7 @@ try {
     'Local actor and observer preserve painted module color during animation',
   );
   console.log(
-    'Go assets, health, source/production UC+UM codecs, input acknowledgment and reconnect passed',
+    'Server assets, health, source/production UC+UM codecs, input acknowledgment and reconnect passed',
   );
 } finally {
   clearTimeout(timeout);

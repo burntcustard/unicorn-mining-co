@@ -14,9 +14,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-26.04
-    env:
-      CGO_ENABLED: '0'
-      GOEXPERIMENT: simd
 
     steps:
       - uses: actions/checkout@v7
@@ -26,21 +23,30 @@ jobs:
           node-version: 26
           cache: npm
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
+      - name: Set up Rust
+        run: |
+          rustup default stable
+          rustup component add rustfmt clippy
 
       - name: Install dependencies
         run: npm ci
       - name: Lint
         run: npm run lint
       - name: Build production assets and server
+        env:
+          SERVER_BUILD_TARGET: x86_64-unknown-linux-gnu
+          RUSTFLAGS: '-C target-feature=+crt-static'
         run: |
           npm run build
+          readelf -l bin/server > "$RUNNER_TEMP/server-elf.txt"
+          ! grep -q INTERP "$RUNNER_TEMP/server-elf.txt"
           sha256sum bin/server dist/* > "$RUNNER_TEMP/deploy-artifacts.sha256"
       - name: Test production build
-        run: npm test -- --skip-build
+        run: |
+          npm test -- --skip-build
+          # Run the Rust checks without compiling another server executable.
+          cargo test --locked --manifest-path src/server/Cargo.toml \
+            --no-default-features --features test-fixtures --lib --test world -- --include-ignored
       - name: Verify tested artifacts
         run: sha256sum --check "$RUNNER_TEMP/deploy-artifacts.sha256"
 

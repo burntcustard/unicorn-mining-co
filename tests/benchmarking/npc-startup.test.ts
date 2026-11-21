@@ -16,7 +16,7 @@ const directory = mkdtempSync(join(tmpdir(), 'unicorn-npc-startup-'));
 
 /*
  * Run the real CLI and its validation. Replace only process inspection and
- * external side effects; each case owns its manifest, overlay, and report.
+ * external side effects; each case owns its manifest and report.
  */
 const stubs = {
   'benchmarking/server/observer.ts': String.raw`
@@ -67,9 +67,8 @@ const scenario = JSON.parse(process.env.NPC_STARTUP_CASE);
 const real = filesystem.promises;
 const record = (action) => appendFileSync(scenario.actions, action + '\n');
 const environment = [
-  ...(scenario.kind === 'missing-budget' ? [] : ['GOMEMLIMIT=600MiB']),
-  'GOGC=100',
-  'GOFLAGS=-overlay=' + (scenario.kind === 'wrong-overlay' ? scenario.otherOverlay : scenario.overlay),
+  ...(scenario.kind === 'missing-feature' ? [] : ['SERVER_BENCHMARK_FIXTURES=1']),
+  'NPC_BENCHMARK_FIXTURE=' + (scenario.kind === 'wrong-manifest' ? scenario.otherManifest : scenario.manifest),
 ].join('\0') + '\0';
 
 const files = {
@@ -117,8 +116,16 @@ try {
   for (const scenario of [
     { kind: 'missing-fixture', message: /benchmark:npc:prepare/ },
     { kind: 'no-server', message: /3001/, command: /dev:server/ },
-    { kind: 'missing-budget', message: /600MiB/, command: /dev:server/ },
-    { kind: 'wrong-overlay', message: /overlay/i, command: /dev:server/ },
+    {
+      kind: 'missing-feature',
+      message: /fixture manifest/,
+      command: /dev:server/,
+    },
+    {
+      kind: 'wrong-manifest',
+      message: /fixture manifest/,
+      command: /dev:server/,
+    },
     {
       kind: 'no-frontend',
       message: /3000/,
@@ -127,15 +134,16 @@ try {
   ]) {
     const cwd = join(directory, scenario.kind);
     const fixture = join(cwd, 'fixture');
-    const overlay = join(fixture, 'overlay.json');
-    const otherOverlay = join(fixture, 'other-overlay.json');
+    const otherManifest = join(fixture, 'other-manifest.json');
     const manifest = join(cwd, 'benchmarking/_local/npc-fixture.json');
     const output = join(cwd, 'report.json');
     const actions = join(cwd, 'actions.log');
 
     mkdirSync(fixture, { recursive: true });
-    writeFileSync(overlay, JSON.stringify({ Replace: {} }));
-    writeFileSync(otherOverlay, JSON.stringify({ Replace: {} }));
+    writeFileSync(
+      otherManifest,
+      JSON.stringify({ directory: fixture, items: 6 }),
+    );
     writeFileSync(actions, '');
 
     if (scenario.kind !== 'missing-fixture') {
@@ -172,8 +180,8 @@ try {
             root: process.cwd(),
             stubs,
             actions,
-            overlay,
-            otherOverlay,
+            manifest,
+            otherManifest,
           }),
         },
       },

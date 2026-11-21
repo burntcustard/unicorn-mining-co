@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { promisify } from 'node:util';
+import { gunzipSync } from 'node:zlib';
 import WebSocket from 'ws';
 import {
   decodeServerControl,
@@ -123,6 +124,17 @@ try {
     405,
     'public HTTP cannot reset the world',
   );
+  assert.notEqual(
+    (await fetch(address + '/cpu-profile?seconds=1', { method: 'POST' }))
+      .status,
+    200,
+    'public HTTP cannot start CPU profiling',
+  );
+  const profile = Buffer.from(await command('--cpu-profile-live=1'), 'base64');
+
+  assert.ok(gunzipSync(profile).length > 0);
+  assert.ok(sockets.every((socket) => socket.readyState === WebSocket.OPEN));
+  assert.equal(server.pid, pid);
   await assert.rejects(
     command('--reset-world'),
     /stop the game server before resetting/,

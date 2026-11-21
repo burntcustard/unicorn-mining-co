@@ -125,7 +125,7 @@ export function cleanupCpuWindow({
         .map((sample) => sample.connected),
     ),
     scope:
-      'Go process RUSAGE_SELF counters sampled inside the same server tick hook; includes passive telemetry overhead. Same tick interval and instrumentation are required for comparison.',
+      'Server process RUSAGE_SELF counters sampled inside the same server tick hook; includes passive telemetry overhead. Same tick interval and instrumentation are required for comparison.',
   };
 }
 

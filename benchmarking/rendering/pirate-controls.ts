@@ -65,7 +65,7 @@ export function pirateControls({
   );
 
   // Fly past a nearby opponent instead of stopping nose-to-nose. The server
-  // pirates retain their ordinary persistent Go navigation and attack runs.
+  // pirates retain their ordinary persistent NPC navigation and attack runs.
   let destination =
     distance < 260
       ? Vec.add(

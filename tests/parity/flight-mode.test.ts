@@ -8,10 +8,12 @@ import { emptyPlayerInput } from '../../src/client/protocol/input';
 import { createWorld } from '../../src/client/simulation/world';
 import * as Vec from '../../src/client/utilities/vector';
 
+const fixtureExecutable =
+  'src/server/target/debug/examples/flight_mode_fixture';
+
 const fixture = JSON.parse(
-  execFileSync('go', ['run', './src/server/testtools/flight-mode'], {
+  execFileSync(fixtureExecutable, [], {
     encoding: 'utf8',
-    env: { ...process.env, GOEXPERIMENT: 'simd' },
   }),
 );
 

@@ -159,7 +159,7 @@ export class GameObject {
       roundMotion(this.position.x),
       roundMotion(this.position.y),
     );
-    // Keep substep speed-limit branches consistent across the Go and JS runtimes.
+    // Keep substep speed-limit branches consistent on the client and server.
     Vec.setXY(
       this.velocity,
       roundMotion(this.velocity.x),

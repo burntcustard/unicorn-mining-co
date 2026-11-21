@@ -4,3 +4,15 @@
 /node_modules
 /.data
 /.tmp
+/src/server/target
+/font/gemetric.woff2
+/font/.gemetric-*.tmp
+
+/src/tools/sound-analysis/**/*.f32
+/src/tools/sound-analysis/**/*.wav
+/src/tools/sound-analysis/**/*.mp3
+/src/tools/sound-analysis/**/*.m4a
+/src/tools/sound-analysis/**/*.ogg
+/src/tools/sound-analysis/**/*.opus
+/src/tools/sound-analysis/**/*.webm
+/src/tools/sound-analysis/**/*.mp4

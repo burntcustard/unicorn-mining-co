@@ -1,39 +1,5 @@
 import assert from 'node:assert/strict';
-import {
-  npcLanes,
-  npcOverlay,
-  parseNPCOptions,
-} from '../../benchmarking/npc/options.ts';
-
-for (const [flags, expected] of [
-  ['', undefined],
-  [' \t\r\n ', undefined],
-  ['-trimpath -race', undefined],
-  ['-overlay=/tmp/overlay.json', '/tmp/overlay.json'],
-  ['--overlay=relative/overlay.json', 'relative/overlay.json'],
-  ['-trimpath\t-overlay=/tmp/overlay.json\n-race', '/tmp/overlay.json'],
-  ['-overlay=first --overlay=second -overlay=last', 'last'],
-  [
-    '"-overlay=/tmp/path with spaces/overlay.json"',
-    '/tmp/path with spaces/overlay.json',
-  ],
-  [
-    "'-overlay=/tmp/path with spaces/overlay.json'",
-    '/tmp/path with spaces/overlay.json',
-  ],
-  ['"-ldflags=-X text=-overlay=wrong" -overlay=right', 'right'],
-  ['"-overlay=first"--overlay=second', 'second'],
-  ['-overlay="literal-quotes"', '"literal-quotes"'],
-  ['"-overlay=literal\\backslash"', 'literal\\backslash'],
-  ['-overlay=first -overlay=', ''],
-  ['-not-overlay=wrong -overlay other', undefined],
-] as const) {
-  assert.equal(npcOverlay(flags), expected, flags);
-}
-
-for (const flags of ['"-overlay=unfinished', "'-overlay=unfinished"]) {
-  assert.throws(() => npcOverlay(flags), /Unterminated quote/);
-}
+import { npcLanes, parseNPCOptions } from '../../benchmarking/npc/options.ts';
 
 const defaults = parseNPCOptions({ args: [] });
 

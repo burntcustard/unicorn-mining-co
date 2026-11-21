@@ -6,10 +6,11 @@ import { createWorld } from '../../src/client/simulation/world';
 import type { ShipId } from '../../src/specs/ships';
 import * as Vec from '../../src/client/utilities/vector';
 
+const fixtureExecutable = 'src/server/target/debug/examples/npc_ships_fixture';
+
 const fixtures = JSON.parse(
-  execFileSync('go', ['run', './src/server/testtools/npc-ships'], {
+  execFileSync(fixtureExecutable, [], {
     encoding: 'utf8',
-    env: { ...process.env, GOEXPERIMENT: 'simd' },
   }),
 );
 

@@ -16,7 +16,7 @@ class TestWebSocket {
   closed: number[] = [];
   sent: Uint8Array[] = [];
 
-  constructor() {
+  constructor(readonly url: string) {
     sockets.push(this);
   }
 
@@ -77,7 +77,12 @@ for (const production of [false, true]) {
         load: (id) =>
           id === entry
             ? `import {NetworkClient} from '${resolve('src/client/network/network.ts')}';
-               export default () => new NetworkClient({url: 'test'});
+               export default (url = 'test') => new NetworkClient({url});
+               export const inspectSnapshot = client => [
+                 [...client.entityRecords.keys()],
+                 [...client.pendingEntities.keys()],
+                 client.asteroidPositions.map(position => position.x),
+               ];
                export const inspectModule = client => {
                  const module = client.entityRecords.get(7).modules[0];
                  return [module.shades, module.segments[0].active];
@@ -140,6 +145,75 @@ for (const production of [false, true]) {
       globalThis.setTimeout = setTimeout;
     }
   }
+
+  const socketUrl = 'ws://localhost/game-socket';
+  const extended = connect(socketUrl);
+  const extendedSocket = sockets.at(-1)!;
+
+  assert.equal(extendedSocket.url, `${socketUrl}?snapshotDeltas=1`);
+  extendedSocket.onopen!();
+
+  const point = (x: number) => {
+    const bytes = Buffer.alloc(16);
+
+    bytes.writeDoubleLE(x);
+    return [...bytes];
+  };
+
+  extendedSocket.onmessage!({
+    data: Uint8Array.from([
+      0x55,
+      0x4d,
+      1,
+      64,
+      1,
+      10,
+      3,
+      ...point(0),
+      ...point(1),
+      ...point(2),
+      2,
+      7,
+      0,
+      8,
+      0,
+    ]),
+  });
+
+  extendedSocket.onmessage!({
+    data: Uint8Array.from([
+      0x55,
+      0x4d,
+      1,
+      128,
+      3,
+      2,
+      10,
+      1,
+      1,
+      1,
+      ...point(9),
+      1,
+      7,
+      1,
+      9,
+      0,
+    ]),
+  });
+
+  assert.deepEqual(built.inspectSnapshot(extended), [
+    [8, 9],
+    [8, 9],
+    [0, 9, 2],
+  ]);
+
+  connect(socketUrl);
+  const rejectedSocket = sockets.at(-1)!;
+
+  assert.equal(rejectedSocket.url, `${socketUrl}?snapshotDeltas=1`);
+  rejectedSocket.close();
+  assert.equal(sockets.at(-1)!.url, socketUrl);
+  assert.notEqual(sockets.at(-1), rejectedSocket);
 
   // Received deltas must be merged before a later render can coalesce them.
   const stream = connect();

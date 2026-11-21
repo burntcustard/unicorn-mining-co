@@ -154,8 +154,11 @@ const { results } = await import(
     Buffer.from(output[0].code).toString('base64')
 );
 
+const fixtureExecutable =
+  'src/server/target/debug/examples/gate_collisions_fixture';
+
 const server = JSON.parse(
-  execFileSync('go', ['run', './src/server/testtools/gate-collisions'], {
+  execFileSync(fixtureExecutable, [], {
     encoding: 'utf8',
     input: JSON.stringify(cases),
     maxBuffer: 32 * 1024 * 1024,

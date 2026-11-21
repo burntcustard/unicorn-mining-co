@@ -113,7 +113,7 @@ const report: Reply = {
     trace: Boolean(process.env.GAMEPLAY_TRACE),
   },
   snapshotNote:
-    'Live and pirate cases start fresh pages with normal Go networking. Large, combat, and flight reset isolated deterministic worlds in the running page.',
+    'Live and pirate cases start fresh pages with normal server networking. Large, combat, and flight reset isolated deterministic worlds in the running page.',
   setupInfo,
   results,
   validity: { pass: false },
@@ -290,7 +290,7 @@ Reflect.set(window, 'perf-capture', async action => {
   if(action==='/pirate'){
     const started=performance.now();
     while(![...network.world.entities.values()].some(object=>object.kind==='ship' && object.hostile && object.npcState==='Fighting')){
-      if(performance.now()-started>15000)throw Error('Pirate rendering requires the local real-Go-NPC fixture; prepare benchmarking/rendering/pirate-fixture.ts and run the normal development server with its GOFLAGS overlay');
+      if(performance.now()-started>15000)throw Error('Pirate rendering requires the local NPC fixture; prepare it with npm run benchmark:pirate:prepare');
       await new Promise(resolve=>setTimeout(resolve,50));
     }
     let desired,lastThink=0;
@@ -1025,7 +1025,7 @@ Reflect.set(window, 'perf-capture', async action => {
       assert.equal(
         result['network-open'],
         true,
-        'Pirate rendering must use the real Go server',
+        'Pirate rendering must use the game server',
       );
       const combatants = result.combatants as Reply[];
 

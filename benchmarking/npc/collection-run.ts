@@ -156,7 +156,7 @@ async function inspectServices(root: string) {
 
   assert(
     watchers.length <= 1,
-    'Multiple Go watchers belong to this checkout. Stop the duplicate watchers before starting a collection session.',
+    'Multiple server watchers belong to this checkout. Stop the duplicate watchers before starting a collection session.',
   );
   const watcher = watchers[0];
 
@@ -183,7 +183,7 @@ async function inspectServices(root: string) {
 
     assert(
       !environment.NPC_BENCHMARK_SESSION,
-      'Another managed NPC session owns the Go watcher. Wait for it to finish.',
+      'Another managed NPC session owns the server watcher. Wait for it to finish.',
     );
   }
 
@@ -211,7 +211,7 @@ async function stopWatcher(watcher: LocalProcess) {
   assert.equal(
     current.started,
     watcher.started,
-    'The Go watcher changed during preparation; refusing to stop its replacement.',
+    'The server watcher changed during preparation; refusing to stop its replacement.',
   );
   process.kill(watcher.pid, 'SIGTERM');
 
@@ -223,14 +223,14 @@ async function stopWatcher(watcher: LocalProcess) {
         !current || current.state === 'Z' || current.started !== watcher.started
       );
     },
-    'The existing Go watcher did not stop gracefully.',
+    'The existing server watcher did not stop gracefully.',
     undefined,
     15000,
   );
 
   await until(
     async () => !(await listeners(3001)).length,
-    'The previous Go server still owns port 3001.',
+    'The previous game server still owns port 3001.',
     undefined,
     15000,
   );
@@ -437,7 +437,7 @@ async function collectionLockError(lockPath: string, root: string) {
 
   return new Error(
     services
-      ? `${details} That owner has exited and no managed Go watcher remains. Remove the stale lock with rm -- '${lockPath.replaceAll("'", "'\\''")}', then retry.`
+      ? `${details} That owner has exited and no managed server watcher remains. Remove the stale lock with rm -- '${lockPath.replaceAll("'", "'\\''")}', then retry.`
       : `${details} That owner has exited, but local service ownership could not be verified. Inspect the session and its watcher before removing the lock and retrying.`,
   );
 }
@@ -523,7 +523,7 @@ export async function runCollectionSession(args: string[]) {
 
     if (previous.watcher) {
       await stage(
-        `Temporarily stopping this checkout's Go watcher PID ${previous.watcher.pid}; its original configuration will be restored.`,
+        `Temporarily stopping this checkout's server watcher PID ${previous.watcher.pid}; its original configuration will be restored.`,
       );
       borrowed = true;
       await stopWatcher(previous.watcher);
@@ -535,10 +535,6 @@ export async function runCollectionSession(args: string[]) {
       NODE_ENV: 'development',
       DATABASE_PATH: relative(root, report.database),
       BACKUP_DIRECTORY: resolve(directory, 'backups'),
-      GOMEMLIMIT: '600MiB',
-      GOGC: '100',
-      GOEXPERIMENT: 'simd',
-      GOFLAGS: '',
       NPC_BENCHMARK_SESSION: directory,
     };
 
@@ -577,9 +573,10 @@ export async function runCollectionSession(args: string[]) {
       controller.signal,
     );
     const manifest = resolve(directory, 'fixture.json');
-    const overlay = prepareNPCFixture({ directory, manifestPath: manifest });
 
-    env.GOFLAGS = `"-overlay=${overlay}"`;
+    prepareNPCFixture({ directory, manifestPath: manifest });
+
+    env.SERVER_BENCHMARK_FIXTURES = '1';
     env.NPC_BENCHMARK_FIXTURE = manifest;
     await stage(
       `Starting the NPC fixture watcher on port 3001; log: ${resolve(directory, 'server.log')}`,
@@ -637,7 +634,7 @@ export async function runCollectionSession(args: string[]) {
     if (borrowed) {
       try {
         await stage(
-          'Restoring the previous Go watcher and database configuration…',
+          'Restoring the previous server watcher and database configuration…',
         ).catch(cleanupFailed);
         const current = await localProcess(previous.watcher.pid).catch(
           (): null => null,
@@ -647,7 +644,7 @@ export async function runCollectionSession(args: string[]) {
           !current ||
             current.state === 'Z' ||
             current.started !== previous.watcher.started,
-          'The previous Go watcher is still running; a duplicate will not be started.',
+          'The previous server watcher is still running; a duplicate will not be started.',
         );
         assert(
           !(await listeners(3001)).length,
@@ -681,7 +678,7 @@ export async function runCollectionSession(args: string[]) {
           };
 
           await stage(
-            `Restored Go watcher PID ${restored.child.pid}; log: ${restored.log}`,
+            `Restored server watcher PID ${restored.child.pid}; log: ${restored.log}`,
           );
         }
       } catch (error) {

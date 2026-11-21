@@ -9,11 +9,13 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { fixtureSource } from '../support/fixture-source.ts';
 
 const root = process.cwd();
-const fixtures = execFileSync(
-  'go',
-  ['run', 'src/server/testtools/muzzle-flashes/main.go'],
-  { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
-);
+const fixtureExecutable =
+  'src/server/target/debug/examples/muzzle_flashes_fixture';
+
+const fixtures = execFileSync(fixtureExecutable, [], {
+  encoding: 'utf8',
+  maxBuffer: 8 * 1024 * 1024,
+});
 
 // Two firing cycles cover repeated tap/hold transitions and activation delays.
 const fixture = fixtureSource(JSON.parse(fixtures));
@@ -122,10 +124,10 @@ for (const fixture of fixtures) for (const [delay, skipTick] of timings) {
   assert(shots > 0, 'the regression checks sustained firing after tap/hold transitions');
   assert.equal(
     effects.length, fixture.frames.reduce((sum, frame) => sum + frame.shots, 0),
-    fixture.weapon + ': every Go shot produces one flash, delay=' + delay + ', skipTick=' + skipTick,
+    fixture.weapon + ': every server shot produces one flash, delay=' + delay + ', skipTick=' + skipTick,
   );
 }
-console.log('Tap/hold muzzle flashes survive real Go snapshots and clock corrections');
+console.log('Tap/hold muzzle flashes survive real server snapshots and clock corrections');
 `;
 
 const entryId = `${root}/src/__muzzle_flash_test.ts`;

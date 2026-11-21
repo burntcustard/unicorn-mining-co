@@ -12,6 +12,29 @@ const motionView = new DataView(new ArrayBuffer(8));
 
 type SnapshotMessage = Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
 
+export const snapshotDeltaQuery = 'snapshotDeltas=1';
+
+/**
+ * Restore the radar positions from the previous received snapshot.
+ */
+export const snapshotAsteroidPositions = (
+  message: SnapshotMessage,
+  previous: Vec.Value[],
+): Vec.Value[] => {
+  if (message.asteroidPositions) return message.asteroidPositions;
+
+  if (message.type === 'load') return [];
+
+  if (!message.asteroidSplice) return previous;
+
+  const [start, deleteCount, positions] = message.asteroidSplice;
+  const end = start + deleteCount;
+
+  if (end > previous.length) throw new Error('Missing asteroid radar baseline');
+
+  return previous.slice(0, start).concat(positions, previous.slice(end));
+};
+
 type WireEntity = { id: number } & {
   [Key in Exclude<keyof ReplicatedEntity, 'id'>]?: ReplicatedEntity[Key] | null;
 };
@@ -683,7 +706,22 @@ export function decodeBinarySnapshot(
   if (byte() !== 0x55 || byte() !== 0x4d || byte() !== 1) return fail();
   const flags = byte();
 
-  if (flags & ~127) return fail();
+  let extensions = 0;
+
+  if (flags & 128) {
+    extensions = byte();
+
+    if (
+      extensions === 0 ||
+      extensions & ~3 ||
+      flags & 1 ||
+      (flags & 2 && extensions & 1) ||
+      (flags & 64 && extensions & 2)
+    ) {
+      return fail();
+    }
+  }
+
   const serverTick = unsigned();
   const nextEntityId = unsigned();
   const acknowledgedSequence = flags & 4 ? unsigned() : undefined;
@@ -708,29 +746,44 @@ export function decodeBinarySnapshot(
   }
 
   let asteroidPositions: Vec.Value[] | undefined;
+  let asteroidSplice: SnapshotMessage['asteroidSplice'];
 
-  if (flags & 64) {
+  if (flags & 64 || extensions & 2) {
+    const splice = extensions & 2;
+    const start = splice ? unsigned() : 0;
+    const deleted = splice ? unsigned() : 0;
     const length = count(16);
-
-    asteroidPositions = [];
+    const positions: Vec.Value[] = [];
 
     for (let index = 0; index < length; index++) {
       const x = number();
       const y = number();
 
       if (x === null || y === null) return fail();
-      asteroidPositions.push(Vec.create(x, y));
+      positions.push(Vec.create(x, y));
+    }
+
+    if (splice) {
+      asteroidSplice = [start, deleted, positions];
+    } else {
+      asteroidPositions = positions;
     }
   }
 
   let entityIds: number[] | undefined;
+  let removedEntityIds: number[] | undefined;
 
-  if (flags & 2) {
+  if (flags & 2 || extensions & 1) {
     const length = count(1);
+    const ids: number[] = [];
 
-    entityIds = [];
+    for (let index = 0; index < length; index++) ids.push(unsigned());
 
-    for (let index = 0; index < length; index++) entityIds.push(unsigned());
+    if (extensions & 1) {
+      removedEntityIds = ids;
+    } else {
+      entityIds = ids;
+    }
   }
 
   const length = count(2);
@@ -753,7 +806,9 @@ export function decodeBinarySnapshot(
       dockIds,
     }),
     ...(entityIds && { entityIds }),
+    ...(removedEntityIds && { removedEntityIds }),
     ...(asteroidPositions && { asteroidPositions }),
+    ...(asteroidSplice && { asteroidSplice }),
     fullEntities,
   };
 }

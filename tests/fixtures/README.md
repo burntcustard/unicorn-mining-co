@@ -1,9 +1,10 @@
 # Regression fixtures
 
-`node --import tsx tests/parity/generate-fixtures.ts` regenerates eight JSON
+`node --import ./scripts/register-typescript.ts --import ./tests/support/local-storage.ts tests/parity/generate-fixtures.ts`
+regenerates eight JSON
 fixtures from the client implementations. Each module in
 `tests/parity/scenarios` exports its computed results; the runner handles file
-writing in one process. Go tests compare those results with the server.
+writing in one process. Rust tests compare those results with the server.
 
 | Scenario        | Comparison                                                                    |
 | --------------- | ----------------------------------------------------------------------------- |
@@ -27,8 +28,7 @@ quadrant boundaries, and large exponents. Direct polynomial tests check accuracy
 against native trig at the wrapped angle, unit length, signed zero and nonfinite
 inputs. Huge angles intentionally use the float64 remainder as their direction.
 
-`session.json.gz` stores 983 session actions and fixed decoded messages from the
-current Go server with sector generation and globally allocated runtime IDs.
+`session.json.gz` stores 983 session actions and the expected decoded messages, including sector generation and globally allocated runtime IDs.
 The sector update retains the same packet types, counts, and account balances;
 spawn positions, nearby generated entities, and runtime IDs now reflect Patroclus.
 Entity interests use a 2,500-unit load range and 3,000-unit unload range.
@@ -96,3 +96,6 @@ merely to make a failed comparison pass.
 through the real DOM docking facade and production property transforms. Purchases,
 fitting, repairs and paint use the normal ship actions; the fixture settles sales
 locally instead of sending commands for its synthetic ship to the game server.
+
+`snapshots.json` contains fixed wire packets for byte-for-byte Rust comparisons.
+`mined-gold.json` retains the recorded mining geometry and pickup inputs.

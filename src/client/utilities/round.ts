@@ -4,7 +4,7 @@
 export const round = (value: number) => Math.round(value * 1e8) / 1e8;
 
 /**
- * Match Go's native ties-to-even rounding on an exact binary motion grid.
+ * Round motion to an exact binary grid with ties to even.
  */
 export const roundMotion = (value: number) => {
   const scaled = value * 16777216;

@@ -1,6 +1,6 @@
 import '../support/ignore-handshake-timeout.ts';
 import assert from 'node:assert/strict';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,10 +12,8 @@ import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins';
 import { stripIfdef } from '../../plugins/replace-pre-terser';
 
 const directory = mkdtempSync(resolve(tmpdir(), 'unicorn-trade-'));
-const executable = resolve(directory, 'trade');
+const executable = resolve('src/server/target/debug/examples/trade_fixture');
 const root = process.cwd();
-
-execFileSync('go', ['build', '-o', executable, './src/server/testtools/trade']);
 
 class Socket {
   static OPEN = 1;
@@ -353,7 +351,7 @@ assert(act({ action: 'buyAmmo' }));
 assert.equal(ship().cargoContents.length, settled[1].length + 1);
 client.socket.onclose({ code: 4001 });
 assert.deepEqual(state(), settled, 'disconnect removes unconfirmed trades');
-console.log('Real Go session: immediate trades, partial acknowledgements, rapid module buyback, rejections, and disconnected actions passed');
+console.log('Real server session: immediate trades, partial acknowledgements, rapid module buyback, rejections, and disconnected actions passed');
 };
 `;
 
@@ -378,7 +376,7 @@ try {
 
         const response = await responses.next();
 
-        assert(!response.done, 'Go session terminated before replying');
+        assert(!response.done, 'Server session terminated before replying');
         return JSON.parse(response.value);
       },
     );

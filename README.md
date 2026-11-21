@@ -42,42 +42,42 @@ WHITE - Unlocked by default from the start of the game.
 - Game engine heavily inspired by [Kontra.js](https://straker.github.io/kontra/) by [Steven Lambert](https://stevenklambert.com/), rendering to an HTML canvas.
 - Collision and physics code is inspired by [Planck.js](https://github.com/piqnt/planck.js) and [Box2D](https://box2d.org/).
 - [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/build-plugins.ts) for chunking, minification, and size warnings.
-- [TypeScript 7](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) for fast type checking as source files are gradually converted to TypeScript.
+- [TypeScript](https://www.typescriptlang.org/) for type checking.
 
 ## Run locally
 
 1. Clone this repository
    `git clone git@github.com:burntcustard/unicorn-mining-co.git`
 
-2. Install Node 26 and Go 1.27 (with `go` and `gofmt` on PATH), then dependencies
+2. Install Node 26, stable Rust with Cargo, and a C compiler, then dependencies
    `npm install`
 
-3. Start the authoritative Go server (rebuilds on Go or spec changes)
+3. Start the authoritative Rust server (rebuilds on server or spec changes)
    `npm run dev:server`
 
 4. In another terminal, start hot-reloading [Vite](https://vitejs.dev/) at
    [localhost:3000](http://localhost:3000/)
    `npm run dev`
 
-5. Build the browser assets in `dist/` and Go executable in `bin/server`
+5. Build the browser assets in `dist/` and the server executable in `bin/server`
    `npm run build`
 
 6. To run the production build locally, start `npm run start:server` and open
    [localhost:3001](http://localhost:3001/). It serves the client and WebSocket
    on the same port. `npm run preview` also works with `start:server` running.
 
-Port 3001 is reserved for the Go server. The dev frontend starts at 3000 and
+Port 3001 is reserved for the local game server. The dev frontend starts at 3000 and
 tools start at 3100, advancing to the next available port when needed. Start
 these in any order and use the URL Vite prints. The frontend proxies game
-connections to the Go server on 3001.
+connections to the server on 3001.
 
 Use `dev` with `dev:server`, or the production build with `start:server`.
 New players start with 2,000 credits. Existing players keep their saved balance.
-The same Go server supports source and production clients through binary packets.
+The same Rust server supports source and production clients through binary packets.
 Node is used only for frontend builds, generators, and development/test tooling.
 
 To preview object specs independently, run `npm run tool:object-viewer` and open
-the URL printed by Vite (starting at port 3100). The development-only GameObject Viewer needs no Go server.
+the URL printed by Vite (starting at port 3100). The development-only GameObject Viewer needs no game server.
 It uses the actual client renderers for ships, stations, nav beacons, items and procedural
 asteroids, including spiky amethyst. Each mount lists its position and a dropdown
 of compatible modules; its checkbox activates all segments of the fitted instance.
@@ -93,7 +93,7 @@ survive updates and page refreshes. Viewer source lives under `src/tools/game-ob
 excluded from the game production entry.
 
 To preview the game’s module panels, run `npm run tool:module-viewer` and open
-the URL printed by Vite. The Module Viewer needs no Go server. Filter by spec
+the URL printed by Vite. The Module Viewer needs no game server. Filter by spec
 folder and optionally enable model previews; the filters follow the module spec
 directory structure.
 
@@ -103,7 +103,7 @@ See [font/README.md](font/README.md) for glyph editing, generation, and reuse.
 
 To preview and edit game audio, run `npm run tool:sound-editor` and open
 the URL printed by Vite (starting at port 3100).
-The Sound Editor uses the game's synth and runs without a Go server.
+The Sound Editor uses the game's synth and runs without a game server.
 Choose an event from the searchable list, then play the event or solo a layer.
 Edit the layer controls and use the waveform to inspect their timing.
 Selecting an event or making a valid edit previews the sound. Save writes
@@ -122,7 +122,7 @@ for commands.
 
 To inspect procedural sectors, run `npm run tool:world-viewer` and open
 the URL printed by Vite (starting at port 3100).
-The World Viewer needs no Go server. Choose a seed and sector, pan by dragging,
+The World Viewer needs no game server. Choose a seed and sector, pan by dragging,
 and scroll to zoom. The world map shows the connected initial 20 sectors;
 enable future sectors to see all 68. Click a map sector to inspect its fields,
 stations, wrecks, planned Jump Gates and wormholes. Zoom in for individual
@@ -172,10 +172,7 @@ survive server restarts. Everyone can use `/list` to privately list online playe
 names on separate lines. Admins and owners also see each player's sector and
 coordinates.
 
-Schema 6 databases upgrade to schema 7 automatically, adding player roles and
-bans without resetting progress. This generation requires a sector-format world
-database (schema 6 or later). The TS and Go generators
-accept an explicit sector context. The catalog's name order is append-only: IDs and individual
+The TypeScript and Rust generators accept an explicit sector context. The catalog's name order is append-only: IDs and individual
 sector seeds are name-derived. `graphStages` records completed catalog batches;
 keep those boundaries fixed and append new boundaries when adding batches of
 names. Otherwise, appended names join individually. Graph expansion uses free
@@ -188,10 +185,10 @@ graph anchor.
 7. See [package.json](package.json) for other scripts
 
 `npm run format` formats JavaScript, TypeScript, and other files supported by
-Oxfmt. `npm run format:check` checks them without writing changes. Oxfmt reads
-`.oxfmtrc.json`; Oxlint reads `.oxlintrc.json` for the layout rules used by
-formatting and the broader checks used by `npm run lint`. These commands use the
-npm dependencies and do not require Go.
+Oxfmt, and formats Rust with rustfmt. `npm run format:check` checks formatting
+without writing changes. Oxfmt reads `.oxfmtrc.json`. Oxlint reads
+`.oxlintrc.json` for the layout rules used by formatting and the broader checks
+used by `npm run lint`.
 
 Use American English (`en-US`) throughout game text, identifiers, comments, tests,
 and documentation. Specify `en-US` explicitly for locale-sensitive formatting.
@@ -217,43 +214,28 @@ utilities, including unused sizes in an existing family, in `utilities.css`.
 Shared browser resets belong in `src/reset.css`, imported before the game and tool
 styles. Keep colors, typography choices, and layout in their own stylesheets.
 
-Format Go source separately with `npm run format:go`, or check it with
-`npm run format:go:check`. Both Go commands require `go` on PATH. They apply
-standard Go formatting plus blank lines around functions, brace-delimited type
-declarations, and control-flow blocks, including inside function bodies.
+Rust uses the default rustfmt style and Clippy lints. `npm run lint` includes
+both Rust checks. Use `npm run lint:rust` to check Rust alone. Install the tools
+with `rustup component add rustfmt clippy`.
 
 ## Build
 
-`npm run build` type-checks the client, tests, scripts and benchmark tools, generates the Go catalog from
-`src/specs`, builds browser ES modules, and compiles `bin/server` with
-`GOEXPERIMENT=simd`. `npm run build:client` type-checks and builds browser assets;
-`npm run build:server` generates the catalog and compiles a static, stripped Go
-binary with the production flags used for deployment.
-The full build generates the catalog once, during the server build.
+`npm run build` type-checks TypeScript, builds browser assets in `dist/`, and
+builds the release Rust executable in `bin/server`. `npm run build:client` and
+`npm run build:server` run the two halves separately. Cargo generates and embeds
+the catalog from `src/specs` during the server build.
 Production CSS passes through PurgeCSS, scanning client HTML, TypeScript, SVGs, and
 shared specs so lazy screens and dynamically created rows keep their styles.
 Unused utilities remain available in source and development builds.
 The browser build warns when a chunk exceeds 14 KB gzipped; see
 [CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading tiers.
 
-`npm test` builds once, regenerates mechanics fixtures, and runs all discovered
-Node test files and Go tests. Run a single Node test with `npm run test objects`,
-`npm run test objects.test.ts`, or `npm run test tests/client/objects.test.ts`.
-Go filenames work too: `npm run test round_test.go` runs the tests declared in
-that file with their containing package compiled normally.
-Multiple filenames and project-relative directories are supported, and paths
-disambiguate duplicate filenames. For example, `npm run test src/server/network`
-checks the Go network package; `npm run test src/server/physics src/server/collision`
-checks Go physics and collisions; `npm run test src/server tests/parity` runs all
-Go and parity checks.
-Selected integration and parity tests prepare their server/catalog and fixtures
-automatically; client-only selections skip the full build.
-Use `npm test -- --skip-build` after `npm run build` to test existing artifacts
-without rebuilding them. Go tests run first so client fixtures reuse compiled
-packages rather than competing to compile them in several workers. The longest
-Go packages start first. Node files start with the heavier simulation and
-integration checks listed in `scripts/test.ts`. The programmatic Node runner
-preserves that order and keeps each file in its own process.
+`npm test` builds the client and server, prepares the fixture drivers, and
+runs the TypeScript suites. Pass a test name, filename, or directory to select
+tests. `npm test -- --skip-build` tests the existing production artifacts.
+`npm run test:server` runs Rust unit and world integration tests, including
+the loopback transport checks, and the TypeScript parity and server
+integration suites.
 
 Production fixtures share a fresh property-name cache prepared once per run
 from the current sources. Each bundle still uses the real production transforms
@@ -264,8 +246,8 @@ cache files are removed when testing finishes.
 Projectile prediction runs as four independent suites covering autogun and
 plasma snapshots, repeated mining, and triangle fractures. Normal runs use
 representative immediate/delayed snapshots, batched frames, reloads, and frame
-cadences against both source and production bundles generated from real Go
-snapshots. Each Go generator produces only the cases its client suite consumes.
+cadences against both source and production bundles generated from authoritative Rust snapshots. Each fixture driver produces the
+cases its client suite consumes.
 Timing cases cover zero, one, three, and eight ticks of delay across different
 geometries rather than repeating the full cross-product. Repeated mining checks
 five fractures and a reload; triangle histories include the fracture, delayed
@@ -273,7 +255,7 @@ packets, and a display pause. Muzzle-flash tests replay two complete firing cycl
 with immediate, delayed, and paused firing. The same full suite runs locally and
 on deployment; there is no separate extended or deployment mode.
 `npm run test projectile-prediction` still selects all four suites;
-select a suffixed filename to run one group. Go network tests run isolated
+select a suffixed filename to run one group. Network tests run isolated
 sessions, temporary databases, and ephemeral listeners in parallel, retaining
 their complete assertions and real timeout checks.
 Set `TEST_CONCURRENCY=1` to run the Node tests sequentially.
@@ -281,7 +263,7 @@ Set `TEST_CONCURRENCY=1` to run the Node tests sequentially.
 scripts and benchmark tools. Selected Node tests also run the compiler check before
 execution. Scripts run with the existing Node 26 setup; no additional TypeScript
 loader flags are needed.
-`npm run test snapshot server-integration` checks Go output using both source and
+`npm run test snapshot server-integration` checks server output using both source and
 production-mangled client codecs, reporting real WebSocket packet sizes.
 
 Module mechanics tests use the `example-*.ts` specs beside the playable module
@@ -289,9 +271,8 @@ specs. Examples are excluded from category exports and the production catalog,
 so changing weapon damage, timing, geometry, or other gameplay tuning does not
 change mechanics test inputs. `tests/support/example-modules.ts` installs these
 specs in an isolated client test process using the existing control and wire
-slots. `scripts/generate-example-modules.ts` emits the same data for Go's test
-catalog. Run it after editing examples; the test runner also regenerates it
-before Go tests. Weapon variants derive from `offense/example-weapon.ts` in
+slots. `scripts/generate-example-modules.ts` emits the same data for the Rust test
+catalog. The test runner regenerates it before building fixtures. Weapon variants derive from `offense/example-weapon.ts` in
 test setup, enabling or disabling ammo, explosions, fading, and spin-down to
 cover optional behavior. Catalog tests verify that playable constructors consume
 their specs without prescribing their balance values.
@@ -356,8 +337,8 @@ reading retained text.
 
 - `src/specs`: typed authored items, modules, ships, stations, and tuning.
 - `src/client`: browser mechanics, prediction, networking, rendering, audio, UI.
-- `src/server`: Go entry point, objects/modules, simulation, networking, physics.
-- `src/server/specs`: generated catalog and Go decoding types.
+- `src/server`: Rust game server and its TypeScript spec build integration.
+- `tests/server`: Cargo world integration tests and executable parity drivers.
 - `tests/client`, `tests/linting`, `tests/integration`, `tests/parity`: retained regression suites.
 
 Each item/ship/station type has one spec file. Generic runtime classes
@@ -375,11 +356,8 @@ variables for their calculations.
 Gameplay values belong in `src/specs`: item fallbacks in
 `items/defaults.ts`, base-object defaults in `game-object.ts`, shared craft
 fallbacks in `craft.ts`, and type-specific values in each content spec.
-Client code imports those values; `catalog:go` emits them as Go data or constants.
-Edit the TypeScript specs rather than `catalog_gen.go`.
-
-`scripts/generate-go-catalog.ts` is the build bridge from authored TypeScript
-specs to Go. Test scenarios live in `tests/parity/scenarios`; one runner,
+Client code imports those values. Cargo invokes `scripts/generate-rust-catalog.ts`
+to embed them in the server. Test scenarios live in `tests/parity/scenarios`; one runner,
 `tests/parity/generate-fixtures.ts`, writes their computed results to
 `tests/fixtures` for client/server simulation and protocol comparisons. Scenario
 masses, health values, coordinates, seeds, and tick counts are test inputs,
@@ -403,10 +381,9 @@ suite. New captures go under ignored `benchmarking/_local/`.
 ## Deploy on Fly.io
 
 The public game runs at [unicorn-mining.co](https://unicorn-mining.co/) on one
-always-running Fly Machine in London. The authoritative world and players are
-in memory: a Machine restart or every push to `main` resets the game. The
-`www` hostname redirects to the root domain. There is no database or Fly
-volume. Fly's trial stops Machines after five minutes even with `auto_stop_machines = 'off'`; add a payment method before an extended player session ([Fly trial terms](https://fly.io/docs/about/free-trial/)).
+Fly Machine in London. Its SQLite database and backups live on the mounted
+`game_data` volume. The server stores the world in `/data/world.sqlite`
+and its backups in `/data/backups`. Restarts reuse that database. The `www` hostname redirects to the root domain.
 
 1. Install `flyctl` using [Fly's installation guide](https://fly.io/agent-ready.md),
    sign in with `fly auth login`, and run `fly apps list` to check whether the
@@ -416,7 +393,7 @@ volume. Fly's trial stops Machines after five minutes even with `auto_stop_machi
    already exist. This keeps the committed `fly.toml`. Allocate public
    addresses with `fly ips allocate-v4 --shared` and `fly ips allocate-v6`
    (check `fly ips list` first if the app already existed). Deploy with
-   `GOOS=linux GOARCH=amd64 npm run build` followed by
+   `SERVER_BUILD_TARGET=x86_64-unknown-linux-gnu RUSTFLAGS="-C target-feature=+crt-static" npm run build` followed by
    `fly deploy --ha=false`, then check `fly status`, `fly logs`, and the
    app's `https://<app>.fly.dev/` URL. Verify that exactly one Machine is
    running and `/healthz` returns `ok`.
@@ -440,9 +417,8 @@ volume. Fly's trial stops Machines after five minutes even with `auto_stop_machi
 
 CI builds `bin/server` and `dist/` once, then runs the full test suite with
 `--skip-build`. Integration tests launch that server binary. Checksums verify
-that the artifacts remain unchanged before Fly packages them. Go unit tests
-and fixture tools still compile their own executables, sharing the cached Go
-dependencies and build outputs with `GOEXPERIMENT=simd`.
+that the artifacts remain unchanged before Fly packages them. Rust unit and
+transport tests also run in CI. Cargo compiles the test drivers separately.
 CI uses `flyctl deploy --ha=false --local-only` to package the tested artifacts
 with the runner's Docker daemon, avoiding the remote builder queue.
 The production Dockerfile copies the tested artifacts into a scratch image;

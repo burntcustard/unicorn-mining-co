@@ -15,6 +15,8 @@ import {
 import {
   decodeBinarySnapshot,
   mergeModuleStates,
+  snapshotAsteroidPositions,
+  snapshotDeltaQuery,
 } from '../protocol/binary-snapshot';
 import { type SimulationEvent } from '../protocol/events';
 import { type WorldSound } from '../protocol/sounds';
@@ -318,6 +320,7 @@ export class NetworkClient {
   ownedShips?: Ship[];
   snapshotReceivedAt = 0;
   private socket!: WebSocket;
+  private snapshotDeltas = true;
   spawnPosition = Vec.create();
   private welcomed = false;
   readonly world = createWorld();
@@ -449,7 +452,11 @@ export class NetworkClient {
 
   private connect(url: string) {
     this.showConnectionStatus('CONNECTING TO GAME...');
-    const socket = new WebSocket(url);
+    const snapshotDeltas = this.snapshotDeltas && url.endsWith('/game-socket');
+    const socket = new WebSocket(
+      snapshotDeltas ? `${url}?${snapshotDeltaQuery}` : url,
+    );
+    let opened = false;
 
     this.socket = socket;
     this.welcomed = false;
@@ -457,6 +464,7 @@ export class NetworkClient {
     const handshakeTimer = setTimeout(() => socket.close(), 15000);
 
     socket.onopen = () => {
+      opened = true;
       const storedToken = localStorage.getItem('playerToken');
       const playerToken = isPlayerToken(storedToken) ? storedToken : null;
 
@@ -499,6 +507,13 @@ export class NetworkClient {
       clearTimeout(handshakeTimer);
 
       if (this.socket !== socket) return;
+
+      // Older servers require the unmodified socket URL.
+      if (snapshotDeltas && !opened && code === 1006) {
+        this.snapshotDeltas = false;
+        this.connect(url);
+        return;
+      }
 
       this.connected = false;
       this.pendingProfile?.reject(
@@ -756,11 +771,10 @@ export class NetworkClient {
 
     this.snapshotReceivedAt = performance.now();
 
-    if (message.asteroidPositions) {
-      this.asteroidPositions = message.asteroidPositions;
-    } else if (message.type === 'load') {
-      this.asteroidPositions = [];
-    }
+    this.asteroidPositions = snapshotAsteroidPositions(
+      message,
+      this.asteroidPositions,
+    );
 
     message.dockIds?.forEach(([from, to]) => this.dockIds.set(from, to));
 
@@ -785,12 +799,19 @@ export class NetworkClient {
       return full;
     });
 
-    message.entityIds ??= [...this.entityRecords.keys()];
-    const visible = new Set(message.entityIds);
+    const visible = message.entityIds && new Set(message.entityIds);
 
-    this.entityRecords.forEach((_, id) => {
-      if (!visible.has(id)) this.entityRecords.delete(id);
-    });
+    if (visible) {
+      this.entityRecords.forEach((_, id) => {
+        if (!visible.has(id)) this.entityRecords.delete(id);
+      });
+    }
+
+    if (message.removedEntityIds) {
+      for (const id of message.removedEntityIds) this.entityRecords.delete(id);
+    }
+
+    message.entityIds ??= [...this.entityRecords.keys()];
 
     if (this.hangarListPending) {
       this.sendHangarAction({ command: 'LIST', shipId: 0, value: '' });
@@ -815,11 +836,17 @@ export class NetworkClient {
         }),
       );
 
-      const retained = new Set(message.entityIds);
+      if (visible) {
+        this.pendingEntities.forEach((_, id) => {
+          if (!visible.has(id)) this.pendingEntities.delete(id);
+        });
+      }
 
-      this.pendingEntities.forEach((_, id) => {
-        if (!retained.has(id)) this.pendingEntities.delete(id);
-      });
+      if (message.removedEntityIds) {
+        for (const id of message.removedEntityIds) {
+          this.pendingEntities.delete(id);
+        }
+      }
 
       return;
     }

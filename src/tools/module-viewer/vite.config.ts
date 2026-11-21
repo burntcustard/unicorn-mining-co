@@ -1,11 +1,14 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 import { buildPrePlugin } from '../../../plugins/build-plugins.ts';
+import { writeFont } from '../../../scripts/generate-font.ts';
 
-export default defineConfig(({ command }) => {
+export default defineConfig(async ({ command }): Promise<UserConfig> => {
   if (command !== 'serve') {
     throw new Error('The Module Viewer is a development-only tool.');
   }
+
+  await writeFont();
 
   return {
     root: fileURLToPath(new URL('.', import.meta.url)),
