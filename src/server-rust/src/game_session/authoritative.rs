@@ -558,8 +558,8 @@ impl AuthoritativeSession {
             return;
         }
         let ship_id = account.ship_id;
-        let index = account.sector;
-        let sector = &mut self.sectors[index];
+        let source = account.sector;
+        let sector = &mut self.sectors[source];
         let world = &sector.running.world;
         if let Some(entity) = world.entity(ship_id)
             && let EntityKind::Ship(ship) = &entity.model
@@ -573,14 +573,21 @@ impl AuthoritativeSession {
         let position = world
             .entity(ship_id)
             .map_or(account.position, |entity| entity.model.object().position);
-        let nearest = sector
-            .regions
-            .nearest_station(position)
-            .or_else(|| sector.regions.nearest_station(Vector::ZERO));
+        let nearest = sector.regions.nearest_station(position);
+        let relocating = nearest.is_none();
+        let (index, nearest) = if relocating {
+            let start = self.sectors.start;
+            (
+                start,
+                self.sectors[start].regions.nearest_station(Vector::ZERO),
+            )
+        } else {
+            (source, nearest)
+        };
         let Some(nearest) = nearest else {
             return;
         };
-        let station_id = sector.regions.id_offset + i64::from(nearest.id);
+        let station_id = self.sectors[index].regions.id_offset + i64::from(nearest.id);
         let definition = account.definition.clone();
         self.sync_regions(index, Some(nearest.position));
         let world = &mut self.sectors[index].running.world;
@@ -597,7 +604,13 @@ impl AuthoritativeSession {
         else {
             return;
         };
-        self.sectors[index].running.world.remove_entity(ship_id);
+        let source_world = &mut self.sectors[source].running.world;
+        source_world.remove_entity(ship_id);
+        let source_tick = source_world.tick;
+        if relocating {
+            source_world.remove_player(id);
+            self.inputs.remove(&id);
+        }
         let account = self
             .accounts
             .get_mut(&id)
@@ -611,10 +624,22 @@ impl AuthoritativeSession {
         }
         account.ship_id = replacement;
         account.hidden = None;
-        account.position = position;
-        account.inputs.discard_pending(Input::default());
+        if relocating {
+            account.sector = index;
+            reset_location(
+                account,
+                SectorArrival {
+                    position,
+                    ..Default::default()
+                },
+                source_tick,
+            );
+        } else {
+            account.position = position;
+            account.inputs.discard_pending(Input::default());
+            account.delivery.require_load();
+        }
         account.inputs.clear_input_lead();
-        account.delivery.require_load();
         self.sectors[index].running.world.set_player(Player {
             id,
             ship_id: replacement,
@@ -882,16 +907,15 @@ impl Session for AuthoritativeSession {
         if !self.persistence_ready(now) {
             return;
         }
-        self.hide_disconnected(now);
-        if tick.is_multiple_of(30) || tick % 30 + ticks > 30 {
-            self.disconnect_idle(now);
-        }
-
         let sectors = self.sectors.indices().collect::<SmallVec<[usize; 16]>>();
         for &index in &sectors {
             self.update_gates(index, ticks as f64 * step);
         }
         self.update_stored_ships(tick, ticks as f64 * step);
+        self.hide_disconnected(now);
+        if tick.is_multiple_of(30) || tick % 30 + ticks > 30 {
+            self.disconnect_idle(now);
+        }
         for index in sectors {
             self.sectors[index].running.world.tick = tick;
             self.sectors.update_ids(index);
@@ -1128,14 +1152,15 @@ impl AuthoritativeSession {
 
     fn disconnect_idle(&mut self, now: Instant) {
         let mut idle = SmallVec::<[Client; 16]>::new();
-        for account in self.accounts.values_mut().filter(|account| account.playing) {
+        for account in self.accounts.values_mut() {
+            let Some(client) = &account.socket else {
+                continue;
+            };
             if account.inputs.held_input().thrust != 0.0 || account.inputs.held_input().turn != 0.0
             {
                 account.last_input_at = now;
             }
-            if now.saturating_duration_since(account.last_input_at) >= IDLE_TIMEOUT
-                && let Some(client) = &account.socket
-            {
+            if now.saturating_duration_since(account.last_input_at) >= IDLE_TIMEOUT {
                 idle.push(client.clone());
             }
         }
@@ -1289,7 +1314,8 @@ impl AuthoritativeSession {
     fn send_world_sounds(&mut self, index: usize) {
         let world = &self.sectors[index].running.world;
         let lookup = SoundLookup {
-            session: &self.accounts,
+            accounts: &self.accounts,
+            sector: index,
             world,
         };
         build_world_sounds(&self.events, &lookup, &mut self.sounds);
@@ -1331,13 +1357,18 @@ impl AuthoritativeSession {
 }
 
 struct SoundLookup<'a> {
-    session: &'a OrderedMap<i64, Account>,
+    accounts: &'a OrderedMap<i64, Account>,
+    sector: usize,
     world: &'a crate::simulation::world::World,
 }
 
 impl WorldSoundLookup for SoundLookup<'_> {
     fn player_ship(&self, player_id: i64) -> Option<SoundShip> {
-        let account = self.session.get(&player_id)?;
+        // A portal transfer can move the player before the source sector sends its sounds.
+        let account = self
+            .accounts
+            .get(&player_id)
+            .filter(|account| account.sector == self.sector)?;
         Some(SoundShip {
             id: account.ship_id,
             position: self
@@ -1346,9 +1377,9 @@ impl WorldSoundLookup for SoundLookup<'_> {
         })
     }
     fn ship_player(&self, entity_id: i64) -> Option<i64> {
-        self.session
+        self.accounts
             .values()
-            .find(|account| account.ship_id == entity_id)
+            .find(|account| account.ship_id == entity_id && account.sector == self.sector)
             .map(|account| account.id)
     }
     fn entity_player(&self, entity_id: i64) -> Option<i64> {

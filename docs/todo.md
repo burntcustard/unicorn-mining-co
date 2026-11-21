@@ -1,5 +1,9 @@
 # TODO
 
+## Server improvements
+
+[ ] Test increasing the post-stall limit from 2 toward the normal cap of 9 in-flight snapshots before the 1-second recovery period ends when fresh snapshot receipts arrive consistently, and keep the change only if players see current world state sooner without more stale traffic or visible ship corrections.
+
 ## Ongoing
 
 [-] Server CPU performance improvements

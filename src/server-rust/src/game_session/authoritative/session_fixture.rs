@@ -211,3 +211,32 @@ fn welcome_token(packet: &[u8]) -> Result<String, Box<dyn Error>> {
             .to_string(),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+    use crate::game_session::authoritative::IDLE_TIMEOUT;
+
+    #[test]
+    fn prepared_connection_expires_after_idle_timeout() {
+        let catalog = Arc::new(load_example_catalog().unwrap());
+        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
+        let mut connection = Connection::new(1);
+        session.receive(&connection.client, Control::Prepare { player_token: None });
+        let id = session.sockets[&connection.client.id];
+        let account = session.accounts.get(&id).unwrap();
+        assert!(!account.playing);
+        let deadline = account.last_input_at + IDLE_TIMEOUT;
+
+        session.disconnect_idle(deadline - Duration::from_millis(1));
+        assert!(session.sockets.contains_key(&connection.client.id));
+        session.disconnect_idle(deadline);
+        connection.drain();
+
+        assert!(!session.sockets.contains_key(&connection.client.id));
+        assert!(session.accounts.get(&id).unwrap().socket.is_none());
+        assert_eq!(connection.socket.close_code(), 4002);
+    }
+}

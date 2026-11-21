@@ -164,6 +164,7 @@ pub struct World {
     next_incarnation: u64,
     removed_parents: HashMap<i64, MovementParent>,
     save_changes: Option<HashMap<i64, EntityChange>>,
+    changed_player_ships: Vec<(i64, i64)>,
     destroyed_ships: Vec<Entity>,
 }
 
@@ -183,6 +184,7 @@ impl World {
             next_incarnation: 1,
             removed_parents: HashMap::new(),
             save_changes: None,
+            changed_player_ships: Vec::new(),
             destroyed_ships: Vec::new(),
         }
     }
@@ -221,12 +223,11 @@ impl World {
     }
 
     pub fn add_entity(&mut self, model: EntityKind, generated: bool) {
-        let id = model.object().id;
         let entity = self.make_entity(model, generated);
-        self.wake(entity);
         if !generated {
-            self.mark_entity_changed(id);
+            self.record_change(&entity, false);
         }
+        self.wake(entity);
     }
 
     pub(crate) fn make_entity(&mut self, model: EntityKind, generated: bool) -> Entity {
@@ -279,16 +280,23 @@ impl World {
     pub fn mark_entity_changed(&mut self, id: i64) {
         if let Some(changes) = &mut self.save_changes
             && let Some(entity) = self.entities.get(&id)
-            && entity.belongs_in_world_save()
         {
-            changes.insert(
-                id,
-                EntityChange {
-                    generated: entity.generated,
-                    removed: false,
-                },
-            );
+            if let Some(player_id) = entity.model.object().player_id {
+                self.changed_player_ships.push((player_id, id));
+            } else if entity.belongs_in_world_save() {
+                changes.insert(
+                    id,
+                    EntityChange {
+                        generated: entity.generated,
+                        removed: false,
+                    },
+                );
+            }
         }
+    }
+
+    pub(crate) fn drain_changed_player_ships(&mut self) -> impl Iterator<Item = (i64, i64)> + '_ {
+        self.changed_player_ships.drain(..)
     }
 
     fn record_change(&mut self, entity: &Entity, removed: bool) {

@@ -131,6 +131,22 @@ impl WorldCheckpoint {
         budget - consumed
     }
 
+    /// On shutdown, save the current state of all active world entities.
+    pub(crate) fn stage_active(&mut self, world: &World) {
+        for entity in world
+            .entities()
+            .filter(|entity| entity.belongs_in_world_save())
+        {
+            self.pending.insert(
+                entity.model.object().id,
+                Pending::Changed(EntityChange {
+                    generated: entity.generated,
+                    removed: false,
+                }),
+            );
+        }
+    }
+
     /// Called after the sole writer reports capacity. The caller stops writes
     /// if the underlying store becomes unavailable during submission.
     pub fn capture(

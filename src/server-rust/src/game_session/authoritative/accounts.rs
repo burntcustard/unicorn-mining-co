@@ -280,6 +280,17 @@ impl AuthoritativeSession {
         let Some(storage) = &mut self.storage else {
             return true;
         };
+        for sector in self.sectors.active_mut() {
+            for (player_id, ship_id) in sector.running.world.drain_changed_player_ships() {
+                if self
+                    .accounts
+                    .get(&player_id)
+                    .is_some_and(|account| account.ship_id == ship_id)
+                {
+                    storage.pending.insert(player_id);
+                }
+            }
+        }
         if !force
             && storage.pending.is_empty()
             && self
@@ -335,6 +346,15 @@ impl AuthoritativeSession {
         &mut self,
         deadline: Instant,
     ) -> io::Result<Option<AccountWriter>> {
+        let Some(storage) = &mut self.storage else {
+            return Ok(None);
+        };
+        storage
+            .pending
+            .extend(self.accounts.values().map(|account| account.id));
+        for sector in self.sectors.active_mut() {
+            sector.checkpoint.stage_active(&sector.running.world);
+        }
         while !self.flush_accounts(Instant::now(), true) {
             if Instant::now() >= deadline {
                 return Err(io::Error::new(
@@ -434,4 +454,139 @@ pub(super) fn unix_seconds() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |duration| duration.as_secs() as i64)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::game_server::Session;
+    use crate::objects::craft::CargoObject;
+    use crate::objects::item::Item;
+    use crate::simulation::game_object::{GameObject, ObjectProperties};
+    use crate::specs::Catalog;
+    use crate::vector::Vector;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn graceful_shutdown_saves_current_world_entity_positions() {
+        let catalog = Arc::new(Catalog::load().unwrap());
+        let path = std::env::temp_dir().join(format!("unicorn-shutdown-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&path).unwrap();
+        let db = path.join("world.sqlite");
+        let backups = path.join("backups");
+        let mut session = AuthoritativeSession::new(25.0, Arc::clone(&catalog)).unwrap();
+        session.open_player_accounts(&db, backups.clone()).unwrap();
+        let start = session.sectors.start;
+        let world = &mut session.sectors[start].running.world;
+        let id = world.ids.entity();
+        let item = GameObject::new(id, ObjectProperties::default(), &catalog.simulation);
+        world.add_entity(EntityKind::Object(Box::new(item)), false);
+        assert!(session.flush_accounts(Instant::now(), true));
+
+        let position = Vector::new(120.0, 40.0);
+        session.sectors[start]
+            .running
+            .world
+            .entity_mut(id)
+            .unwrap()
+            .model
+            .object_mut()
+            .position = position;
+        session
+            .shutdown(tokio::time::Instant::now() + Duration::from_secs(5))
+            .await
+            .unwrap();
+        drop(session);
+
+        let mut resumed = AuthoritativeSession::new(25.0, catalog).unwrap();
+        resumed.open_player_accounts(&db, backups).unwrap();
+        let saved = resumed.sectors[start]
+            .regions
+            .sleeping(id)
+            .expect("saved world entity");
+        let saved_position = saved.model.object().position;
+        resumed
+            .shutdown(tokio::time::Instant::now() + Duration::from_secs(5))
+            .await
+            .unwrap();
+        std::fs::remove_dir_all(path).unwrap();
+        assert_eq!(saved_position, position);
+    }
+
+    #[test]
+    fn dropped_cargo_and_its_owner_commit_in_the_same_batch() {
+        fn ship(
+            session: &mut AuthoritativeSession,
+            sector: usize,
+            id: i64,
+        ) -> &mut super::super::Ship {
+            let entity = session.sectors[sector]
+                .running
+                .world
+                .entity_mut(id)
+                .unwrap();
+            let EntityKind::Ship(ship) = &mut entity.model else {
+                panic!("missing player ship");
+            };
+            ship
+        }
+
+        let catalog = Arc::new(Catalog::load().unwrap());
+        let path =
+            std::env::temp_dir().join(format!("unicorn-cargo-save-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&path).unwrap();
+        let db = path.join("world.sqlite");
+        let mut session = AuthoritativeSession::new(25.0, Arc::clone(&catalog)).unwrap();
+        session
+            .open_player_accounts(&db, path.join("backups"))
+            .unwrap();
+        let id = session.create_account(Instant::now()).unwrap();
+        session.play(id);
+        let ship_id = session.accounts.get(&id).unwrap().ship_id;
+        let start = session.sectors.start;
+        let item = Item::new(-50, "gold", ObjectProperties::default(), &catalog).unwrap();
+        ship(&mut session, start, ship_id)
+            .craft
+            .cargo_contents
+            .push(CargoObject::Item(Box::new(item)));
+        assert!(session.flush_accounts(Instant::now(), true));
+        assert!(session.storage.as_ref().unwrap().pending.is_empty());
+
+        let player_ship = ship(&mut session, start, ship_id);
+        player_ship.cargo_release(&catalog);
+        player_ship.craft.update_modules(5.0, 1.0, None);
+        session.tick(1);
+        assert!(
+            ship(&mut session, start, ship_id)
+                .craft
+                .cargo_contents
+                .is_empty()
+        );
+        let dropped_id = session.sectors[start]
+            .running
+            .world
+            .entities()
+            .find_map(|entity| {
+                (entity.model.object().dropped_by == Some(id)).then_some(entity.model.object().id)
+            })
+            .unwrap();
+        let now = Instant::now();
+        session.storage.as_mut().unwrap().flush_deadline = now;
+        session.background_save(now);
+
+        // Drain only submitted writes. Do not stage the shutdown checkpoint.
+        let storage = session.storage.take().unwrap();
+        storage.writer.close(now + Duration::from_secs(5)).unwrap();
+        let store = Store::open(&db).unwrap();
+        let saved = store.load::<SavedShip, SavedModel>(25.0).unwrap().unwrap();
+        drop(store);
+        std::fs::remove_dir_all(path).unwrap();
+        assert!(
+            saved
+                .entities
+                .iter()
+                .any(|entity| entity.id == dropped_id && entity.state.is_some())
+        );
+        assert!(saved.players[0].ship.cargo.is_empty());
+    }
 }

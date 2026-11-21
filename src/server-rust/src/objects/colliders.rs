@@ -676,18 +676,11 @@ impl Craft {
     }
 
     fn crushing_target(&self, part: ColliderPart) -> i64 {
+        // Count contacts by mount even when thruster damage is applied to the hull.
         match part {
             ColliderPart::Hull(index) => index as i64,
             ColliderPart::Module { mount, .. } | ColliderPart::DrillTip { mount, .. } => {
-                if self.mounts[mount]
-                    .module
-                    .as_ref()
-                    .is_some_and(|module| module.spec.forward_thrust > 0.0)
-                {
-                    self.mounts[mount].hull as i64
-                } else {
-                    -1 - mount as i64
-                }
+                -1 - mount as i64
             }
             _ => i64::MIN,
         }
@@ -880,10 +873,57 @@ impl CollisionEntity for Portal {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::simulation::game_object::ObjectProperties;
     use crate::specs::Catalog;
 
     use super::*;
+
+    #[test]
+    fn gate_crush_counts_the_thruster_mount_and_its_hull_separately() {
+        let catalog = Catalog::load().unwrap();
+        let mut next = 0;
+        let mut ship =
+            Ship::new_player(1, "mustang", ObjectProperties::default(), &catalog, || {
+                next -= 1;
+                next
+            })
+            .expect("stock ship");
+        let mount = ship
+            .craft
+            .mounts
+            .iter()
+            .position(|mount| {
+                mount
+                    .module
+                    .as_ref()
+                    .is_some_and(|module| module.spec.forward_thrust > 0.0)
+            })
+            .expect("stock thruster");
+        let hull = ship.craft.mounts[mount].hull;
+        let initial_hull_health = ship.craft.hulls[hull].health;
+        let initial_mount_health = ship.craft.mounts[mount].health;
+        let mut damaged = HashSet::new();
+        for part in [
+            ColliderPart::Hull(hull),
+            ColliderPart::Module {
+                mount,
+                model_part: 0,
+            },
+            ColliderPart::Module {
+                mount,
+                model_part: 1,
+            },
+        ] {
+            if damaged.insert(ship.craft.crushing_target(part)) {
+                ship.craft.damage_part(part, 1.0);
+            }
+        }
+
+        assert_eq!(ship.craft.hulls[hull].health, initial_hull_health - 2.0);
+        assert_eq!(ship.craft.mounts[mount].health, initial_mount_health);
+    }
 
     #[test]
     fn throttle_changes_reuse_collision_geometry_and_hatch_changes_invalidate_it() {

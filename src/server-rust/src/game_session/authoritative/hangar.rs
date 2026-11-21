@@ -70,6 +70,14 @@ impl Hangar {
 impl AuthoritativeSession {
     pub(super) fn update_stored_ships(&mut self, tick: u64, duration: f64) {
         for account in self.accounts.values_mut() {
+            if account.socket.is_none()
+                && account
+                    .hidden
+                    .as_ref()
+                    .is_some_and(|entity| !entity.model.object().dead)
+            {
+                continue;
+            }
             if !account.hangar.no_ship
                 && let Some(entity) = &mut account.hidden
             {
@@ -382,6 +390,97 @@ mod tests {
     use crate::specs::ShipOffer;
 
     use super::*;
+
+    #[cfg(feature = "test-fixtures")]
+    #[test]
+    fn docked_ships_recharge_until_the_disconnected_pilot_is_hidden() {
+        use crate::game_server::{Client, ClientId, Session};
+        use crate::protocol::Control;
+        use crate::websocket::FixtureSocket;
+
+        let catalog = Arc::new(Catalog::load().unwrap());
+        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
+        let socket = FixtureSocket::new();
+        let client = Client {
+            id: ClientId(1),
+            socket: socket.socket(),
+        };
+        session.receive(&client, Control::Prepare { player_token: None });
+        let id = session.sockets[&client.id];
+        let sector = session.sectors.start;
+        let near = session.sectors[sector]
+            .regions
+            .nearest_station(Vector::ZERO)
+            .unwrap();
+        let station = session.sectors[sector].regions.id_offset + i64::from(near.id);
+        session.sync_regions(sector, Some(near.position));
+        let stored = session
+            .spawn_ship(sector, id, "mustang", near.position, 0.0, Some(station))
+            .unwrap();
+        let mut stored = session.sectors[sector]
+            .running
+            .world
+            .remove_entity(stored)
+            .unwrap();
+        ship_mut(&mut stored).unwrap().stored_power = 0.0;
+        let account = session.accounts.get_mut(&id).unwrap();
+        let ship = account.hidden.as_mut().and_then(ship_mut).unwrap();
+        ship.craft.object.position = near.position;
+        ship.craft.docked_to = Some(station);
+        ship.stored_power = 0.0;
+        account.hangar.stored.push(stored);
+        let stored_power = |session: &AuthoritativeSession| {
+            ship_ref(&session.accounts.get(&id).unwrap().hangar.stored[0])
+                .unwrap()
+                .stored_power
+        };
+        session.tick(1);
+        let account = session.accounts.get(&id).unwrap();
+        assert!(
+            account
+                .hidden
+                .as_ref()
+                .and_then(ship_ref)
+                .unwrap()
+                .stored_power
+                > 0.0
+        );
+        let prepared_power = stored_power(&session);
+        assert!(prepared_power > 0.0);
+
+        session.receive(&client, Control::Play);
+        session.disconnect(&client);
+        session.tick(1);
+        assert!(session.accounts.get(&id).unwrap().hidden.is_none());
+        let grace_power = stored_power(&session);
+        assert!(grace_power > prepared_power);
+
+        let cooldown =
+            std::time::Duration::from_secs_f64(session.catalog.simulation.flight.launch_duration);
+        session.accounts.get_mut(&id).unwrap().disconnected_at = Some(Instant::now() - cooldown);
+        session.tick(1);
+        let account = session.accounts.get(&id).unwrap();
+        let active_power = account
+            .hidden
+            .as_ref()
+            .and_then(ship_ref)
+            .unwrap()
+            .stored_power;
+        let hidden_power = stored_power(&session);
+        assert!(hidden_power > grace_power);
+        session.tick(1);
+        let account = session.accounts.get(&id).unwrap();
+        assert_eq!(
+            account
+                .hidden
+                .as_ref()
+                .and_then(ship_ref)
+                .unwrap()
+                .stored_power,
+            active_power
+        );
+        assert_eq!(stored_power(&session), hidden_power);
+    }
 
     #[test]
     fn stored_and_empty_hangars_keep_the_docked_berth_through_save() {
