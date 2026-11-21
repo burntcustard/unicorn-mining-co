@@ -129,6 +129,7 @@ struct SocketState {
 }
 
 const SNAPSHOT_DELTA_QUERY: &str = "snapshotDeltas=1";
+const STATION_REPLICATION_QUERY: &str = "snapshotDeltas=1&stationReplication=1";
 
 /// Shareable writer handle for the game session.
 #[derive(Clone)]
@@ -136,6 +137,7 @@ pub struct WebSocket {
     state: Arc<SocketState>,
     queue: mpsc::Sender<Outbound>,
     snapshot_deltas: bool,
+    station_replication: bool,
 }
 
 impl WebSocket {
@@ -159,6 +161,7 @@ impl WebSocket {
                 state,
                 queue,
                 snapshot_deltas: false,
+                station_replication: false,
             },
             receiver,
         )
@@ -166,6 +169,10 @@ impl WebSocket {
 
     pub(crate) fn snapshot_deltas(&self) -> bool {
         self.snapshot_deltas
+    }
+
+    pub(crate) fn station_replication(&self) -> bool {
+        self.station_replication
     }
 
     pub fn send_binary(&self, payload: &[u8]) -> Result<(), SocketError> {
@@ -294,6 +301,11 @@ impl FixtureSocket {
             outbound,
             close_code: 0,
         }
+    }
+
+    pub(crate) fn enable_station_replication(&mut self) {
+        self.socket.snapshot_deltas = true;
+        self.socket.station_replication = true;
     }
 
     pub(crate) fn socket(&self) -> WebSocket {
@@ -429,6 +441,9 @@ mod tests {
             HeaderValue::from_static("not-base64"),
         );
         assert!(upgrade_key(&invalid, false).is_none());
+        for query in [SNAPSHOT_DELTA_QUERY, STATION_REPLICATION_QUERY] {
+            assert!(upgrade_key(&request(&format!("/game-socket?{query}"), ""), false).is_some());
+        }
         assert!(upgrade_key(&request("/game-socket?token=1", ""), false).is_none());
         assert!(upgrade_key(&request("/game-socket?", ""), false).is_none());
         assert!(upgrade_key(&request("/other", ""), false).is_none());

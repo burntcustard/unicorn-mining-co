@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import WebSocket from 'ws';
-import { stationShipIds } from '../src/specs/ships';
+import { corralShipOffers } from '../src/specs/stations/market';
 import {
   bindingEntries,
   bindingModeLabel,
@@ -6710,7 +6710,7 @@ checkUi: try {
       await check(
         `document.querySelectorAll('[data-ships-for-sale] button').length`,
       ),
-      stationShipIds.length,
+      corralShipOffers.length,
     );
     assert(
       await check(`(() => {

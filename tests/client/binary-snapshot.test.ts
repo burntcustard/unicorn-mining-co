@@ -343,7 +343,7 @@ for (const [field, bytes] of [
 
   start(unknownField, 0, 0, 1);
   unknownField.unsigned(1);
-  unknownField.record(1, [[48, null]]);
+  unknownField.record(1, [[BinaryField.stationMarker + 1, null]]);
   const duplicateField = new Writer();
 
   start(duplicateField, 0, 0, 1);

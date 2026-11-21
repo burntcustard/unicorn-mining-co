@@ -16,7 +16,7 @@ import {
   setHangarActionDispatcher,
 } from '../../src/client/network/hangar-actions';
 import { shipSpecsById, type ShipId } from '../../src/specs/ships';
-import { stationSpecsById } from '../../src/specs/stations';
+import { corralShipOffers } from '../../src/specs/stations/market';
 import { Station } from '../../src/client/objects/station.ts';
 import { Item } from '../../src/client/objects/item.ts';
 import {
@@ -37,7 +37,11 @@ import {
 } from '../../src/client/objects/modules/index.ts';
 import { paintColors } from '../../src/specs/colors.ts';
 import { type ShipPreview } from '../../src/client/ui/dom/identity.ts';
-import { addEntity, createWorld } from '../../src/client/simulation/world.ts';
+import {
+  addEntity,
+  createWorld,
+  entityId,
+} from '../../src/client/simulation/world.ts';
 import {
   initKeys,
   setMenuInput,
@@ -786,10 +790,17 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
-addEntity(createWorld(), player.ship);
-const station = new Station({ id: 100, world: player.ship.world });
+const dockedWorld = createWorld();
 
-addEntity(player.ship.world, station);
+addEntity(dockedWorld, player.ship);
+const station = new Station({ id: 100, world: dockedWorld });
+
+addEntity(dockedWorld, station);
+station.cargoContents = Array.from(
+  { length: 300 },
+  () =>
+    new Item(autogunAmmo, { world: dockedWorld, id: entityId(dockedWorld) }),
+);
 player.ship.dockedTo = station.id;
 
 setCraftActionDispatcher((ship, action) =>
@@ -799,10 +810,10 @@ setCraftActionDispatcher((ship, action) =>
 setHangarActionDispatcher(({ command, shipId, value }) => {
   const ship = player.ships.find((ship) => ship.id === shipId);
 
-  if (command === 'BUY' || command === 'SPECIAL') {
-    const offer = stationSpecsById
-      .get('corral-5')!
-      .shipsForSale.find((offer) => offer.ship === value)!;
+  if (command === 'LIST') {
+    hangarState.shipsForSale = corralShipOffers;
+  } else if (command === 'BUY' || command === 'SPECIAL') {
+    const offer = corralShipOffers.find((offer) => offer.ship === value)!;
 
     const ship = createPlayerShip(player.ship.world!, {
       shipType: value as ShipId,

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { rolldown } from 'rolldown';
 import { buildPrePlugin } from '../../plugins/build-plugins';
+import { snapshotDeltaQuery } from '../../src/client/protocol/binary-snapshot';
 import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const status = { hidden: true, textContent: '' };
@@ -150,7 +151,7 @@ for (const production of [false, true]) {
   const extended = connect(socketUrl);
   const extendedSocket = sockets.at(-1)!;
 
-  assert.equal(extendedSocket.url, `${socketUrl}?snapshotDeltas=1`);
+  assert.equal(extendedSocket.url, `${socketUrl}?${snapshotDeltaQuery}`);
   extendedSocket.onopen!();
 
   const point = (x: number) => {
@@ -210,7 +211,7 @@ for (const production of [false, true]) {
   connect(socketUrl);
   const rejectedSocket = sockets.at(-1)!;
 
-  assert.equal(rejectedSocket.url, `${socketUrl}?snapshotDeltas=1`);
+  assert.equal(rejectedSocket.url, `${socketUrl}?${snapshotDeltaQuery}`);
   rejectedSocket.close();
   assert.equal(sockets.at(-1)!.url, socketUrl);
   assert.notEqual(sockets.at(-1), rejectedSocket);

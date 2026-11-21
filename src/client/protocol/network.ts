@@ -4,7 +4,7 @@ import { type AsteroidSegment } from './entities';
 import { type ModuleState } from '../objects/craft';
 import { type WreckageSegment } from '../objects/wreckage-segment';
 import { type WorldSound } from './sounds';
-import { type StationSpec } from '../../specs/stations/types';
+import { type ShipOffer } from '../../specs/stations/types';
 
 export type NetworkVector = Vec.Value;
 export type ReplicatedModule = ModuleState;
@@ -34,7 +34,21 @@ export type CraftAction =
   | { action: 'paint'; moduleId?: number; mount?: number; paint: number }
   | { action: 'repair'; moduleId?: number; mount?: number };
 
+export type StationStockEntry =
+  | ReplicatedEntity
+  | { id: number; resource: number }
+  | { id: number; module: ReplicatedModule };
+
+export type StationStockUpdate = {
+  stationId: number;
+  replace: boolean;
+  removedIds: number[];
+  entries: StationStockEntry[];
+};
+
 export type ReplicatedEntity = {
+  stationMarker?: boolean;
+  stationStockEntries?: StationStockEntry[];
   cargoContents?: (ReplicatedEntity | { moduleIndex: number })[];
   definitionId?: string;
   contents?: number[];
@@ -138,7 +152,7 @@ export type ServerMessage =
       credits: number;
       error: string;
       ships: ReplicatedEntity[];
-      shipsForSale: StationSpec['shipsForSale'];
+      shipsForSale: ShipOffer[];
     }
   | {
       type: 'chat';
@@ -183,6 +197,7 @@ export type ServerMessage =
       type: 'load' | 'snapshot';
       entityIds?: number[];
       removedEntityIds?: number[];
+      stationStock?: StationStockUpdate;
       asteroidPositions?: NetworkVector[];
       asteroidSplice?: [
         start: number,

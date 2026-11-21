@@ -24,6 +24,7 @@ import {
   type ClientMessage,
   type ReplicatedEntity,
   type ServerMessage,
+  type StationStockEntry,
 } from '../protocol/network';
 import { createRandom } from '../utilities/seeded-random';
 import { addPlayer, createWorld } from '../simulation/world';
@@ -34,6 +35,7 @@ import { GameObject } from '../objects/game-object';
 import { Craft } from '../objects/craft';
 import { Ship } from '../objects/ship';
 import { Station } from '../objects/station';
+import { stationSpecsById, type StationId } from '../../specs/stations';
 import { NavBeacon } from '../objects/nav-beacon';
 import { createShip } from '../objects/create-ship';
 import { createWreckage } from '../objects/create-wreckage';
@@ -51,6 +53,8 @@ import { type HangarAction } from '../protocol/network';
 import { shipSpecsById } from '../../specs/ships';
 
 const asteroidRecords = new WeakMap<Asteroid, ReplicatedEntity>();
+const stationRecords = new WeakMap<Station, ReplicatedEntity>();
+const stockItems = new WeakMap<StationStockEntry, GameObject>();
 
 const makeEntity = ({
   entity,
@@ -192,9 +196,7 @@ const makeEntity = ({
           : entity.kind === 'station'
             ? new Station({
                 ...common,
-                cargoContents: [],
-                stationType:
-                  entity.definitionId as import('../../specs/stations').StationId,
+                stationType: entity.definitionId as StationId,
                 world,
                 ...(entity.shades && { shades: shadesOf(entity.shades) }),
               })
@@ -228,6 +230,28 @@ const makeEntity = ({
     },
   );
 
+  if (ship instanceof Station) {
+    const spec = stationSpecsById.get(
+      (entity.definitionId || 'corral-5') as StationId,
+    )!;
+
+    ship.name = entity.name ?? spec.name;
+    ship.mass = entity.mass ?? spec.mass;
+    const before = stationRecords.get(ship);
+
+    if (
+      before &&
+      before.shades === entity.shades &&
+      before.modules === entity.modules &&
+      before.cargoContents === entity.cargoContents &&
+      before.stationStockEntries === entity.stationStockEntries
+    ) {
+      return withFriction(ship);
+    }
+
+    stationRecords.set(ship, entity);
+  }
+
   ship.shades = entity.shades
     ? shadesOf(entity.shades)
     : (ship.constructor as typeof Craft).shades;
@@ -236,14 +260,41 @@ const makeEntity = ({
     if (segment.hull) segment.shades = segment.module.shades || ship.shades;
   });
 
-  ship.moduleStates = entity.modules || [];
+  const mountedModules = entity.modules || [];
+  const stock = entity.stationStockEntries;
+
+  ship.moduleStates = stock
+    ? mountedModules.concat(
+        stock.flatMap((entry) => ('module' in entry ? [entry.module] : [])),
+      )
+    : mountedModules;
   const modules = ship.modules;
 
-  ship.cargoContents = (entity.cargoContents || []).map((object) =>
-    'moduleIndex' in object
-      ? modules[object.moduleIndex]
-      : makeEntity({ entity: object, world }),
-  );
+  if (stock) {
+    let moduleIndex = mountedModules.length;
+
+    ship.cargoContents = stock.map((entry) => {
+      if ('module' in entry) return modules[moduleIndex++];
+
+      let item = stockItems.get(entry);
+
+      if (!item) {
+        item =
+          'kind' in entry
+            ? makeEntity({ entity: entry, world })
+            : new Item(itemTypes[entry.resource], { world, id: entry.id });
+        stockItems.set(entry, item);
+      }
+
+      return item;
+    });
+  } else {
+    ship.cargoContents = (entity.cargoContents || []).map((object) =>
+      'moduleIndex' in object
+        ? modules[object.moduleIndex]
+        : makeEntity({ entity: object, world }),
+    );
+  }
 
   return withFriction(ship);
 };
@@ -270,6 +321,8 @@ export class NetworkClient {
   private hangarListPending = false;
   connected = false;
   private entityRecords = new Map<number, ReplicatedEntity>();
+  private stockStationId = 0;
+  readonly stationMarkers = new Map<number, ReplicatedEntity>();
   readonly events: SimulationEvent[] = [];
   readonly sounds: WorldSound[] = [];
   private inputTickStartedAt = performance.now();
@@ -344,24 +397,41 @@ export class NetworkClient {
       this.world.tick = this.serverTick;
     }
 
-    let entities = message.fullEntities.map((entity) =>
-      makeEntity({
-        entity,
-        world: this.world,
-        previous: this.authoritativeEntities.get(entity.id),
-      }),
-    );
+    if (message.type === 'load') this.stationMarkers.clear();
 
-    const entityIds = message.entityIds;
-    const retained = new Set(entityIds);
+    const retained = new Set(message.entityIds);
+    let entities: GameObject[] = [];
+
+    this.stationMarkers.forEach((_, id) => {
+      if (!retained.has(id)) this.stationMarkers.delete(id);
+    });
 
     this.authoritativeEntities.forEach((_, id) => {
       if (!retained.has(id)) this.authoritativeEntities.delete(id);
     });
 
-    entities.forEach((entity) =>
-      this.authoritativeEntities.set(entity.id, entity),
-    );
+    message.fullEntities.forEach((entity) => {
+      if (entity.stationMarker) {
+        this.stationMarkers.set(entity.id, entity);
+        this.authoritativeEntities.delete(entity.id);
+        return;
+      }
+
+      this.stationMarkers.delete(entity.id);
+
+      const model = makeEntity({
+        entity,
+        world: this.world,
+        previous: this.authoritativeEntities.get(entity.id),
+      });
+
+      this.authoritativeEntities.set(entity.id, model);
+      entities.push(model);
+    });
+
+    const entityIds = this.stationMarkers.size
+      ? message.entityIds.filter((id) => !this.stationMarkers.has(id))
+      : message.entityIds;
 
     if (message.acknowledgedDockSequence !== undefined) {
       this.acknowledgedDockSequence = message.acknowledgedDockSequence;
@@ -707,6 +777,8 @@ export class NetworkClient {
       this.world.nextEntityId = 1;
       this.authoritativeEntities.clear();
       this.entityRecords.clear();
+      this.stationMarkers.clear();
+      this.stockStationId = 0;
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
       this.events.length = 0;
@@ -780,6 +852,7 @@ export class NetworkClient {
 
     if (message.type === 'load') {
       this.entityRecords.clear();
+      this.stockStationId = 0;
       this.remoteMotion.reset();
     }
 
@@ -812,6 +885,52 @@ export class NetworkClient {
     }
 
     message.entityIds ??= [...this.entityRecords.keys()];
+
+    if (message.stationStock) {
+      const { stationId, replace, removedIds, entries } = message.stationStock;
+
+      const updateStock = (
+        id: number,
+        stationStockEntries?: StationStockEntry[],
+      ) => {
+        const record = this.entityRecords.get(id);
+
+        if (!record || record.kind !== 'station') return;
+
+        const next = { ...record, stationStockEntries };
+        const index = message.fullEntities.indexOf(record);
+
+        this.entityRecords.set(id, next);
+
+        if (index < 0) {
+          message.fullEntities.push(next);
+        } else {
+          message.fullEntities[index] = next;
+        }
+      };
+
+      if (this.stockStationId && this.stockStationId !== stationId) {
+        updateStock(this.stockStationId);
+      }
+
+      if (stationId) {
+        if (replace) {
+          updateStock(stationId, entries);
+        } else {
+          const previous =
+            this.entityRecords.get(stationId)?.stationStockEntries;
+
+          if (!previous) throw new Error('Missing station stock baseline');
+          const stock = new Map(previous.map((entry) => [entry.id, entry]));
+
+          removedIds.forEach((id) => stock.delete(id));
+          entries.forEach((entry) => stock.set(entry.id, entry));
+          updateStock(stationId, [...stock.values()]);
+        }
+      }
+
+      this.stockStationId = stationId;
+    }
 
     if (this.hangarListPending) {
       this.sendHangarAction({ command: 'LIST', shipId: 0, value: '' });

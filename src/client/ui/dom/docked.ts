@@ -44,7 +44,6 @@ import { applyHangarAction, hangarState } from '../../network/hangar-actions';
 import { Ship } from '../../objects/ship';
 import { Item } from '../../objects/item';
 import { shipSpecsById, type ShipId } from '../../../specs/ships';
-import { Station } from '../../objects/station';
 import { moduleTypesById } from '../../objects/modules';
 
 const tabContent = new Map([
@@ -341,9 +340,7 @@ const createDocked = () => {
   });
 
   const updateHangar = (station: Craft) => {
-    const offers =
-      hangarState.shipsForSale ||
-      (station instanceof Station ? station.shipsForSale : []);
+    const offers = hangarState.shipsForSale || [];
     const owned = selectedHangarShip();
     const mustangOffer = offers.find((entry) => entry.ship === 'mustang');
     const special =
@@ -424,8 +421,12 @@ const createDocked = () => {
         : tabContent.get('hangar').description,
     );
     query(root, '[data-description]').hidden = Boolean(offer);
-    text('[data-hangar-status]', hangarState.error);
-    query(root, '[data-hangar-status]').hidden = !hangarState.error;
+    const status =
+      hangarState.error ||
+      (hangarState.busy && !hangarState.shipsForSale ? 'Loading hangar…' : '');
+
+    text('[data-hangar-status]', status);
+    query(root, '[data-hangar-status]').hidden = !status;
     query(root, '[data-hangar-stats]').hidden = !ship;
     setHtml(
       query(root, '[data-hangar-stats]'),

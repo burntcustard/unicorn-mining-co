@@ -1,6 +1,10 @@
 import * as Vec from '../utilities/vector';
 import { colors } from '../../specs/colors';
-import type { ReplicatedEntity, ServerMessage } from './network';
+import type {
+  ReplicatedEntity,
+  ServerMessage,
+  StationStockUpdate,
+} from './network';
 import {
   binaryFieldIds as BinaryField,
   entityKindIds,
@@ -12,7 +16,7 @@ const motionView = new DataView(new ArrayBuffer(8));
 
 type SnapshotMessage = Extract<ServerMessage, { type: 'load' | 'snapshot' }>;
 
-export const snapshotDeltaQuery = 'snapshotDeltas=1';
+export const snapshotDeltaQuery = 'snapshotDeltas=1&stationReplication=1';
 
 /**
  * Restore the radar positions from the previous received snapshot.
@@ -459,13 +463,21 @@ export function decodeBinarySnapshot(
           packedMotion = false;
       }
 
-      if (field < 1 || field > BinaryField.npcState || seen.has(field)) {
+      if (field < 1 || field > BinaryField.stationMarker || seen.has(field)) {
         return fail();
       }
 
       seen.add(field);
 
       switch (field) {
+        case BinaryField.stationMarker: {
+          const flag = clear ? null : byte();
+
+          if (flag !== null && flag !== 1) return fail();
+          entity.stationMarker = flag === null ? null : true;
+          break;
+        }
+
         case BinaryField.cargoContents: {
           if (clear) {
             entity.cargoContents = null;
@@ -713,8 +725,8 @@ export function decodeBinarySnapshot(
 
     if (
       extensions === 0 ||
-      extensions & ~3 ||
-      flags & 1 ||
+      extensions & ~7 ||
+      (flags & 1 && extensions & 3) ||
       (flags & 2 && extensions & 1) ||
       (flags & 64 && extensions & 2)
     ) {
@@ -786,6 +798,53 @@ export function decodeBinarySnapshot(
     }
   }
 
+  let stationStock: StationStockUpdate | undefined;
+
+  if (extensions & 4) {
+    const stationId = unsigned();
+    const mode = byte();
+    const removedIds = Array.from({ length: count(1) }, unsigned);
+    const size = count(2);
+
+    if (
+      mode > 1 ||
+      (mode && removedIds.length) ||
+      (!stationId && (!mode || size))
+    ) {
+      return fail();
+    }
+
+    const entries: StationStockUpdate['entries'] = [];
+
+    for (let index = 0; index < size; index++) {
+      const tag = unsigned();
+
+      if (tag === 0) {
+        const item = record(1);
+
+        if (item.kind !== 'item' || !item.position) return fail();
+        entries.push(item);
+      } else if (tag === 1) {
+        const [module, ...extra] = modules(false);
+
+        if (
+          !module ||
+          extra.length ||
+          module.id === undefined ||
+          module.mount !== -1
+        ) {
+          return fail();
+        }
+
+        entries.push({ id: module.id, module });
+      } else {
+        entries.push({ id: unsigned(), resource: tag - 2 });
+      }
+    }
+
+    stationStock = { stationId, replace: mode === 1, removedIds, entries };
+  }
+
   const length = count(2);
   const fullEntities: ReplicatedEntity[] = [];
 
@@ -809,6 +868,7 @@ export function decodeBinarySnapshot(
     ...(removedEntityIds && { removedEntityIds }),
     ...(asteroidPositions && { asteroidPositions }),
     ...(asteroidSplice && { asteroidSplice }),
+    ...(stationStock && { stationStock }),
     fullEntities,
   };
 }

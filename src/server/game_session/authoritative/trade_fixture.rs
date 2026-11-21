@@ -16,6 +16,7 @@ use crate::simulation::game_object::ObjectProperties;
 use crate::simulation::world::EntityKind;
 use crate::specs::Catalog;
 use crate::test_fixtures::{decode_hex, hex};
+use crate::utilities::vector::Vector;
 use crate::websocket::{FixtureSocket, MAX_SNAPSHOT_BUFFER};
 
 use super::AuthoritativeSession;
@@ -39,7 +40,8 @@ struct TradeFixture {
 impl TradeFixture {
     fn new() -> Result<Self, Box<dyn Error>> {
         let catalog = Arc::new(Catalog::load()?);
-        let socket = FixtureSocket::new();
+        let mut socket = FixtureSocket::new();
+        socket.enable_station_replication();
         Ok(Self {
             session: AuthoritativeSession::new(25.0, catalog)?,
             client: Client {
@@ -142,6 +144,32 @@ impl TradeFixture {
                     text: "/tp 0 0".to_owned(),
                 });
             }
+            "farStation" | "nearStation" => {
+                let player = self.session.accounts.get(&1).expect("fixture player");
+                let world = &self.session.sectors[player.sector].running.world;
+                let station = world.entity(self.station_id).expect("fixture station");
+                let offset = if command.kind == "farStation" {
+                    4000.0
+                } else {
+                    0.0
+                };
+                let position = station.model.object().position + Vector::new(offset, 0.0);
+                let ship = self.player_ship();
+                ship.craft.docked_to = None;
+                ship.craft.object.position = position;
+                self.session.send_snapshot(1);
+            }
+            "rotateStation" => {
+                let player = self.session.accounts.get(&1).expect("fixture player");
+                let world = &mut self.session.sectors[player.sector].running.world;
+                world
+                    .entity_mut(self.station_id)
+                    .expect("fixture station")
+                    .model
+                    .object_mut()
+                    .rotation += 0.1;
+                self.session.send_snapshot(1);
+            }
             "redock" => {
                 self.player_ship().craft.docked_to = Some(self.station_id);
                 self.reject_stock_request();
@@ -156,6 +184,7 @@ impl TradeFixture {
                     panic!("fixture stock must be a station");
                 };
                 station.craft.cargo_contents.remove(0);
+                station.stock_changed();
             }
             "tick" => self.session.tick(1),
             "receive" => {}

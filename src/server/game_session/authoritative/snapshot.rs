@@ -107,6 +107,11 @@ pub(super) fn send_snapshot(
     let plan = prepared.plan();
     sector.prepare_replication();
     let world = &mut sector.running.world;
+    let docked_station = world
+        .entity(account.ship_id)
+        .and_then(|entity| entity.model.craft())
+        .filter(|craft| !craft.object.dead && craft.launching == 0.0)
+        .and_then(|craft| craft.docked_to);
     let mut forced = SmallVec::<[i64; 2]>::new();
     if plan.force_ship_update {
         forced.push(account.ship_id);
@@ -150,6 +155,8 @@ pub(super) fn send_snapshot(
             credits: Some(account.credits),
             dock_ids: &aliases,
             input_lead: account.inputs.input_lead(),
+            station_replication: socket.station_replication(),
+            docked_station,
         },
         &mut sector.batch,
         &catalog.protocol,

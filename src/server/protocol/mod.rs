@@ -12,11 +12,13 @@ pub use binary_control::{
     Control, DockAction, MapMarker, ServerControl, decode_client_control, encode_server_control,
     valid_display_name,
 };
-pub(crate) use binary_snapshot::append_snapshot_fragments;
 pub use binary_snapshot::{
     AsteroidSegment, AsteroidSplice, CargoEntry, EntityRecord, FieldData, FieldValue, ModuleDelta,
     ModuleSegment, ModuleState, Snapshot, WreckageSegment, append_entity_record_delta,
     append_field, append_snapshot, encode_snapshot,
+};
+pub(crate) use binary_snapshot::{
+    StationStockUpdate, StockEntry, append_snapshot_fragments, encode_stock_entry,
 };
 pub use events::SimulationEvent;
 pub use input_frame::{Input, InputChange, InputFrame};

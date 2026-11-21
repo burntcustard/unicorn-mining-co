@@ -25,18 +25,6 @@ export const shipSpecs = {
 
 export type ShipId = keyof typeof shipSpecs;
 
-export const stationShipIds: readonly ShipId[] = [
-  'mustang',
-  'arrow',
-  'crotus',
-  'courser',
-  'moth',
-  'finch',
-  'kestrel',
-  'excel8',
-  'excel15',
-];
-
 export const shipSpecsById = new Map<ShipId, ShipSpec>(
   Object.entries(shipSpecs) as [ShipId, ShipSpec][],
 );

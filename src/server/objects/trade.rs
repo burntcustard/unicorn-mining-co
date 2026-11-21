@@ -90,6 +90,7 @@ impl Ship {
                             station.record_module_sale(module.id, self.craft.object.id);
                         }
                         station.craft.cargo_contents.push(object);
+                        station.stock_changed();
                     }
                 }
                 *credits += sum;
@@ -324,6 +325,7 @@ impl Ship {
             }
             self.craft.cargo_contents.push(object);
         }
+        station.stock_changed();
         *credits -= cost;
         true
     }

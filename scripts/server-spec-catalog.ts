@@ -42,6 +42,10 @@ import type { ShipSpec } from '../src/specs/ships/types';
 import type { StationSpec } from '../src/specs/stations/types';
 import { stationSpecs } from '../src/specs/stations/index';
 import {
+  corralInitialCargoContents,
+  corralShipOffers,
+} from '../src/specs/stations/market';
+import {
   binaryFieldIds,
   controlMessageIds,
   dockActionIds,
@@ -130,7 +134,16 @@ const catalog = {
     ]),
   ),
   shipSpecs,
-  stationSpecs,
+  stationSpecs: Object.fromEntries(
+    Object.entries(stationSpecs).map(([id, spec]) => [
+      id,
+      {
+        ...spec,
+        shipsForSale: corralShipOffers,
+        initialCargoContents: corralInitialCargoContents,
+      },
+    ]),
+  ),
   protocol: {
     binaryFieldIds,
     controlMessageIds,
