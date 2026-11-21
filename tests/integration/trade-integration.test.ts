@@ -1,6 +1,6 @@
 import '../support/ignore-handshake-timeout.ts';
 import assert from 'node:assert/strict';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,20 +12,8 @@ import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins';
 import { stripIfdef } from '../../plugins/replace-pre-terser';
 
 const directory = mkdtempSync(resolve(tmpdir(), 'unicorn-trade-'));
-const nativeFixture = process.env.UNICORN_TRADE_FIXTURE;
-const executable = nativeFixture
-  ? resolve(nativeFixture)
-  : resolve(directory, 'trade');
+const executable = resolve('src/server/target/debug/examples/trade_fixture');
 const root = process.cwd();
-
-if (!nativeFixture) {
-  execFileSync('go', [
-    'build',
-    '-o',
-    executable,
-    './src/server-go/testtools/trade',
-  ]);
-}
 
 class Socket {
   static OPEN = 1;

@@ -8,20 +8,14 @@ import { buildPrePlugin } from '../../plugins/build-plugins.ts';
 import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { testBuildPlugin } from '../support/build-plugin.ts';
 
-const nativeFixture = process.env.UNICORN_SHIP_DESTRUCTION_FIXTURE;
-const server = nativeFixture ? 'Rust' : 'Go';
+const fixtureExecutable =
+  'src/server/target/debug/examples/ship_destruction_fixture';
+const server = 'Rust';
 
 const fixtures = JSON.parse(
-  execFileSync(
-    nativeFixture ?? 'go',
-    nativeFixture
-      ? []
-      : ['run', 'src/server-go/testtools/ship-destruction/main.go'],
-    {
-      encoding: 'utf8',
-      env: { ...process.env, GOEXPERIMENT: 'simd' },
-    },
-  ),
+  execFileSync(fixtureExecutable, [], {
+    encoding: 'utf8',
+  }),
 ).map(
   ({ shipType, hull, before, damaged, settled }: Record<string, unknown>) => [
     shipType,

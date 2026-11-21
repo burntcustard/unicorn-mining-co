@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { setTimeout as pause } from 'node:timers/promises';
-import { npcLanes, npcOverlay, parseNPCOptions } from './options.ts';
+import { npcLanes, parseNPCOptions } from './options.ts';
 import { ProtocolClient } from '../server/client.ts';
 import { limitServerCores } from '../server/cores.ts';
 import { localServerPid, observeServerCpu } from '../server/observer.ts';
@@ -98,7 +98,7 @@ const report = {
   protocolRuntimeSha256: null as string | null,
   fixture: null as { directory: string; items: number } | null,
   setup:
-    'A nonphysical view anchor streams the normal Go simulation without a player ship. Collection scenes use paired seeded layouts and stock hulls with the shared collector policy and Pilot. They end on docking or the capture limit; the five collector CPU scenes retain fixed windows. Concurrent collection cases use separate copies of the same sector. CPU and generator counters cover the continuous suite, including between-run preparation, rejected early-completion attempts and finalization; they are not per-NPC costs. Single-lane collector cases allow up to three attempts if all pickups occur before capture; concurrent cases remain strict. Watch mode mirrors each stream without another connection.',
+    'A nonphysical view anchor streams the normal server simulation without a player ship. Collection scenes use paired seeded layouts and stock hulls with the shared collector policy and Pilot. They end on docking or the capture limit; the five collector CPU scenes retain fixed windows. Concurrent collection cases use separate copies of the same sector. CPU and generator counters cover the continuous suite, including between-run preparation, rejected early-completion attempts and finalization; they are not per-NPC costs. Single-lane collector cases allow up to three attempts if all pickups occur before capture; concurrent cases remain strict. Watch mode mirrors each stream without another connection.',
   serverCores: null as
     | Awaited<ReturnType<typeof limitServerCores>>['metadata']
     | null,
@@ -129,18 +129,15 @@ const clients = new Set<ProtocolClient>();
 let browser: Awaited<ReturnType<typeof openNPCBrowser>>;
 
 try {
-  let overlay: string;
+  let manifest: string;
 
   try {
-    report.fixture = JSON.parse(
-      await readFile(
-        process.env.NPC_BENCHMARK_FIXTURE ||
-          'benchmarking/_local/npc-fixture.json',
-        'utf8',
-      ),
+    manifest = await realpath(
+      process.env.NPC_BENCHMARK_FIXTURE ||
+        'benchmarking/_local/npc-fixture.json',
     );
+    report.fixture = JSON.parse(await readFile(manifest, 'utf8'));
     assert(report.fixture && typeof report.fixture.directory === 'string');
-    overlay = await realpath(resolve(report.fixture.directory, 'overlay.json'));
   } catch (error) {
     throw new Error(
       'The NPC benchmark fixture is missing or invalid. Run npm run benchmark:npc:prepare -- /tmp/unicorn-npc-benchmark first.\n' +
@@ -150,42 +147,34 @@ try {
 
   let pid: number;
 
-  const restart = `GOMEMLIMIT=600MiB GOFLAGS=-overlay=${overlay} npm run dev:server`;
+  const restart = `SERVER_BENCHMARK_FIXTURES=1 NPC_BENCHMARK_FIXTURE="${manifest}" npm run dev:server`;
 
   try {
     pid = await localServerPid();
   } catch {
     throw new Error(
-      `No local Go game server is listening on port 3001. Start the NPC fixture watcher:\n${restart}`,
+      `No local game server is listening on port 3001. Start the NPC fixture watcher:\n${restart}`,
     );
   }
 
-  const environment = Object.fromEntries(
-    (await readFile(`/proc/${pid}/environ`, 'utf8'))
-      .split('\0')
-      .filter((entry) => /^(GOMEMLIMIT|GOGC|GOFLAGS)=/.test(entry))
-      .map((entry) => {
-        const index = entry.indexOf('=');
-
-        return [entry.slice(0, index), entry.slice(index + 1)];
-      }),
+  const environment = (await readFile(`/proc/${pid}/environ`, 'utf8')).split(
+    '\0',
   );
-
-  const setting = `GOMEMLIMIT=${environment.GOMEMLIMIT || '(unset)'}, GOGC=${environment.GOGC || '100 (default)'}`;
-  const configured = npcOverlay(environment.GOFLAGS || '');
-  const runningOverlay = configured
+  const fixtureArgument = environment
+    .find((entry) => entry.startsWith('NPC_BENCHMARK_FIXTURE='))
+    ?.slice('NPC_BENCHMARK_FIXTURE='.length);
+  const runningManifest = fixtureArgument
     ? await realpath(
-        resolve(await readlink(`/proc/${pid}/cwd`), configured),
-      ).catch((): string | null => null)
+        resolve(await readlink(`/proc/${pid}/cwd`), fixtureArgument),
+      ).catch((): null => null)
     : null;
 
   if (
-    environment.GOMEMLIMIT !== '600MiB' ||
-    (environment.GOGC ?? '100') !== '100' ||
-    runningOverlay !== overlay
+    !environment.includes('SERVER_BENCHMARK_FIXTURES=1') ||
+    runningManifest !== manifest
   ) {
     throw new Error(
-      `Go server PID ${pid} on port 3001 is not configured for NPC benchmarks (${setting}; overlay=${configured || '(unset)'}). Stop its existing dev:server watcher before starting a replacement; two servers cannot share the world database. Then run:\n${restart}`,
+      `Game server PID ${pid} on port 3001 is missing the requested NPC fixture manifest. Stop its existing dev:server watcher before replacing it. Then run:\n${restart}`,
     );
   }
 
@@ -297,14 +286,6 @@ try {
         // The client's existing open handler sends Prepare first. Supply the
         // fixture seed before Welcome causes it to send Profile and Play.
         client.socket.once('open', () => {
-          if (options.concurrency > 1) {
-            client.send({
-              type: 'chat',
-              channel: 0,
-              text: `/npc-benchmark-slot ${lane + 1}`,
-            });
-          }
-
           client.send({
             type: 'chat',
             channel: 0,
@@ -327,7 +308,7 @@ try {
       await client.ready();
       await client.until(
         () => client.ship.name === `Fixture ${scenario}`,
-        'Waiting for NPC compiler fixture',
+        'Waiting for NPC benchmark fixture',
       );
       await watched?.ready();
       await pause(warmup * 1000, undefined, { signal: cancellation.signal });
@@ -623,7 +604,10 @@ try {
       },
     };
 
-    assert(serverCpu.available, 'The local Go CPU counter must be available');
+    assert(
+      serverCpu.available,
+      'The local server CPU counter must be available',
+    );
   }
 
   await save();

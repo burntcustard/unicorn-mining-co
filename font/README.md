@@ -29,5 +29,7 @@ the width of the regular space, and has no visible outline.
 
 - Preview: `npm run tool:font-viewer`, then open the URL Vite prints
   (starting at port 3100). Saving glyphs updates the preview automatically.
-- Generate: `npm run font` writes `gemetric.woff2`. Production builds also do this.
+- Game development, production builds, and the font and module viewers generate
+  `gemetric.woff2` from `glyph-paths.ts`. To regenerate it manually, run
+  `npm run font`.
 - Test: `npm run test font-generation font-viewer text-rendering`.

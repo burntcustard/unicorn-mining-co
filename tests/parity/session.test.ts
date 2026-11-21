@@ -13,18 +13,14 @@ const fixture = JSON.parse(
   gunzipSync(readFileSync('tests/fixtures/session.json.gz')).toString(),
 );
 
-const nativeFixture = process.env.UNICORN_SESSION_FIXTURE;
+const fixtureExecutable = 'src/server/target/debug/examples/session_fixture';
 
 const session = JSON.parse(
-  execFileSync(
-    nativeFixture || 'go',
-    nativeFixture ? [] : ['run', './src/server-go/testtools/session'],
-    {
-      input: JSON.stringify(fixture.actions),
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    },
-  ),
+  execFileSync(fixtureExecutable, [], {
+    input: JSON.stringify(fixture.actions),
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  }),
 );
 
 function decoded(packet: string, records: Map<number, ReplicatedEntity>) {
@@ -141,5 +137,5 @@ for (const [id, socket] of Object.entries(fixture.sockets) as [
 }
 
 console.log(
-  `${nativeFixture ? 'Rust' : 'Go'} session matches ${packets} fixed current messages: input, reconnect, catch-up, backpressure, docking, account updates and respawn`,
+  `${'Rust'} session matches ${packets} fixed current messages: input, reconnect, catch-up, backpressure, docking, account updates and respawn`,
 );

@@ -48,7 +48,7 @@ for (const position of [
 
     assert(
       sameInput(input, unpackPlayerInput(packPlayerInput(input))),
-      'Predicted steering exactly matches the discrete input sent to Go',
+      'Predicted steering exactly matches the discrete input sent to the server',
     );
   }
 }

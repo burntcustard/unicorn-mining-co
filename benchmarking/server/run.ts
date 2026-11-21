@@ -29,7 +29,7 @@ import {
   type SpreadCorridor,
 } from './workloads.ts';
 import { localServerPid, observeServerCpu } from './observer.ts';
-import { limitServerCores, type ServerRuntime } from './cores.ts';
+import { limitServerCores } from './cores.ts';
 import { observeServerMemory } from './memory.ts';
 import { stopOwnedChild } from '../utilities/owned-child.ts';
 
@@ -520,14 +520,13 @@ async function main() {
 
   if (args.includes('--help')) {
     console.log(
-      'Usage: npm run benchmark:server:local -- [--runtime go|rust] [--cores N] [--players 4|8|16|32] [--workload convoy|spread|contact|module|weapon] [--seconds 30] [--warmup 15] [--prepare-timeout 600] [--repetitions 1] [--output FILE.json.gz] [--memory-output FILE.jsonl]. Use benchmark:server:live for the deployed server. --cores, --runtime and --memory-output apply locally.',
+      'Usage: npm run benchmark:server:local -- [--cores N] [--players 4|8|16|32] [--workload convoy|spread|contact|module|weapon] [--seconds 30] [--warmup 15] [--prepare-timeout 600] [--repetitions 1] [--output FILE.json.gz] [--memory-output FILE.jsonl]. Use benchmark:server:live for the deployed server. --cores and --memory-output apply locally.',
     );
     return;
   }
 
   const allowed = [
     'target',
-    'runtime',
     'cores',
     'prepare-timeout',
     'players',
@@ -558,13 +557,6 @@ async function main() {
   assert(['local', 'live'].includes(target), '--target must be local or live');
   const local = target === 'local';
 
-  assert(
-    parsed.runtime === undefined ||
-      (local && ['go', 'rust'].includes(parsed.runtime)),
-    '--runtime must be go or rust and requires the local target',
-  );
-  const runtime = parsed.runtime as ServerRuntime | undefined;
-  const runtimeName = runtime === 'rust' ? 'Rust' : 'Go';
   const url = local ? 'http://localhost:3000/' : 'https://unicorn-mining.co/';
   const seconds = Number(parsed.seconds || 30);
   const warmup = Number(parsed.warmup ?? 15);
@@ -677,7 +669,6 @@ async function main() {
     createdAt: new Date().toISOString(),
     url,
     target,
-    ...(runtime && { runtime }),
     ...(memoryOutput && { memoryOutput }),
     seconds,
     warmup,
@@ -688,8 +679,8 @@ async function main() {
     repetitions,
     checkout,
     matrix: { playerCounts, workloads: workloadNames, selected: cases },
-    setup: `Fresh hello identities with unretained session tokens, normal game-socket binary codecs and delta application; changed keyboard inputs only; immediate requested snapshot receipts. Weapon clients physically dock, buy/equip normally, purchase enough ordinary autogun ammunition for measurement and a five-second reserve, clear the station bay and fan out for10 seconds. Weapons activate/charge during nonfiring warmup; continuous firing is briefly confirmed immediately before measurement. An optional local core limit changes only the ${runtimeName} server affinity and is restored after the suite.`,
-    measurement: `Primary CPU uses matching machine busy-counter modes on both targets: selected local logical CPUs or the live Fly machine. Local measurements can include unrestricted load-generator or background processes; supplemental local ${runtimeName}-process CPU isolates the server. Hardware differs and no live process counter is available. Generator timings and traffic are application observations, not browser rendering or wire latency. Allocation counts are unavailable through the public game protocol. Failed cases are retained without reducing player count.`,
+    setup: `Fresh hello identities with unretained session tokens, normal game-socket binary codecs and delta application; changed keyboard inputs only; immediate requested snapshot receipts. Weapon clients physically dock, buy/equip normally, purchase enough ordinary autogun ammunition for measurement and a five-second reserve, clear the station bay and fan out for10 seconds. Weapons activate/charge during nonfiring warmup; continuous firing is briefly confirmed immediately before measurement. An optional local core limit changes only the server affinity and is restored after the suite.`,
+    measurement: `Primary CPU uses matching machine busy-counter modes on both targets: selected local logical CPUs or the live Fly machine. Local measurements can include unrestricted load-generator or background processes; supplemental local server-process CPU isolates the server. Hardware differs and no live process counter is available. Generator timings and traffic are application observations, not browser rendering or wire latency. Allocation counts are unavailable through the public game protocol. Failed cases are retained without reducing player count.`,
     host: {
       platform: process.platform,
       node: process.version,
@@ -768,7 +759,7 @@ async function main() {
     if (local) {
       coreSetup = beginProtocolCoreSetup({
         findPid: localServerPid,
-        limit: (pid) => limitServerCores({ pid, count: cores, runtime }),
+        limit: (pid) => limitServerCores({ pid, count: cores }),
       });
 
       coreLimit = await coreSetup;
@@ -1336,7 +1327,6 @@ async function main() {
               pid: coreLimit?.metadata.pid,
               cpuIds: coreLimit?.metadata.logicalCpuIds,
               steadySince: physicalReadyAt,
-              runtime,
             });
 
           let observer = local ? undefined : await observe();
@@ -1576,7 +1566,7 @@ async function main() {
             serverAllocations: {
               available: false,
               reason:
-                'Public gameplay protocol and OS CPU counters expose no Go allocation counters.',
+                'Public gameplay protocol and OS CPU counters expose no server allocation counters.',
             },
             generators,
             coordinator,

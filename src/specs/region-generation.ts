@@ -1,6 +1,6 @@
 export const preGeneratedRadius = 50000;
 
-// Procedural generation parameters. The Go catalog is generated from this object.
+// Procedural generation parameters. The server catalog is generated from this object.
 export const regionGeneration = {
   features: [
     { size: 6000, chance: 0.82, clearance: 350, kind: 4 },

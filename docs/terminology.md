@@ -74,8 +74,6 @@
 
 **game object** - Anything in the game with its own identity and state, such as a craft, asteroid, portal, item, or module.
 
-**garbage collection** - Reclaiming allocations that are no longer reachable. Go's `GOGC` controls heap growth between collections; `GOMEMLIMIT` sets a soft budget for runtime-managed memory.
-
 **health** - The remaining strength or 'hitpoints' of a game object or one of its pieces. Damage reduces a game object's health.
 
 **headroom** - Available host capacity beyond that used by a benchmark. Server benchmarks record load-generator headroom to establish that clients can consume the server's traffic promptly.
@@ -114,7 +112,7 @@
 
 **measurement window** - The interval whose observations contribute to a benchmark result, excluding preparation, warmup, and cleanup.
 
-**memory budget** - Go's soft target for runtime-managed memory, configured with `GOMEMLIMIT`. Leave additional machine RAM for the executable, OS, and file mappings.
+**memory budget** - The machine or cgroup memory available during a server benchmark. Account for the executable, OS, and file mappings.
 
 **model** - The plan for a module's shape, made from one or more segments. A segment in the model may use points to describe its shape.
 
@@ -191,7 +189,7 @@ not their ships, modules, segments, or colliders. Banned status is separate from
 
 **sell** - A docked action that exchanges cargo contents or an equipped module for credits. Selling a module or item is the opposite of buying it. Selling an equipped module frees its mount without requiring cargo space.
 
-**server** - The authoritative Go program that advances the game simulation and replicates relevant state to clients.
+**server** - The authoritative Rust program that advances the game simulation and replicates relevant state to clients.
 
 **shades** - The colors used to draw a craft or module, including its fill, edge stroke, shadow, and highlight.
 
@@ -211,9 +209,9 @@ not their ships, modules, segments, or colliders. Banned status is separate from
 
 **spectrum** - The rainbow of colored light projected from the far side of an asteroid when a search light beam passes through it.
 
-**spec** - Authored game data or tuning in `src/specs`, such as a ship, module, item or visual effect. A spec describes an instance; it is not the instance’s mutable state. Shared data schemas may live beside their specs. Runtime types and interfaces belong beside the implementation that owns them. The generated Go catalog and its schemas live in `src/server-go/specs`. Existing serialized `definitionId`/`DefinitionID` names continue to identify specs.
+**spec** - Authored game data or tuning in `src/specs`, such as a ship, module, item or visual effect. A spec describes an instance; it is not the instance’s mutable state. Shared data schemas may live beside their specs. Runtime types and interfaces belong beside the implementation that owns them. The Rust catalog schemas live in `src/server/specs`. Existing serialized `definitionId`/`DefinitionID` names continue to identify specs.
 
-Module and effect specs author durations and delays in milliseconds. Module construction and Go catalog generation convert mechanics timing to seconds; effect timing stays in milliseconds. Simulation steps, time tolerances, per-second rates, network packets, and saved data keep their existing units.
+Module and effect specs author durations and delays in milliseconds. Module construction and server catalog generation convert mechanics timing to seconds; effect timing stays in milliseconds. Simulation steps, time tolerances, per-second rates, network packets, and saved data keep their existing units.
 
 **station** - A craft with docking bays that can receive ships.
 

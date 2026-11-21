@@ -10,42 +10,6 @@ const scenarios = [
   'collection-finch',
 ] as const;
 
-/*
- * GOFLAGS quotes whole tokens and does not unescape their contents. Later
- * occurrences override earlier flags, matching the Go command's parsing.
- */
-export function npcOverlay(flags: string) {
-  let overlay: string | undefined;
-
-  while (flags) {
-    flags = flags.replace(/^[ \t\r\n]+/, '');
-
-    if (!flags) break;
-
-    let token: string;
-    const quote = flags[0];
-
-    if (quote === '"' || quote === "'") {
-      const end = flags.indexOf(quote, 1);
-
-      if (end < 0) throw new Error('Unterminated quote in server GOFLAGS');
-      token = flags.slice(1, end);
-      flags = flags.slice(end + 1);
-    } else {
-      const end = flags.search(/[ \t\r\n]/);
-
-      token = end < 0 ? flags : flags.slice(0, end);
-      flags = end < 0 ? '' : flags.slice(end);
-    }
-
-    if (/^--?overlay=/.test(token)) {
-      overlay = token.slice(token.indexOf('=') + 1);
-    }
-  }
-
-  return overlay;
-}
-
 export function parseNPCOptions({ args }: { args: string[] }) {
   const { values } = parseArgs({
     args,

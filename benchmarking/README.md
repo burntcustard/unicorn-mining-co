@@ -2,7 +2,7 @@
 
 Run one suite at a time. The NPC collection command builds and starts its own
 services; other suites require `npm run build` first. Local benchmarks use the
-normal frontend and Go server on ports 3000/3001. Captures are saved in
+normal frontend and Rust server on ports 3000/3001. Captures are saved in
 `benchmarking/_local/`, including partial results when a run fails.
 
 | Suite                | Command                                       |
@@ -25,13 +25,13 @@ One visible browser runs at the monitor's native resolution and pixel density.
 Choose `--browser chrome` (default) or `--browser firefox`. A short idle calibration
 measures refresh cadence automatically; frame statistics use that measured period.
 
-| Scenario | Workload                                                         |
-| -------- | ---------------------------------------------------------------- |
-| `live`   | Networked flight with the search light active                    |
-| `large`  | Large asteroids, weapons and fractures                           |
-| `combat` | Turning and firing among asteroids                               |
-| `flight` | Flight and firing through an asteroid corridor                   |
-| `pirate` | Three different ships fighting around asteroids using real Go AI |
+| Scenario | Workload                                                          |
+| -------- | ----------------------------------------------------------------- |
+| `live`   | Networked flight with the search light active                     |
+| `large`  | Large asteroids, weapons and fractures                            |
+| `combat` | Turning and firing among asteroids                                |
+| `flight` | Flight and firing through an asteroid corridor                    |
+| `pirate` | Three different ships fighting around asteroids using server NPCs |
 
 The default runs all five. Select one with `--scenario pirate`, or pass a
 comma-separated list. The suite shares one browser and reuses its page for
@@ -46,15 +46,15 @@ the report; the default is 1, with no throttling. This uses Chrome's CPU
 throttling while retaining the real display cadence and unchanged scenarios.
 Compare runs with the same rate and report them separately from normal results.
 
-The pirate case uses a local compiler fixture. Prepare it, then start the Go
+The pirate case uses a local Rust fixture. Prepare it, then start the
 watcher with the printed overlay setting on its normal port:
 
 ```sh
 npm run benchmark:pirate:prepare -- /tmp/unicorn-pirate-rendering
-GOFLAGS=-overlay=/tmp/unicorn-pirate-rendering/overlay.json npm run dev:server
+SERVER_BENCHMARK_FIXTURES=1 PIRATE_BENCHMARK_FIXTURE="$PWD/benchmarking/_local/rendering-pirate-fixture.json" npm run dev:server
 ```
 
-Replace the existing Go watcher for this configuration, keep Vite running, and
+Replace the existing server watcher for this configuration, keep Vite running, and
 restore ordinary `npm run dev:server` afterward.
 
 ## Mustang movement
@@ -65,16 +65,15 @@ thrust for four seconds, coasts for thirteen, holds right turn for one and a
 half, and releases it for one. Each case starts at rest on a clear lane with
 a full tank and empty cargo.
 
-Build first, then prepare a fresh private world with the local Go watcher
-stopped. Start the watcher with the benchmark overlay, which provisions
+Build first, then prepare a fresh private world with the local server watcher
+stopped. Start the watcher with the benchmark feature, which provisions
 loadouts at Play. Use the regular Vite frontend on port 3000.
 
 ```sh
 npm run build
 export DATABASE_PATH="$(mktemp -d /tmp/unicorn-mustang.XXXXXX)/world.sqlite"
 npm run reset-world:local
-overlay=$(node benchmarking/movement/fixture.ts)
-GOFLAGS="-overlay=$overlay" npm run dev:server
+SERVER_BENCHMARK_FIXTURES=1 MOVEMENT_BENCHMARK=1 npm run dev:server
 ```
 
 With the watcher and `npm run dev -- --strictPort` running, start the benchmark
@@ -95,8 +94,8 @@ peak turn rate, and the time to coast to half speed. Linear units are
 meters and seconds, and angular units are radians and seconds.
 
 For a comparison, repeat with the other revision's frontend and server and
-its own fresh world. Run the same `fixture.ts` and `run.ts` by absolute path
-from the checkout under test. After the suite, stop the overlay watcher.
+its own fresh world. Run the same movement workload from the checkout under test. After the suite,
+stop the fixture watcher.
 Restart the normal watcher without the benchmark environment to return
 to your usual world.
 
@@ -108,7 +107,7 @@ Run the complete collection comparison with one command:
 npm run benchmark:npc:collection -- --watch
 ```
 
-It builds the project, prepares a fresh private world and fixture, starts the Go
+It builds the project, prepares a fresh private world and fixture, starts the Rust
 server and frontend, then runs `collection-courser` and `collection-finch`.
 Chrome follows the active NPC with the normal camera and HUD. Without `--watch`,
 the same command runs without a browser. By default, six windows run continuously:
@@ -151,7 +150,7 @@ npm run benchmark:npc:collection -- --watch --repetitions 1 --seed 7
 The command reuses this checkout's running Vite service. It temporarily stops a
 verified game watcher from this checkout if needed, then restores it when the
 benchmark finishes or is interrupted. The managed fixture builds once and keeps
-its Go simulation fixed during capture; editing source does not restart it.
+its simulation fixed during capture; editing source does not restart it.
 Both stdout and stderr are retained in the session's `capture.log`, including
 errors, while also appearing in the terminal. Unrelated services are reported as port
 conflicts. The private world is reset once for the complete comparison; the
@@ -183,29 +182,21 @@ The preparation command runs `benchmarking/npc/fixture.ts`; the suite entry is
 
 ```sh
 npm run benchmark:npc:prepare -- /tmp/unicorn-npc-benchmark
-GOMEMLIMIT=600MiB GOFLAGS=-overlay=/tmp/unicorn-npc-benchmark/overlay.json npm run dev:server
+SERVER_BENCHMARK_FIXTURES=1 NPC_BENCHMARK_FIXTURE="$PWD/benchmarking/_local/npc-fixture.json" npm run dev:server
 npm run benchmark:npc -- --scenario all --output benchmarking/_local/npc.json
 npm run benchmark:npc -- --scenario all --watch --browser chrome --output benchmarking/_local/npc-watch.json
 ```
 
-Prepare the overlay after the final production build and use the normal server
-port. Replace only the existing Go watcher when applying the overlay, and
-restore the normal budget-matched watcher afterward. This fixture is local only.
-Stop the existing watcher itself before starting its replacement, including a
-watcher running in another terminal or in the background. A second server cannot
-open the same world database. Wait for the fixture server's listening message on
-port 3001 before running the suite, and keep Vite running on port 3000.
-The runner checks the server's memory settings, overlay, and frontend before
-opening Chrome. Failures print the cause and report path in the terminal.
-Reset the local world once before the complete comparison session as required
-below, not between individual cases.
+Start the fixture watcher on port 3001 with Vite on port 3000. The runner checks
+the fixture manifest and frontend before opening Chrome. The fixture watcher
+uses isolated in-memory sectors, which it discards after each run. Restart the
+normal watcher to resume the usual local world.
 
 The NPC cases supplement the unchanged normal CPU workload matrix. All seven
 default to 15 seconds of warmup, a 30-second measurement limit and three
 repetitions, alternating case order. The five CPU scenes keep fixed measurement
 windows; collection scenes stop on docking and record their actual elapsed time
-and end reason. The runner checks `GOMEMLIMIT=600MiB` and
-`GOGC=100`, records the same process/machine CPU counters as the standard suite,
+and end reason. The runner records the same process and machine CPU counters as the standard suite,
 and restores CPU affinity after completion or interruption. Server CPU and
 generator counters are recorded once for the continuous suite under
 `measurement`, including preparation between runs and finalization. Individual
@@ -217,14 +208,13 @@ snapshot traffic, observed collector motion/cargo and authoritative pickup
 events accompany the timings. Reports identify watch mode; keep watched and
 unwatched results separate when comparing host load.
 
-The ordinary collector compiler fixture creates six gold items at fixed clear
+The ordinary collector fixture creates six gold items at fixed clear
 positions near one existing station. It primes the active station's initial item
 observation once, avoiding a two-to-five-minute setup wait; the idle case's next
 check is 180 seconds away. Production launch spacing, physics, flight, pickup,
 cargo capacity and sale remain unchanged. Captures are limited to 120 seconds.
 The fixture records launches and pickups and counts deposited items after
-disconnect, then removes only its own NPCs and items and restores the previous
-station clock. It never clears ordinary world geometry.
+disconnect, then discards the isolated sector.
 
 An optional second fixture argument chooses 3–48 items for the ordinary case;
 the crowded cases always use 48. Keep that count fixed across comparisons.
@@ -233,42 +223,18 @@ assigned to another collector. The ordinary active case requires real pickups;
 the crowded case requires active collectors and retains its actual pickup count,
 including zero, to expose that behavior. Compare CPU alongside the recorded work rather than treating a lower activity rate as a CPU saving.
 
-For optional Go-only collection diagnostics, run the microbenchmarks from the
-same folder. These accelerated cases have no browser watch scene. `Collection`
-includes fixture construction and complete physical pickups; `CollectionSteering`
-measures repeated steering decisions without advancing physics. Both cover the
-Courser and Finch. `CollectorDispatch` includes normal dispatch bookkeeping and
-station discovery, so its timings are not comparable to the former private
-discovery-only benchmark.
-
-```sh
-GOMEMLIMIT=600MiB GOMAXPROCS=2 GOEXPERIMENT=simd go test ./benchmarking/npc -run '^$' -bench '^Benchmark(Collection|CollectorDispatch)' -benchmem
-```
-
-For a short collection-only CPU profile, retain the same stock mechanics and
-memory budget and sample complete physical trips rather than stationary steering:
-
-```sh
-GOMEMLIMIT=600MiB GOGC=100 GOMAXPROCS=2 GOEXPERIMENT=simd go test ./benchmarking/npc -run '^$' -bench '^BenchmarkCollection$' -benchtime=1x -benchmem -cpuprofile /tmp/npc-collection.cpu -o /tmp/npc-collection.test
-go tool pprof -top /tmp/npc-collection.test /tmp/npc-collection.cpu
-```
-
-Use repeated unprofiled runs for CPU comparisons. Profiling adds overhead, and
-these clear-space pickup diagnostics do not measure the full station round trip;
-confirm final collection times with the unchanged 18-case collection command.
-
 ### Cleanup after real mining
 
 For collector cleanup measurements, use actual debris from the existing
-32-player `module` workload. The passive overlay samples eligible loose items,
+32-player `module` workload. Passive telemetry samples eligible loose items,
 station clocks/queues, NPC targets/positions/cargo, and inventories every five
 simulation seconds. It buffers exact pickup/launch-observation ticks and samples
 human connection transitions immediately. It does not create items, prime age
 observations, alter player controls, or remove debris.
 
 ```sh
-node benchmarking/npc/collector-cleanup-overlay.ts /tmp/unicorn-collector-cleanup
-GOMEMLIMIT=600MiB GOFLAGS=-overlay=/tmp/unicorn-collector-cleanup/overlay.json COLLECTOR_CLEANUP_TELEMETRY="$PWD/benchmarking/_local/collector-cleanup/mining-telemetry.jsonl" npm run dev:server
+mkdir -p benchmarking/_local/collector-cleanup
+SERVER_BENCHMARK_FIXTURES=1 COLLECTOR_CLEANUP_TELEMETRY="$PWD/benchmarking/_local/collector-cleanup/mining-telemetry.jsonl" npm run dev:server
 node benchmarking/npc/collector-mining-run.ts --mining-seconds 150
 node benchmarking/npc/collector-cleanup-analysis.ts benchmarking/_local/collector-cleanup/mining-telemetry.jsonl benchmarking/_local/collector-cleanup/mining-analysis.json
 ```
@@ -290,20 +256,9 @@ array of `{ "sectorID": "...", "id": 123 }` entries. Report all eligible loose
 items, and retain a separate manifest for IDs outside every station's operating
 range. Use the fixed initial in-range cohort for the primary cleanup comparison.
 
-An optional `--deterministic-checks` argument generates a comparison overlay that
-replaces only the station interval random fraction with SplitMix64 of simulation
-tick XOR world seed. Configured interval bounds and all gameplay delays remain
-unchanged. Use the same mode for both baseline and candidates, and regenerate
-the overlay after each production change so it does not retain old source.
-The generated `manifest.json` records the mode. Ordinary production RNG is used
-when the flag is absent.
-To measure a previously frozen variant, pass `--base-overlay /path/to/overlay.json`.
-The generator inherits those source replacements and adds the current passive
-instrumentation; the variant's source files must remain available and unchanged.
-Its `source-hashes.json` records every replacement for verification.
+Start each comparison with the same saved checkpoint and telemetry configuration.
 
 ```sh
-node benchmarking/npc/collector-cleanup-overlay.ts /tmp/unicorn-collector-cleanup-replay --deterministic-checks
 node benchmarking/npc/collector-cleanup-run.ts --telemetry benchmarking/_local/collector-cleanup/baseline-telemetry.jsonl --cohort benchmarking/_local/collector-cleanup/cohort-in-range.json --origin benchmarking/_local/collector-cleanup/disconnect.json --cpu-seconds 300 --cpu-start-tick 29201 --output benchmarking/_local/collector-cleanup/baseline-real.json
 ```
 
@@ -314,7 +269,7 @@ simulation tick boundaries (29201→38201 for the example), with measured wall t
 for the percentage of one core. The helper captures the restored initial tick
 before simulation advances; start both watchers with the same two-CPU affinity
 already applied so the complete window uses that limit. Both versions need the
-same passive overlay instrumentation and checkpoint.
+same passive instrumentation and checkpoint.
 
 The runner stops after the fixed CPU window by default. Add `--continue-cleanup`
 to keep observing until all cohort items have confirmed collector pickups or
@@ -337,28 +292,9 @@ they are not wall-clock server CPU percentages. Keep unrelated tests, builds,
 and profiling off the host during final CPU captures, and preserve failed or
 incomplete reports rather than interpreting less completed work as a saving.
 
-The replay lives in `benchmarking/npc/replay` and observes the ordinary
-session through its sector and player APIs. It clones the supplied closed
-checkpoint before loading it; it never opens that source world for writing.
-After generating the deterministic overlay above, run:
-
-```sh
-GOMEMLIMIT=600MiB GOEXPERIMENT=simd GOMAXPROCS=2 \
-UNICORN_COLLECTOR_REPLAY_DB="$PWD/benchmarking/_local/collector-cleanup/checkpoint/world.sqlite" \
-UNICORN_COLLECTOR_REPLAY_COHORT="$PWD/benchmarking/_local/collector-cleanup/cohort-in-range.json" \
-UNICORN_COLLECTOR_REPLAY_OUTPUT="$PWD/benchmarking/_local/collector-cleanup/replay.json" \
-go test -overlay=/tmp/unicorn-collector-cleanup-replay/overlay.json ./benchmarking/npc/replay -run '^TestCollectorCleanupReplay$' -count=1
-```
-
-Omit `-overlay` for ordinary production timer randomness. The default replay
-duration is 1,800 simulation seconds; `UNICORN_COLLECTOR_REPLAY_SECONDS` changes
-that diagnostic horizon without changing gameplay timing. The JSON summary and
-adjacent `.jsonl` timeline retain exact pickups, launches, and per-second state.
-
 The report retains confirmed pickup counts, per-item pickup times, T50/T90 and
 completion time. Incomplete cases keep a null completion time; increase
-`--seconds` to observe a full trip. `all` selects the seven real-time scenes;
-accelerated Go microbenchmarks and checkpoint diagnostics are separate tools.
+`--seconds` to observe a full trip. `all` selects the seven real-time scenes.
 
 ## Server CPU
 
@@ -382,23 +318,19 @@ npm run benchmark:server:local -- --cores 2 --players 16 --workload spread
 npm run benchmark:server:live -- --players 8 --workload weapon
 ```
 
-Start extensive local testing with `npm run reset-world:local` while the Go
+Start extensive local testing with `npm run reset-world:local` while the server
 watcher is stopped, then restart it before the matrix. Live benchmarks use the
 existing world.
 
-After deploying the configured Go memory budget, start the normal local watcher
-for budget-matched comparisons as `GOMEMLIMIT=600MiB npm run dev:server`. Keep
-the default `GOGC=100`.
-The benchmark's `--cores 2` controls CPU affinity only; it does not set memory.
-Verify `serverCores.runtimeEnvironment` in the capture before qualifying a
-budget-matched result.
+Match the deployed machine's memory budget in local CPU comparisons. The
+benchmark records the server runtime environment and cgroup limits. `--cores 2`
+controls affinity only.
 
 `--cores N` limits the local server process to any supported positive number of
 logical CPUs and restores its original affinity afterward. Load clients retain
 access to the host's CPUs. `--players` and `--workload` select individual cases.
-Use `--runtime go` or `--runtime rust` for a local comparison. This records the
-server process's RSS and operating-system memory limit without changing the
-workload. Start each server on port 3001 and reuse the standard Vite proxy.
+Local runs record server RSS and the operating-system memory limit.
+Start the game server on port 3001 and reuse the standard Vite proxy.
 Defaults are 15 seconds of warmup and 30 seconds of measurement, controlled by
 `--warmup` and `--seconds`. Setup defaults to ten minutes; use
 `--prepare-timeout N` to allow longer searches. Ships wait with neutral
@@ -423,12 +355,19 @@ The cutoff applies to the server's startup across all clients. Local results
 include isolated server-process CPU and busy CPU on the
 selected logical CPUs; Fly machine CPU includes its OS. Compare matching scopes,
 core counts and runtime settings, alongside delivered snapshot rates. Match the
-deployed `GOGC` and `GOMEMLIMIT` values locally. An unset `GOGC` uses Go's default
-100; the Fly configuration specifies a `600MiB` Go memory budget for a 1 GiB
-machine. Verify the live settings if that configuration has not yet been
-deployed. Check Fly's CPU balance and quota throttling when interpreting live results: settings
+deployed machine memory and runtime settings locally. Check Fly's CPU balance and quota throttling when interpreting live results: settings
 restarts can discard accrued burst credit. Local core affinity does not emulate
 Fly's shared CPU quota.
+
+### CPU profiling
+
+Use the private maintenance socket to collect a compressed profile from the
+running local server. Use the same `DATABASE_PATH` as the server if it was
+overridden. Collect diagnostic profiles separately from timed workloads.
+
+```sh
+node benchmarking/server/profile.ts --seconds 15 --output benchmarking/_local/server.cpu.pprof.gz
+```
 
 ### Local memory timeline
 
@@ -441,14 +380,13 @@ For samples from before the server starts, run the reader separately with the
 planned server cgroup path. Stop the standalone reader with Ctrl+C.
 
 ```sh
-npm run benchmark:server:local -- --runtime rust --cores 4 --players 32 --memory-output benchmarking/_local/rust-memory.jsonl
+npm run benchmark:server:local -- --cores 4 --players 32 --memory-output benchmarking/_local/rust-memory.jsonl
 node benchmarking/server/memory.ts --cgroup /path/to/server.scope --output benchmarking/_local/startup-memory.jsonl
 ```
 
-Compare runtimes in dedicated server-only cgroups with the same four logical
+Compare builds in dedicated server-only cgroups with the same four logical
 CPUs, 1 GiB hard memory limit, swap policy, and disk-backed benchmark worlds.
-The Go runtime's soft `GOMEMLIMIT` is recorded separately from the cgroup
-limit. The cgroup timeline includes total charged memory, anonymous memory,
+The cgroup timeline includes total charged memory, anonymous memory,
 file cache, shared memory, kernel memory, memory pressure, swap and OOM
 counters. A file-cache charge can be reclaimed depending on its state.
 Use total charged memory and the kernel peak for observed budget headroom.

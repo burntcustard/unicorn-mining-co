@@ -52,7 +52,7 @@ const environment = (await readFile(`/proc/${pid}/environ`, 'utf8')).split(
 const runtime = Object.fromEntries(
   environment
     .filter((entry) =>
-      /^(GOMEMLIMIT|GOGC|GOMAXPROCS|GOEXPERIMENT|GOFLAGS)=/.test(entry),
+      /^(TOKIO_WORKER_THREADS|MALLOC_ARENA_MAX|GLIBC_TUNABLES)=/.test(entry),
     )
     .map((entry) => {
       const index = entry.indexOf('=');
@@ -61,7 +61,6 @@ const runtime = Object.fromEntries(
     }),
 );
 
-assert.equal(runtime.GOMEMLIMIT, '600MiB', 'Match the live Go memory budget');
 const startedAt = Date.now();
 
 const manifest = {

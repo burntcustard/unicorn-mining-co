@@ -23,7 +23,7 @@ export default defineConfig(async ({ command }) => {
 
   const generate = async () => {
     // A fresh Node process reads edited TypeScript without a stale module cache.
-    // Use the production generator and keep its checked-in output up to date.
+    // Keep the generated font in sync with the preview.
     const { stdout } = await promisify(execFile)(process.execPath, [
       fileURLToPath(generator),
       '--json',

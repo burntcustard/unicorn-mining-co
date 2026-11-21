@@ -1,11 +1,11 @@
 # Player and world persistence
 
-The authoritative Go simulation runs in memory. SQLite keeps the durable copy
+The authoritative Rust simulation runs in memory. SQLite keeps the durable copy
 using WAL and `synchronous=FULL`; its single background writer encodes immutable
 records and commits transactions. The database schema and saved mechanics are
 versioned independently of the network protocol.
 
-The server generates private player UUIDs with `uuid.NewString()`. The browser
+The server generates private version 4 player UUIDs. The browser
 keeps its UUID in `localStorage` under `playerToken`.
 That UUID is the database player's `id` and primary key. It also identifies
 the browser when it reconnects, so it is sent only to its own client. Numeric
@@ -42,13 +42,12 @@ active/activation-progress pairs. Cargo contains its identity, type and
 condition, plus message contents or remaining ammunition rounds where needed.
 Saves use the current item and module IDs and mount layout; renamed IDs and
 retired layouts are not translated.
-The active ship record also holds an optional custom `name` and `storedShips`
-array containing the other owned ships in the same format. The array is omitted
-when there are no stored ships. Stored ships are available at every station but
+The active ship record also holds an optional custom `name` and `stored_ships`
+array containing the other owned ships in the same format. Stored ships are available at every station but
 do not participate in world simulation. Ship names default to the hull model,
 independently of the player's display name.
 
-Selling the last ship saves `noShip` on an inert docked berth record, retaining
+Selling the last ship saves `no_ship` on an inert docked berth record, retaining
 the station and camera position without granting ownership of that hull.
 The server rejects launching, respawning, and craft actions from that berth;
 the client also suppresses flight controls so prediction cannot undock it.
@@ -70,9 +69,7 @@ Credits are stored only in their SQL column. Shapes, physics constants, velocity
 spin, movement parents, flight inputs and RNG state are not saved for player
 ships. Specs rebuild those defaults, and ships resume stationary. Partial
 health and module activation retain their precision. Rounding affects saved
-copies, never the running physics. A default ship occupies 512 bytes of JSON,
-compared with 2,306 bytes as a general world-object Gob record.
-World entities keep their fuller mechanics records, including movement, since
+copies. World entity records use CBOR and include movement, since
 floating objects and damaged asteroids need those mechanics to resume correctly.
 
 World metadata is stored as ordinary columns in the single-row `world` table:
@@ -85,8 +82,7 @@ negative counter. Restoring an explicit ID consumes no new ID. Standalone object
 without a world must supply an explicit ID. The generation digest detects changed
 procedural rules; the SQLite schema version covers the saved-data format.
 
-The current database format is schema version 7. Startup validates the schema
-version. An incompatible database requires a fresh `DATABASE_PATH`.
+The server uses SQLite schema version 1 and validates it when opening a database.
 
 Gameplay creation/removal, cargo transfers, docking, purchases, equipment,
 credits, unlocks, and disconnects mark their affected records dirty. Their
@@ -94,8 +90,7 @@ in-memory results and snapshots do not wait for a periodic database commit.
 Related player and world records are captured together, so cargo and its source
 entity removal still commit atomically. Account creation, initial naming, and
 moderation changes request immediate commits; their existing snapshot barriers
-remain, including automatic owner-role assignment. The current rollout/validation status is recorded in the
-[SQLite CPU investigation](investigations/2026-10-28-server-sqlite-cpu.md).
+remain, including automatic owner-role assignment.
 
 Ordinary saves become eligible after 30 seconds. The scheduler runs after the
 complete global simulation update and prefers a tick that used less than half
@@ -117,7 +112,7 @@ its fragments; unrelated players and stations are not copied for every floating
 item creation or removal.
 
 Every three minutes the server starts a movement/damage checkpoint. It copies at
-most eight world entities and one player per tick, spreading CPU work across
+most eight world entities per tick, spreading CPU work across
 ticks. Only active objects need periodic checkpoints; an object is also saved
 when its region unloads. Identical entity records skip SQLite updates. Changes
 to sleeping objects are retained in memory and loaded from SQLite on restart.
@@ -207,7 +202,7 @@ create a 1 GB volume if `game_data` does not already exist:
 
 ```sh
 fly volumes create game_data --region lhr --size 1
-GOOS=linux GOARCH=amd64 npm run build
+SERVER_BUILD_TARGET=x86_64-unknown-linux-gnu RUSTFLAGS="-C target-feature=+crt-static" npm run build
 fly deploy --ha=false
 ```
 
@@ -217,9 +212,8 @@ The scratch-container server initializes the volume's ownership, then drops to
 uid/gid 65532. Immediate deployments stop the old simulation before starting the
 new one. Do not delete the volume when replacing a Machine.
 
-The first rollout cannot recover progress from servers that already restarted
-before persistence existed. Database credentials and contents do not belong in
-source control; pushes to `main` deploy code, not player balances.
+Keep database contents out of source control. Subsequent pushes to `main`
+reuse the same database.
 
 ## Maintenance
 
@@ -232,7 +226,8 @@ server, then run:
 npm run reset-world:local
 ```
 
-This always targets this checkout's `.data/world.sqlite`. It takes the server's
+This defaults to this checkout's `.data/world.sqlite` and respects
+`DATABASE_PATH`. It takes the server's
 exclusive lock and refuses to run if the database is in use. The database and
 its `-wal`/`-shm` sidecars are moved together into a `world.sqlite.reset-*`
 directory beside the database. Periodic backups and unrelated `.data` files are
@@ -377,4 +372,4 @@ write failure/retry, bounded queue coalescing, rounding without
 mutating live mechanics, UUID identity, minimal ship records, future/corrupt schemas and backup
 restoration. WebSocket integration tests also restart the real executable and
 kill it without a shutdown flush. Local benchmarks measure capture and SQLite
-transaction costs; Fly CPU quota and disk latency require checking after rollout.
+transaction costs. Fly CPU quota and disk latency affect the deployed server.

@@ -9,15 +9,10 @@ import { testBuildPlugin } from '../support/build-plugin';
 import { fixtureSource } from '../support/fixture-source.ts';
 
 const root = process.cwd();
-const nativeFixture = process.env.UNICORN_BEAM_VISIBILITY_FIXTURE;
-const server = nativeFixture ? 'Rust' : 'Go';
-const fixture = execFileSync(
-  nativeFixture ?? 'go',
-  nativeFixture
-    ? []
-    : ['run', 'src/server-go/testtools/beam-visibility/main.go'],
-  { encoding: 'utf8' },
-);
+const fixtureExecutable =
+  'src/server/target/debug/examples/beam_visibility_fixture';
+const server = 'Rust';
+const fixture = execFileSync(fixtureExecutable, [], { encoding: 'utf8' });
 const fixtureInput = fixtureSource(JSON.parse(fixture));
 
 Object.assign(globalThis, {

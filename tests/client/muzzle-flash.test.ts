@@ -9,14 +9,13 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { fixtureSource } from '../support/fixture-source.ts';
 
 const root = process.cwd();
-const nativeFixture = process.env.UNICORN_MUZZLE_FLASHES_FIXTURE;
-const fixtures = execFileSync(
-  nativeFixture || 'go',
-  nativeFixture
-    ? []
-    : ['run', 'src/server-go/testtools/muzzle-flashes/main.go'],
-  { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
-);
+const fixtureExecutable =
+  'src/server/target/debug/examples/muzzle_flashes_fixture';
+
+const fixtures = execFileSync(fixtureExecutable, [], {
+  encoding: 'utf8',
+  maxBuffer: 8 * 1024 * 1024,
+});
 
 // Two firing cycles cover repeated tap/hold transitions and activation delays.
 const fixture = fixtureSource(JSON.parse(fixtures));

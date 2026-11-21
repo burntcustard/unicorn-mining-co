@@ -113,12 +113,6 @@ try {
   });
 
   report.runtime = limits.metadata;
-  assert.equal(
-    limits.metadata.runtimeEnvironment.GOMEMLIMIT,
-    '600MiB',
-    'Match the live Go memory budget',
-  );
-  assert.equal(limits.metadata.effectiveGOGC, '100', 'Match live GOGC=100');
   await save();
 
   while (!interrupted) {

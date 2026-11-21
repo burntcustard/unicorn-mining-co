@@ -5,7 +5,7 @@ export const mixSeed = (value: number) => {
 };
 
 /**
- * Hash the catalog's ASCII IDs identically in TypeScript and Go.
+ * Hash the catalog's ASCII IDs identically on the client and server.
  */
 export const namedSeed = ({ seed, name }: { seed: number; name: string }) => {
   let hash = 0x811c9dc5;

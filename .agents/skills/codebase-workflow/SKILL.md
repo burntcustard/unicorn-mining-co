@@ -12,9 +12,8 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
   `plugins/property-names.ts`. Add names Terser leaves long, one per line;
   avoid native APIs; quoted import paths are protected by the source rewrite regex.
 - Before changing gameplay tag literals, review `plugins/protocol-tags.ts` for
-  short client replacements. They do not encode Go protocol strings. Stable
-  wire IDs live in `src/specs/protocol.ts`; run `npm run test snapshot server-integration`
-  when changing the wire contract.
+  short client replacements. Stable wire IDs live in `src/specs/protocol.ts`.
+  Run `npm run test snapshot server-integration` when changing the wire contract.
 - Lazy modules expose a typed `default` API object, loaded as in `sound-loader`.
 - Test lazy features with separately emitted production chunks and exercise
   their real loader. A test that bundles both sides into one file does not
@@ -25,13 +24,13 @@ description: Apply Unicorn Mining Co.'s project-specific rules and checks when c
 - Prefer named options objects to multiple positional helper arguments.
 
 `src/specs` holds concrete game data and tuning shared by the client and the
-Go server catalog, plus the schemas for that data. It is not a general home for
+Rust server catalog, plus the schemas for that data. It is not a general home for
 type or interface declarations. Put runtime types beside the implementation that
 owns them; client-only visual effect options belong under `src/client/effects`,
 even when a spec configures that effect. Spec files may reference these types
 through type-only imports, but must not import client or server runtime code.
-Regenerate `src/server/specs/catalog_gen.go` after spec data changes.
-The Go server is the only authoritative server; preserve the normal Vite proxy.
+Cargo generates the embedded catalog from TypeScript at build time.
+Preserve the normal Vite proxy to the authoritative Rust server.
 
 For functional source or configuration changes, run `npm run build` before and
 after, plus relevant tests and `npm run lint` afterward. Report changed resource

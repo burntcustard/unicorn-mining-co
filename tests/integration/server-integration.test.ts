@@ -161,20 +161,16 @@ const databaseDirectory = mkdtempSync(
   resolve(tmpdir(), 'unicorn-integration-'),
 );
 
-const server = spawn(
-  resolve(process.env.TEST_SERVER_EXECUTABLE ?? 'bin/server'),
-  [],
-  {
-    env: {
-      ...process.env,
-      PORT: '0',
-      ASSET_DIR: resolve('dist'),
-      APP_ENV: 'production',
-      DATABASE_PATH: resolve(databaseDirectory, 'world.sqlite'),
-    },
-    stdio: ['ignore', 'ignore', 'pipe'],
+const server = spawn(resolve('bin/server'), [], {
+  env: {
+    ...process.env,
+    PORT: '0',
+    ASSET_DIR: resolve('dist'),
+    APP_ENV: 'production',
+    DATABASE_PATH: resolve(databaseDirectory, 'world.sqlite'),
   },
-);
+  stdio: ['ignore', 'ignore', 'pipe'],
+});
 
 const timeout = setTimeout(() => {
   sockets.forEach((socket) => socket.terminate());
@@ -294,7 +290,7 @@ try {
 
             if (welcome && received >= 3 && acknowledged && accountReceived) {
               console.log(
-                `Go ${codec === source ? 'source' : 'production'} codec: load ${loadBytes} B, snapshot ${snapshotBytes} B`,
+                `Server ${codec === source ? 'source' : 'production'} codec: load ${loadBytes} B, snapshot ${snapshotBytes} B`,
               );
               socket.removeAllListeners('message');
               socket.close();
@@ -445,7 +441,7 @@ try {
         assert.deepEqual(
           production[8](packet),
           markers,
-          'production map properties decode Go markers',
+          'production map properties decode server markers',
         );
         assert(
           markers.every((marker) => !marker[0]),
@@ -537,7 +533,7 @@ try {
         assert.deepEqual(
           compact,
           original,
-          'production and source sound codecs agree on the Go audio packet',
+          'production and source sound codecs agree on the server audio packet',
         );
 
         if (

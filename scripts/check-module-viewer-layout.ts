@@ -4,7 +4,9 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { writeFont } from './generate-font.ts';
 
+await writeFont();
 const directory = await mkdtemp(resolve('.module-viewer-layout-'));
 const browser = process.env.CHROME_BIN || 'chromium';
 const run = promisify(execFile);

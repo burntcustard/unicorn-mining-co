@@ -1,7 +1,8 @@
 import { Buffer } from 'node:buffer';
 import { compactTrueType } from './compact-font.ts';
 import { ligatureTable } from './font-ligatures.ts';
-import { writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { renameSync, rmSync, writeFileSync } from 'node:fs';
 import ClipperLib from 'clipper-lib';
 import { Font, woff2, type TTF } from 'fonteditor-core';
 import { glyphPaths } from '../font/glyph-paths.ts';
@@ -246,10 +247,23 @@ export async function generateFont() {
   );
 }
 
-if (import.meta.main) {
+export async function writeFont() {
   const buffer = await generateFont();
+  const output = new URL('../font/gemetric.woff2', import.meta.url);
+  const temporary = new URL(`./.gemetric-${randomUUID()}.tmp`, output);
 
-  writeFileSync(new URL('../font/gemetric.woff2', import.meta.url), buffer);
+  try {
+    writeFileSync(temporary, buffer);
+    renameSync(temporary, output);
+  } finally {
+    rmSync(temporary, { force: true });
+  }
+
+  return buffer;
+}
+
+if (import.meta.main) {
+  const buffer = await writeFont();
 
   console.log(
     process.argv.includes('--json')

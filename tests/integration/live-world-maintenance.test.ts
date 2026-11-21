@@ -16,7 +16,7 @@ import {
 const directory = await mkdtemp(join(tmpdir(), 'unicorn-live-reset-'));
 const database = join(directory, 'world.sqlite');
 const backups = join(directory, 'backups');
-const executable = resolve(process.env.TEST_SERVER_EXECUTABLE ?? 'bin/server');
+const executable = resolve('bin/server');
 
 const env = {
   ...process.env,

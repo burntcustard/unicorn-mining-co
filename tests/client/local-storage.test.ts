@@ -39,8 +39,6 @@ assert.equal(localStorage.getItem('unicorn-graphics'), null);
 localStorage.setItem('parent', 'saved');
 execFileSync(process.execPath, [
   '--import',
-  'tsx',
-  '--import',
   new URL('../support/local-storage.ts', import.meta.url).href,
   '--input-type=module',
   '--eval',

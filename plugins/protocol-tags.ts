@@ -55,7 +55,7 @@ export const protocolTags = [
 
 /**
  * Map each tag to a single ASCII byte in list order.
- * These are internal client literals; Go uses numeric binary wire IDs.
+ * These are internal client literals; the server uses numeric binary wire IDs.
  */
 export const encodeProtocolTags = new Map(
   protocolTags.map((tag, index) => [tag, String.fromCharCode(97 + index)]),

@@ -9,7 +9,7 @@ import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
 import { fixtureSource } from './fixture-source.ts';
 
 /*
- * Exercise Go/client regressions with focused geometry and timing cases.
+ * Exercise server/client regressions with focused geometry and timing cases.
  */
 export async function runProjectilePrediction({
   group,
@@ -17,18 +17,10 @@ export async function runProjectilePrediction({
   group: 'autogun' | 'plasma' | 'repeated' | 'triangles';
 }) {
   const root = process.cwd();
-  const executable = process.env.UNICORN_PROJECTILE_FIXTURE;
-
   const fixtures = JSON.parse(
     execFileSync(
-      executable ?? 'go',
-      executable
-        ? [group]
-        : [
-            'run',
-            'src/server-go/testtools/projectile-prediction/main.go',
-            group,
-          ],
+      'src/server/target/debug/examples/projectile_prediction',
+      [group],
       { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
     ),
   );
@@ -115,12 +107,12 @@ for (const [renderEvery, delay] of snapshotTimings) {
     if (packet) network.receive({ message: decode(packet) });
     now += simulationStep * 1000;
     if ((tick + 1) % renderEvery) continue;
-    // Release on an eight-tick boundary so batched frames send the same inputs as Go.
+    // Release on an eight-tick boundary so batched frames send the same inputs as server.
     network.updateFrame({ input: { ...emptyPlayerInput(), plasmaActive: true, autogunActive: true, fire: tick < 304 }, now, dt: simulationStep * renderEvery });
     if(!fixture.reservesIDs) assert.deepEqual(
       [...network.world.entities.values()].filter(entity => entity instanceof Asteroid).map(entity => entity.id),
       fixture.frames[tick].asteroids,
-      fixture.weapon + ': delayed Go deltas must preserve predicted fractures and fragment IDs at tick ' + (tick + 1),
+      fixture.weapon + ': delayed server deltas must preserve predicted fractures and fragment IDs at tick ' + (tick + 1),
     );
     const rendered = network.remoteMotion.sample({ now, world: network.world, predicted: network.predictFrame({ now }) });
     if(!fixture.reservesIDs) for (const [id, pose] of Object.entries(fixture.frames[tick].poses)) {
@@ -136,7 +128,7 @@ for (const [renderEvery, delay] of snapshotTimings) {
     hits.push(...events.filter(event => event.type === 'collision' && event.damage[1] > 0));
     if(!fixture.reservesIDs) for (const hit of events.filter(event => event.type === 'collision' && event.damage[1] > 0)) {
       const expected = authoritativeHits.filter(reported => reported.a === hit.a && reported.b === hit.b && reported.damage[0] === hit.damage[0] && reported.colors[1] === hit.colors[1]).sort((a,b) => Math.hypot(a.position.x-hit.position.x,a.position.y-hit.position.y)-Math.hypot(b.position.x-hit.position.x,b.position.y-hit.position.y))[0];
-      assert(expected, 'asteroid and moving fragment hits match the authoritative Go event');
+      assert(expected, 'asteroid and moving fragment hits match the authoritative server event');
       assert.deepEqual(hit.colors, expected.colors);
       assert(hit.damage.every((amount, index) => Math.abs(amount - expected.damage[index]) < 1e-8));
       assert(Math.hypot(hit.position.x - expected.position.x, hit.position.y - expected.position.y) < tolerance, 'client and server agree on the asteroid contact point');
@@ -256,7 +248,7 @@ for (const [delay, framesPerTick] of triangleTimings) {
         ? triangles
         : snapshots) +
     `
-console.log('Go projectile prediction: ${group} passed');
+console.log('server projectile prediction: ${group} passed');
 `;
 
   const entryId = `${root}/src/__projectile_prediction_test.ts`;

@@ -1,10 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { watch } from 'node:fs';
 
-const rust = process.argv.includes('--rust');
-const executable = rust
-  ? './src/server-rust/target/release/unicorn-mining-server'
-  : './bin/server';
+const fixtures = process.env.SERVER_BENCHMARK_FIXTURES === '1';
+const executable = fixtures ? './bin/benchmark/server' : './bin/server';
 
 let server: ChildProcess;
 let command: ChildProcess;
@@ -17,7 +15,6 @@ const run = (executable: string, args: string[]) =>
   new Promise<void>((resolve, reject) => {
     command = spawn(executable, args, {
       stdio: 'inherit',
-      env: { ...process.env, GOEXPERIMENT: 'simd' },
     });
 
     command.on('error', reject);
@@ -54,26 +51,13 @@ const rebuild = async () => {
   rebuilding = true;
 
   try {
-    await stopServer();
+    await run(process.execPath, [
+      'scripts/build-server.ts',
+      ...(fixtures ? ['--benchmark-fixtures'] : []),
+    ]);
 
-    if (rust) {
-      await run('cargo', [
-        'build',
-        '--locked',
-        '--release',
-        '--manifest-path',
-        'src/server-rust/Cargo.toml',
-        '--target-dir',
-        'src/server-rust/target',
-      ]);
-    } else {
-      await run(process.execPath, [
-        '--import',
-        'tsx',
-        'scripts/generate-go-catalog.ts',
-      ]);
-      await run('go', ['build', '-o', 'bin/server', './src/server-go']);
-    }
+    if (stopping) return;
+    await stopServer();
 
     if (!stopping) {
       server = spawn(executable, [], {
@@ -101,18 +85,12 @@ const rebuild = async () => {
 const watchers = (
   process.env.NPC_BENCHMARK_SESSION
     ? []
-    : [rust ? 'src/server-rust/src' : 'src/server-go', 'src/specs']
+    : ['src/server', 'src/specs', 'scripts', 'src/client']
 ).map((directory) =>
   watch(directory, { recursive: true }, (_, filename) => {
-    if (
-      !filename ||
-      filename.endsWith('catalog_gen.go') ||
-      filename.endsWith('_test.go')
-    ) {
-      return;
-    }
+    if (!filename || filename.startsWith('target/')) return;
 
-    if (!(rust ? /\.(rs|ts)$/ : /\.(go|ts)$/).test(filename)) return;
+    if (!/\.(rs|ts|toml|lock)$/.test(filename)) return;
     clearTimeout(timer);
 
     timer = setTimeout(() => {

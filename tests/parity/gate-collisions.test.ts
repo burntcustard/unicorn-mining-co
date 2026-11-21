@@ -154,18 +154,15 @@ const { results } = await import(
     Buffer.from(output[0].code).toString('base64')
 );
 
-const nativeFixture = process.env.UNICORN_GATE_COLLISIONS_FIXTURE;
+const fixtureExecutable =
+  'src/server/target/debug/examples/gate_collisions_fixture';
 
 const server = JSON.parse(
-  execFileSync(
-    nativeFixture ?? 'go',
-    nativeFixture ? [] : ['run', './src/server-go/testtools/gate-collisions'],
-    {
-      encoding: 'utf8',
-      input: JSON.stringify(cases),
-      maxBuffer: 32 * 1024 * 1024,
-    },
-  ),
+  execFileSync(fixtureExecutable, [], {
+    encoding: 'utf8',
+    input: JSON.stringify(cases),
+    maxBuffer: 32 * 1024 * 1024,
+  }),
 );
 
 const compare = (actual: any, expected: any, path = '') => {

@@ -16,7 +16,7 @@ import { Fixture } from './fixture';
 import { Body } from './body';
 import { Pool } from '../utilities/object-pool';
 
-// Keep this convergence threshold identical to src/server-go/physics/contact.go.
+// Keep this convergence threshold identical to src/server/physics/contact.rs.
 const velocityImpulseTolerance = 1e-7;
 
 class Mat22 {

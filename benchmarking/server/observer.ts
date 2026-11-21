@@ -389,7 +389,6 @@ export async function observeServerCpu({
   flyOrg = 'personal',
   steadySince,
   cpuIds,
-  runtime,
 }: {
   url: string;
   pid?: number;
@@ -398,7 +397,6 @@ export async function observeServerCpu({
   flyOrg?: string;
   steadySince?: number;
   cpuIds?: number[];
-  runtime?: 'go' | 'rust';
 }) {
   const target = new URL(url);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(target.hostname);
@@ -409,10 +407,9 @@ export async function observeServerCpu({
       const clockTicks = Number(
         (await execute('getconf', ['CLK_TCK'])).stdout.trim(),
       );
-      const pageSize = runtime
-        ? Number((await execute('getconf', ['PAGESIZE'])).stdout.trim())
-        : undefined;
-      const runtimeName = runtime === 'rust' ? 'Rust' : 'Go';
+      const pageSize = Number(
+        (await execute('getconf', ['PAGESIZE'])).stdout.trim(),
+      );
 
       pid = await localServerPid(pid);
 
@@ -496,14 +493,14 @@ export async function observeServerCpu({
                     after: after.stat.residentBytes,
                   },
                 }),
-                scope: `Supplemental ${runtimeName}-process user/system CPU; excludes load clients and other processes. No equivalent live process counter is available with current SSH credentials.`,
+                scope: `Supplemental server-process user/system CPU; excludes load clients and other processes. No equivalent live process counter is available with current SSH credentials.`,
               },
               boundaryUncertaintyMs: before.uncertaintyMs + after.uncertaintyMs,
               counterTickMs: 1000 / clockTicks,
               cpuCounterQuantizationBoundMs:
                 (5000 * before.machine.length) / clockTicks,
               samples: { before, after },
-              measurement: `Cumulative selected-machine CPU counters over a monotonic local interval, with supplemental ${runtimeName}-process counters. Raw counters and read-boundary uncertainty are retained.`,
+              measurement: `Cumulative selected-machine CPU counters over a monotonic local interval, with supplemental server-process counters. Raw counters and read-boundary uncertainty are retained.`,
               sampleStartedAt: new Date(
                 performance.timeOrigin + before.at,
               ).toISOString(),
@@ -674,15 +671,13 @@ export async function observeServerCpu({
       virtualCPUs: availability.cores,
       build,
       runtimeEnvironment: Object.fromEntries(
-        ['GOMAXPROCS', 'GODEBUG', 'GOGC', 'GOMEMLIMIT'].flatMap((key) =>
-          machine.config?.env?.[key] !== undefined
-            ? [[key, machine.config.env[key]]]
-            : [],
+        ['TOKIO_WORKER_THREADS', 'MALLOC_ARENA_MAX', 'GLIBC_TUNABLES'].flatMap(
+          (key) =>
+            machine.config?.env?.[key] !== undefined
+              ? [[key, machine.config.env[key]]]
+              : [],
         ),
       ),
-      effectiveGOGC: machine.config?.env?.GOGC ?? '100',
-      gcDefault:
-        'When GOGC is unset, Go uses its default GC percentage of 100. Machine metadata records the configured environment, not a runtime introspection endpoint.',
     };
 
     return {

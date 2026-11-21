@@ -14,9 +14,7 @@ try {
   owner.listen(`${database}.control.sock`);
   await once(owner, 'listening');
 
-  const executable = resolve(
-    process.env.TEST_SERVER_EXECUTABLE ?? 'bin/server',
-  );
+  const executable = resolve('bin/server');
 
   const server = spawn(executable, [], {
     env: {

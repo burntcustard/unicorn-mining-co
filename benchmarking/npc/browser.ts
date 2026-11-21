@@ -26,15 +26,11 @@ export type NPCCameraStatus = NPCFrame & {
   errors: unknown[];
 };
 
-/*
- * tsx preserves inferred function names with a module-local __name helper.
- * Include that helper when moving a function into the isolated browser realm.
- */
 export const npcBrowserCall = (
   callback: (...args: any[]) => unknown,
   ...args: unknown[]
 ) =>
-  `(() => { const __name = (value, name) => Object.defineProperty(value, 'name', { value: name, configurable: true }); return (${callback.toString()})(${args.map((value) => JSON.stringify(value)).join(',')}); })()`;
+  `(${callback.toString()})(${args.map((value) => JSON.stringify(value)).join(',')})`;
 
 /*
  * The browser receives the existing observer's bytes but cannot send controls

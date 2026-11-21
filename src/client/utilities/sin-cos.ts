@@ -1,7 +1,7 @@
 /**
  * Write sine and cosine into out after wrapping radians to one turn.
  * Evaluate the polynomials within [-pi/4, pi/4].
- * Keep coefficients and operation order identical to server/utilities/sin-cos.go.
+ * Keep coefficients and operation order identical to server/utilities/sin_cos.rs.
  * For huge angles, results are defined by the remainder modulo float64 2*pi.
  */
 export function sinCos(out: { sin: number; cos: number }, angle: number) {
