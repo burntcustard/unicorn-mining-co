@@ -7,63 +7,124 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: fly-production
-  cancel-in-progress: false
+concurrency: fly-production
+
+env:
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_PROFILE_TEST_DEBUG: line-tables-only
 
 jobs:
-  deploy:
-    runs-on: ubuntu-26.04
-    env:
-      CARGO_PROFILE_DEV_DEBUG: line-tables-only
-      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+  build:
+    name: Build and test production artifacts
+    runs-on: &runner ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
+      - &setup-node
+        uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: npm
 
       - name: Set up Rust
-        run: |
-          rustup default stable
-          rustup component add rustfmt clippy
+        run: rustup default stable
 
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src/server
           cache-bin: false
-          key: ubuntu-26.04-static-gnu
+          # Reuse the static dependency cache from the former deploy job.
+          shared-key: ubuntu-26.04-static-gnu-deploy
 
-      - name: Install dependencies
+      - &install-dependencies
+        name: Install dependencies
         run: npm ci
-      - name: Lint TypeScript and CSS
-        run: |
-          npm run lint:ts
-          npm run lint:css
       - name: Build production assets and server
+        shell: bash
         env:
           SERVER_BUILD_TARGET: x86_64-unknown-linux-gnu
           RUSTFLAGS: '-C target-feature=+crt-static'
         run: |
           npm run build
           readelf -l bin/server > "$RUNNER_TEMP/server-elf.txt"
-          ! grep -q INTERP "$RUNNER_TEMP/server-elf.txt"
-          sha256sum bin/server dist/* > "$RUNNER_TEMP/deploy-artifacts.sha256"
+          if grep -q INTERP "$RUNNER_TEMP/server-elf.txt"; then
+            echo "The production server must be statically linked." >&2
+            exit 1
+          fi
+          find bin/server dist -type f -print0 | sort -z | xargs -0 sha256sum \
+            > "$RUNNER_TEMP/deploy-artifacts.sha256"
       - name: Test production build
+        run: npm test -- --skip-build --suite production
+      - name: Package tested artifacts
         run: |
-          npm test -- --skip-build
-          # Run the Rust checks without compiling another server executable.
+          sha256sum --check "$RUNNER_TEMP/deploy-artifacts.sha256"
+          tar -cf "$RUNNER_TEMP/production.tar" bin/server dist \
+            -C "$RUNNER_TEMP" deploy-artifacts.sha256
+      - uses: actions/upload-artifact@v7
+        with:
+          name: production
+          path: ${{ runner.temp }}/production.tar
+
+  rust-checks:
+    name: Check Rust and cross-language fixtures
+    runs-on: *runner
+
+    steps:
+      - uses: actions/checkout@v7
+      - *setup-node
+      - name: Set up Rust
+        run: |
+          rustup default stable
+          rustup component add rustfmt clippy
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src/server
+          cache-bin: false
+          key: ubuntu-26.04-fixtures
+      - *install-dependencies
+      - name: Test cross-language fixtures
+        run: npm test -- --skip-build --suite fixtures
+      - name: Test Rust
+        run: |
           cargo test --locked --manifest-path src/server/Cargo.toml \
             --no-default-features --features test-fixtures --lib --test world -- --include-ignored
       # Clippy can reuse dependency artifacts compiled for the fixtures and tests.
       - name: Lint Rust
         run: npm run lint:rust
+
+  typescript-checks:
+    name: Check TypeScript and CSS
+    runs-on: *runner
+
+    steps:
+      - uses: actions/checkout@v7
+      - *setup-node
+      - *install-dependencies
+      - name: Lint TypeScript and CSS
+        run: |
+          npm run lint:ts
+          npm run lint:css
+      - name: Test TypeScript
+        run: npm test -- --skip-build --suite standalone
+
+  deploy:
+    name: Deploy to Fly
+    needs: [build, rust-checks, typescript-checks]
+    runs-on: *runner
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: production
       - name: Verify tested artifacts
-        run: sha256sum --check "$RUNNER_TEMP/deploy-artifacts.sha256"
+        run: |
+          tar -xf production.tar
+          test -x bin/server
+          sha256sum --check deploy-artifacts.sha256
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy tested artifacts to Fly

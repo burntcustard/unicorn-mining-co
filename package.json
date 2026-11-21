@@ -38,7 +38,7 @@
     "lint": "npm run typecheck && npm run lint:ts && npm run lint:css && npm run lint:rust",
     "lint:css": "stylelint \"{src,font}/**/*.css\"",
     "lint:fix": "oxlint --fix . && npm run lint:css -- --fix && npm run typecheck",
-    "lint:rust": "cargo fmt --manifest-path src/server/Cargo.toml --check && cargo clippy --locked --manifest-path src/server/Cargo.toml --all-targets --all-features -- -D warnings",
+    "lint:rust": "node scripts/lint-rust.ts",
     "lint:ts": "oxlint .",
     "preview": "vite preview --host --port 3000",
     "reset-world:live": "node scripts/reset-world-live.ts",
