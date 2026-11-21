@@ -21,6 +21,7 @@ const testOrder = new Map(
     'tests/client/muzzle-flash.test.ts',
     'tests/client/projectile-prediction-plasma.test.ts',
     'tests/parity/gate-collisions.test.ts',
+    'tests/integration/server-integration.test.ts',
     'tests/integration/trade-integration.test.ts',
     'tests/client/projectile-prediction-triangles.test.ts',
     'tests/client/weapons.test.ts',
