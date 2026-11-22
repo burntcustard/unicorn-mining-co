@@ -54,6 +54,7 @@ import { shipSpecsById } from '../../specs/ships';
 
 const asteroidRecords = new WeakMap<Asteroid, ReplicatedEntity>();
 const stationRecords = new WeakMap<Station, ReplicatedEntity>();
+const stationPoseTicks = new WeakMap<ReplicatedEntity, number>();
 const stockItems = new WeakMap<StationStockEntry, GameObject>();
 
 const makeEntity = ({
@@ -869,6 +870,11 @@ export class NetworkClient {
       });
 
       this.entityRecords.set(record.id, full);
+
+      if (full.kind === 'station') {
+        stationPoseTicks.set(full, message.serverTick);
+      }
+
       return full;
     });
 
@@ -901,6 +907,8 @@ export class NetworkClient {
         const index = message.fullEntities.indexOf(record);
 
         this.entityRecords.set(id, next);
+        // A stock patch keeps the pose from the last station record.
+        stationPoseTicks.set(next, stationPoseTicks.get(record)!);
 
         if (index < 0) {
           message.fullEntities.push(next);
@@ -951,7 +959,10 @@ export class NetworkClient {
       message.fullEntities.forEach((entity) =>
         this.pendingEntities.set(entity.id, {
           entity,
-          tick: message.serverTick,
+          tick:
+            entity.kind === 'station'
+              ? stationPoseTicks.get(entity)!
+              : message.serverTick,
         }),
       );
 

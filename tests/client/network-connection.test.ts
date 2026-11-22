@@ -78,6 +78,7 @@ for (const production of [false, true]) {
         load: (id) =>
           id === entry
             ? `import {NetworkClient} from '${resolve('src/client/network/network.ts')}';
+               import {emptyPlayerInput} from '${resolve('src/client/protocol/input.ts')}';
                export default (url = 'test') => new NetworkClient({url});
                export const inspectSnapshot = client => [
                  [...client.entityRecords.keys()],
@@ -87,6 +88,31 @@ for (const production of [false, true]) {
                export const inspectModule = client => {
                  const module = client.entityRecords.get(7).modules[0];
                  return [module.shades, module.segments[0].active];
+               };
+               export const receiveStationStock = client => {
+                 const stationId = 7;
+                 const receive = (serverTick, fullEntities, stationStock, type = 'snapshot') => {
+                   client.receive({message: {type, serverTick, fullEntities, stationStock, entityIds: [stationId], nextEntityId: 104}});
+                 };
+                 const read = () => {
+                   client.updateFrame({input: emptyPlayerInput(), now: performance.now() + 1, dt: 0});
+                   const station = client.world.entities.get(stationId);
+                   return [Math.round(station.position.x), station.rotation.toFixed(3), station.cargoContents.map(item => item.id)];
+                 };
+
+                 receive(1, [{id: stationId, kind: 'station', position: {x: 100, y: 0}, velocity: {x: 30, y: 0}, radius: 100, spin: 1, rotation: 0}],
+                   {stationId, replace: true, removedIds: [], entries: [{id: 100, resource: 0}, {id: 101, resource: 0}]}, 'load');
+                 client.connected = true;
+                 receive(3, [], {stationId, replace: false, removedIds: [100], entries: [{id: 102, resource: 0}]});
+                 const patched = read();
+
+                 receive(4, [{id: stationId, position: {x: 200, y: 0}, rotation: 0.5}],
+                   {stationId, replace: false, removedIds: [], entries: [{id: 103, resource: 0}]});
+                 receive(6, [], {stationId, replace: false, removedIds: [101], entries: []});
+                 const batched = read();
+
+                 receive(8, [], {stationId: 0, replace: false, removedIds: [], entries: []});
+                 return [patched, batched, read()];
                };
                export const switchDockedShip = client => {
                  client.connected = true;
@@ -118,6 +144,16 @@ for (const production of [false, true]) {
     built.switchDockedShip(connect()),
     [false, true],
     'a docked ship switch stays available until the replacement snapshot is applied',
+  );
+
+  assert.deepEqual(
+    built.receiveStationStock(connect()),
+    [
+      [102, '0.067', [101, 102]],
+      [202, '0.567', [102, 103]],
+      [204, '0.633', []],
+    ],
+    'stock updates and clearing preserve station pose ticks across applied and batched snapshots',
   );
 
   for (const [code, reason, expected] of [
