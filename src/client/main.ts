@@ -67,7 +67,15 @@ const showMainMenu = () => {
     createMainMenu({
       running: Boolean(gameplay?.running),
       identity: gameplay?.running ? gameplay.identityPreview() : undefined,
-      onNavigate: navigate,
+      onNavigate: async (destination) => {
+        if (destination === 'disconnect') {
+          gameplay.leaveWorld();
+          ui.clear();
+          showMainMenu();
+        } else {
+          await navigate(destination);
+        }
+      },
       onPrepare: loadGameplay,
       onPlay: async () => {
         await loadGameplay();

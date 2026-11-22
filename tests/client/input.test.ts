@@ -118,11 +118,16 @@ input.playerInput.flightMode = true;
 input.setMenuInput(true);
 assert.equal(input.playerInput.thrust, 0);
 assert.equal(input.playerInput.fire, false);
-assert.equal(input.playerInput.flightMode, false);
+assert.equal(input.playerInput.flightMode, true);
 assert.equal(
   changes.at(-1).thrust,
   0,
   'opening a menu sends the release to networking',
+);
+assert.equal(
+  changes.at(-1).flightMode,
+  true,
+  'the release sent to networking preserves module toggles',
 );
 const tab = new KeyboardEvent('keydown', { key: 'Tab' });
 const space = new KeyboardEvent('keydown', { key: ' ' });

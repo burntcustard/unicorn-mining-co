@@ -467,6 +467,10 @@ impl Session for AuthoritativeSession {
         match control {
             Control::Profile { display_name } => self.set_name(id, display_name),
             Control::Play => self.play(id),
+            Control::Leave => {
+                self.leave_world(id, now);
+                send_control(&client.socket, ServerControl::Leave, &self.catalog);
+            }
             _ if !playing => {}
             Control::Input {
                 tick,

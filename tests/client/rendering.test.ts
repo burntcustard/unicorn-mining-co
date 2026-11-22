@@ -76,6 +76,7 @@ import { colors } from '${root}/src/specs/colors.ts';
 import { withAlpha } from '${root}/src/client/utilities/color.ts';
 import { presentEvents } from '${root}/src/client/effects/present-events.ts';
 import { sparks } from '${root}/src/client/effects/shrapnel.ts';
+import shipPreview from '${root}/src/client/ui/dom/ship-preview.ts';
 
 init();
 
@@ -369,6 +370,8 @@ const strokeOptions = [];
 const strokePaths = [];
 const styles = [];
 const transforms = [];
+let canvasTransform = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+let lastImage;
 let saves = 0,
   gradients = 0,
   boxes = 0,
@@ -384,11 +387,13 @@ game.ctx = {
   save() {
     saves++;
     styles.push({ strokeStyle: this.strokeStyle, fillStyle: this.fillStyle,
-      lineJoin: this.lineJoin, lineWidth: this.lineWidth });
+      lineJoin: this.lineJoin, lineWidth: this.lineWidth, transform: canvasTransform });
   },
   restore() {
     saves--;
-    Object.assign(this, styles.pop());
+    const { transform, ...style } = styles.pop();
+    canvasTransform = transform;
+    Object.assign(this, style);
   },
   translate(x, y) {
     transforms.push([x, y]);
@@ -407,7 +412,12 @@ game.ctx = {
   clip() {
     clips++;
   },
-  resetTransform() {},
+  getTransform() {
+    return canvasTransform;
+  },
+  resetTransform() {
+    canvasTransform = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+  },
   setLineDash() {},
   createLinearGradient() {
     gradients++;
@@ -427,12 +437,14 @@ game.ctx = {
   fillRect() {
     boxes++;
   },
-  drawImage(image) {
+  drawImage(image, ...rectangles) {
     glowImages++;
     assert(image.width > 0, 'glows use a real canvas after prediction cloning');
+    lastImage = { rectangles, transform: canvasTransform };
   },
 };
 Object.assign(game, { scale: 1, uiScale: 1, uiWidth: 640, uiHeight: 480 });
+
 {
   const sources = [], matrices = [];
   const pattern = {setTransform(matrix){matrices.push(matrix)}};
@@ -1533,6 +1545,8 @@ const reveal = () =>
 transforms.length = 0;
 const clipsBefore = clips;
 const surfaceClipsBefore = Reflect.get(globalThis, 'surface-clips') || 0;
+const beamTransform = { a: 1.2, b: 0.9, c: -0.9, d: 1.2, e: 91.25, f: 80.75 };
+canvasTransform = beamTransform;
 reveal();
 assert.equal(revealed, 1, 'an active remote lamp reveals buried cargo');
 assert.equal(
@@ -1550,6 +1564,23 @@ assert.deepEqual(
   [900, 800],
   'the remote light uses its displayed pose',
 );
+{
+  const [sourceX, sourceY, width, height, left, top, drawWidth, drawHeight] =
+    lastImage.rectangles;
+  assert.deepEqual(
+    lastImage.transform,
+    { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 },
+    'the revealed image is copied in screen coordinates',
+  );
+  assert(Number.isInteger(left) && Number.isInteger(top));
+  assert.deepEqual([sourceX, sourceY, drawWidth, drawHeight], [0, 0, width, height]);
+  assert.deepEqual(
+    Reflect.get(globalThis, 'surface-transform'),
+    [beamTransform.a, beamTransform.b, beamTransform.c, beamTransform.d,
+      beamTransform.e - left, beamTransform.f - top],
+    'the offscreen paint uses the displayed beam transform relative to the copy',
+  );
+}
 predictedLamp.activationProgress = 0;
 reveal();
 assert.equal(
@@ -2162,6 +2193,79 @@ assert(
   ) < 1e-8,
   'rendered rock area equals the remaining segments',
 );
+// The preview must keep requesting frames after activation reaches zero.
+{
+  const source = createBoosterShip();
+  source.dockedTo = 1;
+  let frame;
+  let time = 0;
+  let nozzles;
+  const render = Ship.prototype.render;
+  const mock = {
+    ResizeObserver: class { observe() {} disconnect() {} },
+    devicePixelRatio: 1,
+    requestAnimationFrame(callback) { frame = callback; return 1; },
+    cancelAnimationFrame() { frame = undefined; },
+  };
+  const original = Object.keys(mock).map(key =>
+    [key, Object.getOwnPropertyDescriptor(globalThis, key)]);
+  Object.assign(globalThis, mock);
+
+  const context = { ...game.ctx, clearRect() {} };
+  const preview = shipPreview.createShipPreview({
+    getContext: () => context,
+    getClientRects: () => [1],
+    getBoundingClientRect: () => ({ width: 64, height: 64 }),
+  });
+  Ship.prototype.render = function (options) {
+    if (options.zIndex === renderingLayers.modulesBelowShipHull) {
+      nozzles = this.segments.filter(segment => segment.flareSize);
+    }
+    render.call(this, options);
+  };
+
+  const draw = () => {
+    const callback = frame;
+    frame = undefined;
+    callback(time += 16);
+  };
+  const finish = () => {
+    let tail = false;
+    for (let index = 0; frame && index < 120; index++) {
+      draw();
+      tail ||= nozzles.some(segment =>
+        !segment.activationProgress && segment.flare?.width > 0);
+    }
+    assert(tail, 'the flare remains visible while easing out after activation');
+    assert(!frame, 'the preview goes idle after the flare settles');
+    assert(nozzles.every(segment => !segment.flare?.width),
+      'the last frame has no visible flares');
+  };
+
+  try {
+    preview.update(source, { mount: 0 });
+    for (let index = 0; index < 80; index++) draw();
+    assert(nozzles.some(segment => segment.flare?.width > 0));
+    preview.update(source);
+    finish();
+
+    preview.update(source, { mount: 0, candidate: ThrusterSingleMd });
+    for (let index = 0; index < 80; index++) draw();
+    assert(nozzles.some(segment => segment.flare?.width > 0));
+    preview.update(source);
+    finish();
+    assert(nozzles.every(segment => segment.module instanceof ThrusterSingleSm),
+      'the fitted thruster returns after the candidate flare settles');
+  } finally {
+    preview.destroy();
+    Ship.prototype.render = render;
+    original.forEach(([key, descriptor]) => {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    });
+  }
+}
+
 console.log(
   'Replicated flares, light beams, palettes, render inheritance and asteroid holes passed',
 );
@@ -2178,7 +2282,9 @@ class TestCanvas {
       save() {},
       restore() {},
       resetTransform() {},
-      setTransform() {},
+      setTransform(...matrix: number[]) {
+        Reflect.set(globalThis, 'surface-transform', matrix);
+      },
       clearRect() {},
       clip() {
         Reflect.set(
@@ -2311,7 +2417,7 @@ for (const production of [false, true]) {
         resolveId: (id) => (id === entry ? entry : undefined),
         load(id: string) {
           if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return "export const playSound=(value,volume=1)=>{Reflect.get(globalThis, 'capturedEffects').push(value);Reflect.get(globalThis, 'soundVolumes').push(volume)};export const continuousSound=()=>undefined;export const unlockAudio=()=>{};export const updateThrusterSound=()=>{};";
+            return "export const playSound=(value,volume=1)=>{Reflect.get(globalThis, 'capturedEffects').push(value);Reflect.get(globalThis, 'soundVolumes').push(volume)};export const continuousSound=()=>undefined;export const unlockAudio=()=>{};export const updateThrusterSound=()=>{};export const updateAutogunSound=()=>{};";
           }
 
           if (id === entry) {

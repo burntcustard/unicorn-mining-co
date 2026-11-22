@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { rolldown } from 'rolldown';
 import { buildPrePlugin } from '../../plugins/build-plugins';
+import { encodeServerControl } from '../../src/client/protocol/binary-control';
 import { snapshotDeltaQuery } from '../../src/client/protocol/binary-snapshot';
 import { testBuildPlugin } from '../support/build-plugin.ts';
 
@@ -34,14 +35,34 @@ class TestWebSocket {
 
 const originalSetTimeout = globalThis.setTimeout;
 const originalClearTimeout = globalThis.clearTimeout;
-const timers = new Map<number, () => void>();
+
+const timers = new Map<number, { at: number; run: () => void }>();
+
 let nextTimer = 0;
+let elapsed = 0;
+
+const advanceTimers = (duration: number) => {
+  const end = elapsed + duration;
+
+  for (;;) {
+    const next = [...timers].sort(([, a], [, b]) => a.at - b.at)[0];
+
+    if (!next || next[1].at > end) break;
+    const [id, { at, run }] = next;
+
+    elapsed = at;
+    timers.delete(id);
+    run();
+  }
+
+  elapsed = end;
+};
 
 Object.assign(globalThis, {
-  setTimeout: (callback: () => void) => {
+  setTimeout: (run: () => void, delay: number) => {
     const id = ++nextTimer;
 
-    timers.set(id, callback);
+    timers.set(id, { at: elapsed + delay, run });
     return id;
   },
   clearTimeout: (id: number) => timers.delete(id),
@@ -69,6 +90,18 @@ const entry = resolve('src/__connection_test.ts');
 const bannedMessage =
   'Sorry, you have been banned. Contact john@burnt.io if you think this was a mistake';
 
+const welcome = {
+  data: encodeServerControl({
+    type: 'welcome',
+    playerId: 1,
+    shipId: 7,
+    playerToken: '01234567-89ab-cdef-0123-456789abcdef',
+    serverTick: 0,
+    worldSeed: 25,
+    spawn: { x: 0, y: 0 },
+  }),
+};
+
 for (const production of [false, true]) {
   const bundle = await rolldown({
     input: entry,
@@ -80,7 +113,7 @@ for (const production of [false, true]) {
           id === entry
             ? `import {NetworkClient} from '${resolve('src/client/network/network.ts')}';
                import {emptyPlayerInput} from '${resolve('src/client/protocol/input.ts')}';
-               export default (url = 'test') => new NetworkClient({url});
+               export default (url = 'test', deferred = false) => new NetworkClient({url, deferred});
                export const inspectSnapshot = client => [
                  [...client.entityRecords.keys()],
                  [...client.pendingEntities.keys()],
@@ -161,7 +194,6 @@ for (const production of [false, true]) {
     [4003, bannedMessage, bannedMessage],
     [4001, 'Session opened elsewhere', 'GAME OPEN IN ANOTHER TAB'],
     [4002, 'Idle timeout', 'AWAY TOO LONG - RELOAD TO PLAY'],
-    [1006, '', 'CONNECTION LOST - RETRYING...'],
   ] as const) {
     connect();
     let retries = 0;
@@ -178,11 +210,36 @@ for (const production of [false, true]) {
       sockets.at(-1)!.onclose!({ code, reason });
       assert.equal(status.hidden, false);
       assert.equal(status.textContent, expected);
-      assert.equal(retries, code === 1006 ? 1 : 0);
+      assert.equal(retries, 0);
     } finally {
       globalThis.setTimeout = setTimeout;
     }
   }
+
+  timers.clear();
+  connect('test', true);
+  advanceTimers(999);
+  assert.equal(status.hidden, true);
+  advanceTimers(1);
+  assert.equal(status.textContent, 'CONNECTING TO GAME...');
+  sockets.at(-1)!.onmessage!(welcome);
+  assert.equal(status.hidden, true);
+
+  connect('test', true);
+  const preparedSocket = sockets.at(-1)!;
+
+  preparedSocket.onmessage!(welcome);
+  advanceTimers(1000);
+  assert.equal(status.hidden, true);
+
+  preparedSocket.onclose!({ code: 1006, reason: '' });
+  advanceTimers(600);
+  const retrySocket = sockets.at(-1)!;
+
+  assert.notEqual(retrySocket, preparedSocket);
+  retrySocket.onmessage!(welcome);
+  advanceTimers(400);
+  assert.equal(status.hidden, true);
 
   const socketUrl = 'ws://localhost/game-socket';
   const extended = connect(socketUrl);
@@ -254,10 +311,12 @@ for (const production of [false, true]) {
   assert.notEqual(sockets.at(-1), rejectedSocket);
 
   // Received deltas must be merged before a later render can coalesce them.
+  timers.clear();
   const stream = connect();
   const socket = sockets.at(-1)!;
 
   socket.onopen!();
+  socket.onmessage!(welcome);
   const packet = (tick: number, modules: number[]) =>
     Uint8Array.from([0x55, 0x4d, 1, 0, tick, 2, 1, 7, 1, 34, ...modules]);
 
@@ -288,15 +347,19 @@ for (const production of [false, true]) {
   }
 
   assert.deepEqual(socket.closed, [4004]);
-  assert.equal(status.textContent, 'CONNECTION LOST - RETRYING...');
-  timers.get(nextTimer)!();
-  assert.notEqual(sockets.at(-1), socket);
-  assert.equal(sockets.at(-1)!.url, socket.url);
+  advanceTimers(600);
+  const stalledRetry = sockets.at(-1)!;
 
-  const timeout = timers.get(nextTimer)!;
-
-  timeout();
+  assert.notEqual(stalledRetry, socket);
+  assert.equal(stalledRetry.url, socket.url);
+  stalledRetry.onclose!({ code: 1006, reason: '' });
+  advanceTimers(399);
+  assert.equal(status.hidden, true);
+  advanceTimers(1);
   assert.equal(status.textContent, 'CONNECTION LOST - RETRYING...');
+  advanceTimers(1000);
+  assert.equal(status.textContent, 'CONNECTION LOST - RETRYING...');
+  timers.clear();
 }
 
 Object.assign(globalThis, {

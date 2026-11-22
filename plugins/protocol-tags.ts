@@ -51,6 +51,7 @@ export const protocolTags = [
   'flightMode',
   'thrustBoost',
   'thrustBooster',
+  'leave',
 ];
 
 /**

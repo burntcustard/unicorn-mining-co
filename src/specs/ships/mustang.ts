@@ -72,7 +72,6 @@ export const mustang = {
             y: 0,
             fits: [
               'thrusterSingleMd',
-              'thrusterSingleLg',
               'thrusterDualSm',
               'thrusterDualMd',
               'thrusterDualLg',

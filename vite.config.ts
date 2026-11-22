@@ -49,7 +49,18 @@ export default defineConfig(
         port: 3000,
         proxy,
         watch: {
-          ignored: ['**/benchmarking/_local/**', '**/server/target/**'],
+          ignored: [
+            '**/.agents/**',
+            '**/.data/**',
+            '**/.github/**',
+            '**/.tmp/**',
+            '**/benchmarking/**',
+            '**/bin/**',
+            '**/docs/**',
+            '**/src/server/**',
+            '**/src/tools/**',
+            '**/tests/**',
+          ],
         },
       },
       plugins: [

@@ -4,10 +4,12 @@ export const createComparisonMetric = ({
   value,
   maximum,
   decimals = 0,
+  useGrouping = true,
 }: {
   value: number;
   maximum: number;
   decimals?: number;
+  useGrouping?: boolean;
 }) => {
   const cell = document.createElement('td');
   const chart = document.createElement('div');
@@ -25,6 +27,7 @@ export const createComparisonMetric = ({
   label.textContent = value.toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
+    useGrouping,
   });
 
   track.append(bar);

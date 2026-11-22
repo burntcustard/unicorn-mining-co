@@ -6,12 +6,12 @@ export const thrusterSingleXl = {
   mass: 470,
   name: 'Thruster xl',
   health: 15,
-  power: 1.5,
-  powerActivated: 1.5,
-  price: 200,
-  fuelUsage: 0.05,
+  power: 1.8,
+  powerActivated: 1.8,
+  price: 1070,
+  fuelUsage: 3.1 / 60,
   forwardThrust: 24,
-  rotationalThrust: 14,
+  rotationalThrust: 16,
   model: [
     {
       outline: true,

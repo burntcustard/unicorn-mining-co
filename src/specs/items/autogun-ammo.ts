@@ -6,7 +6,7 @@ export const autogunAmmo = {
   name: 'Projectile ammo',
   description:
     'Ammunition for projectile weapons like the cannon and autogun. Each pack supplies 200 rounds.',
-  price: 2,
+  price: 4,
   rounds: 200,
   points: [
     [-5, -3.5],

@@ -10,6 +10,7 @@ type ServerControl = Extract<
   ServerMessage,
   {
     type:
+      | 'leave'
       | 'welcome'
       | 'respawn'
       | 'progress'
@@ -32,6 +33,7 @@ const {
   activity,
   prepare,
   play,
+  leave,
   profile,
   sounds,
   gateAccess,
@@ -478,6 +480,9 @@ export function encodeClientMessage(
     case 'play':
       return new ControlWriter(play).finish();
 
+    case 'leave':
+      return new ControlWriter(leave).finish();
+
     case 'snapshotAck': {
       const writer = new ControlWriter(snapshotAck);
 
@@ -734,6 +739,10 @@ export function decodeClientMessage(
       message = { type: 'play' };
       break;
 
+    case leave:
+      message = { type: 'leave' };
+      break;
+
     case snapshotAck:
       message = { type: 'snapshotAck', sequence: reader.unsigned() };
       break;
@@ -752,6 +761,8 @@ export function decodeClientMessage(
 export function encodeServerControl(
   message: Exclude<ServerControl, { type: 'hangar' }>,
 ): Uint8Array<ArrayBuffer> {
+  if (message.type === 'leave') return new ControlWriter(leave).finish();
+
   if (message.type === 'sectorMap') {
     const writer = new ControlWriter(sectorMap);
 
@@ -897,6 +908,10 @@ export function decodeServerControl(
   let message: ServerControl;
 
   switch (reader.type) {
+    case leave:
+      message = { type: 'leave' };
+      break;
+
     case sectorMap: {
       const count = reader.unsigned();
 
@@ -1076,6 +1091,7 @@ export function decodeServerControl(
   reader.finish();
 
   if (
+    message.type !== 'leave' &&
     message.type !== 'sectorMap' &&
     message.type !== 'chat' &&
     message.type !== 'respawn' &&

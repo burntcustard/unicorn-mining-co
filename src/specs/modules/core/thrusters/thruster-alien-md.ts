@@ -1,17 +1,9 @@
-import { thruster } from './thruster';
+import { thrusterSingleMd } from './thruster-x1-md';
 import type { ModuleSpec } from '../../types';
 
 export const thrusterCrescent = {
-  ...thruster,
-  mass: 120,
-  name: 'Crescent Thruster',
-  health: 15,
-  power: 0.6,
-  powerActivated: 0.6,
-  price: 200,
-  fuelUsage: 0.04,
-  forwardThrust: 12,
-  rotationalThrust: 10,
+  ...thrusterSingleMd,
+  name: 'Alien Thruster md',
   model: [
     {
       outline: true,

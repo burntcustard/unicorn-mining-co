@@ -59,6 +59,18 @@
 [x] Fix hull smash sound when shield & asteroid collide
 [ ] New icon for wormholes
 [ ] Add more ship stats to hangar tab
+[ ] Fix thrusters not going to 0 in outfitting
+[ ] Lg thruster should have more fuel and power usage as downside to speed
+[x] Mustang maybe shouldn't have lg thruster
+[ ] Wreck pieces explode in weird way sometimes
+[ ] Wreck should break if rear large piece of ship destroyed
+[ ] Make cursor not highlight if the thing went under and un-moving cursor
+[ ] Asteroid chunks with Items in should have mass of the item plus the asteroid
+[ ] Sell animations
+[x] Projectile ammo should be slightly more expensive
+[x] Fuzzy items inside asteroids
+[x] 'Connecting to game' shown when you disconnect
+[x] Prevent ESC from turning ship modules off
 
 ## MVP
 

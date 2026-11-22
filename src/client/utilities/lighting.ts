@@ -69,6 +69,10 @@ export const endBeams = () => {
   beamPaint = undefined;
 };
 
+export const clearBeams = () => {
+  beamSurface?.remove();
+};
+
 interface LitShape {
   // Facing angle and center in the craft's local frame.
   facing?: number;
@@ -523,6 +527,9 @@ export const revealBuriedItems = ({
       const beam = lamp.prism || traceBeam(pose, lamp, scenery, craft, poses);
       const bounds = insideBounds(beam);
 
+      // The bounds stay infinite when the beam illuminates no rock interior.
+      if (bounds.left === Infinity) return;
+
       const items = asteroids
         .filter(
           (asteroid) =>
@@ -554,18 +561,35 @@ export const revealBuriedItems = ({
 
       if (!items.length) return;
 
-      // Nested, changing clips can trigger expensive GPU work on first use.
-      // Rasterize only this small slice of revealed cargo, then composite it.
+      // Keep the changing clips off the world canvas. Paint in screen pixels
+      // so the copy preserves the item's edges as the lamp and camera move.
+      ctx.save();
+      ctx.translate(pose.position.x, pose.position.y);
+      ctx.rotate(pose.rotation);
+      ctx.translate(lamp.localPosition.x, lamp.localPosition.y);
+
+      // Map lamp-local coordinates to canvas pixels.
+      // (a, b) and (c, d) are the transformed x- and y-axis steps.
+      // (e, f) is the lamp origin in canvas pixels.
+      const { a, b, c, d, e, f } = ctx.getTransform();
+      const middleX = (bounds.left + bounds.right) / 2;
+      const middleY = (bounds.top + bounds.bottom) / 2;
+      const halfWidth = (bounds.right - bounds.left) / 2;
+      const halfHeight = (bounds.bottom - bounds.top) / 2;
+      const x = a * middleX + c * middleY + e;
+      const y = b * middleX + d * middleY + f;
+      const reachX = Math.abs(a) * halfWidth + Math.abs(c) * halfHeight;
+      const reachY = Math.abs(b) * halfWidth + Math.abs(d) * halfHeight;
+      const left = Math.floor(x - reachX - 1);
+      const top = Math.floor(y - reachY - 1);
+      const width = Math.ceil(x + reachX + 1) - left;
+      const height = Math.ceil(y + reachY + 1) - top;
+
       revealSurface ||= document.createElement('canvas');
 
       const paint = revealSurface.getContext('2d', {
         willReadFrequently: true,
       })!;
-
-      const left = Math.floor(bounds.left * scale - 1) / scale;
-      const top = Math.floor(bounds.top * scale - 1) / scale;
-      const width = Math.ceil(bounds.right * scale + 1) - left * scale;
-      const height = Math.ceil(bounds.bottom * scale + 1) - top * scale;
 
       // Reuse the backing store as the beam changes shape and direction.
       if (width > revealSurface.width) {
@@ -579,10 +603,9 @@ export const revealBuriedItems = ({
       paint.resetTransform();
       // Only the used rectangle is copied below. Clear a pixel of transparent
       // guard space too, so interpolation cannot pick up an older beam's edge.
-      paint.clearRect(0, 0, Math.ceil(width) + 1, Math.ceil(height) + 1);
+      paint.clearRect(0, 0, width + 1, height + 1);
       paint.save();
-      paint.translate(-left * scale, -top * scale);
-      paint.scale(scale, scale);
+      paint.setTransform(a, b, c, d, e - left, f - top);
       paint.clip(insidePath(beam));
       paint.clip(beam.mask);
       paint.translate(-lamp.localPosition.x, -lamp.localPosition.y);
@@ -591,10 +614,7 @@ export const revealBuriedItems = ({
       items.forEach((item) => item.render({ ctx: paint }));
       paint.restore();
 
-      ctx.save();
-      ctx.translate(pose.position.x, pose.position.y);
-      ctx.rotate(pose.rotation);
-      ctx.translate(lamp.localPosition.x, lamp.localPosition.y);
+      ctx.resetTransform();
       ctx.drawImage(
         revealSurface,
         0,
@@ -603,8 +623,8 @@ export const revealBuriedItems = ({
         height,
         left,
         top,
-        width / scale,
-        height / scale,
+        width,
+        height,
       );
       ctx.restore();
     });

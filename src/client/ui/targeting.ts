@@ -11,7 +11,12 @@ import { playSound } from '../audio/sound-loader';
 
 type Bounds = { left: number; right: number; top: number; bottom: number };
 
-type TargetView = { object: GameObject; bounds: Bounds; distance: number };
+type TargetView = {
+  object: GameObject;
+  position: Vec.Value;
+  bounds: Bounds;
+  distance: number;
+};
 
 /**
  * Bound target candidates around the rendered pose using object radius.
@@ -26,25 +31,22 @@ export const targetBounds = (object: GameObject, pose: Pose): Bounds => ({
 export class Targeting {
   private candidates: TargetView[] = [];
   private targetId?: number;
-  private pointer?: Vec.Value;
   private targetView?: TargetView;
   private hovered?: TargetView;
 
   clear() {
     this.selectTarget();
-    this.pointer = undefined;
     this.targetId = undefined;
     this.targetView = undefined;
+    this.clearHover();
+  }
+
+  clearHover() {
     this.hovered = undefined;
   }
 
-  hover(pointer?: Vec.Value) {
-    this.pointer = pointer;
-    this.updateHover();
-  }
-
-  targetHovered() {
-    this.selectTarget(this.hovered);
+  targetAt(pointer?: Vec.Value) {
+    this.selectTarget(this.pick(pointer));
   }
 
   cycleTarget(reverse = false) {
@@ -84,13 +86,18 @@ export class Targeting {
     objects,
     poses,
     ship,
+    pointer,
+    pointerMoved = false,
   }: {
     game: GameState;
     objects: GameObject[];
     poses: Map<number, Pose>;
     ship: GameObject;
+    pointer?: Vec.Value;
+    pointerMoved?: boolean;
   }) {
     const shipPosition = poses.get(ship.id)?.position || ship.position;
+    const previousCandidates = this.candidates;
 
     this.candidates = objects
       .filter(
@@ -107,6 +114,7 @@ export class Targeting {
 
         return {
           object,
+          position: Vec.clone(pose.position),
           bounds: targetBounds(object, pose),
           distance: Vec.distanceSquared(pose.position, shipPosition),
         };
@@ -124,29 +132,56 @@ export class Targeting {
     );
 
     if (!this.targetView) this.selectTarget();
-    this.updateHover();
+
+    const pointed = this.pick(pointer, pointerMoved ? undefined : this.hovered);
+
+    if (
+      !pointed ||
+      pointerMoved ||
+      pointed.object.id === this.hovered?.object.id
+    ) {
+      this.hovered = pointed;
+      return;
+    }
+
+    const { object, position } = pointed;
+    const previous = previousCandidates.find(
+      (view) => view.object.id === object.id,
+    );
+
+    // Velocity covers repeated poses between ticks. Position also catches
+    // movement imparted by another object, such as a rotating craft.
+    this.hovered =
+      object.velocity.x ||
+      object.velocity.y ||
+      (previous &&
+        (previous.position.x !== position.x ||
+          previous.position.y !== position.y))
+        ? pointed
+        : undefined;
   }
 
-  private updateHover() {
-    const pointer = this.pointer;
+  private pick(pointer?: Vec.Value, retained?: TargetView) {
+    if (!pointer) return;
 
-    this.hovered =
-      pointer &&
-      this.candidates
-        .filter(
-          ({ bounds }) =>
-            pointer.x >= bounds.left &&
-            pointer.x <= bounds.right &&
-            pointer.y >= bounds.top &&
-            pointer.y <= bounds.bottom,
-        )
-        .toSorted(
-          (a, b) =>
-            (a.bounds.right - a.bounds.left) *
-              (a.bounds.bottom - a.bounds.top) -
-              (b.bounds.right - b.bounds.left) *
-                (b.bounds.bottom - b.bounds.top) || a.distance - b.distance,
-        )[0];
+    const pointed = this.candidates.filter(
+      ({ bounds }) =>
+        pointer.x >= bounds.left &&
+        pointer.x <= bounds.right &&
+        pointer.y >= bounds.top &&
+        pointer.y <= bounds.bottom,
+    );
+
+    return (
+      (retained &&
+        pointed.find(({ object }) => object.id === retained.object.id)) ??
+      pointed.toSorted(
+        (a, b) =>
+          (a.bounds.right - a.bounds.left) * (a.bounds.bottom - a.bounds.top) -
+            (b.bounds.right - b.bounds.left) *
+              (b.bounds.bottom - b.bounds.top) || a.distance - b.distance,
+      )[0]
+    );
   }
 
   get target() {

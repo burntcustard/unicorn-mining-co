@@ -35,6 +35,8 @@ Preserve the normal Vite proxy to the authoritative Rust server.
 For functional source or configuration changes, run `npm run build` before and
 after, plus relevant tests and `npm run lint` afterward. Report changed resource
 sizes. Skip the build for comment or whitespace-only changes.
+For standalone changes to existing values in `src/specs`, skip builds, tests,
+and lint unless the user requests them.
 
 TypeScript runs through `npm run typecheck` before production builds. Prefer
 inference unless an annotation is required to clarify an exported API.

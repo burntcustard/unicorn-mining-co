@@ -1,5 +1,4 @@
-.module-comparison-description,
-.module-comparison-notes {
+.module-comparison-description {
   margin-block: 1rem;
   color: #bbc;
 }
@@ -62,6 +61,24 @@
   min-width: 10rem;
 }
 
+#thruster-comparison .module-comparison-metric {
+  grid-template-columns: 1fr;
+  gap: 0.125rem;
+  min-width: 7.75rem;
+}
+
+#thruster-comparison td:nth-child(-n + 3) .module-comparison-metric {
+  min-width: 4.25rem;
+}
+
+#thruster-comparison .module-comparison-value {
+  order: -1;
+}
+
+#thruster-comparison .module-comparison-bar {
+  height: 0.25rem;
+}
+
 .module-comparison-track {
   min-width: 0;
 }
@@ -74,10 +91,6 @@
 
 .module-comparison-stock .module-comparison-bar {
   background: #36e69e;
-}
-
-.module-comparison-incompatible .module-comparison-bar {
-  background: #76589c;
 }
 
 .module-comparison-triple .module-comparison-bar {

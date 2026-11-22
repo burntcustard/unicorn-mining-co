@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { Targeting, targetBounds } from '${root}/src/client/ui/targeting.ts';
 import { camera } from '${root}/src/client/camera.ts';
 import { playedSounds } from 'targeting-test-sound';
-const object = (id, x, y, extra = {}) => ({ id, position: {x, y}, rotation: 0, radius: 10, kind: 'asteroid', name: 'Asteroid', ...extra });
+const object = (id, x, y, extra = {}) => ({ id, position: {x, y}, velocity: {x: 0, y: 0}, rotation: 0, radius: 10, kind: 'asteroid', name: 'Asteroid', ...extra });
 const ship = object(1, 0, 0);
 const near = object(2, 20, 0, {kind: 'ship', name: 'aé🦄', playerId: 8});
 const far = object(3, 80, 0, {kind: 'station', name: 'Corral-6'});
@@ -27,12 +27,15 @@ const game = {width: 200, height: 200, uiWidth: 400, uiHeight: 400, scale: 2, ui
 camera.x = camera.y = -100;
 const poses = new Map([[edge.id, {position: {x: 105, y: 0}, rotation: 0}]]);
 const targeting = new Targeting();
-const update = () => targeting.update({ game, objects, poses, ship });
+let pointer;
+const update = (pointerMoved = false) => targeting.update({ game, objects, poses, ship, pointer, pointerMoved });
+const hover = (position) => { pointer = position; update(Boolean(pointer)); };
+const targetAtPointer = () => targeting.targetAt(pointer);
 update();
 for (const excluded of [projectile, looseModule, unknown]) {
-  targeting.hover(excluded.position);
+  hover(excluded.position);
   assert.equal(targeting.hoveredObject, undefined, 'projectiles, loose modules and generic objects cannot be hovered');
-  targeting.targetHovered();
+  targetAtPointer();
   assert.equal(targeting.target, undefined, 'excluded objects cannot be targeted by clicking');
 }
 for (const expected of [near, far, edge, near]) {
@@ -41,15 +44,15 @@ for (const expected of [near, far, edge, near]) {
 }
 targeting.cycleTarget(true);
 assert.equal(targeting.target, edge, 'reverse target cycling wraps');
-targeting.hover({x: 20, y: 0}); update();
+hover({x: 20, y: 0}); update();
 assert.equal(targeting.hoveredObject, near, 'hover previews the pointed object');
 assert.equal(targeting.target, edge, 'hover preserves the keyboard target');
-targeting.targetHovered();
+targetAtPointer();
 assert.equal(targeting.target, near, 'click targets the hovered object');
-targeting.hover({x: 60, y: 30}); update();
+hover({x: 60, y: 30}); update();
 assert.equal(targeting.hoveredObject, undefined, 'leaving an object clears hover');
 assert.equal(targeting.target, near, 'leaving an object preserves the clicked target');
-targeting.targetHovered();
+targetAtPointer();
 assert.equal(targeting.target, undefined, 'clicking empty space clears the target');
 targeting.cycleTarget();
 assert.equal(targeting.target, near, 'cycling starts at the closest object after clearing the target');
@@ -61,7 +64,7 @@ targeting.cycleTarget();
 assert.equal(targeting.target, near, 'cycling restarts from surviving nearest object');
 near.dockedTo = 42; update();
 assert.equal(targeting.target, undefined, 'docking clears an existing target');
-targeting.hover(near.position);
+hover(near.position);
 assert.notEqual(targeting.hoveredObject, near, 'docked ships cannot be hovered');
 near.dockedTo = undefined; update();
 targeting.clear();
@@ -74,7 +77,7 @@ for (const rotation of [0, Math.PI / 4, Math.PI / 2]) {
 const craft = object(9, 0, 0, {segments: [{module: {}, health: 5, localPosition: {x: 999, y: 0}, points: () => { throw new Error('animated geometry must not size target bounds'); }, radius: () => { throw new Error('module radius must not size target bounds'); }}]});
 assert.deepEqual(targetBounds(craft, craft), {left: -10, right: 10, top: -10, bottom: 10}, 'craft target bounds use the GameObject radius');
 near.dead = false;
-targeting.hover({x: 20, y: 0}); update();
+hover({x: 20, y: 0}); update();
 const commands = [], calls = [], strokes = [], alphas = [];
 globalThis.Path2D = class {
   moveTo(...args) { commands.push(['move', ...args]); }
@@ -127,7 +130,7 @@ strokes.splice(2);
 assert.deepEqual(strokes, [0.5, 0.5], 'hover corners and their outline use 50 percent opacity');
 assert.equal(calls.length, 0, 'hover hides object names');
 assert.equal(game.ctx.globalAlpha, 1, 'hover restores drawing opacity');
-targeting.targetHovered();
+targetAtPointer();
 strokes.length = commands.length = 0;
 targeting.render(game);
 assert.equal(commands.filter(([kind]) => kind === 'move').length, 6, 'targeted hover draws one set of hexagon corners');
@@ -148,12 +151,12 @@ assert.deepEqual(calls.map(call => call.slice(0, 2)), [['stroke', 'JUMP GATE'], 
 assert.equal(near.name, 'aé🦄', 'custom target labels preserve the object name');
 near.targetLabel = undefined;
 far.dead = false;
-targeting.hover({x: 80, y: 0}); update();
+hover({x: 80, y: 0}); update();
 calls.length = strokes.length = 0;
 targeting.render(game);
 assert.deepEqual(strokes, [0.5, 0.5, 0.9, 0.9], 'a different hover preview coexists with targeted corners');
 assert.deepEqual(calls.map(call => call.slice(0, 2)), [['stroke', 'a□□'], ['fill', 'a□□']], 'only the targeted object has a name');
-targeting.targetHovered();
+targetAtPointer();
 assert.equal(targeting.target, far, 'targeting another object replaces the previous target');
 calls.length = strokes.length = commands.length = 0;
 targeting.render(game);
@@ -164,9 +167,9 @@ otherController.update({ game, objects, poses, ship });
 otherController.cycleTarget();
 assert.equal(otherController.target, near, 'another craft controller has its own target');
 assert.equal(targeting.target, far, 'another controller does not change this controller target');
-targeting.hover({x: 20, y: 0});
-targeting.targetHovered();
-targeting.hover(); update();
+hover({x: 20, y: 0});
+targetAtPointer();
+hover(); update();
 assert.equal(targeting.target, near, 'leaving the canvas preserves the current target');
 assert.equal(targeting.hoveredObject, undefined);
 near.playerId = undefined;
@@ -177,7 +180,7 @@ near.name = 'Corral-5';
 near.kind = 'station';
 targeting.render(game);
 assert.equal(calls.at(-1)[1], 'Corral-5', 'stations display their name rather than a spec identifier');
-targeting.targetHovered();
+targetAtPointer();
 calls.length = commands.length = 0;
 targeting.render(game);
 assert.equal(calls.length, 0, 'clicking empty space hides the target name');
@@ -195,21 +198,22 @@ for (const kind of ['ship', 'station', 'craft', 'asteroid', 'item']) {
 playedSounds.length = 0;
 const soundController = new Targeting();
 const soundTargets = [object(30, 20, 0), object(31, 60, 0, {kind: 'item'})];
+const soundPointer = soundTargets[0].position;
 const updateSoundTargets = () => soundController.update({game, objects: soundTargets, poses, ship});
 updateSoundTargets();
-soundController.hover(soundTargets[0].position);
+soundController.update({game, objects: soundTargets, poses, ship, pointer: soundPointer, pointerMoved: true});
 assert.equal(playedSounds.length, 0, 'hover does not play acquisition audio');
-soundController.targetHovered();
+soundController.targetAt(soundPointer);
 assert.deepEqual(playedSounds, [['acquire-target', {id: 30}]], 'click acquisition plays the named cue for its target');
-soundController.targetHovered();
+soundController.targetAt(soundPointer);
 updateSoundTargets();
 assert.equal(playedSounds.length, 1, 'repeated clicks and presentation updates do not replay the cue');
 soundController.cycleTarget();
 assert.deepEqual(playedSounds.at(-1), ['acquire-target', {id: 31}], 'keyboard acquisition plays the same cue');
 soundController.cycleTarget(true);
 assert.deepEqual(playedSounds.at(-1), ['acquire-target', {id: 30}], 'reverse cycling plays the cue for the new target');
-soundController.hover();
-soundController.targetHovered();
+soundController.clearHover();
+soundController.targetAt();
 soundController.clear();
 assert.equal(playedSounds.length, 4, 'deselecting plays once; clearing an empty target is silent');
 assert.deepEqual(playedSounds.at(-1), ['lose-target', {id: 30}]);
@@ -225,6 +229,46 @@ soundTargets[1].dead = true;
 updateSoundTargets();
 soundController.cycleTarget();
 assert.equal(playedSounds.length, 8, 'cycling with no candidates is silent');
+
+const asteroid = object(40, 20, 0);
+const asteroidPose = {position: {x: 20, y: 0}, rotation: 0};
+const hoverController = new Targeting();
+const updateHover = (pointerMoved = false, offset = 100) =>
+  hoverController.update({game, objects: [asteroid], ship,
+    poses: new Map([[asteroid.id, asteroidPose]]),
+    pointer: {x: camera.x + offset, y: camera.y + 100}, pointerMoved});
+
+updateHover();
+camera.x = -80;
+asteroidPose.rotation = Math.PI / 2;
+updateHover();
+assert.equal(hoverController.hoveredObject, undefined, 'camera movement and rotation cannot start hover over a stationary object');
+updateHover();
+assert.equal(hoverController.hoveredObject, undefined, 'stopping the camera does not start hover under the idle pointer');
+hoverController.targetAt(asteroidPose.position);
+assert.equal(hoverController.target, asteroid, 'clicking can target an object without a hover preview');
+hoverController.targetAt();
+
+updateHover(true, 101);
+assert.equal(hoverController.hoveredObject, asteroid, 'pointer movement starts hover over a stationary object');
+camera.x = -78;
+updateHover(false, 101);
+assert.equal(hoverController.hoveredObject, asteroid, 'hover persists while the idle pointer remains over the object');
+camera.x = -50;
+updateHover(false, 101);
+assert.equal(hoverController.hoveredObject, undefined, 'camera movement can carry the object out of hover');
+camera.x = -80;
+updateHover(false, 101);
+assert.equal(hoverController.hoveredObject, undefined, 'camera movement alone cannot reacquire hover');
+
+camera.x = -79;
+asteroidPose.position.y = 2;
+updateHover(false, 101);
+assert.equal(hoverController.hoveredObject, asteroid, 'world position changes can start hover while the camera moves');
+hoverController.clearHover();
+asteroid.velocity.x = -5;
+updateHover(false, 101);
+assert.equal(hoverController.hoveredObject, asteroid, 'linear velocity can start hover between rendered position changes');
 console.log('Target cycling, click targeting, acquisition audio, persistent targets, hover opacity, labels and rendered bounds passed');
 `;
 

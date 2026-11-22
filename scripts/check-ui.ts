@@ -2165,6 +2165,8 @@ checkUi: try {
     const disconnectEvents = c.events.length;
 
     await click('[data-action="disconnect"]');
+    const disconnectedFrames = await check('window.gameFrames');
+
     await pause(1000);
     assert.deepEqual(
       await check(
@@ -2185,13 +2187,14 @@ checkUi: try {
       'Disconnect preserves preferences',
     );
     assert(
-      c.events
+      !c.events
         .slice(disconnectEvents)
         .some((event) => event.method === 'Network.webSocketCreated'),
-      'returning to the main menu prepares a new connection',
+      'returning to the main menu keeps the existing connection',
     );
-    assert(
-      await check('window.gameFrames === 0'),
+    assert.equal(
+      await check('window.gameFrames'),
+      disconnectedFrames,
       'returning to the main menu keeps the game loop stopped',
     );
     await checkHiddenElements();

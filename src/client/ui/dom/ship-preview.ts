@@ -103,7 +103,9 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
     if (
       fittingKey !== key &&
       !ship.segments.some(
-        (segment) => segment.module === fitting && segment.activationProgress,
+        (segment) =>
+          segment.module === fitting &&
+          (segment.activationProgress || segment.flare?.width),
       )
     ) {
       if (fitting) {
@@ -194,6 +196,13 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
       if (!module.chargeDuration) module.chargeCooldown = source.chargeCooldown;
     });
 
+    // Keep drawing through the flare tail. Checking before the visual update
+    // also lets the next frame replace a fitting once its flare reaches zero.
+    const animating = ship.segments.some(
+      (segment) =>
+        segment.active || segment.activationProgress || segment.flare?.width,
+    );
+
     ship.updateVisual(dt);
 
     updateAutogunSounds({
@@ -202,9 +211,7 @@ const createShipPreview = (canvas: HTMLCanvasElement) => {
     });
 
     if (
-      ship.segments.some(
-        (segment) => segment.active || segment.activationProgress,
-      ) ||
+      animating ||
       (liveSource &&
         ship.modules.some(
           (module) =>

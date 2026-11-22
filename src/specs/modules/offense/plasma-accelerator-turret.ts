@@ -74,7 +74,7 @@ export const plasmaAcceleratorTurret = {
         stops: [
           [0, colors.violet[2]],
           [0.2, colors.violet[2], 0.6],
-          [1, colors.black[0], 0],
+          [1, colors.violet[2], 0],
         ],
       },
       points: [
@@ -109,7 +109,7 @@ export const plasmaAcceleratorTurret = {
         stops: [
           [0, colors.violet[2]],
           [0.3, colors.violet[2], 0.4],
-          [1, colors.black[0], 0],
+          [1, colors.violet[2], 0],
         ],
       },
       points: [
@@ -130,7 +130,7 @@ export const plasmaAcceleratorTurret = {
         stops: [
           [0, colors.violet[2]],
           [0.3, colors.violet[2], 0.4],
-          [1, colors.black[0], 0],
+          [1, colors.violet[2], 0],
         ],
       },
       points: [
@@ -151,7 +151,7 @@ export const plasmaAcceleratorTurret = {
         stops: [
           [0, colors.violet[2]],
           [0.3, colors.violet[2], 0.4],
-          [1, colors.black[0], 0],
+          [1, colors.violet[2], 0],
         ],
       },
       points: [

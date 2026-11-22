@@ -282,6 +282,7 @@ export const propertyNames = [
   'id',
   'identity',
   'identityPreview',
+  'leaveWorld',
   'displayName',
   'prepareProfile',
   'createProfile',

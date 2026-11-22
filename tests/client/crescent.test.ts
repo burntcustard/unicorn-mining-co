@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import Clipper from 'clipper-lib';
 import { crescent } from '../../src/specs/ships/crescent';
-import { thrusterCrescent } from '../../src/specs/modules/core/thrusters/thruster-crescent';
+import { thrusterCrescent } from '../../src/specs/modules/core/thrusters/thruster-alien-md';
 import { objectLineWidth } from '../../src/client/utilities/drawing';
 import { outerEdges } from '../../src/client/utilities/polygon';
 import { DrawingPath } from '../../src/client/utilities/drawing-path';

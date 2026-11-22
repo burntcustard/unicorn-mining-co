@@ -7,7 +7,7 @@ import { Portal } from './objects/portal';
 import { ui, updateNotification } from './ui/dom/ui';
 import { preloadDockedUi, syncDockedUi } from './ui/dom/docked-loader';
 import { renderingLayers } from '../specs/rendering-layers';
-import { init, hudContext } from './core';
+import { clearFrame, hudContext, init, presentFrame } from './core';
 import * as Vec from './utilities/vector';
 import { Craft } from './objects/craft';
 import { Projectile } from './objects/projectile';
@@ -33,10 +33,15 @@ import { defaultKeybindings } from './input/keybindings';
 import { network } from './network/network';
 import { camera, centerCamera, followTarget, holeZoom } from './camera';
 
-import { beginBeams, endBeams, revealBuriedItems } from './utilities/lighting';
+import {
+  beginBeams,
+  clearBeams,
+  endBeams,
+  revealBuriedItems,
+} from './utilities/lighting';
 import { adoptPlayerShip, player, readSlate, updatePlayer } from './player';
-import { renderSparks, updateSparks } from './effects/shrapnel';
-import { renderEffects, updateEffects } from './effects/effect';
+import { renderSparks, sparks, updateSparks } from './effects/shrapnel';
+import { effects, renderEffects, updateEffects } from './effects/effect';
 import { presentEvents } from './effects/present-events';
 import { GameLoop } from './game-loop';
 import { Ship } from './objects/ship';
@@ -137,6 +142,8 @@ const chat = createChat({
 });
 
 let pointerPosition: Vec.Value | undefined;
+let pointerClientPosition: Vec.Value | undefined;
+let pointerMoved = false;
 
 const background = (
   globalThis as typeof globalThis & { background: Background }
@@ -180,14 +187,17 @@ window.addEventListener('ui-graphics', () => {
   gameStarted || renderSky();
 });
 
+const clearPointer = () => {
+  pointerPosition = pointerClientPosition = undefined;
+  pointerMoved = false;
+  targeting.clearHover();
+};
+
 const syncNavigation = () => {
   ui.hudElement.hidden = Boolean(ui.current);
   setMenuInput(Boolean(ui.current));
 
-  if (ui.current) {
-    pointerPosition = undefined;
-    targeting.hover();
-  }
+  if (ui.current) clearPointer();
 };
 
 syncNavigation();
@@ -202,20 +212,26 @@ const pointerView = {
 const updatePointer = (event: MouseEvent) => {
   const rect = canvas.getBoundingClientRect();
 
+  pointerClientPosition = Vec.create(event.clientX, event.clientY);
   pointerPosition = Vec.create(
     (event.clientX - rect.left) / rect.width,
     (event.clientY - rect.top) / rect.height,
   );
-  targeting.hover(
-    Vec.create(
-      pointerView.position.x + pointerPosition.x * pointerView.width,
-      pointerView.position.y + pointerPosition.y * pointerView.height,
-    ),
-  );
 };
+
+const worldPointer = () =>
+  pointerPosition &&
+  Vec.create(
+    pointerView.position.x + pointerPosition.x * pointerView.width,
+    pointerView.position.y + pointerPosition.y * pointerView.height,
+  );
 
 canvas.addEventListener('pointermove', (event) => {
   if (ui.current || !gameStarted) return;
+
+  pointerMoved ||=
+    event.clientX !== pointerClientPosition?.x ||
+    event.clientY !== pointerClientPosition?.y;
   updatePointer(event);
 });
 
@@ -230,14 +246,11 @@ canvas.addEventListener('click', (event) => {
   }
 
   updatePointer(event);
-  targeting.targetHovered();
+  targeting.targetAt(worldPointer());
   updateTargetInput();
 });
 
-canvas.addEventListener('pointerleave', () => {
-  pointerPosition = undefined;
-  targeting.hover();
-});
+canvas.addEventListener('pointerleave', clearPointer);
 
 const regionalObjects = new Map<number, SimulationObject>();
 
@@ -670,21 +683,16 @@ const gameLoop = GameLoop({
       pointerView.width = view.width;
       pointerView.height = view.height;
 
-      if (pointerPosition) {
-        targeting.hover(
-          Vec.create(
-            camera.x + pointerPosition.x * view.width,
-            camera.y + pointerPosition.y * view.height,
-          ),
-        );
-      }
-
       targeting.update({
         game: view,
         objects: activeSprites,
         poses: remotePoses,
         ship: renderedShip,
+        pointer: worldPointer(),
+        pointerMoved,
       });
+
+      pointerMoved = false;
 
       updateTargetInput();
 
@@ -860,6 +868,32 @@ const start = async () => {
   gameLoop.start();
 };
 
+const leaveWorld = () => {
+  network.leaveWorld();
+  gameStarted = player.started = game.uiVisible = false;
+  gameLoop.stop();
+  hud.setShown(false);
+  chat.update(undefined, false);
+  syncDockedUi({ ship: player.ship, available: false });
+  targeting.clear();
+  playerInput.targetId = undefined;
+  player.noteFor = player.queuedNotes.length = 0;
+  updateNotification('');
+  effects.length = sparks.length = 0;
+  updateHornDrillSounds({ crafts: [] });
+  updateThrusterSounds({ crafts: [] });
+  updateAutogunSounds({ crafts: [], dt: 0 });
+
+  previousFrameAt = previousTransit = 0;
+  gateOpening.clear();
+  // Retire the world canvases that are composited outside the foreground frame.
+  beginSurfaces();
+  endSurfaces();
+  clearBeams();
+  clearFrame();
+  presentFrame();
+};
+
 const identityPreview = (): Identity => {
   const { ship, credits } = player;
 
@@ -884,6 +918,7 @@ const identityPreview = (): Identity => {
 
 export default {
   start,
+  leaveWorld,
   async prepareProfile() {
     await network.authenticated;
     return network.displayName;

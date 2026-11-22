@@ -56,6 +56,7 @@ const asteroidRecords = new WeakMap<Asteroid, ReplicatedEntity>();
 const stationRecords = new WeakMap<Station, ReplicatedEntity>();
 const stationPoseTicks = new WeakMap<ReplicatedEntity, number>();
 const stockItems = new WeakMap<StationStockEntry, GameObject>();
+const connectionStatusDelay = 1000;
 
 const makeEntity = ({
   entity,
@@ -310,6 +311,7 @@ export class NetworkClient {
   private pendingProfile?: { resolve(): void; reject(error: Error): void };
   private deferred: boolean;
   private playing: boolean;
+  private leaving = false;
   readonly player: Pick<typeof player, 'credits' | 'unlockedPaints'>;
   // Separate from predicted objects: decoding must never mutate live state or
   // rollback history. Retain only the current interest set between packets.
@@ -340,10 +342,14 @@ export class NetworkClient {
   private changingDockedShip = false;
   playerId?: number;
   private prediction: PredictionManager;
-  readonly ready: Promise<void>;
+  private worldReady: Promise<void>;
+  get ready() {
+    return this.worldReady;
+  }
   readonly remoteMotion = new RemoteMotion();
   private resolveReady!: () => void;
   private retryDelay = 500;
+  private connectionStatusTimer?: ReturnType<typeof setTimeout>;
   serverTick = 0;
   get shipDestroyed() {
     const ship = this.world.entities.get(this.shipId!);
@@ -522,7 +528,6 @@ export class NetworkClient {
   }
 
   private connect(url: string) {
-    this.showConnectionStatus('CONNECTING TO GAME...');
     const snapshotDeltas = this.snapshotDeltas && url.endsWith('/game-socket');
     const socket = new WebSocket(
       snapshotDeltas ? `${url}?${snapshotDeltaQuery}` : url,
@@ -587,6 +592,7 @@ export class NetworkClient {
       }
 
       this.connected = false;
+      this.leaving = false;
       this.pendingProfile?.reject(
         new Error('Connection lost. Please try again.'),
       );
@@ -617,7 +623,12 @@ export class NetworkClient {
         return;
       }
 
-      this.showConnectionStatus('CONNECTION LOST - RETRYING...');
+      if (this.welcomed) {
+        this.showConnectionStatus('CONNECTION LOST - RETRYING...', {
+          delay: connectionStatusDelay,
+        });
+      }
+
       const delay = this.retryDelay * (0.8 + Math.random() * 0.4);
 
       this.retryDelay = Math.min(10000, this.retryDelay * 2);
@@ -639,10 +650,15 @@ export class NetworkClient {
     this.playing = !deferred;
     this.prediction = new PredictionManager({ world: this.world });
 
-    this.ready = new Promise((resolve) => (this.resolveReady = resolve));
+    this.worldReady = new Promise((resolve) => (this.resolveReady = resolve));
     this.authenticated = new Promise(
       (resolve) => (this.resolveAuthenticated = resolve),
     );
+
+    this.showConnectionStatus('CONNECTING TO GAME...', {
+      delay: connectionStatusDelay,
+    });
+
     this.connect(url);
   }
 
@@ -650,10 +666,20 @@ export class NetworkClient {
     if (!this.playing) {
       this.playing = true;
 
-      if (this.welcomed) this.send({ type: 'play' });
+      if (this.welcomed && !this.leaving) this.send({ type: 'play' });
     }
 
     return this.ready;
+  }
+
+  leaveWorld() {
+    this.playing = false;
+    this.connected = false;
+    this.worldReady = new Promise((resolve) => (this.resolveReady = resolve));
+    this.dockSequence = this.acknowledgedDockSequence = 0;
+    this.leaving = this.welcomed && this.socket.readyState === WebSocket.OPEN;
+
+    if (this.leaving) this.send({ type: 'leave' });
   }
 
   async createProfile(displayName: string) {
@@ -684,6 +710,19 @@ export class NetworkClient {
   }
 
   private receive({ message }: { message: ServerMessage }) {
+    if (message.type === 'leave') {
+      if (!this.leaving) return;
+
+      this.leaving = false;
+
+      if (this.playing) this.send({ type: 'play' });
+
+      return;
+    }
+
+    // Wait for the server to finish leaving before accepting another world.
+    if (this.leaving && message.type !== 'profile') return;
+
     if (message.type === 'hangar') {
       if (
         message.shipsForSale.some((offer) => !shipSpecsById.has(offer.ship))
@@ -761,7 +800,9 @@ export class NetworkClient {
       // Sector travel sends another welcome over the existing connection.
       // Keep its sequence so even requests still in flight cannot collide.
 
-      if (!this.welcomed) this.dockSequence = this.acknowledgedDockSequence = 0;
+      const firstWelcome = !this.welcomed;
+
+      if (firstWelcome) this.dockSequence = this.acknowledgedDockSequence = 0;
       this.dockIds.clear();
       this.pendingDockActions.length = 0;
       this.hangarListPending = false;
@@ -809,7 +850,7 @@ export class NetworkClient {
         this.retryDelay = 500;
         this.showConnectionStatus();
 
-        if (this.playing) this.send({ type: 'play' });
+        if (firstWelcome && this.playing) this.send({ type: 'play' });
       }
 
       return;
@@ -1083,13 +1124,24 @@ export class NetworkClient {
     this.send({ type: 'activity' });
   }
 
-  private showConnectionStatus(message?: string) {
+  private showConnectionStatus(message?: string, { delay = 0 } = {}) {
     if (typeof document === 'undefined') return;
     const status = document.getElementById('connection-status');
 
     if (!status) return;
-    status.hidden = !message;
-    status.textContent = message || '';
+    clearTimeout(this.connectionStatusTimer);
+
+    const update = (statusMessage = '') => {
+      status.hidden = statusMessage === '';
+      status.textContent = statusMessage;
+    };
+
+    if (delay) {
+      update();
+      this.connectionStatusTimer = setTimeout(() => update(message), delay);
+    } else {
+      update(message);
+    }
   }
 
   private step({

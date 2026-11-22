@@ -33,11 +33,6 @@ export const createMainMenu = ({
     if (button.disabled) return;
     const destination = button.getAttribute('data-action');
 
-    if (destination === 'disconnect') {
-      location.reload();
-      return;
-    }
-
     button.disabled = true;
 
     if (destination === 'play') cancelPreview();

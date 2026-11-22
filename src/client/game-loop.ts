@@ -16,6 +16,8 @@ export const GameLoop = ({
   update: (frame: { dt: number; now: number }) => void;
 }) => {
   let last = 0;
+  let animation: number;
+  let backgroundInterval: ReturnType<typeof setInterval>;
 
   const frame = (now: number) => {
     // Catch up ordinary missed frames; a longer outage recovers from snapshots.
@@ -35,7 +37,7 @@ export const GameLoop = ({
   };
 
   const animate = (now: number) => {
-    requestAnimationFrame(animate);
+    animation = requestAnimationFrame(animate);
 
     if (!document.hidden) frame(now);
   };
@@ -43,12 +45,16 @@ export const GameLoop = ({
   return {
     start() {
       last = performance.now();
-      requestAnimationFrame(animate);
+      animation = requestAnimationFrame(animate);
 
       // Keep updating and rendering when the browser tab is hidden, but limit to 30 FPS
-      setInterval(() => {
+      backgroundInterval = setInterval(() => {
         if (document.hidden) frame(performance.now());
       }, 1000 / 30);
+    },
+    stop() {
+      cancelAnimationFrame(animation);
+      clearInterval(backgroundInterval);
     },
   };
 };

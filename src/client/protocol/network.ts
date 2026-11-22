@@ -140,11 +140,12 @@ export type ClientMessage =
       type: 'hello' | 'prepare';
     }
   | ({ type: 'dock'; sequence?: number } & CraftAction)
-  | { type: 'respawn' | 'activity' | 'play' }
+  | { type: 'respawn' | 'activity' | 'play' | 'leave' }
   | { type: 'snapshotAck'; sequence: number }
   | PlayerInputMessage;
 
 export type ServerMessage =
+  | { type: 'leave' }
   | { type: 'sectorMap'; mapMarkers: MapMarker[] }
   | {
       type: 'hangar';

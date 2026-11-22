@@ -15,7 +15,7 @@ export { powerPlant4H } from './power-plants/power-plant-4h';
 export { powerPlant4V } from './power-plants/power-plant-4v';
 export { powerPlant4L } from './power-plants/power-plant-4l';
 export { thrusterSingleSm } from './thrusters/thruster-x1-sm';
-export { thrusterCrescent } from './thrusters/thruster-crescent';
+export { thrusterCrescent } from './thrusters/thruster-alien-md';
 export { thrusterSingleMd } from './thrusters/thruster-x1-md';
 export { thrusterSingleLg } from './thrusters/thruster-x1-lg';
 export { thrusterSingleXl } from './thrusters/thruster-x1-xl';

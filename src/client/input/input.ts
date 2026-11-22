@@ -195,7 +195,7 @@ export const initKeys = ({
     }
   };
 
-  const blur = () => {
+  const releaseHeldInput = () => {
     const previous = { ...playerInput };
 
     holdTimers.forEach(clearTimeout);
@@ -215,25 +215,11 @@ export const initKeys = ({
     notify(previous);
   };
 
-  releaseInput = () => {
-    holdTimers.forEach(clearTimeout);
-    holdTimers.clear();
-    pressed.clear();
-    consumedKeys.clear();
-
-    Object.assign(playerInput, emptyPlayerInput());
-
-    moduleKeyControls.forEach(({ writeInput }) =>
-      writeInput(playerInput, false),
-    );
-
-    updateMovement(pressed, playerInput);
-    onChange({ ...playerInput });
-  };
+  releaseInput = releaseHeldInput;
 
   window.addEventListener('keydown', keyDown, { signal });
   window.addEventListener('keyup', keyUp, { signal });
-  window.addEventListener('blur', blur, { signal });
+  window.addEventListener('blur', releaseHeldInput, { signal });
   const activityEvents = ['keydown', 'pointerdown', 'pointermove', 'wheel'];
 
   activityEvents.forEach((type) =>
@@ -246,6 +232,6 @@ export const initKeys = ({
 
   return () => {
     controller.abort();
-    blur();
+    releaseHeldInput();
   };
 };

@@ -77,6 +77,7 @@ impl AuthoritativeSession {
             return;
         };
         let now = Instant::now();
+        self.stop_playing(id, now);
         let Some(account) = self.accounts.get_mut(&id) else {
             return;
         };
@@ -97,8 +98,6 @@ impl AuthoritativeSession {
             }
         }
         self.sockets.remove(&client);
-        account.update_session_time(now);
-        account.played_at = None;
         account.socket = None;
         account.inputs = InputQueue::new(self.catalog.simulation.max_prediction_ticks as u32);
         account.selection = ObserverSelection::new(true);
@@ -108,6 +107,55 @@ impl AuthoritativeSession {
         account.gate_access.cancel();
         account.disconnected_at = Some(now);
         self.pending_ship_hiding = true;
+        self.mark_dirty(id, false);
+        #[cfg(feature = "benchmark-fixtures")]
+        if reason != "replaced" {
+            self.finish_benchmark(id);
+        }
+    }
+
+    pub(super) fn leave_world(&mut self, id: i64, now: Instant) {
+        if !self
+            .accounts
+            .get(&id)
+            .is_some_and(|account| account.playing)
+        {
+            return;
+        }
+        self.stop_playing(id, now);
+        let account = self.accounts.get_mut(&id).expect("playing account exists");
+        let world = &mut self.sectors[account.sector].running.world;
+        if account.hidden.is_none() {
+            account.hidden = world.remove_entity(account.ship_id);
+        }
+        let held = account
+            .hidden
+            .as_ref()
+            .and_then(|entity| match &entity.model {
+                EntityKind::Ship(ship) => Some(held_input(ship)),
+                _ => None,
+            })
+            .unwrap_or_default();
+        account.inputs.reset_connection(held);
+        account.dock_sequence = 0;
+        account.dock_aliases.clear();
+        account.gate_access.cancel();
+        account.delivery.clear_pending();
+        account.delivery.require_load();
+        account.welcome_pending = true;
+        account.respawn_pending = false;
+        account.progress_pending = false;
+        account.hangar.reconnect();
+        self.mark_dirty(id, false);
+    }
+
+    fn stop_playing(&mut self, id: i64, now: Instant) {
+        let Some(account) = self.accounts.get_mut(&id) else {
+            return;
+        };
+        let world = &mut self.sectors[account.sector].running.world;
+        account.update_session_time(now);
+        account.played_at = None;
         world.remove_player(id);
         self.inputs.remove(&id);
         if account.playing {
@@ -127,11 +175,6 @@ impl AuthoritativeSession {
                 station.end_trade_visit(account.ship_id);
                 world.mark_entity_changed(station_id);
             }
-        }
-        self.mark_dirty(id, false);
-        #[cfg(feature = "benchmark-fixtures")]
-        if reason != "replaced" {
-            self.finish_benchmark(id);
         }
     }
 

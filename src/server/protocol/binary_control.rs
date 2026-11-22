@@ -58,6 +58,7 @@ pub enum Control {
     },
     Activity,
     Play,
+    Leave,
     SnapshotAck {
         sequence: u64,
     },
@@ -123,6 +124,7 @@ pub struct MapMarker {
 
 #[derive(Debug, Clone, Copy)]
 pub enum ServerControl<'a> {
+    Leave,
     SectorMap {
         map_markers: &'a [MapMarker],
     },
@@ -317,6 +319,7 @@ pub fn decode_client_control(
         }
         id if id == message_id("activity") => Control::Activity,
         id if id == message_id("play") => Control::Play,
+        id if id == message_id("leave") => Control::Leave,
         id if id == message_id("snapshotAck") => Control::SnapshotAck {
             sequence: reader.unsigned()?,
         },
@@ -477,6 +480,7 @@ pub fn encode_server_control(
     ids: &Protocol,
 ) -> Result<Vec<u8>, ProtocolError> {
     let name = match message {
+        ServerControl::Leave => "leave",
         ServerControl::SectorMap { .. } => "sectorMap",
         ServerControl::Hangar { .. } => "hangar",
         ServerControl::Chat { .. } => "chat",
@@ -497,6 +501,7 @@ pub fn encode_server_control(
     let mut writer = Writer { data: &mut data };
 
     match *message {
+        ServerControl::Leave => {}
         ServerControl::SectorMap { map_markers } => {
             writer.unsigned(map_markers.len() as u64);
             for marker in map_markers {
