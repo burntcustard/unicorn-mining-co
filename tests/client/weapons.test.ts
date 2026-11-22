@@ -39,6 +39,7 @@ import { contactBetween } from '${root}/src/client/collision/contact-between.ts'
 import { GameObject } from '${root}/src/client/objects/game-object.ts';
 import { Projectile } from '${root}/src/client/objects/projectile.ts';
 import { Station } from '${root}/src/client/objects/station.ts';
+import { createStockedStation } from '${root}/tests/support/stocked-station.ts';
 import { explode } from '${root}/src/client/objects/explosion.ts';
 import { updateEntities } from '${root}/src/client/simulation/update-tier.ts';
 import { damage } from '${root}/src/client/objects/damage.ts';
@@ -2189,7 +2190,7 @@ for (const delay of [1, 3, 8]) {
   );
 }
 const account = { credits: 4 };
-const ammoStation = addEntity(world, new Station({ world }));
+const ammoStation = addEntity(world, createStockedStation(world));
 ship.dockedTo = ammoStation.id;
 assert.equal(ammoStation.cargoContents.length, 300, 'stations start with 300 ammunition packs');
 const stockedAmmo = ammoStation.cargoContents[0];

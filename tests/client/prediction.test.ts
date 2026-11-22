@@ -24,6 +24,7 @@ import { updateWorld } from '../../src/client/simulation/update-world';
 import { PredictionManager } from '../../src/client/prediction/prediction';
 import { RemoteMotion } from '../../src/client/prediction/remote-motion';
 import { Station } from '../../src/client/objects/station';
+import { createStockedStation } from '../support/stocked-station';
 import { FramePrediction } from '../../src/client/prediction/frame-prediction';
 import { GameObject } from '../../src/client/objects/game-object';
 import { CargoHatch } from '../../src/client/objects/modules/cargo-hatch';
@@ -93,7 +94,7 @@ installExampleModules();
   addPlayer(world, { id: 1, shipId: ship.id });
   const station = addEntity(
     world,
-    new Station({ world, position: Vec.create(2000) }),
+    createStockedStation(world, { position: Vec.create(2000) }),
   );
   const stock = station.cargoContents.length;
 
@@ -279,7 +280,7 @@ installExampleModules();
 
 {
   const world = createWorld();
-  const station = new Station({ world });
+  const station = createStockedStation(world);
   const ownRandom = new Item(autogunAmmo);
 
   station.cargoContents.push(ownRandom);

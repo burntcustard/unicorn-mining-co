@@ -55,15 +55,15 @@ const client = new NetworkClient({ url: 'test' });
 let playerToken;
 setCraftActionDispatcher((ship, action) => client.applyCraftAction(ship, action));
 const render = () => client.updateFrame({ input: emptyPlayerInput(), now: performance.now() + 1, dt: 0 });
-const receive = packets => {
-  for (const hex of packets) {
+const receive = packets =>
+  packets.map(hex => {
     const packet = Uint8Array.from(Buffer.from(hex, 'hex'));
     const message = packet[1] === 0x43 ? decodeServerControl(packet) : decodeBinarySnapshot(packet);
     if (message.type === 'welcome') playerToken = message.playerToken;
     client.receive({ message });
     render();
-  }
-};
+    return message;
+  });
 const flush = async () => receive(await server('receive', outgoing()));
 receive(await server('setup', []));
 await flush();
@@ -71,6 +71,41 @@ const ship = () => client.world.entities.get(client.shipId);
 const station = () => client.world.entities.get(ship().dockedTo);
 const state = () => [client.player.credits, ship().cargoContents.map(object => object.id), station().cargoContents.map(object => object.id), client.world.nextEntityId];
 const act = action => applyCraftAction(ship(), action);
+const stationId = ship().dockedTo;
+const listHangar = () =>
+  encodeClientMessage({ type: 'hangar', command: 'LIST', shipId: 0, value: '' });
+const approach = receive(await server('farStation', outgoing()));
+assert(client.stationMarkers.has(stationId), 'distant station stays visible as a marker');
+assert(!client.world.entities.has(stationId), 'marker has no collision or prediction model');
+assert(approach.some(message => message.stationStock?.stationId === 0), 'undocking clears private stock');
+
+const nearby = receive(await server('nearStation', outgoing()));
+assert(!client.stationMarkers.has(stationId), 'the craft replaces its marker');
+assert.equal(client.world.entities.get(stationId).cargoContents.length, 0, 'nearby pilots receive no shop stock');
+assert(nearby.every(message => !message.stationStock), 'approach sends no stock patch');
+const undockedHangar = receive(await server('receive', [...outgoing(), listHangar()]))
+  .find(message => message.type === 'hangar');
+assert.deepEqual(undockedHangar?.shipsForSale, []);
+assert(undockedHangar?.error, 'the hangar requires an authoritative dock');
+
+const redocked = receive(await server('redock', outgoing()));
+const stockLoad = redocked.find(message => message.stationStock)?.stationStock;
+assert(stockLoad?.replace);
+assert.equal(stockLoad.entries.length, 300);
+assert(stockLoad.entries.every(entry => entry.resource === autogunAmmo.resource && !entry.kind), 'standard ammo packs carry only resource and ID');
+const dockedHangar = receive(await server('receive', [...outgoing(), listHangar()]))
+  .find(message => message.type === 'hangar');
+assert(dockedHangar?.shipsForSale.some(offer => offer.ship === 'mustang' && offer.price > 0));
+assert.equal(dockedHangar?.error, '');
+await flush();
+
+receive(await server('rotateStation', outgoing()));
+const authoritativeStation = () => client.authoritativeEntities.get(stationId);
+const steadyStock = authoritativeStation().cargoContents;
+const poseOnly = receive(await server('rotateStation', outgoing()));
+assert(poseOnly.some(message => message.fullEntities?.some(entity => entity.id === stationId && entity.rotation)), 'the rotating station sends a pose update');
+assert.equal(authoritativeStation().cargoContents, steadyStock, 'the authoritative station reuses unchanged stock during a pose update');
+
 const initial = state();
 assert.equal(initial[1].length, 2);
 assert.equal(initial[2].length, 300);
@@ -86,9 +121,12 @@ assert.equal(station().cargoContents.length, 299);
 assert.equal(client.player.credits, initial[0] - autogunAmmo.price, 'Buy updates the balance immediately');
 assert.equal(state()[3], initial[3], 'stock transfers allocate no speculative IDs');
 const optimisticBuy = state();
-receive(old);
+assert(receive(old).every(message => !message.stationStock), 'unchanged stock produces no wire update');
 assert.deepEqual(state().slice(0, 3), optimisticBuy.slice(0, 3), 'an older snapshot cannot reverse an unconfirmed trade');
-await flush();
+const purchase = (await flush()).find(message => message.stationStock)?.stationStock;
+assert.deepEqual(purchase?.removedIds, [ammoId]);
+assert.deepEqual(purchase?.entries, []);
+assert.equal(purchase?.replace, false);
 assert.equal(ship().cargoContents.length, 3);
 assert.equal(client.player.credits, initial[0] - autogunAmmo.price);
 const ammo = ship().cargoContents.find(object => object.item === autogunAmmo);

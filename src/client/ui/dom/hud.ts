@@ -358,6 +358,7 @@ export const createHud = ({
       target,
       objects,
       asteroidPositions,
+      stationMarkers,
       poses,
       shown,
     }: {
@@ -371,6 +372,7 @@ export const createHud = ({
       target?: GameObject;
       objects: GameObject[];
       asteroidPositions?: Vec.Value[];
+      stationMarkers?: Parameters<typeof renderMinimap>[0]['stationMarkers'];
       poses: Map<number, Pose>;
       shown: boolean;
     }) {
@@ -418,6 +420,7 @@ export const createHud = ({
         poses,
         target,
         asteroidPositions,
+        stationMarkers,
         displayScale,
       };
 

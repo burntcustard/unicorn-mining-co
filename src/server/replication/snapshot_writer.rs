@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use smallvec::SmallVec;
@@ -15,11 +16,20 @@ use crate::specs::{BinaryFields, Point, Protocol};
 use crate::utilities::vector::Vector;
 
 use super::Selection;
+use super::station_stock::{StationStock, StockPatch};
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum EntityView {
+    #[default]
+    Full,
+    StationMarker,
+    StationCraft,
+}
 
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 const FIELD_SLOTS: usize = u64::BITS as usize;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 enum StoredField {
     #[default]
     Absent,
@@ -36,7 +46,7 @@ enum StoredField {
     Modules(Vec<StoredModule>),
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct FieldState {
     revision: i64,
     value: StoredField,
@@ -78,6 +88,21 @@ impl ModuleSource<'_> {
         self.mount.map_or(0, |_| self.module.parts.len())
     }
 
+    pub(crate) fn stock_state(&self) -> ModuleState<'_> {
+        ModuleState {
+            r#type: self.kind_index,
+            mount: self.mount_index(),
+            id: Some(self.module.id as f64),
+            health: Some(self.health()),
+            health_activated: self.health_activated(),
+            fire_cooldown: self.fire_cooldown(),
+            charge_cooldown: self.charge_cooldown(),
+            aim_rotation: self.aim_rotation(),
+            shades: self.module.shades.as_deref(),
+            segments: &[],
+        }
+    }
+
     fn segments(&self) -> impl Iterator<Item = ModuleSegment> {
         self.module
             .wire_parts()
@@ -89,6 +114,7 @@ impl ModuleSource<'_> {
     }
 }
 
+#[derive(Debug)]
 struct StoredModule {
     r#type: f64,
     mount: f64,
@@ -102,6 +128,7 @@ struct StoredModule {
     segments: Vec<ModuleSegment>,
 }
 
+#[derive(Debug)]
 struct StoredSegment {
     contents: Vec<f64>,
     health: f64,
@@ -199,14 +226,17 @@ impl StoredModule {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EntityBaseline {
     source: u64,
+    view: EntityView,
     revision: i64,
     fields: u64,
 }
 
 /// A record lives with its authoritative entity, independent of observer count.
+#[derive(Debug)]
 pub struct EntityReplication {
     id: u64,
     source: u64,
+    pub(crate) view: EntityView,
     generation: u64,
     revision: i64,
     previous_revision: i64,
@@ -224,7 +254,7 @@ pub struct EntityReplication {
 
 impl EntityReplication {
     pub fn new(id: u64, source: u64, protocol: &Protocol) -> Self {
-        let count = protocol.binary_field_ids.npc_state as usize + 1;
+        let count = protocol.binary_field_ids.station_marker as usize + 1;
         assert!(
             count <= FIELD_SLOTS,
             "replication mask cannot represent the TypeScript field IDs"
@@ -234,6 +264,7 @@ impl EntityReplication {
         Self {
             id,
             source,
+            view: EntityView::Full,
             generation: 0,
             revision: 0,
             previous_revision: 0,
@@ -266,6 +297,7 @@ impl EntityReplication {
     pub fn baseline(&self) -> EntityBaseline {
         EntityBaseline {
             source: self.source,
+            view: self.view,
             revision: self.revision,
             fields: self.present_fields,
         }
@@ -593,6 +625,7 @@ impl EntityReplication {
         fields: &BinaryFields,
         crafted: bool,
         module_friction: Option<f64>,
+        station_defaults: Option<(&str, f64)>,
     ) {
         let asteroid = object.kind == "asteroid";
         let default_friction =
@@ -607,7 +640,9 @@ impl EntityReplication {
         self.number(fields.health, (!default_health).then_some(object.health));
         self.text(
             fields.name,
-            (!object.name.is_empty()).then_some(&object.name),
+            (!object.name.is_empty()
+                && station_defaults.is_none_or(|(name, _)| name != object.name))
+            .then_some(&object.name),
         );
         self.text(fields.message, object.message.as_deref());
         self.number(fields.paint, object.paint.map(f64::from));
@@ -634,7 +669,8 @@ impl EntityReplication {
         self.number(
             fields.mass,
             (!asteroid || object.mass != 0.4 * (object.radius * object.radius))
-                .then_some(object.mass),
+                .then_some(object.mass)
+                .filter(|&mass| station_defaults.is_none_or(|(_, default)| default != mass)),
         );
         self.number(
             fields.pending_update_time,
@@ -663,6 +699,8 @@ pub struct SnapshotMetadata<'a> {
     pub credits: Option<f64>,
     pub dock_ids: &'a [[i64; 2]],
     pub input_lead: Option<i64>,
+    pub station_replication: bool,
+    pub docked_station: Option<i64>,
 }
 
 #[derive(Default)]
@@ -672,20 +710,24 @@ pub struct SnapshotWriter {
     ids: Vec<u64>,
     updates: Vec<(usize, i64, EntityBaseline)>,
     fragments: Vec<Range<usize>>,
+    station_stock: Option<Arc<StationStock>>,
 }
 
-pub trait ReplicationSource {
+pub(crate) trait ReplicationSource {
     fn prepare(
         &mut self,
         source_index: usize,
         id: i64,
+        view: EntityView,
         batch: &SnapshotBatch,
     ) -> Result<&mut EntityReplication, ProtocolError>;
+
+    fn station_stock(&mut self, id: i64) -> Result<Option<Arc<StationStock>>, ProtocolError>;
 }
 
 impl SnapshotWriter {
     /// Prepare only selected, due entities and assemble their shared fragments.
-    pub fn encode<'a>(
+    pub(crate) fn encode<'a>(
         &'a mut self,
         selection: Selection<'_>,
         metadata: SnapshotMetadata<'_>,
@@ -693,6 +735,18 @@ impl SnapshotWriter {
         protocol: &Protocol,
         source: &mut impl ReplicationSource,
     ) -> Result<&'a [u8], ProtocolError> {
+        let station_stock = metadata
+            .docked_station
+            .filter(|_| metadata.station_replication)
+            .map(|id| source.station_stock(id))
+            .transpose()?
+            .flatten();
+        let previous_stock = (!metadata.load)
+            .then_some(self.station_stock.as_deref())
+            .flatten();
+        let stock_patch = StockPatch::between(previous_stock, station_stock.as_deref());
+        let station_stock_update = stock_patch.as_ref().map(StockPatch::wire);
+
         let entity_ids = if selection.membership_changed && !metadata.load {
             self.ids.clear();
             self.ids.extend(
@@ -708,10 +762,10 @@ impl SnapshotWriter {
         self.updates.clear();
         self.fragments.clear();
         for selected in selection.entities {
-            if !selected.update {
+            let entity = &selection.view[selected.index];
+            if !selected.update && (!metadata.station_replication || !entity.station) {
                 continue;
             }
-            let entity = &selection.view[selected.index];
             let baseline = if metadata.load || !selected.loaded {
                 None
             } else {
@@ -722,7 +776,21 @@ impl SnapshotWriter {
                     .filter(|&(id, _)| id == entity.id)
                     .map(|(_, baseline)| baseline)
             };
-            let record = source.prepare(entity.source_index, entity.id, batch)?;
+            let view = if !metadata.station_replication || !entity.station {
+                EntityView::Full
+            } else if metadata.docked_station == Some(entity.id) {
+                EntityView::StationCraft
+            } else if selected.station_marker.unwrap_or_else(|| {
+                baseline.is_none_or(|baseline| baseline.view == EntityView::StationMarker)
+            }) {
+                EntityView::StationMarker
+            } else {
+                EntityView::StationCraft
+            };
+            if !selected.update && baseline.is_some_and(|baseline| baseline.view == view) {
+                continue;
+            }
+            let record = source.prepare(entity.source_index, entity.id, view, batch)?;
             if let Some(fragment) = batch.fragment(record, baseline, protocol)? {
                 self.fragments.push(fragment);
             }
@@ -750,6 +818,7 @@ impl SnapshotWriter {
                 removed_entity_ids: selection.removed_entity_ids,
                 asteroid_positions: selection.asteroid_positions,
                 asteroid_splice: selection.asteroid_splice,
+                station_stock: station_stock_update.as_ref(),
                 records: &[],
                 fragments: None,
             },
@@ -765,6 +834,8 @@ impl SnapshotWriter {
         for &(member, id, baseline) in &self.updates {
             self.baselines[member] = Some((id, baseline));
         }
+        drop(stock_patch);
+        self.station_stock = station_stock;
         Ok(&self.data)
     }
 }
@@ -1041,7 +1112,9 @@ impl SnapshotBatch {
             return Err(ProtocolError::Snapshot);
         }
         let (baseline, replaced) = match baseline {
-            Some(old) if old.source == record.source => (Some(old.revision), None),
+            Some(old) if old.source == record.source && old.view == record.view => {
+                (Some(old.revision), None)
+            }
             old => (None, old),
         };
         if baseline.is_some_and(|old| old >= record.revision) {
@@ -1110,7 +1183,7 @@ impl SnapshotBatch {
                 include(id as i32);
             }
         } else {
-            for id in 1..=field_ids.npc_state {
+            for id in 1..=field_ids.station_marker {
                 include(id);
             }
         }

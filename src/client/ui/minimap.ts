@@ -7,6 +7,7 @@ import { targetKinds } from './target-kinds';
 import { withAlpha } from '../utilities/color';
 import { type GameObject } from '../objects/game-object';
 import { type Pose } from '../types';
+import { type ReplicatedEntity } from '../protocol/network';
 import * as Vec from '../utilities/vector';
 
 // Position-only asteroid contacts fill the radar beyond full entity loading.
@@ -23,6 +24,7 @@ export const renderMinimap = ({
   poses,
   target,
   asteroidPositions,
+  stationMarkers,
   displayScale = 300 / (ctx.canvas?.clientWidth || 300),
 }: {
   ctx: CanvasRenderingContext2D;
@@ -31,6 +33,7 @@ export const renderMinimap = ({
   poses: Map<number, Pose>;
   target?: GameObject;
   asteroidPositions?: Vec.Value[];
+  stationMarkers?: ReadonlyMap<number, ReplicatedEntity>;
   displayScale?: number;
 }) => {
   const center = poses.get(ship.id) || ship;
@@ -90,11 +93,11 @@ export const renderMinimap = ({
     }
   });
 
-  objects.forEach((object) => {
+  const drawContact = (object: GameObject | ReplicatedEntity) => {
     if (
       object.id === ship.id ||
-      object.dead ||
-      object.buried ||
+      ('dead' in object && object.dead) ||
+      ('buried' in object && object.buried) ||
       object.dockedTo ||
       !targetKinds.has(object.kind!)
     ) {
@@ -184,7 +187,10 @@ export const renderMinimap = ({
     }
 
     ctx.restore();
-  });
+  };
+
+  objects.forEach(drawContact);
+  stationMarkers?.forEach(drawContact);
 
   if (ship.dockedTo) {
     ctx.restore();

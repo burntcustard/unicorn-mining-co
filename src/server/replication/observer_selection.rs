@@ -207,6 +207,7 @@ pub struct SelectedEntity {
     pub(super) member: usize,
     pub loaded: bool,
     pub update: bool,
+    pub(super) station_marker: Option<bool>,
 }
 
 pub struct Selection<'a> {
@@ -404,6 +405,13 @@ impl ObserverSelection {
                 member,
                 loaded,
                 update,
+                station_marker: if !station || distance <= reach_squared[0][0] {
+                    Some(false)
+                } else if distance > entity_unload {
+                    Some(true)
+                } else {
+                    None
+                },
             });
         };
         let distance = |index: usize| {

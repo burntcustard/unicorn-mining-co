@@ -6,7 +6,7 @@ import {
   addPlayer,
 } from '../../../src/client/simulation/world';
 import { createPlayerShip } from '../../../src/client/objects/create-ship';
-import { Station } from '../../../src/client/objects/station';
+import { createStockedStation } from '../../support/stocked-station';
 import { createAsteroid } from '../../../src/client/objects/asteroid';
 import {
   ShieldGenerator,
@@ -203,7 +203,11 @@ const cases = [
   if (scenario.name === 'docking') {
     addEntity(
       world,
-      new Station({ id: 100, world, position: Vec.create(), spin: 0.05 }),
+      createStockedStation(world, {
+        id: 100,
+        position: Vec.create(),
+        spin: 0.05,
+      }),
     );
   }
 

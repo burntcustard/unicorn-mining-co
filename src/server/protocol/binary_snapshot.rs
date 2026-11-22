@@ -92,6 +92,14 @@ pub struct AsteroidSplice<'a> {
     pub positions: &'a [Vector],
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct StationStockUpdate<'a> {
+    pub station_id: u64,
+    pub replace: bool,
+    pub removed_ids: &'a [u64],
+    pub entries: &'a [&'a [u8]],
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Snapshot<'a> {
     pub fragments: Option<&'a [&'a [u8]]>,
@@ -110,6 +118,7 @@ pub struct Snapshot<'a> {
     /// An absent list retains the client's radar positions. An empty list clears them.
     pub asteroid_positions: Option<&'a [Vector]>,
     pub asteroid_splice: Option<AsteroidSplice<'a>>,
+    pub(crate) station_stock: Option<&'a StationStockUpdate<'a>>,
     pub records: &'a [EntityRecord<'a>],
 }
 
@@ -370,7 +379,9 @@ impl Writer<'_> {
                     }
                 }
             }
-            (id, FieldData::Flag(flag)) if id == fields.firing || id == fields.hostile => {
+            (id, FieldData::Flag(flag))
+                if [fields.firing, fields.hostile, fields.station_marker].contains(&id) =>
+            {
                 self.byte(u8::from(flag));
             }
             (id, FieldData::Cargo(entries)) if id == fields.cargo_contents => {
@@ -415,6 +426,7 @@ impl Writer<'_> {
                 if ![
                     fields.firing,
                     fields.hostile,
+                    fields.station_marker,
                     fields.cargo_contents,
                     fields.wreckage,
                     fields.contents,
@@ -492,7 +504,7 @@ impl Writer<'_> {
         delta: Option<ModuleDelta<'_>>,
         depth: usize,
     ) -> Result<(), ProtocolError> {
-        let last_field = protocol.binary_field_ids.npc_state;
+        let last_field = protocol.binary_field_ids.station_marker;
         if depth > 32 || record.id > MAX_SAFE_INTEGER || record.values.len() > last_field as usize {
             return Err(ProtocolError::Snapshot);
         }
@@ -535,8 +547,10 @@ impl Writer<'_> {
         };
         let membership_changed = value.membership_changed && !value.load;
         let removed = !value.removed_entity_ids.is_empty();
-        let extensions = u8::from(removed) | u8::from(value.asteroid_splice.is_some()) << 1;
-        if extensions != 0 && value.load
+        let extensions = u8::from(removed)
+            | u8::from(value.asteroid_splice.is_some()) << 1
+            | u8::from(value.station_stock.is_some()) << 2;
+        if extensions & 3 != 0 && value.load
             || removed && membership_changed
             || value.asteroid_splice.is_some() && value.asteroid_positions.is_some()
         {
@@ -603,6 +617,19 @@ impl Writer<'_> {
             }
         }
 
+        if let Some(stock) = value.station_stock {
+            self.unsigned(stock.station_id);
+            self.byte(u8::from(stock.replace));
+            self.unsigned(stock.removed_ids.len() as u64);
+            for &id in stock.removed_ids {
+                self.unsigned(id);
+            }
+            self.unsigned(stock.entries.len() as u64);
+            for entry in stock.entries {
+                self.data.extend_from_slice(entry);
+            }
+        }
+
         Ok(())
     }
 
@@ -622,6 +649,37 @@ impl Writer<'_> {
 
         Ok(())
     }
+}
+
+pub(crate) enum StockEntry<'a> {
+    StandardItem { id: u64, resource: u64 },
+    Item(EntityRecord<'a>),
+    Module(ModuleState<'a>),
+}
+
+pub(crate) fn encode_stock_entry(
+    destination: &mut Vec<u8>,
+    entry: StockEntry<'_>,
+    protocol: &Protocol,
+) -> Result<(), ProtocolError> {
+    append(destination, |writer| match entry {
+        StockEntry::StandardItem { id, resource } => {
+            if id > MAX_SAFE_INTEGER || resource > MAX_SAFE_INTEGER - 2 {
+                return Err(ProtocolError::Snapshot);
+            }
+            writer.unsigned(resource + 2);
+            writer.unsigned(id);
+            Ok(())
+        }
+        StockEntry::Item(item) => {
+            writer.byte(0);
+            writer.record(&item, protocol, None, 0)
+        }
+        StockEntry::Module(module) => {
+            writer.byte(1);
+            writer.modules(&[module], &protocol.module_palettes, None)
+        }
+    })
 }
 
 fn append(

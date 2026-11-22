@@ -17,6 +17,7 @@ import {
 import {
   decodeBinarySnapshot,
   mergeModuleStates,
+  snapshotDeltaQuery,
 } from '../../src/client/protocol/binary-snapshot';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
 import type {
@@ -211,9 +212,13 @@ try {
   assert.match(asset.headers.get('cache-control')!, /immutable/);
   assert.equal((await fetch(`${address}/missing`)).status, 404);
 
-  const connect = async (codec: any[], token: string | null = null) => {
+  const connect = async (
+    codec: any[],
+    token: string | null = null,
+    query = '',
+  ) => {
     const socket = new WebSocket(
-      address.replace('http', 'ws') + '/game-socket',
+      address.replace('http', 'ws') + '/game-socket' + query,
       { origin: address.replace('http', 'https') },
     );
 
@@ -312,7 +317,11 @@ try {
   const first = await connect(source);
 
   await once(sockets.at(-1)!, 'close');
-  const resumed = await connect(production, first.token);
+  const resumed = await connect(
+    production,
+    first.token,
+    `?${snapshotDeltaQuery}`,
+  );
 
   assert.equal(resumed.playerId, first.playerId);
   assert.equal(resumed.shipId, first.shipId);

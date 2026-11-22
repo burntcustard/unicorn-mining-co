@@ -1,6 +1,10 @@
 //! Docking bays, local motion, and station trade inventory.
 
 use std::collections::HashMap;
+use std::sync::Arc;
+
+use crate::replication::snapshot_writer::EntityReplication;
+use crate::replication::station_stock::StationStock;
 
 use crate::simulation::game_object::{GameObject, ObjectProperties};
 use crate::simulation::local_movement::MovementParent;
@@ -17,6 +21,9 @@ pub struct Station {
     pub docking_bays: Vec<f64>,
     pub z_index: i32,
     module_sellers: HashMap<i64, i64>,
+    pub(crate) marker_replication: Option<Box<EntityReplication>>,
+    pub(crate) craft_replication: Option<Box<EntityReplication>>,
+    pub(crate) stock_replication: Option<Arc<StationStock>>,
 }
 
 impl Station {
@@ -73,6 +80,9 @@ impl Station {
             docking_bays: spec.docking_bays.clone(),
             z_index: spec.z_index,
             module_sellers: HashMap::new(),
+            marker_replication: None,
+            craft_replication: None,
+            stock_replication: None,
         })
     }
 
@@ -107,7 +117,12 @@ impl Station {
         self.module_sellers.remove(&module);
     }
 
+    pub(crate) fn stock_changed(&mut self) {
+        self.stock_replication = None;
+    }
+
     pub fn end_trade_visit(&mut self, ship: i64) {
+        let count = self.craft.cargo_contents.len();
         self.craft.cargo_contents.retain(|object| {
             let id = object.id();
             if self.module_sellers.get(&id) == Some(&ship) {
@@ -117,6 +132,9 @@ impl Station {
                 true
             }
         });
+        if self.craft.cargo_contents.len() != count {
+            self.stock_changed();
+        }
     }
 }
 

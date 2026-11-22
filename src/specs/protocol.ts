@@ -79,6 +79,7 @@ export const binaryFieldIds = {
   blockedBeams: 45,
   hostile: 46,
   npcState: 47,
+  stationMarker: 48,
   packedPosition: 54,
   packedVelocity: 55,
   packedRotation: 56,

@@ -2,8 +2,6 @@ import { renderingLayers, type RenderingLayer } from '../rendering-layers';
 import { rotatePoints } from '../geometry';
 import { colors } from '../colors';
 import type { StationSpec } from './types';
-import { shipSpecsById, stationShipIds } from '../ships';
-import { moduleIds, moduleSpecList } from '../modules';
 
 type ShapeOutline = number[][];
 
@@ -157,22 +155,6 @@ export const createCorral = ({
 
   return {
     name: `Corral-${sideCount}`,
-    shipsForSale: stationShipIds.map((ship) => {
-      const spec = shipSpecsById.get(ship)!;
-
-      return {
-        ship,
-        price:
-          spec.price +
-          spec.initialLoadout.reduce(
-            (sum, entry) =>
-              sum +
-              (moduleSpecList[moduleIds.indexOf(entry.module)].price ?? 0),
-            0,
-          ),
-      };
-    }),
-    initialCargoContents: [{ item: 'autogunAmmo', count: 300 }],
     dockingBays: baySides.map((index) => angles[index]),
     ...specification,
     hullSegments: [

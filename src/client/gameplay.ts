@@ -254,7 +254,10 @@ const materialize = ({ entity }: { entity: SimulationObject }) => {
 const refreshReplication = () => {
   const entities = [...network.world.entities.values()];
 
-  stationMarkers = entities.filter((entity) => entity instanceof Station);
+  stationMarkers = [
+    ...entities.filter((entity) => entity instanceof Station),
+    ...network.stationMarkers.values(),
+  ];
   const wanted = new Set(entities.map(({ id }) => id));
 
   entities.forEach((entity) => {
@@ -698,6 +701,7 @@ const gameLoop = GameLoop({
         mapReady: network.mapReady,
         target: targeting.target,
         objects: game.sprites,
+        stationMarkers: network.stationMarkers,
         asteroidPositions: network.asteroidPositions,
         mapMarkers: network.mapMarkers,
         poses: remotePoses,
@@ -719,7 +723,7 @@ const gameLoop = GameLoop({
     }
 
     telemetry.update({
-      now: performance.now(),
+      now,
       readPresentation: () => {
         const transform = new DOMMatrix()
           .scale(scale, scale)

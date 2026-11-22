@@ -20,6 +20,7 @@ pub struct BinaryFields {
     pub packed_rotation: i32,
     pub packed_spin: i32,
     pub npc_state: i32,
+    pub station_marker: i32,
     pub hostile: i32,
     pub blocked_beams: i32,
     pub target_label: i32,

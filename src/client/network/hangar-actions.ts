@@ -1,10 +1,10 @@
 import { type HangarAction } from '../protocol/network';
-import { type StationSpec } from '../../specs/stations/types';
+import { type ShipOffer } from '../../specs/stations/types';
 
 export const hangarState = {
   busy: false,
   error: '',
-  shipsForSale: undefined as StationSpec['shipsForSale'] | undefined,
+  shipsForSale: undefined as ShipOffer[] | undefined,
 };
 
 let dispatch: (action: HangarAction) => void = () => {

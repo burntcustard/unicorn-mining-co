@@ -97,7 +97,7 @@ pub(super) fn upgrade_key(request: &Request, production: bool) -> Option<HeaderV
         || request
             .uri()
             .query()
-            .is_some_and(|query| query != SNAPSHOT_DELTA_QUERY)
+            .is_some_and(|query| !matches!(query, SNAPSHOT_DELTA_QUERY | STATION_REPLICATION_QUERY))
         || !has_token(header_value(headers, header::CONNECTION), "upgrade")
         || !has_token(header_value(headers, header::UPGRADE), "websocket")
         || header_value(headers, header::SEC_WEBSOCKET_VERSION) != "13"
@@ -132,7 +132,9 @@ where
             .into_response();
     }
 
-    let snapshot_deltas = request.uri().query() == Some(SNAPSHOT_DELTA_QUERY);
+    let query = request.uri().query();
+    let station_replication = query == Some(STATION_REPLICATION_QUERY);
+    let snapshot_deltas = station_replication || query == Some(SNAPSHOT_DELTA_QUERY);
     let upgraded = hyper::upgrade::on(&mut request);
     tokio::spawn(async move {
         if let Ok(upgraded) = upgraded.await {
@@ -145,6 +147,7 @@ where
             };
             let (mut socket, outbound) = WebSocket::new(direct, PACKET_QUEUE_CAPACITY);
             socket.snapshot_deltas = snapshot_deltas;
+            socket.station_replication = station_replication;
             let pump = tokio::spawn(write_pump(socket.clone(), outbound, write));
 
             connected(socket.clone(), WebSocketReader::new(socket.clone(), read)).await;
