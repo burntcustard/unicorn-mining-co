@@ -25,7 +25,8 @@ class TestWebSocket {
     this.sent.push(data);
   }
 
-  close(code = 1006) {
+  close(code = 1000) {
+    assert(code === 1000 || (code >= 3000 && code <= 4999));
     this.closed.push(code);
     this.onclose?.({ code, reason: '' });
   }
@@ -248,7 +249,7 @@ for (const production of [false, true]) {
   const rejectedSocket = sockets.at(-1)!;
 
   assert.equal(rejectedSocket.url, `${socketUrl}?${snapshotDeltaQuery}`);
-  rejectedSocket.close();
+  rejectedSocket.onclose!({ code: 1006, reason: '' });
   assert.equal(sockets.at(-1)!.url, socketUrl);
   assert.notEqual(sockets.at(-1), rejectedSocket);
 
@@ -286,9 +287,12 @@ for (const production of [false, true]) {
     console.error = previousError;
   }
 
-  assert.deepEqual(socket.closed, [1007]);
+  assert.deepEqual(socket.closed, [4004]);
+  assert.equal(status.textContent, 'CONNECTION LOST - RETRYING...');
+  timers.get(nextTimer)!();
+  assert.notEqual(sockets.at(-1), socket);
+  assert.equal(sockets.at(-1)!.url, socket.url);
 
-  connect();
   const timeout = timers.get(nextTimer)!;
 
   timeout();

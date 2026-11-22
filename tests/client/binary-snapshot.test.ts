@@ -10,6 +10,7 @@ import {
   decodeServerControl,
 } from '../../src/client/protocol/binary-control';
 import { colors, paintColors } from '../../src/specs/colors';
+import { moduleIds } from '../../src/specs/modules';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
 import { maxPredictionTicks } from '../../src/specs/prediction';
 import { simulationStep } from '../../src/specs/simulation';
@@ -709,7 +710,7 @@ socket.onmessage?.({
   }),
 });
 
-assert.deepEqual(socket.closed, [1007], 'JSON snapshots are rejected');
+assert.deepEqual(socket.closed, [4004], 'JSON snapshots are rejected');
 assert.equal(authoritative.get(2)?.name, '');
 
 // A restored load must seed keyboard toggles before the first predicted input.
@@ -922,12 +923,37 @@ for (const ahead of [0, 1]) {
   assert.equal(client.world.tick, future);
 }
 
-const malformedClient = new NetworkClient({ url: 'ws://malformed-test' });
-const malformedSocket = Socket.sockets.at(-1)!;
+for (const type of [moduleIds.length - 1, -1, moduleIds.length]) {
+  const writer = new Writer();
 
-void malformedClient;
-malformedSocket.onmessage?.({ data: Uint8Array.of(0) });
-assert.deepEqual(malformedSocket.closed, [1007]);
+  writer.bytes.push(0x55, 0x4d, 1, 128 | 16, 4, 1, 3, 1); // stock extension and snapshot sequence
+  writer.bytes.push(1, 1, 0, 1); // station 1 replaces its stock with one entry
+  writer.bytes.push(1, 2, 1); // module entry, one full module with an ID
+  writer.unsigned(type < 0 ? -2 * type - 1 : 2 * type);
+  writer.bytes.push(1, 4, 0, 0); // mount -1, ID 2, no segments or entity records
+
+  const packet = writer.packet();
+
+  if (type === moduleIds.length - 1) {
+    const entry = decodeBinarySnapshot(packet).stationStock?.entries[0];
+
+    assert(entry && 'module' in entry);
+    assert.equal(entry.module.type, type);
+    continue;
+  }
+
+  assert.throws(() => decodeBinarySnapshot(packet), /Invalid binary snapshot/);
+  new NetworkClient({ url: 'ws://malformed-test' });
+  const malformedSocket = Socket.sockets.at(-1)!;
+
+  malformedSocket.onmessage?.({ data: packet });
+  assert.deepEqual(malformedSocket.closed, [4004]);
+  assert.deepEqual(
+    malformedSocket.sent,
+    [],
+    'invalid stock is not acknowledged',
+  );
+}
 
 console.log(
   'Binary snapshots decode, reconcile, acknowledge, and reject malformed packets',

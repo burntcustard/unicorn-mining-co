@@ -570,7 +570,7 @@ export class NetworkClient {
         // @ifdef DEBUG
         console.error('Could not process game server message:', error);
         // @endif
-        socket.close(1007, 'Invalid server message');
+        socket.close(4004, 'Invalid server message');
       }
     };
 

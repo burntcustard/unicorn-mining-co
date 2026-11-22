@@ -1,5 +1,6 @@
 import * as Vec from '../utilities/vector';
 import { colors } from '../../specs/colors';
+import { moduleIds } from '../../specs/modules';
 import type {
   ReplicatedEntity,
   ServerMessage,
@@ -825,11 +826,13 @@ export function decodeBinarySnapshot(
         if (item.kind !== 'item' || !item.position) return fail();
         entries.push(item);
       } else if (tag === 1) {
-        const [module, ...extra] = modules(false);
+        const stockModules = modules(false);
+        const [module] = stockModules;
 
         if (
-          !module ||
-          extra.length ||
+          stockModules.length !== 1 ||
+          module.type < 0 ||
+          module.type >= moduleIds.length ||
           module.id === undefined ||
           module.mount !== -1
         ) {
