@@ -240,3 +240,10 @@ pub(super) fn equal_name(left: &str, right: &str) -> bool {
         left.chars().map(fold).eq(right.chars().map(fold))
     }
 }
+
+/// Produce the shared representation for indexed display name lookup.
+pub(crate) fn name_key(name: &str) -> String {
+    name.chars()
+        .map(|value| char::from_u32(fold(value)).expect("simple case fold is a Unicode scalar"))
+        .collect()
+}

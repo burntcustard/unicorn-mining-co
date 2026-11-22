@@ -121,6 +121,112 @@ fn saves_one_transaction_and_preserves_generated_tombstones() {
 }
 
 #[test]
+fn initializes_an_empty_file_and_keeps_profile_indexes_current() {
+    let directory = TestDirectory::new();
+    let path = directory.0.join("world.sqlite");
+    fs::File::create(&path).unwrap();
+    let mut store = Store::open(&path).unwrap();
+    let mut initial = batch(1);
+    for (id, name, role) in [
+        ("a", "BurntCuſtard", PlayerRole::Owner),
+        ("b", "BURNTCUSTARD", PlayerRole::User),
+        ("c", "burntcustard", PlayerRole::Admin),
+        ("d", "", PlayerRole::User),
+    ] {
+        let mut account = player();
+        account.id = id.to_owned();
+        account.display_name = name.to_owned();
+        account.role = role;
+        initial.players.push(account);
+    }
+    store.save(&initial).unwrap();
+
+    let reader = store.account_reader().unwrap();
+    assert_eq!(
+        reader.player::<String>("a").unwrap().unwrap().ship,
+        "mustang"
+    );
+    assert!(reader.has_owner().unwrap());
+    let mut matches = reader
+        .matching_profiles("BuRnTcUsTaRd", |id| id != "a")
+        .unwrap();
+    matches.sort_by(|left, right| left.0.cmp(&right.0));
+    assert_eq!(
+        matches,
+        [
+            ("b".to_owned(), PlayerRole::User),
+            ("c".to_owned(), PlayerRole::Admin)
+        ]
+    );
+    assert!(reader.matching_profiles("", |_| true).unwrap().is_empty());
+
+    for (query, values, expected_index) in [
+        (
+            PROFILE_LOOKUP,
+            &["burntcustard"][..],
+            "players_display_name_key",
+        ),
+        (OWNER_LOOKUP, &[][..], "players_owner"),
+    ] {
+        let details: Vec<String> = reader
+            .connection
+            .prepare(&format!("EXPLAIN QUERY PLAN {query}"))
+            .unwrap()
+            .query_map(rusqlite::params_from_iter(values), |row| row.get(3))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert!(details.iter().any(|line| line.contains(expected_index)));
+    }
+
+    let mut renamed = batch(2);
+    let mut account = player();
+    account.display_name = "burntcustard".to_owned();
+    account.role = PlayerRole::User;
+    renamed.players.push(account);
+    store.save(&renamed).unwrap();
+    assert_eq!(
+        reader
+            .matching_profiles("BURNTCUſTARD", |id| id == "a")
+            .unwrap(),
+        [("a".to_owned(), PlayerRole::User)]
+    );
+    assert!(!reader.has_owner().unwrap());
+    renamed.players[0].display_name = "AceΩ".to_owned();
+    store.save(&renamed).unwrap();
+    assert!(
+        reader
+            .matching_profiles("burntcustard", |id| id == "a")
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        reader.matching_profiles("ACEω", |_| true).unwrap(),
+        [("a".to_owned(), PlayerRole::User)]
+    );
+    drop(reader);
+    drop(store);
+
+    let maintenance = Connection::open(&path).unwrap();
+    maintenance
+        .execute("UPDATE players SET display_name='Straße' WHERE id='b'", [])
+        .unwrap();
+    drop(maintenance);
+    let store = Store::open(&path).unwrap();
+    let reader = store.account_reader().unwrap();
+    assert_eq!(
+        reader.matching_profiles("STRAẞE", |_| true).unwrap(),
+        [("b".to_owned(), PlayerRole::User)]
+    );
+    assert!(
+        reader
+            .matching_profiles("STRASSE", |_| true)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
 fn writer_drains_and_online_backup_survives_reset() {
     let directory = TestDirectory::new();
     let path = directory.0.join("world.sqlite");

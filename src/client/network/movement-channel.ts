@@ -80,7 +80,9 @@ export class MovementChannel {
       channel.onclose = channel.onerror = () => this.close();
 
       channel.onmessage = ({ data }) => {
-        if (data instanceof ArrayBuffer) receiveMovement(readMovement(data));
+        if (!this.gathering.signal.aborted && data instanceof ArrayBuffer) {
+          receiveMovement(readMovement(data));
+        }
       };
 
       this.peer.onconnectionstatechange = () => {

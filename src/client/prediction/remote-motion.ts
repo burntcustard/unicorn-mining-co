@@ -1,4 +1,5 @@
 import * as Vec from '../utilities/vector';
+import { maxPredictionTicks } from '../../specs/prediction';
 import { simulationStep } from '../../specs/simulation';
 import { type SimulationWorld } from '../simulation/world';
 import { type Pose } from '../types';
@@ -24,15 +25,32 @@ export class RemoteMotion {
   private pendingMovement = new Map<number, ReceivedMovement>();
   private movement = new Map<number, ProjectedMovement>();
   private lastMovementTick = -1;
+  private movementTickLimit = 0;
 
   get hasMovement() {
     return this.pendingMovement.size > 0 || this.movement.size > 0;
   }
 
-  receiveMovement(samples: ShipMovement[], now = performance.now()) {
+  receiveMovement({
+    samples,
+    serverTick,
+    worldTick,
+    now = performance.now(),
+  }: {
+    samples: ShipMovement[];
+    serverTick: number;
+    worldTick: number;
+    now?: number;
+  }) {
     const tick = samples[0]?.tick;
 
-    if (tick === undefined || tick <= this.lastMovementTick) return;
+    if (
+      tick === undefined ||
+      tick <= Math.max(serverTick, this.lastMovementTick) ||
+      tick > Math.min(worldTick + 1, serverTick + maxPredictionTicks)
+    ) {
+      return;
+    }
 
     this.lastMovementTick = tick;
 
@@ -56,9 +74,11 @@ export class RemoteMotion {
     serverTick: number;
     renderTick: number;
   }) {
+    this.movementTickLimit = serverTick + maxPredictionTicks;
+    const presentationTick = Math.min(renderTick, this.movementTickLimit);
     const fresh = (sample: ReceivedMovement) =>
       sample.tick > serverTick &&
-      sample.tick <= world.tick + 1 &&
+      sample.tick <= Math.min(world.tick + 1, this.movementTickLimit) &&
       world.tick - sample.tick <= 8 &&
       now - sample.receivedAt < movementTimeout;
     const ids = new Set([
@@ -91,7 +111,8 @@ export class RemoteMotion {
           ? {
               ...sample,
               startedAt: now,
-              elapsed: Math.max(0, (renderTick - sample.tick) * simulationStep),
+              elapsed:
+                Math.max(0, presentationTick - sample.tick) * simulationStep,
             }
           : undefined;
 
@@ -126,8 +147,11 @@ export class RemoteMotion {
   }
 
   private projectMovement(sample: ProjectedMovement, now: number) {
+    const maxElapsed =
+      Math.max(0, Math.min(5, this.movementTickLimit - sample.tick)) *
+      simulationStep;
     const elapsed = Math.min(
-      5 * simulationStep,
+      maxElapsed,
       sample.elapsed + Math.max(0, now - sample.startedAt) / 1000,
     );
 

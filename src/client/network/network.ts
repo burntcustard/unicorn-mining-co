@@ -582,16 +582,12 @@ export class NetworkClient {
                 }
               },
               receiveMovement: (samples) => {
-                const tick = samples[0]?.tick;
-
-                if (
-                  this.socket === socket &&
-                  this.connected &&
-                  tick !== undefined &&
-                  tick > this.serverTick &&
-                  tick <= this.world.tick + 1
-                ) {
-                  this.remoteMotion.receiveMovement(samples);
+                if (this.socket === socket && this.connected) {
+                  this.remoteMotion.receiveMovement({
+                    samples,
+                    serverTick: this.serverTick,
+                    worldTick: this.world.tick,
+                  });
                 }
               },
             });
@@ -781,7 +777,10 @@ export class NetworkClient {
     if (!this.connected) return this.world;
 
     return this.prediction.predictFrame({
-      elapsed: (now - this.inputTickStartedAt) / 1000,
+      elapsed:
+        this.world.tick < this.serverTick + maxPredictionTicks
+          ? (now - this.inputTickStartedAt) / 1000
+          : 0,
     });
   }
 

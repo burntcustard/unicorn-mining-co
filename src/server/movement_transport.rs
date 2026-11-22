@@ -14,6 +14,7 @@ use str0m::{Candidate, Event, Input, Output, Rtc};
 use tokio::net::UdpSocket;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::LocalSet;
+use tokio_util::sync::CancellationToken;
 
 pub(crate) const MOVEMENT_SHIP_LIMIT: usize = 6;
 const MOVEMENT_RECORD_BYTES: usize = 32;
@@ -55,6 +56,7 @@ enum Command {
         id: u64,
         offer: SdpOffer,
         state: Weak<PeerState>,
+        cancellation: CancellationToken,
         answer: oneshot::Sender<io::Result<String>>,
     },
     Ready(u64),
@@ -82,7 +84,14 @@ impl MovementTransport {
         })
     }
 
-    pub(crate) async fn offer(&self, offer: String) -> io::Result<(String, MovementSender)> {
+    pub(crate) async fn offer(
+        &self,
+        offer: String,
+        cancellation: CancellationToken,
+    ) -> io::Result<(String, MovementSender)> {
+        if cancellation.is_cancelled() {
+            return Err(io::ErrorKind::Interrupted.into());
+        }
         let mut media = offer.lines().filter(|line| line.starts_with("m="));
         if !media
             .next()
@@ -104,13 +113,15 @@ impl MovementTransport {
                 id,
                 offer,
                 state: Arc::downgrade(&sender.state),
+                cancellation: cancellation.clone(),
                 answer,
             })
             .map_err(|_| io::ErrorKind::WouldBlock)?;
-        Ok((
-            response.await.map_err(|_| io::ErrorKind::BrokenPipe)??,
-            sender,
-        ))
+        tokio::select! {
+            biased;
+            () = cancellation.cancelled() => Err(io::ErrorKind::Interrupted.into()),
+            answer = response => Ok((answer.map_err(|_| io::ErrorKind::BrokenPipe)??, sender)),
+        }
     }
 }
 
@@ -155,6 +166,7 @@ struct Peer {
     rtc: Rtc,
     channel: Option<ChannelId>,
     state: Weak<PeerState>,
+    cancellation: CancellationToken,
     timeout: Instant,
     expires: Instant,
     waiting_to_send: bool,
@@ -165,6 +177,7 @@ impl Peer {
         candidate: Candidate,
         offer: SdpOffer,
         state: Weak<PeerState>,
+        cancellation: CancellationToken,
     ) -> io::Result<(Self, String)> {
         let now = Instant::now();
         let mut rtc = Rtc::builder()
@@ -178,6 +191,7 @@ impl Peer {
             rtc,
             channel: None,
             state,
+            cancellation,
             timeout: now,
             expires: now + OFFER_TIMEOUT,
             waiting_to_send: false,
@@ -191,6 +205,10 @@ impl Peer {
         } else {
             self.timeout
         }
+    }
+
+    fn abandoned(&self) -> bool {
+        self.cancellation.is_cancelled() || self.state.strong_count() == 0
     }
 
     fn write_latest(&mut self) -> bool {
@@ -219,6 +237,9 @@ impl Peer {
     }
 
     fn flush(&mut self, socket: &UdpSocket) -> bool {
+        if self.cancellation.is_cancelled() {
+            return false;
+        }
         while self.rtc.is_alive() {
             match self.rtc.poll_output() {
                 Ok(Output::Transmit(packet)) => {
@@ -260,7 +281,7 @@ impl Peer {
                 Ok(Output::Event(_)) => {}
                 Ok(Output::Timeout(timeout)) => {
                     self.timeout = timeout;
-                    return self.state.strong_count() != 0;
+                    return !self.abandoned();
                 }
             }
         }
@@ -309,15 +330,23 @@ async fn run(
                 if count == 0 { return; }
                 for command in pending.drain(..) {
                     match command {
-                        Command::Offer { id, offer, state, answer } => {
-                            if answer.is_closed() {
+                        Command::Offer { id, offer, state, cancellation, answer } => {
+                            if cancellation.is_cancelled() || answer.is_closed() {
                                 continue;
+                            }
+                            if peers.len() >= MAX_OFFERS {
+                                peers.retain(|_, peer| !peer.abandoned());
+                                routes.retain(|_, id| peers.contains_key(id));
                             }
                             if peers.len() >= MAX_OFFERS {
                                 let _ = answer.send(Err(io::ErrorKind::WouldBlock.into()));
                                 continue;
                             }
-                            let result = Peer::new(candidate.clone(), offer, state).map(|(peer, sdp)| {
+                            let result = Peer::new(candidate.clone(), offer, state, cancellation.clone());
+                            if cancellation.is_cancelled() {
+                                continue;
+                            }
+                            let result = result.map(|(peer, sdp)| {
                                 peers.insert(id, peer);
                                 sdp
                             });
@@ -363,7 +392,8 @@ async fn run(
                 due.extend(peers.iter().filter_map(|(&id, peer)| (peer.deadline() <= now).then_some(id)));
                 for id in due.drain(..) {
                     if let Some(peer) = peers.get_mut(&id)
-                        && (peer.channel.is_none() && peer.expires <= now
+                        && (peer.abandoned()
+                            || peer.channel.is_none() && peer.expires <= now
                             || peer.rtc.handle_input(Input::Timeout(now)).is_err()
                             || !peer.flush(&socket))
                     {
@@ -378,4 +408,45 @@ async fn run(
 fn remove(peers: &mut HashMap<u64, Peer>, routes: &mut HashMap<SocketAddr, u64>, id: u64) {
     peers.remove(&id);
     routes.retain(|_, peer| *peer != id);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn closing_the_socket_cancels_an_unprocessed_offer() {
+        let (commands, mut queue) = mpsc::channel(2);
+        let transport = MovementTransport {
+            commands,
+            next_peer: Arc::default(),
+        };
+        let mut browser = Rtc::new(Instant::now());
+        let mut changes = browser.sdp_api();
+        changes.add_channel("movement".into());
+        let (offer, _) = changes.apply().unwrap();
+        let cancellation = CancellationToken::new();
+        let task = tokio::spawn({
+            let cancellation = cancellation.clone();
+            async move { transport.offer(offer.to_sdp_string(), cancellation).await }
+        });
+        let Some(Command::Offer {
+            state,
+            cancellation: queued,
+            answer,
+            ..
+        }) = queue.recv().await
+        else {
+            panic!("expected a pending offer");
+        };
+
+        cancellation.cancel();
+
+        assert!(
+            matches!(task.await.unwrap(), Err(error) if error.kind() == io::ErrorKind::Interrupted)
+        );
+        assert!(queued.is_cancelled());
+        assert!(answer.is_closed());
+        assert_eq!(state.strong_count(), 0);
+    }
 }

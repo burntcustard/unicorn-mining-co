@@ -769,6 +769,13 @@ installExampleModules();
     velocity: Vec.create(),
   };
 
+  const receive = (
+    samples: (typeof movement)[],
+    now: number,
+    serverTick = 39,
+  ) =>
+    motion.receiveMovement({ samples, serverTick, worldTick: world.tick, now });
+
   const present = (now: number, serverTick = 39) => {
     motion.updateMovement({
       now,
@@ -782,7 +789,7 @@ installExampleModules();
     return motion.sample({ now, world });
   };
 
-  motion.receiveMovement([movement, { ...movement, id: local.id }], 0);
+  receive([movement, { ...movement, id: local.id }], 0);
   assert.deepEqual(present(0).get(remote.id)?.position, remote.position);
   const moving = present(100);
 
@@ -794,10 +801,7 @@ installExampleModules();
     'the movement lane is presentation only',
   );
 
-  motion.receiveMovement(
-    [{ ...movement, tick: 39, position: Vec.create() }],
-    100,
-  );
+  receive([{ ...movement, tick: 39, position: Vec.create() }], 100);
   assert.deepEqual(
     present(100),
     moving,
@@ -806,12 +810,78 @@ installExampleModules();
   assert.deepEqual(present(100, 40), moving, 'snapshot fallback is continuous');
   assert(present(200, 40).get(remote.id)!.position.x < 201);
 
-  motion.receiveMovement([movement], 210);
+  receive([movement], 210);
   assert(!motion.hasMovement, 'expiry retains the newest datagram tick');
 
   world.entities.delete(remote.id);
-  motion.receiveMovement([{ ...movement, tick: 41 }], 210);
+  receive([{ ...movement, tick: 41 }], 210, 40);
   assert(!present(210, 40).has(remote.id), 'a datagram cannot restore a ship');
+}
+
+{
+  const world = createWorld();
+  const ship = addEntity(
+    world,
+    createPlayerShip(world, { playerId: 2, position: Vec.create(200) }),
+  );
+  const motion = new RemoteMotion();
+  const serverTick = 100;
+  const limit = serverTick + maxPredictionTicks;
+
+  const movement = {
+    id: ship.id,
+    position: Vec.create(199),
+    rotation: -0.05,
+    velocity: Vec.create(60),
+    spin: 3,
+    tick: limit - 1,
+  };
+
+  const receive = (sample: typeof movement, now: number) =>
+    motion.receiveMovement({
+      samples: [sample],
+      serverTick,
+      worldTick: world.tick,
+      now,
+    });
+
+  const present = (now: number, renderTick: number) => {
+    motion.updateMovement({
+      now,
+      world,
+      predicted: world,
+      serverTick,
+      renderTick,
+    });
+
+    return motion.sample({ now, world }).get(ship.id)!;
+  };
+
+  world.tick = limit;
+  receive({ ...movement, tick: limit + 1 }, 0);
+  assert(
+    !motion.hasMovement,
+    'the extra input tick cannot admit a future pose',
+  );
+
+  world.tick = limit - 1;
+  receive(movement, 0);
+  assert(
+    motion.hasMovement,
+    'a rejected tick cannot advance the ordering watermark',
+  );
+  assert.equal(present(0, limit - 0.5).position.x, 200);
+
+  world.tick = limit;
+  const capped = present(80, limit + 1);
+
+  assert.equal(capped.position.x, 201);
+  assert.equal(capped.rotation, 0.05);
+  assert.deepEqual(present(100, limit + 1), capped);
+
+  receive({ ...movement, ...capped, tick: limit }, 100);
+  assert.deepEqual(present(100, limit + 0.5), capped);
+  assert.deepEqual(present(200, limit + 1), capped);
 }
 
 // Rendering predicts the unfinished tick, not the previous tick's pose.

@@ -457,9 +457,9 @@ impl ProfileRoster for AuthoritativeSession {
             .storage
             .as_ref()
             .map(|storage| {
-                storage.reader.matching_profiles(|token, display_name| {
-                    !self.tokens.contains_key(token) && equal_name(display_name, name)
-                })
+                storage
+                    .reader
+                    .matching_profiles(name, |token| !self.tokens.contains_key(token))
             })
             .transpose();
         let saved = match saved {
@@ -613,7 +613,7 @@ impl Session for AuthoritativeSession {
         }
     }
 
-    fn identity_preview(&mut self, private_id: &str) -> Option<serde_json::Value> {
+    fn identity_preview(&mut self, private_id: &str) -> io::Result<Option<serde_json::Value>> {
         use crate::objects::saved_ship::SavedShip;
 
         let (name, credits, ship) = if let Some(account) = self
@@ -621,14 +621,18 @@ impl Session for AuthoritativeSession {
             .get(private_id)
             .and_then(|id| self.accounts.get(id))
         {
-            let entity = account.hidden.as_ref().or_else(|| {
-                self.sectors[account.sector]
-                    .running
-                    .world
-                    .entity(account.ship_id)
-            })?;
+            let entity = account
+                .hidden
+                .as_ref()
+                .or_else(|| {
+                    self.sectors[account.sector]
+                        .running
+                        .world
+                        .entity(account.ship_id)
+                })
+                .ok_or_else(|| io::Error::other("player ship missing"))?;
             let EntityKind::Ship(ship) = &entity.model else {
-                return None;
+                return Err(io::Error::other("invalid player ship"));
             };
             (
                 account.name.clone(),
@@ -636,12 +640,16 @@ impl Session for AuthoritativeSession {
                 SavedShip::capture(ship, &self.catalog),
             )
         } else {
-            let saved = self
-                .storage
-                .as_ref()?
+            let Some(storage) = &self.storage else {
+                return Ok(None);
+            };
+            let Some(saved) = storage
                 .reader
                 .player::<SavedShip>(private_id)
-                .ok()??;
+                .map_err(io::Error::other)?
+            else {
+                return Ok(None);
+            };
             (saved.display_name, saved.credits, saved.ship)
         };
         let modules = ship
@@ -659,11 +667,11 @@ impl Session for AuthoritativeSession {
             })
             .collect::<Vec<_>>();
         let paint = ship.paint.map_or(-1, |paint| paint as i64);
-        Some(serde_json::json!([
+        Ok(Some(serde_json::json!([
             name,
             credits,
             [ship.definition, paint, ship.hull, modules]
-        ]))
+        ])))
     }
 
     fn shutdown(

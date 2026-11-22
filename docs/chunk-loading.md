@@ -47,4 +47,4 @@ The font remains preloaded by HTML.
 The browser tests verify menu loading triggers and exercise the real docking
 loader with separately emitted production-transformed chunks. Bundling both
 sides into one test file cannot validate that boundary. See the
-[browser test instructions](../README.md#browser-tests) for setup and commands.
+[browser test instructions](../.agents/skills/codebase-workflow/references/testing.md#browser-tests) for setup and commands.

@@ -53,7 +53,7 @@ pub trait Session: 'static {
     fn receive(&mut self, client: &Client, control: Control);
     fn disconnect(&mut self, client: &Client);
     fn tick(&mut self, ticks: u64);
-    fn identity_preview(&mut self, private_id: &str) -> Option<serde_json::Value>;
+    fn identity_preview(&mut self, private_id: &str) -> io::Result<Option<serde_json::Value>>;
     fn shutdown(&mut self, deadline: Instant) -> impl Future<Output = io::Result<()>> + Send;
 }
 
@@ -248,7 +248,7 @@ impl SocketEvent {
 
 struct IdentityRequest {
     private_id: String,
-    result: oneshot::Sender<Option<serde_json::Value>>,
+    result: oneshot::Sender<io::Result<Option<serde_json::Value>>>,
 }
 
 struct RequestState<F> {
@@ -366,12 +366,12 @@ async fn identity_response<F>(state: &RequestState<F>, request: Request) -> Resp
         result = result => result.ok(),
     };
     match result {
-        Some(Some(preview)) => {
+        Some(Ok(Some(preview))) => {
             let json = format!("{preview}\n");
             ([(header::CONTENT_TYPE, "application/json")], json).into_response()
         }
-        Some(None) => http_error(StatusCode::NOT_FOUND, "Unknown ID\n"),
-        None => http_error(StatusCode::SERVICE_UNAVAILABLE, "Server unavailable\n"),
+        Some(Ok(None)) => http_error(StatusCode::NOT_FOUND, "Unknown ID\n"),
+        Some(Err(_)) | None => http_error(StatusCode::SERVICE_UNAVAILABLE, "Server unavailable\n"),
     }
 }
 
@@ -382,6 +382,18 @@ struct ReadWindow {
 }
 
 impl ReadWindow {
+    fn count_message(&mut self, now: Instant) -> Result<(), (u16, &'static str)> {
+        if now - self.start >= MESSAGE_WINDOW {
+            self.start = now;
+            self.messages = 0;
+        }
+        self.messages += 1;
+        if self.messages > MAX_MESSAGES_PER_WINDOW {
+            return Err((1008, "Message limit"));
+        }
+        Ok(())
+    }
+
     fn control(
         &mut self,
         kind: MessageKind,
@@ -390,12 +402,8 @@ impl ReadWindow {
         protocol: &Protocol,
         step: f64,
     ) -> Result<Control, (u16, &'static str)> {
-        if now - self.start >= MESSAGE_WINDOW {
-            self.start = now;
-            self.messages = 0;
-        }
-        self.messages += 1;
-        if kind != MessageKind::Binary || self.messages > MAX_MESSAGES_PER_WINDOW {
+        self.count_message(now)?;
+        if kind != MessageKind::Binary {
             return Err((1008, "Message limit"));
         }
 
@@ -414,12 +422,13 @@ impl ReadWindow {
 async fn read_connection<F>(
     state: Arc<RequestState<F>>,
     _slot: OwnedSemaphorePermit,
-    socket: WebSocket,
+    mut socket: WebSocket,
     mut reader: WebSocketReader,
 ) where
     F: Send + Sync + 'static,
 {
     let id = ClientId(state.next_client.fetch_add(1, Ordering::Relaxed));
+    let movement_enabled = socket.configure_movement(state.movement.is_some());
     if !state
         .enqueue(SocketEvent::Connected(Client {
             id,
@@ -445,52 +454,54 @@ async fn read_connection<F>(
     };
     let mut bytes = Vec::new();
     let step = state.catalog.simulation.simulation_step;
-    let mut movement = state
-        .movement
-        .as_ref()
-        .filter(|_| socket.movement_requested());
-    let mut movement_advertised = false;
+    let mut movement = state.movement.as_ref();
     while let Ok((kind, payload)) = reader.read_message_into(&mut bytes).await {
-        if movement_advertised
-            && kind == MessageKind::Text
-            && payload.len() <= MAX_MOVEMENT_OFFER_BYTES
-            && let Ok(message) = std::str::from_utf8(payload)
-            && let Some(offer) = message.strip_prefix(MOVEMENT_SIGNAL_PREFIX)
-            && let Some(transport) = movement.take()
+        let now = Instant::now();
+        if kind == MessageKind::Text
+            && movement_enabled
+            && let Some(offer) = payload.strip_prefix(MOVEMENT_SIGNAL_PREFIX.as_bytes())
         {
-            let (transport, offer, socket) = (transport.clone(), offer.to_owned(), socket.clone());
-            tokio::spawn(async move {
-                if let Ok(Ok((answer, sender))) = timeout_at(
-                    Instant::now() + Duration::from_secs(2),
-                    transport.offer(offer),
-                )
-                .await
-                    && socket.is_open()
-                {
-                    socket.attach_movement(sender);
-                    let _ = socket.send_text(&format!("{MOVEMENT_SIGNAL_PREFIX}{answer}"));
-                }
-            });
+            if let Err((code, reason)) = window.count_message(now) {
+                socket.close_with(code, reason);
+                break;
+            }
+            if payload.len() <= MAX_MOVEMENT_OFFER_BYTES
+                && let Ok(offer) = std::str::from_utf8(offer)
+                && let Some(cancellation) = socket.movement_negotiation()
+                && let Some(transport) = movement.take()
+            {
+                let transport = transport.clone();
+                let offer = offer.to_owned();
+                let cancellation = cancellation.clone();
+                let socket = socket.clone();
+                tokio::spawn(async move {
+                    if let Ok(Ok((answer, sender))) = timeout_at(
+                        now + Duration::from_secs(2),
+                        transport.offer(offer, cancellation),
+                    )
+                    .await
+                        && socket.is_open()
+                    {
+                        socket.attach_movement(sender);
+                        let _ = socket.send_text(&format!("{MOVEMENT_SIGNAL_PREFIX}{answer}"));
+                    }
+                });
+            }
             continue;
         }
         let greeted = window.greeted;
-        let control =
-            match window.control(kind, payload, Instant::now(), &state.catalog.protocol, step) {
-                Ok(control) => control,
-                Err((code, reason)) => {
-                    socket.close_with(code, reason);
-                    break;
-                }
-            };
+        let control = match window.control(kind, payload, now, &state.catalog.protocol, step) {
+            Ok(control) => control,
+            Err((code, reason)) => {
+                socket.close_with(code, reason);
+                break;
+            }
+        };
         if !greeted && window.greeted {
             greeting.abort();
         }
-        let playing = matches!(control, Control::Hello { .. } | Control::Play);
         if !state.enqueue(SocketEvent::Control { id, control }).await {
             break;
-        }
-        if playing && window.greeted && !movement_advertised && movement.is_some() {
-            movement_advertised = socket.send_text("movement").is_ok();
         }
     }
     greeting.abort();
@@ -592,6 +603,9 @@ async fn run_session(
             }
             Some(request) = identities.recv() => {
                 let result = session.identity_preview(&request.private_id);
+                if let Err(error) = &result {
+                    eprintln!("read player identity: {error}");
+                }
                 let _ = request.result.send(result);
             }
             () = wake.notified() => {
@@ -853,13 +867,26 @@ mod tests {
             assert_eq!(request.private_id, "12345678-abcd-1234-1234-123456789abc");
             request
                 .result
-                .send(Some(serde_json::json!([
+                .send(Ok(Some(serde_json::json!([
                     "Pilot",
                     500,
                     ["mustang", -1, [], []]
-                ])))
+                ]))))
                 .unwrap();
-            requests.recv().await.unwrap().result.send(None).unwrap();
+            requests
+                .recv()
+                .await
+                .unwrap()
+                .result
+                .send(Ok(None))
+                .unwrap();
+            requests
+                .recv()
+                .await
+                .unwrap()
+                .result
+                .send(Err(io::Error::other("identity read failed")))
+                .unwrap();
         });
         let known_id = "  12345678-ABCD-1234-1234-123456789ABC\n";
         let response =
@@ -878,6 +905,11 @@ mod tests {
             handle_identity(&state, identity_request(Method::POST, known_id.into())).await;
         assert_eq!(unknown.status(), StatusCode::NOT_FOUND);
         assert_eq!(unknown.headers()[header::CACHE_CONTROL], "no-store");
+
+        let unavailable =
+            handle_identity(&state, identity_request(Method::POST, known_id.into())).await;
+        assert_eq!(unavailable.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(unavailable.headers()[header::CACHE_CONTROL], "no-store");
         respond.await.unwrap();
 
         state.stop.cancel();
@@ -894,10 +926,18 @@ mod tests {
         Shutdown,
     }
 
-    struct Recorder(mpsc::UnboundedSender<Call>);
+    struct Recorder(
+        mpsc::UnboundedSender<Call>,
+        Option<mpsc::UnboundedSender<WebSocket>>,
+    );
 
     impl Session for Recorder {
         fn receive(&mut self, client: &Client, control: Control) {
+            if matches!(control, Control::Hello { .. })
+                && let Some(sockets) = &self.1
+            {
+                sockets.send(client.socket.clone()).unwrap();
+            }
             self.0.send(Call::Receive(client.id, control)).unwrap();
         }
 
@@ -909,8 +949,8 @@ mod tests {
             self.0.send(Call::Tick(ticks)).unwrap();
         }
 
-        fn identity_preview(&mut self, _private_id: &str) -> Option<serde_json::Value> {
-            None
+        fn identity_preview(&mut self, _private_id: &str) -> io::Result<Option<serde_json::Value>> {
+            Ok(None)
         }
 
         async fn shutdown(&mut self, _deadline: Instant) -> io::Result<()> {
@@ -919,9 +959,15 @@ mod tests {
         }
     }
 
-    async fn masked_client_packet(socket: &mut TcpStream, packet: &[u8]) {
+    async fn masked_client_packet(socket: &mut TcpStream, opcode: u8, packet: &[u8]) {
         let mask = [1, 2, 3, 4];
-        let mut frame = vec![0x82, 0x80 | packet.len() as u8];
+        let mut frame = vec![0x80 | opcode];
+        if packet.len() < 126 {
+            frame.push(0x80 | packet.len() as u8);
+        } else {
+            frame.push(0x80 | 126);
+            frame.extend_from_slice(&(packet.len() as u16).to_be_bytes());
+        }
         frame.extend_from_slice(&mask);
         frame.extend(
             packet
@@ -930,6 +976,31 @@ mod tests {
                 .map(|(index, byte)| byte ^ mask[index & 3]),
         );
         socket.write_all(&frame).await.unwrap();
+    }
+
+    async fn open_test_socket(server: &GameServer, path: &str) -> BufReader<TcpStream> {
+        let connection = TcpStream::connect(server.local_addr()).await.unwrap();
+        let mut client = BufReader::new(connection);
+        let request = format!(
+            "GET {path} HTTP/1.1\r\nHost: example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nOrigin: https://example.com\r\n\r\n"
+        );
+        client
+            .get_mut()
+            .write_all(request.as_bytes())
+            .await
+            .unwrap();
+
+        let mut line = String::new();
+        client.read_line(&mut line).await.unwrap();
+        assert!(line.contains("101 Switching Protocols"), "{line}");
+        loop {
+            line.clear();
+            assert_ne!(client.read_line(&mut line).await.unwrap(), 0);
+            if line == "\r\n" {
+                break;
+            }
+        }
+        client
     }
 
     #[tokio::test]
@@ -943,7 +1014,7 @@ mod tests {
         let server = GameServer::start(
             listener,
             Router::new(),
-            Recorder(observe),
+            Recorder(observe, None),
             Arc::clone(&catalog),
             ServerOptions {
                 production: true,
@@ -953,25 +1024,10 @@ mod tests {
         )
         .unwrap();
 
-        let connection = TcpStream::connect(server.local_addr()).await.unwrap();
-        let mut client = BufReader::new(connection);
-        client.get_mut().write_all(b"GET /game-socket HTTP/1.1\r\nHost: example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nOrigin: https://example.com\r\n\r\n").await.unwrap();
-
         let deadline = Duration::from_secs(2);
-        timeout(deadline, async {
-            let mut line = String::new();
-            client.read_line(&mut line).await.unwrap();
-            assert!(line.contains("101 Switching Protocols"), "{line}");
-            loop {
-                line.clear();
-                assert_ne!(client.read_line(&mut line).await.unwrap(), 0);
-                if line == "\r\n" {
-                    break;
-                }
-            }
-        })
-        .await
-        .unwrap();
+        let mut client = timeout(deadline, open_test_socket(&server, "/game-socket"))
+            .await
+            .unwrap();
 
         let id = ClientId(1);
         let control_id = |name| catalog.protocol.control_message_ids[name] as u8;
@@ -979,15 +1035,15 @@ mod tests {
         let input = [0x55, 0x43, 1, control_id("input"), 7, 8, 0, 0, 0];
         let ack = [0x55, 0x43, 1, control_id("snapshotAck"), 9];
         let activity = [0x55, 0x43, 1, control_id("activity")];
-        masked_client_packet(client.get_mut(), &hello).await;
+        masked_client_packet(client.get_mut(), 2, &hello).await;
         assert_eq!(
             timeout(deadline, observed.recv()).await.unwrap(),
             Some(Call::Receive(id, Control::Hello { player_token: None })),
         );
 
-        masked_client_packet(client.get_mut(), &input).await;
-        masked_client_packet(client.get_mut(), &ack).await;
-        masked_client_packet(client.get_mut(), &activity).await;
+        masked_client_packet(client.get_mut(), 2, &input).await;
+        masked_client_packet(client.get_mut(), 2, &ack).await;
+        masked_client_packet(client.get_mut(), 2, &activity).await;
         for packet in [input.as_slice(), ack.as_slice(), activity.as_slice()] {
             let expected = decode_client_control(packet, &catalog.protocol, 30.0).unwrap();
             assert_eq!(
@@ -996,7 +1052,7 @@ mod tests {
             );
         }
 
-        masked_client_packet(client.get_mut(), &hello).await;
+        masked_client_packet(client.get_mut(), 2, &hello).await;
         let mut close = [0; 18];
         timeout(deadline, client.read_exact(&mut close))
             .await
@@ -1009,5 +1065,91 @@ mod tests {
         );
         server.stop(Instant::now() + deadline).await.unwrap();
         assert_eq!(observed.recv().await, Some(Call::Shutdown));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires opening loopback TCP and UDP sockets"]
+    async fn movement_waits_for_session_authorization() {
+        let local = tokio::task::LocalSet::new();
+        let loopback = "127.0.0.1:0".parse().unwrap();
+
+        let deadline = Duration::from_secs(3);
+        timeout(
+            deadline,
+            local.run_until(async {
+                let movement = MovementTransport::start(&local, loopback, loopback)
+                    .await
+                    .unwrap();
+                let listener = TcpListener::bind(loopback).await.unwrap();
+                let mut catalog = Catalog::load().unwrap();
+                catalog.simulation.simulation_step = 30.0;
+                let catalog = Arc::new(catalog);
+                let (observe, mut observed) = mpsc::unbounded_channel();
+                let (greeted, mut sockets) = mpsc::unbounded_channel();
+                let server = GameServer::start(
+                    listener,
+                    Router::new(),
+                    Recorder(observe, Some(greeted)),
+                    Arc::clone(&catalog),
+                    ServerOptions {
+                        production: true,
+                        storage_available: || true,
+                        movement: Some(movement),
+                    },
+                )
+                .unwrap();
+
+                let control_id = |name| catalog.protocol.control_message_ids[name] as u8;
+                let hello = [0x55, 0x43, 1, control_id("hello"), 0];
+                let activity = [0x55, 0x43, 1, control_id("activity")];
+                let mut browser = str0m::Rtc::new(std::time::Instant::now());
+                let mut changes = browser.sdp_api();
+                changes.add_channel("movement".into());
+                let (offer, _) = changes.apply().unwrap();
+                let offer = format!("{MOVEMENT_SIGNAL_PREFIX}{}", offer.to_sdp_string());
+
+                for authorized in [false, true] {
+                    let mut client =
+                        open_test_socket(&server, "/game-socket?snapshotDeltas=1&movement=1").await;
+                    masked_client_packet(client.get_mut(), 2, &hello).await;
+                    masked_client_packet(client.get_mut(), 1, offer.as_bytes()).await;
+                    masked_client_packet(client.get_mut(), 2, &activity).await;
+                    let socket = sockets.recv().await.unwrap();
+                    assert!(matches!(
+                        observed.recv().await,
+                        Some(Call::Receive(_, Control::Hello { .. }))
+                    ));
+                    assert!(matches!(
+                        observed.recv().await,
+                        Some(Call::Receive(_, Control::Activity))
+                    ));
+
+                    if authorized {
+                        socket.advertise_movement();
+                        let mut advertisement = [0; 10];
+                        client.read_exact(&mut advertisement).await.unwrap();
+                        assert_eq!(&advertisement, b"\x81\x08movement");
+                        masked_client_packet(client.get_mut(), 1, offer.as_bytes()).await;
+                        assert_eq!(client.read_u8().await.unwrap(), 0x81);
+                        assert_eq!(client.read_u8().await.unwrap(), 126);
+                        let length = usize::from(client.read_u16().await.unwrap());
+                        let mut answer = vec![0; length];
+                        client.read_exact(&mut answer).await.unwrap();
+                        assert!(answer.starts_with(b"movement\nv=0\r\n"));
+                    } else {
+                        socket.close_with(4003, "Banned");
+                        let mut close = [0; 10];
+                        client.read_exact(&mut close).await.unwrap();
+                        assert_eq!(&close, b"\x88\x08\x0f\xa3Banned");
+                    }
+
+                    drop(client);
+                    assert!(matches!(observed.recv().await, Some(Call::Disconnect(_))));
+                }
+                server.stop(Instant::now() + deadline).await.unwrap();
+            }),
+        )
+        .await
+        .unwrap();
     }
 }

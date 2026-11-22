@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import WebSocket from 'ws';
+import { autogunAmmo } from '../src/specs/items/autogun-ammo';
 import { corralShipOffers } from '../src/specs/stations/market';
 import {
   bindingEntries,
@@ -1677,8 +1678,8 @@ checkUi: try {
     );
     await pressKey('Escape');
     await waitFor(
-      `!document.querySelector('.hud-overlay').hidden && !document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry').getClientRects().length > 0`,
-      'resuming restores enabled telemetry without toggling it again',
+      `!document.querySelector('.hud-overlay').hidden && !document.querySelector('.hud-telemetry').hidden && document.querySelector('.hud-telemetry').getClientRects().length > 0 && document.querySelector('.chat-panel:not([hidden])')`,
+      'resuming restores chat and enabled telemetry without toggling it again',
     );
     await pressKey('v', { repeat: true });
     assert(
@@ -6084,7 +6085,7 @@ checkUi: try {
 
   assert(
     await check(
-      `!document.querySelector('[data-command="BUY_AMMO"]').hidden && document.querySelector('[data-ammo-price]').textContent === '2$'`,
+      `!document.querySelector('[data-command="BUY_AMMO"]').hidden && document.querySelector('[data-ammo-price]').textContent === '${autogunAmmo.price}$'`,
     ),
     'an ammunition-consuming module offers its stocked ammunition at the pack price',
   );
@@ -6092,12 +6093,12 @@ checkUi: try {
   await pressKey('Enter');
   assert.deepEqual(
     await check(`fixture.inspect().slice(0, 3)`),
-    [beforeAmmo[0] - 2, beforeAmmo[1] + 1, true],
+    [beforeAmmo[0] - autogunAmmo.price, beforeAmmo[1] + 1, true],
     'buying ammunition from the module card charges for one cargo pack and keeps the module fitted',
   );
   assert(
     await check(
-      `document.querySelector('[data-title]').textContent === 'Autogun (AMMO:200)'`,
+      `document.querySelector('[data-title]').textContent === 'Autogun (AMMO:${autogunAmmo.rounds})'`,
     ),
     'buying ammunition keeps the selected module card open',
   );
@@ -7127,10 +7128,12 @@ checkUi: try {
     ),
     'a fitted cannon offers its ammunition',
   );
+  const beforeCannonAmmo = await check('fixture.ammoState()');
+
   await click('[data-command="BUY_AMMO"]');
   const cannonAmmo = await check('fixture.ammoState()');
 
-  assert.equal(cannonAmmo[0], 9998);
+  assert.equal(cannonAmmo[0], beforeCannonAmmo[0] - autogunAmmo.price);
   await check('fixture.alternateAmmo()');
   assert.equal(
     await check(`document.querySelector('[data-ammo-price]').textContent`),

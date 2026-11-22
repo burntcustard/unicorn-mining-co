@@ -77,6 +77,9 @@ impl AuthoritativeSession {
             ship_id: account.ship_id,
             observer_range: 0.0,
         });
+        if let Some(client) = &account.socket {
+            client.socket.advertise_movement();
+        }
         self.sync_regions(sector, None);
         self.send_snapshot(id);
     }

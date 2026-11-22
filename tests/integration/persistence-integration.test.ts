@@ -4,6 +4,7 @@ import { on, once } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import WebSocket from 'ws';
 import {
   decodeServerControl,
@@ -22,6 +23,8 @@ const env = {
   APP_ENV: 'production',
   PORT: '0',
   ASSET_DIR: resolve('dist'),
+  MOVEMENT_BIND_ADDRESS: '127.0.0.1:0',
+  MOVEMENT_PUBLIC_ADDRESS: '127.0.0.1:0',
 };
 
 const executable = resolve('bin/server');
@@ -63,7 +66,7 @@ async function stop(signal: 'SIGTERM' | 'SIGKILL') {
 
 function connect(address: string) {
   const socket = new WebSocket(address, {
-    origin: address.replace('ws:', 'https:').replace('/game-socket', ''),
+    origin: `https://${new URL(address).host}`,
   });
 
   sockets.push(socket);
@@ -157,6 +160,32 @@ async function requestControl(
   throw new Error(`Connection closed before ${request.type} reply`);
 }
 
+async function expectGreetingRejection({
+  address,
+  token,
+  code,
+}: {
+  address: string;
+  token: string;
+  code: number;
+}) {
+  const socket = connect(`${address}?snapshotDeltas=1&movement=1`);
+  const signals: string[] = [];
+
+  socket.on('message', (data, binary) => {
+    if (!binary) signals.push(String(data));
+  });
+
+  await once(socket, 'open');
+  const closed = once(socket, 'close');
+
+  socket.send(encodeClientMessage({ type: 'hello', playerToken: token }));
+  socket.send('movement\ninvalid offer');
+
+  assert.equal((await closed)[0], code);
+  assert.deepEqual(signals, []);
+}
+
 const timeout = setTimeout(() => {
   sockets.forEach((socket) => socket.terminate());
   server?.kill('SIGKILL');
@@ -236,19 +265,12 @@ try {
   await stop('SIGTERM');
 
   address = await start();
-  const blocked = connect(address);
 
-  await once(blocked, 'open');
-  const closed = once(blocked, 'close');
-
-  blocked.send(
-    encodeClientMessage({
-      type: 'hello',
-      playerToken: newProductionPlayer.token,
-    }),
-  );
-
-  assert.equal((await closed)[0], 4003);
+  await expectGreetingRejection({
+    address,
+    token: newProductionPlayer.token,
+    code: 4003,
+  });
 
   await join(address, savedDeveloper.token);
 
@@ -267,8 +289,44 @@ try {
   assert.equal(returned.credits, newProductionPlayer.credits);
   assert.equal(returned.paints, newProductionPlayer.paints);
   await stop('SIGTERM');
+
+  const database = new DatabaseSync(env.DATABASE_PATH);
+
+  try {
+    const result = database
+      .prepare('UPDATE players SET ship = ? WHERE id = ?')
+      .run('{', returned.token);
+
+    assert.equal(result.changes, 1);
+  } finally {
+    database.close();
+  }
+
+  address = await start();
+  const identity = new URL('/api/identity', address);
+
+  identity.protocol = 'http:';
+
+  const unavailable = await fetch(identity, {
+    method: 'POST',
+    body: returned.token,
+  });
+
+  assert.equal(unavailable.status, 503);
+  assert.equal(unavailable.headers.get('cache-control'), 'no-store');
+  assert.equal(await unavailable.text(), 'Server unavailable\n');
+
+  const unknown = await fetch(identity, {
+    method: 'POST',
+    body: '00000000-0000-4000-8000-000000000001',
+  });
+
+  assert.equal(unknown.status, 404);
+  assert.equal(await unknown.text(), 'Unknown ID\n');
+  await expectGreetingRejection({ address, token: returned.token, code: 1013 });
+  await stop('SIGTERM');
   console.log(
-    'SQLite refresh, restarts, starting credits, and offline moderation passed',
+    'SQLite refresh, restarts, starting credits, offline moderation, and identity errors passed',
   );
 } finally {
   clearTimeout(timeout);

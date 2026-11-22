@@ -10,12 +10,13 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use rusqlite::{Connection, OpenFlags, OptionalExtension, Row, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Row, Transaction, params};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::sync::mpsc as inbox;
 
+use crate::game_session::name_key;
 use crate::specs::Catalog;
 
 mod backups;
@@ -25,7 +26,6 @@ pub use backups::{BackupAction, create_backup, manage_backups, reset};
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
-const SCHEMA_VERSION: i64 = 1;
 const QUEUE_CAPACITY: usize = 64;
 const BACKUP_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 const RETRY_INTERVAL: Duration = Duration::from_secs(1);
@@ -156,6 +156,10 @@ pub(crate) struct AccountReader {
 }
 
 const PLAYER_COLUMNS: &str = "id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector";
+const OWNER_LOOKUP: &str = "SELECT EXISTS(SELECT 1 FROM players WHERE role='owner')";
+const PROFILE_LOOKUP: &str = "SELECT id,role FROM players WHERE display_name_key=?";
+const UPDATE_NAME_KEY: &str =
+    "UPDATE players SET display_name_key=? WHERE id=? AND display_name_key IS NULL";
 
 fn read_player<Ship: DeserializeOwned>(row: &Row<'_>) -> Result<SavedPlayer<Ship>> {
     Ok(SavedPlayer {
@@ -207,25 +211,27 @@ impl AccountReader {
     pub(crate) fn has_owner(&self) -> Result<bool> {
         Ok(self
             .connection
-            .prepare_cached("SELECT EXISTS(SELECT 1 FROM players WHERE role='owner')")?
+            .prepare_cached(OWNER_LOOKUP)?
             .query_row([], |row| row.get(0))?)
     }
 
     pub(crate) fn matching_profiles(
         &self,
-        mut matches: impl FnMut(&str, &str) -> bool,
+        name: &str,
+        mut include: impl FnMut(&str) -> bool,
     ) -> Result<Vec<(String, PlayerRole)>> {
-        let mut query = self
-            .connection
-            .prepare_cached("SELECT id,display_name,role FROM players WHERE display_name<>''")?;
-        let mut rows = query.query([])?;
+        if name.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut query = self.connection.prepare_cached(PROFILE_LOOKUP)?;
+        let mut rows = query.query([name_key(name)])?;
         let mut found = Vec::new();
         while let Some(row) = rows.next()? {
             let token = row.get_ref(0)?.as_str()?;
-            if matches(token, row.get_ref(1)?.as_str()?) {
+            if include(token) {
                 found.push((
                     token.to_owned(),
-                    PlayerRole::parse(row.get_ref(2)?.as_str()?)?,
+                    PlayerRole::parse(row.get_ref(1)?.as_str()?)?,
                 ));
                 if found.len() == 2 {
                     break;
@@ -233,6 +239,52 @@ impl AccountReader {
             }
         }
         Ok(found)
+    }
+}
+
+const CREATE_SCHEMA: &str = "CREATE TABLE world (
+    id INTEGER PRIMARY KEY CHECK(id=1), seed REAL NOT NULL,
+    generation_digest TEXT NOT NULL, tick INTEGER NOT NULL,
+    random_state REAL NOT NULL, next_entity_id INTEGER NOT NULL,
+    next_object_id INTEGER NOT NULL, sectors TEXT NOT NULL
+);
+CREATE TABLE players (
+    id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL, display_name_key TEXT,
+    role TEXT NOT NULL CHECK(role IN ('user','admin','owner')),
+    banned INTEGER NOT NULL CHECK(banned IN (0,1)),
+    first_joined_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
+    played_for INTEGER NOT NULL CHECK(typeof(played_for)='integer' AND played_for>=0),
+    credits INTEGER NOT NULL CHECK(typeof(credits)='integer' AND credits>=0),
+    unlocked_paints INTEGER NOT NULL CHECK(unlocked_paints BETWEEN 0 AND 511),
+    visited TEXT NOT NULL, ship TEXT NOT NULL, sector TEXT NOT NULL
+) WITHOUT ROWID;
+CREATE TABLE entities (
+    id INTEGER PRIMARY KEY, sector TEXT NOT NULL, generated INTEGER NOT NULL, state BLOB
+);
+CREATE INDEX players_display_name_key ON players(display_name_key);
+CREATE INDEX players_owner ON players(role) WHERE role='owner';
+CREATE TRIGGER players_invalidate_name_key AFTER UPDATE OF display_name ON players
+WHEN NEW.display_name IS NOT OLD.display_name
+BEGIN
+    UPDATE players SET display_name_key=NULL WHERE id=NEW.id;
+END;";
+
+fn refresh_name_keys(tx: &Transaction<'_>) -> Result<()> {
+    let mut missing_keys =
+        tx.prepare("SELECT id,display_name FROM players WHERE display_name_key IS NULL LIMIT 256")?;
+    let mut update_key = tx.prepare(UPDATE_NAME_KEY)?;
+    loop {
+        let names = missing_keys
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        if names.is_empty() {
+            return Ok(());
+        }
+        for (id, name) in names {
+            update_key.execute(params![name_key(&name), id])?;
+        }
     }
 }
 
@@ -273,44 +325,23 @@ impl Store {
         let path = path.as_ref();
         let lock =
             lock_database(path).map_err(|error| format!("cannot lock world database: {error}"))?;
+        let fresh = match std::fs::metadata(path) {
+            Ok(metadata) => metadata.len() == 0,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => true,
+            Err(error) => return Err(error.into()),
+        };
         let mut connection = Connection::open(path)?;
         connection.busy_timeout(Duration::from_secs(1))?;
-        let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        if version != 0 && version != SCHEMA_VERSION {
-            return Err(format!(
-                "unsupported Rust world database schema {version}, expected {SCHEMA_VERSION}"
-            )
-            .into());
+        connection.execute_batch("PRAGMA synchronous=FULL;")?;
+        let tx = connection.transaction()?;
+        if fresh {
+            tx.execute_batch(CREATE_SCHEMA)?;
+        } else {
+            // Maintenance can edit names directly while the server is stopped.
+            refresh_name_keys(&tx)?;
         }
-        connection.execute_batch(
-            "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA wal_autocheckpoint=1000;",
-        )?;
-        if version == 0 {
-            let tx = connection.transaction()?;
-            tx.execute_batch(
-                "CREATE TABLE world (
-                    id INTEGER PRIMARY KEY CHECK(id=1), seed REAL NOT NULL,
-                    generation_digest TEXT NOT NULL, tick INTEGER NOT NULL,
-                    random_state REAL NOT NULL, next_entity_id INTEGER NOT NULL,
-                    next_object_id INTEGER NOT NULL, sectors TEXT NOT NULL
-                );
-                CREATE TABLE players (
-                    id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL,
-                    role TEXT NOT NULL CHECK(role IN ('user','admin','owner')),
-                    banned INTEGER NOT NULL CHECK(banned IN (0,1)),
-                    first_joined_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
-                    played_for INTEGER NOT NULL CHECK(typeof(played_for)='integer' AND played_for>=0),
-                    credits INTEGER NOT NULL CHECK(typeof(credits)='integer' AND credits>=0),
-                    unlocked_paints INTEGER NOT NULL CHECK(unlocked_paints BETWEEN 0 AND 511),
-                    visited TEXT NOT NULL, ship TEXT NOT NULL, sector TEXT NOT NULL
-                ) WITHOUT ROWID;
-                CREATE TABLE entities (
-                    id INTEGER PRIMARY KEY, sector TEXT NOT NULL, generated INTEGER NOT NULL, state BLOB
-                );",
-            )?;
-            tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
-            tx.commit()?;
-        }
+        tx.commit()?;
+        connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=1000;")?;
         Ok(Self {
             path: path.to_owned(),
             connection,
@@ -453,12 +484,14 @@ impl Store {
         )?;
         if !batch.players.is_empty() {
             let mut upsert = tx.prepare_cached(
-                "INSERT INTO players(id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector)
-                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name,role=excluded.role,banned=excluded.banned,
+                "INSERT INTO players(id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector,display_name_key)
+                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name,role=excluded.role,banned=excluded.banned,
                  last_seen_at=excluded.last_seen_at,played_for=excluded.played_for,credits=excluded.credits,unlocked_paints=excluded.unlocked_paints,
                  visited=excluded.visited,ship=excluded.ship,sector=excluded.sector",
             )?;
+            let mut update_key = tx.prepare_cached(UPDATE_NAME_KEY)?;
             for (player, (visits, ship)) in batch.players.iter().zip(player_values) {
+                let key = name_key(&player.display_name);
                 upsert.execute(params![
                     player.id,
                     player.display_name,
@@ -471,8 +504,10 @@ impl Store {
                     player.unlocked_paints,
                     visits,
                     ship,
-                    player.sector_id
+                    player.sector_id,
+                    key,
                 ])?;
+                update_key.execute(params![key, player.id])?;
             }
         }
         if !batch.entities.is_empty() {

@@ -68,9 +68,11 @@ try {
           const long = measure();
           game.style.height = viewer.style.height = '600px';
           const shortViewport = measure();
-          viewer.style.width = '2100px';
+          game.style.width = viewer.style.width = '1600px';
+          const wideViewport = measure();
+          game.style.width = viewer.style.width = '2100px';
           const wideGrid = measure();
-          document.body.setAttribute('data-result', JSON.stringify({ short, long, shortViewport, wideGrid }));
+          document.body.setAttribute('data-result', JSON.stringify({ short, long, shortViewport, wideViewport, wideGrid }));
         };
       </script>
     </body></html>`,
@@ -102,7 +104,13 @@ try {
       `${actual} differs from ${expected}`,
     );
 
-  for (const sample of [results.short, results.long, results.shortViewport]) {
+  for (const sample of [
+    results.short,
+    results.long,
+    results.shortViewport,
+    results.wideViewport,
+    results.wideGrid,
+  ]) {
     for (const card of sample.viewer) {
       equal(card.width, sample.game.width);
       equal(card.height, sample.game.height);
@@ -119,7 +127,7 @@ try {
   );
 
   for (const card of results.wideGrid.viewer) {
-    equal(card.width, results.short.game.width);
+    equal(card.width, results.wideViewport.game.width);
   }
 
   console.log(

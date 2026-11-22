@@ -577,7 +577,7 @@ mod tests {
             }
             session.release_saved_accounts();
             assert!(session.accounts.is_empty() && session.tokens.is_empty());
-            let preview = session.identity_preview(&token).unwrap();
+            let preview = session.identity_preview(&token).unwrap().unwrap();
             assert_eq!(preview[1].as_f64(), Some(credits));
             assert!(
                 session.accounts.is_empty(),

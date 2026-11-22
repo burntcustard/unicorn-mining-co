@@ -38,3 +38,35 @@ description: Apply Unicorn Mining Co.'s local source-style conventions when writ
   re-exporting one implementation. Import directly from the file that owns the
   implementation. Coherent public barrel modules that export several related
   APIs are still appropriate.
+
+## CSS and UI
+
+- Leave blank lines between rules and at-rule blocks, including nested rules.
+  Keep each comment with the block it describes.
+- Use the `text-xs`, `text-sm`, `text-lg`, and `text-xl` utilities for UI font
+  sizes. Inherit the base size where possible. Define font-size utilities in
+  `utilities.css`. Use `rem` for font sizes and the `font` shorthand. A
+  responsive `clamp()` can use `vw` between its `rem` limits. Stylelint rejects
+  pixel font sizes and `cursor` declarations.
+- Keep child and state rules together with native CSS nesting. Shared controls
+  use `ui-` names such as `ui-button`, `ui-tab`, and `ui-input`. Keep HUD,
+  docking, and chat layout in their `hud-`, `dock-`, and `chat-` families.
+- Compose layout with utilities such as `flex items-center justify-between gap-3`.
+  Use `data-action-group` for keyboard navigation within a group of buttons.
+  Keep reusable spacing utilities in `utilities.css`, including unused sizes
+  in an existing family.
+- Keep browser resets in `src/reset.css`, imported before game and tool styles.
+  Keep colors, typography choices, and layout in their own stylesheets. The UI
+  targets current Firefox and Chrome.
+
+## Formatting tools
+
+Use `npm run format:check` for a read-only check. For scoped edits, use Oxfmt
+with `.oxfmtrc.json`, Oxlint with `.oxlintrc.json`, and Stylelint with
+`.stylelintrc.json`. The CSS check covers `src` and `font`. Use
+`npm run lint:css` for CSS alone. `npm run format` and `npm run lint:fix`
+can apply CSS spacing fixes across the project.
+
+Rust uses the default rustfmt style and Clippy lints. `npm run lint` includes
+both. Use `npm run lint:rust` to check Rust alone and
+`rustup component add rustfmt clippy` if those tools are missing.

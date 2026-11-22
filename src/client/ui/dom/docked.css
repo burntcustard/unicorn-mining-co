@@ -1,6 +1,7 @@
 @layer components {
   :root {
-    --dock-inspector-max-width: 480px;
+    --dock-inspector-wide-max-width: 480px;
+    --dock-inspector-max-width: var(--dock-inspector-wide-max-width);
   }
 
   .hud:has(> .dock-screen:not([hidden]))::before {
@@ -42,10 +43,14 @@
   }
 
   @media (max-width: 1500px) {
+    :root {
+      --dock-inspector-max-width: 420px;
+    }
+
     .dock-workspace {
       grid-template-columns: minmax(260px, 280px) minmax(0, 1fr) minmax(
           380px,
-          420px
+          var(--dock-inspector-max-width)
         );
     }
 
@@ -338,7 +343,7 @@
   .dock-screen:has([data-tab='trade'][aria-current='page']) .dock-workspace {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(
         400px,
-        var(--dock-inspector-max-width)
+        var(--dock-inspector-wide-max-width)
       );
     grid-template-rows: minmax(0, 1fr);
   }

@@ -1,449 +1,106 @@
 # Unicorn Mining Co
 
-> A web game created for [Js13kGames](https://js13kgames.com/) 2026
-> \- delivered as progressively loaded JavaScript resources targeting at most 14 KB gzipped each.
+A multiplayer space mining game created for [Js13kGames](https://js13kgames.com/) 2026.
+[Play Unicorn Mining Co](https://unicorn-mining.co/).
 
 ## Gameplay
 
-Leave the station by pressing any key, fly around, shine the <ins>L</ins>IGHT into asteroids to search for valuable resources, turn on the <ins>D</INS>RILL to mine those resources out, open the cargo <ins>H</ins>ATCH to scoop them up, and then dock at one of the many stations to sell items, repair your ship, and buy upgrades like thrusters or a <ins>S</ins>HIELD.
+Use the search light (**L**) to look into asteroids, the drill (**D**) to break out
+minerals, and the cargo hatch (**H**) to collect them. Deploy Plasma Accelerators
+with **P** and Autoguns with **A**, then hold **Space** to fire when ready. Dock at
+stations to sell cargo, refuel, repair, and buy equipment or a different hull.
+Your ship and progress are saved to your browser-linked account.
 
-Press **P** to deploy or retract Plasma Accelerators and **A** for Autoguns. Deployment takes 0.7 seconds, followed by a 2-second plasma charge or 0.7-second autogun spin-up. Hold **Space** to fire ready weapons. Active weapons take no damage. The Plasma Accelerator fires once every 2 seconds without ammunition; the three indicators in its side recess recharge one at a time every 0.5 seconds. The Autogun fires once every 0.16 seconds and consumes one round per shot. Each projectile ammo pack contains 200 rounds. Buy ammunition from the cargo menu while docked. Two Plasma hits or five Autogun hits split a fresh asteroid chunk.
-
-There are six rainbow-inspired colors, plus white, that you can color your ship parts with for free. You start with white and violet, but the others you unlock through exploration in the game. There is no death screen (you just have to refresh) or saving (no space, no pun intended, sorry), but if you manage to unlock all 5 of the non-starting colors, then you can consider yourself having complicated the game!
-
-The world is large, and it's seeded-random, so it's the same for everyone, but the space station you start at is chosen somewhat randomly.
-
-## Spoilers
-
-<details>
-<summary>World Generation</summary>
-
-Coordinates at the top of the screen are in meters. The whole map is a circle approximately 100,000 meters diameter, with 0,0 in the center.
-
-Most asteroid fields have a mix of all items, but occasionally you'll find purple pointy amethyst asteroid fields, or asteroid fields with large gold-rich rocks. Ship wrecks can contain a few gems alongside message boxes with coordinates of both of those special asteroid field types - although ship wrecks themselves are quite rare.
-
-</details>
+Explore other sectors through Jump Gates and wormholes. Target a Jump Gate to
+request access in the communications panel. Wormholes are open for travel.
+Press **Enter** to chat in your sector or switch to the Global tab.
 
 <details>
-<summary>Color Unlocks</summary>
+<summary>Mining and exploration spoilers</summary>
 
-RED - Have a hull segment or fitted module destroyed.
-ORANGE - Collect an orange slate from an orange shipwreck.
-YELLOW - Fly to the edge of the map (50,000 m from the center).
-GREEN - Dock at 3 different space stations.
-CYAN - Sell a diamond at a space station.
-VIOLET - Unlocked by default from the start of the game.
-WHITE - Unlocked by default from the start of the game.
+Mixed asteroid fields contain a variety of minerals. Purple amethyst fields and
+gold-rich fields concentrate their respective resources. Rare shipwrecks can
+contain gems and messages with coordinates for nearby rich fields.
 
 </details>
-
-## Tech used
-
-- Game engine heavily inspired by [Kontra.js](https://straker.github.io/kontra/) by [Steven Lambert](https://stevenklambert.com/), rendering to an HTML canvas.
-- Collision and physics code is inspired by [Planck.js](https://github.com/piqnt/planck.js) and [Box2D](https://box2d.org/).
-- [Vite](https://vitejs.dev/) and [Terser](https://terser.org/) with a project-specific [custom plugin](plugins/build-plugins.ts) for chunking, minification, and size warnings.
-- [TypeScript](https://www.typescriptlang.org/) for type checking.
 
 ## Run locally
 
-1. Clone this repository
-   `git clone git@github.com:burntcustard/unicorn-mining-co.git`
+1. Clone the repository with `git clone git@github.com:burntcustard/unicorn-mining-co.git`.
+2. Install Node 26, stable Rust with Cargo, and a C compiler. Run `npm install`.
+3. Start the authoritative Rust server with `npm run dev:server` (port 3001).
+4. In another terminal, run `npm run dev` and open [localhost:3000](http://localhost:3000/).
+   Vite proxies game requests and WebSockets to the server.
 
-2. Install Node 26, stable Rust with Cargo, and a C compiler, then dependencies
-   `npm install`
+To try the production build locally, run `npm run build`, start
+`npm run start:server`, and open [localhost:3001](http://localhost:3001/).
+`npm run preview` can also serve the built frontend with `start:server` running.
 
-3. Start the authoritative Rust server (rebuilds on server or spec changes)
-   `npm run dev:server`
+## Development tools
 
-4. In another terminal, start hot-reloading [Vite](https://vitejs.dev/) at
-   [localhost:3000](http://localhost:3000/)
-   `npm run dev`
+These tools run without the game server. Open the URL Vite prints, starting
+at port 3100.
 
-5. Build the browser assets in `dist/` and the server executable in `bin/server`
-   `npm run build`
+| Tool                 | Command                      |
+| -------------------- | ---------------------------- |
+| GameObject Viewer    | `npm run tool:object-viewer` |
+| Module Viewer        | `npm run tool:module-viewer` |
+| World Viewer         | `npm run tool:world-viewer`  |
+| Sound Editor         | `npm run tool:sound-editor`  |
+| Gemetric Font Viewer | `npm run tool:font-viewer`   |
 
-6. To run the production build locally, start `npm run start:server` and open
-   [localhost:3001](http://localhost:3001/). It serves the client and WebSocket
-   on the same port. `npm run preview` also works with `start:server` running.
+See the [content-authoring workflow](.agents/skills/codebase-workflow/references/content-authoring.md) for
+the object, module, and world viewers, and the [font guide](font/README.md) for glyph editing.
 
-Port 3001 is reserved for the local game server. The dev frontend starts at 3000 and
-tools start at 3100, advancing to the next available port when needed. Start
-these in any order and use the URL Vite prints. The frontend proxies game
-connections to the server on 3001.
+## Build and test
 
-Use `dev` with `dev:server`, or the production build with `start:server`.
-New players start with 2,000 credits. Existing players keep their saved balance.
-The same Rust server supports source and production clients through binary packets.
-Node is used only for frontend builds, generators, and development/test tooling.
+- `npm run build` type-checks and builds the browser assets in `dist/` and the Rust server in `bin/server`.
+- `npm test` builds and runs the test suite. Pass a test name or path to select tests.
+- `npm run test:server` runs the Rust server and cross-language checks.
+- `npm run lint` checks TypeScript, CSS, and Rust. `npm run format:check` checks formatting.
 
-The local server also listens on UDP port 3001 for an optional WebRTC movement
-channel. During a snapshot stall it sends current poses for nearby player ships.
-The WebSocket still carries authoritative simulation state, inputs, and normal
-snapshots. Use `MOVEMENT_DISABLED=1` to test WebSocket-only behavior.
-
-To preview object specs independently, run `npm run tool:object-viewer` and open
-the URL printed by Vite (starting at port 3100). The development-only GameObject Viewer needs no game server.
-It uses the actual client renderers for ships, stations, nav beacons, items and procedural
-asteroids, including spiky amethyst. Each mount lists its position and a dropdown
-of compatible modules; its checkbox activates all segments of the fitted instance.
-Choose Empty to leave a mount unfitted.
-Ship and station hull specs use `mounts: [[{ x, y, fits: [moduleId] }, ...], ...]`.
-Each inner array is one mount; its entries specify coordinates for different
-groups of compatible modules. The fitted module selects its matching entry.
-The grid and mouse coordinates use the object's local spec coordinates,
-including while spinning. Spec and renderer edits hot-reload, and adding
-or removing spec files updates the selections without editing game indexes.
-Selection, rotation, zoom, viewing aids, fitted modules and module activation
-survive updates and page refreshes. Viewer source lives under `src/tools/game-object-viewer` and is
-excluded from the game production entry.
-
-To preview the game’s module panels, run `npm run tool:module-viewer` and open
-the URL printed by Vite. The Module Viewer needs no game server. Filter by spec
-folder and optionally enable model previews; the filters follow the module spec
-directory structure.
-
-To preview Gemetric, run `npm run tool:font-viewer` and open
-the URL printed by Vite (starting at port 3100).
-See [font/README.md](font/README.md) for glyph editing, generation, and reuse.
-
-To preview and edit game audio, run `npm run tool:sound-editor` and open
-the URL printed by Vite (starting at port 3100).
-The Sound Editor uses the game's synth and runs without a game server.
-Choose an event from the searchable list, then play the event or solo a layer.
-Edit the layer controls and use the waveform to inspect their timing.
-Selecting an event or making a valid edit previews the sound. Save writes
-only the selected event or layer. External file edits replace its pending
-draft, so save any edits you want to keep before changing the file.
-
-Use **New sound event** to create a spec. **Save layer** copies a layer into
-the Unassigned library, and **Add to event** copies a saved layer into an event.
-Switch to Continuous sounds to preview engine power and load or horn drill
-biting. Spec files live under `src/specs/sounds/`.
-
-The offline tools can measure a change, compare spectrograms, export rapid
-repeats, and fit a procedural event to a recording. See the
-[sound analysis workflow](.agents/skills/sound-design/references/workflow.md)
-for commands.
-
-To inspect procedural sectors, run `npm run tool:world-viewer` and open
-the URL printed by Vite (starting at port 3100).
-The World Viewer needs no game server. Choose a seed and sector, pan by dragging,
-and scroll to zoom. The world map shows the connected initial 20 sectors;
-enable future sectors to see all 68. Click a map sector to inspect its fields,
-stations, wrecks, planned Jump Gates and wormholes. Zoom in for individual
-asteroids from the actual region generator. Both kinds of portal include
-reserved arrival space. Wormholes have their own layer and dashed purple map
-links; the viewer reveals them for inspection, while gameplay discovery will
-require exploration. Dim Jump Gates lead to future sectors. In the game, portals appear as you explore.
-
-Edit `src/specs/sectors.ts` for sector sizes, feature falloff and gate placement,
-or `src/specs/region-generation.ts` for field contents and feature spacing.
-The two portal counts are independent seeded draws scaled by sector size,
-with at least one connection overall. Some sectors are reachable only by
-wormhole. Jump Gates cluster nearer the populated area; wormholes sample a
-wider annulus, favoring the outskirts. Every portal and arrival point stays
-below 100,000 units from the origin. All stations follow the same procedural
-density and spacing rules; sectors have no guaranteed station. Sectors without
-Jump Gates have no stations. Each active Jump Gate has a nav beacon 880–1,000 units
-away, and additional beacons are scattered rarely throughout sectors. Beacons
-are currently inactive.
-Source edits hot-reload, retaining the seed, selection, camera and layers.
-Generation runs in a worker so navigation stays responsive. Large views draw
-feature outlines without generating every asteroid. This tool is excluded from
-the production game.
-
-The game runs isolated sector worlds and saves each player's current sector.
-Target a Jump Gate to open its conversation in the bottom-left communications
-panel, then choose Yes to request access. Requests require proximity to the gate.
-Access opens the moving hull; the circular portal remains active. Wormholes
-are always open. Travel pulls a ship into the portal, shrinks it, and restores
-it at the destination center. The ship waits for pilot input, and cannot travel
-back until it has left that portal. Connected Jump Gates share a fixed, seeded
-rotation. Gate hulls are indestructible and cannot be docked with. The GameObject Viewer includes
-animated Jump Gate and wormhole previews. Tune them in `src/specs/jump-gate.ts`
-and `src/specs/wormhole.ts`; shared travel timings live in `src/specs/portal.ts`.
-Press Enter to type in Sector chat, or switch to the compact Global tab.
-
-Player roles are `user` (the default), `admin`, and `owner`. The initial owner is
-the saved account named `burntcustard`; once assigned, ownership stays with that
-account's private ID. New accounts reusing the name do not gain ownership. If
-multiple existing accounts have that name, ownership is not assigned automatically.
-Admins and owners can use `/admin playername`, `/unadmin playername`,
-`/ban playername`, `/pardon playername`, and `/tp x y`. Name matching ignores case
-and accepts names containing spaces; ambiguous names are rejected. Owners cannot
-be demoted or banned through these commands. Bans disconnect the player and block
-their private ID from reconnecting while retaining their progress. Roles and bans
-survive server restarts. Everyone can use `/list` to privately list online player
-names on separate lines. Admins and owners also see each player's sector and
-coordinates.
-
-The TypeScript and Rust generators accept an explicit sector context. The catalog's name order is append-only: IDs and individual
-sector seeds are name-derived. `graphStages` records completed catalog batches;
-keep those boundaries fixed and append new boundaries when adding batches of
-names. Otherwise, appended names join individually. Graph expansion uses free
-sites without changing earlier connections or moving endpoints. Within a new
-batch, connectivity can add an endpoint when random counts leave a sector
-unreachable, favoring larger sectors. Changing the initial enabled count does
-not regenerate the graph. The starting sector is a separate setting from the
-graph anchor.
-
-7. See [package.json](package.json) for other scripts
-
-`npm run format` formats JavaScript, TypeScript, and other files supported by
-Oxfmt, and formats Rust with rustfmt. `npm run format:check` checks formatting
-without writing changes. Oxfmt reads `.oxfmtrc.json`. Oxlint reads
-`.oxlintrc.json` for the layout rules used by formatting and the broader checks
-used by `npm run lint`.
-
-Use American English (`en-US`) throughout game text, identifiers, comments, tests,
-and documentation. Specify `en-US` explicitly for locale-sensitive formatting.
-
-CSS in `src` and `font` is checked by Stylelint using `.stylelintrc.json`.
-Leave blank lines between CSS rules and at-rule blocks, including nested rules;
-keep comments with the block they describe. `npm run lint` and
-`npm run format:check` enforce this, while `npm run format` and
-`npm run lint:fix` fix it automatically. Use `npm run lint:css` to check CSS alone.
-Use the `text-xs`, `text-sm`, `text-lg`, and `text-xl` utility classes for game UI
-font sizes, inheriting the base size when no size class is needed. Keep font-size
-declarations in the utilities stylesheet rather than component CSS.
-Use `rem` for font sizes, including the `font` shorthand; responsive `clamp()`
-values may use `vw` between their `rem` limits. Stylelint rejects pixel font sizes.
-Leave cursors to the browser; Stylelint rejects all `cursor` declarations.
-The UI targets current Firefox and Chrome. Use native CSS nesting to keep a
-component's child and state rules together. Shared controls use the `ui-` prefix
-(`ui-button`, `ui-tab`, `ui-input`). Keep HUD, docking, and chat layout in their
-respective `hud-`, `dock-`, and `chat-` families. Compose layout with utilities
-such as `flex items-center justify-between gap-3`; use `data-action-group` for
-keyboard navigation within a group of action buttons. Keep reusable spacing
-utilities, including unused sizes in an existing family, in `utilities.css`.
-Shared browser resets belong in `src/reset.css`, imported before the game and tool
-styles. Keep colors, typography choices, and layout in their own stylesheets.
-
-Rust uses the default rustfmt style and Clippy lints. `npm run lint` includes
-both Rust checks. Use `npm run lint:rust` to check Rust alone. Install the tools
-with `rustup component add rustfmt clippy`.
-
-## Build
-
-`npm run build` type-checks TypeScript, builds browser assets in `dist/`, and
-builds the release Rust executable in `bin/server`. `npm run build:client` and
-`npm run build:server` run the two halves separately. Cargo generates and embeds
-the catalog from `src/specs` during the server build.
-Production CSS passes through PurgeCSS, scanning client HTML, TypeScript, SVGs, and
-shared specs so lazy screens and dynamically created rows keep their styles.
-Unused utilities remain available in source and development builds.
-The browser build warns when a chunk exceeds 14 KB gzipped; see
-[CHUNK_LOADING.md](docs/CHUNK_LOADING.md) for loading tiers.
-
-`npm test` builds the client and server, prepares the fixture drivers, and
-runs the TypeScript suites. Pass a test name, filename, or directory to select
-tests. `npm test -- --skip-build` tests the existing production artifacts.
-`npm run test:server` runs Rust unit and world integration tests, including
-the loopback transport checks, and the TypeScript parity and server
-integration suites.
-
-Production fixtures share a fresh property-name cache prepared once per run
-from the current sources. Each bundle still uses the real production transforms
-and minifier. Packet histories enter as runtime JSON with transformed property
-names, avoiding repeated minification of megabytes of fixture data. Temporary
-cache files are removed when testing finishes.
-
-Projectile prediction runs as four independent suites covering autogun and
-plasma snapshots, repeated mining, and triangle fractures. Normal runs use
-representative immediate/delayed snapshots, batched frames, reloads, and frame
-cadences against both source and production bundles generated from authoritative Rust snapshots. Each fixture driver produces the
-cases its client suite consumes.
-Timing cases cover zero, one, three, and eight ticks of delay across different
-geometries rather than repeating the full cross-product. Repeated mining checks
-five fractures and a reload; triangle histories include the fracture, delayed
-packets, and a display pause. Muzzle-flash tests replay two complete firing cycles
-with immediate, delayed, and paused firing. The same full suite runs locally and
-on deployment; there is no separate extended or deployment mode.
-`npm run test projectile-prediction` still selects all four suites;
-select a suffixed filename to run one group. Network tests run isolated
-sessions, temporary databases, and ephemeral listeners in parallel, retaining
-their complete assertions and real timeout checks.
-Set `TEST_CONCURRENCY=1` to run the Node tests sequentially.
-`npm run typecheck` and `npm run lint` check the TypeScript source, tests, helpers,
-scripts and benchmark tools. Selected Node tests also run the compiler check before
-execution. Scripts run with the existing Node 26 setup; no additional TypeScript
-loader flags are needed.
-`npm run test snapshot server-integration` checks server output using both source and
-production-mangled client codecs, reporting real WebSocket packet sizes.
-
-Module mechanics tests use the `example-*.ts` specs beside the playable module
-specs. Examples are excluded from category exports and the production catalog,
-so changing weapon damage, timing, geometry, or other gameplay tuning does not
-change mechanics test inputs. `tests/support/example-modules.ts` installs these
-specs in an isolated client test process using the existing control and wire
-slots. `scripts/generate-example-modules.ts` emits the same data for the Rust test
-catalog. The test runner regenerates it before building fixtures. Weapon variants derive from `offense/example-weapon.ts` in
-test setup, enabling or disabling ammo, explosions, fading, and spin-down to
-cover optional behavior. Catalog tests verify that playable constructors consume
-their specs without prescribing their balance values.
+See [package.json](package.json) for all scripts and the
+[testing workflow](.agents/skills/codebase-workflow/references/testing.md) for suite options and fixtures.
 
 ### Browser tests
 
-After `npm run build`, reuse the running game server and frontend, starting
-`npm run dev:server` and `npm run dev -- --strictPort` only if they are missing,
-then run `npm run test:ui`. A running preview also works. The browser intercepts
-static requests to load the built files; API requests and WebSockets use the
-frontend's normal proxy. Stop only servers started for testing.
-
-Use `UI_MENU_ONLY=1 npm run test:ui` to check startup and menu loading without
-the docking fixture, or `UI_DOCK_ONLY=1 npm run test:ui` for the docking fixture.
-Use `UI_HANGAR_ONLY=1 npm run test:ui` to check Hangar transactions, names,
-sale confirmations, keyboard navigation, hull paint, and empty hangars alone.
-Set `CHROME_BIN` when the browser executable is not named `chromium`.
-
-Use `UI_HUD_ONLY=1 npm run test:ui` for static HUD
-desktop scenes, with `UI_CAPTURE_DIR` to retain screenshots and geometry.
-
-Movement telemetry toggles with **V** (rebindable in Settings → Controls) and
-starts off on every page load. While enabled, `.hud-telemetry` refreshes at the
-simulation's 30 Hz cadence. Bold Simulation and Rendered headings separate
-fixed-tick world data from displayed poses. Simulation includes position,
-rotation, and native motion.
-While the panel is visible, Simulation also shows the closest game object and
-reports center-to-center distance from the ship and object radius in meters
-for both the closest object and the current target.
-Rendered includes world position, rotation, and screen position for the displayed
-player and selected target. The world-to-screen transform uses CSS viewport pixels:
-`screen X = world X * scale + offset X`, likewise for Y. It includes camera
-movement, zoom, canvas resolution, and the canvas's viewport offset. Frame time
-is the interval between rendered frames; render time measures CPU work in the
-render callback, excluding telemetry refresh and GPU completion.
-
-Settings → Graphics → Hide UI defaults to off and persists across reloads. It
-sets opacity to zero on the in-game HUD container, leaving panels, chat,
-telemetry, and controls readable and usable through the DOM. Main menus,
-settings, and docked UI stay visible.
-
-Existing HUD text and meters provide names, types,
-fuel, cargo, power, and module activation.
-
-Read `.hud-telemetry`'s visible text. Scope `.telemetry-player` and
-`.telemetry-target` rows to `.telemetry-simulation` or `.telemetry-rendered`;
-`.telemetry-closest` and `.telemetry-parent` rows appear only under Simulation.
-Values are displayed only in text, without duplicate data attributes. Movement
-values use three decimal places. Positions are meters, rotations are radians,
-native velocities are meters per second, and native spin is radians per second.
-
-Native motion excludes station-carried motion. When active, the visible
-`localMovementRate` is a dimensionless blend rate and `Carrier #` identifies
-another record in the same panel. Shared parents appear once; a selected parent
-uses the target record.
-
-The visible simulation tick identifies the simulation sample, and simulation
-time is shown in whole seconds. Refreshing the DOM does not advance either
-value. Snapshot age measures elapsed time since the latest accepted server
-snapshot, or says unavailable before any snapshot. Missing or disconnected
-entities have explanatory text instead of movement values. While the panel is
-hidden, sampling and DOM updates stop, so tools should check `hidden` before
-reading retained text.
+Build the game, then use `npm run test:ui` with the local services. See
+[browser test setup and options](.agents/skills/codebase-workflow/references/testing.md#browser-tests).
 
 ## Source layout
 
-- `src/specs`: typed authored items, modules, ships, stations, and tuning.
-- `src/client`: browser mechanics, prediction, networking, rendering, audio, UI.
-- `src/server`: Rust game server and its TypeScript spec build integration.
-- `tests/server`: Cargo world integration tests and executable parity drivers.
-- `tests/client`, `tests/linting`, `tests/integration`, `tests/parity`: retained regression suites.
+- `src/specs` holds authored game data and tuning shared by the client and Rust server.
+- `src/client` contains browser mechanics, prediction, networking, rendering, audio, and UI.
+- `src/server` contains the Rust server and its catalog build integration.
+- `tests` contains gameplay, network, and client/server parity tests.
 
-Each item/ship/station type has one spec file. Generic runtime classes
-construct them; thruster variants share one implementation per language.
-Schemas for authored data live beside those specs. Runtime types and interfaces
-live beside their owning implementations, including visual effect types in
-`src/client/effects`. Specs use type-only imports for those types, keeping their
-runtime dependencies independent of the client and server.
+The game renders to HTML canvas. The engine draws on
+[Kontra.js](https://straker.github.io/kontra/) by [Steven Lambert](https://stevenklambert.com/).
+The physics draws on
+[Planck.js](https://github.com/piqnt/planck.js), and [Box2D](https://box2d.org/).
+The browser build uses [TypeScript](https://www.typescriptlang.org/),
+[Vite](https://vitejs.dev/), and [Terser](https://terser.org/). See the
+[chunk loading guide](docs/chunk-loading.md) for the 14 KB gzip budget and loading tiers.
 
-Specs for specific in-game objects should inline their values, even when a value
-appears multiple times. Introduce local variables only when required to construct
-the spec. Shared spec builders, such as Corral's geometry generator, can keep
-variables for their calculations.
+## Project skills
 
-Gameplay values belong in `src/specs`: item fallbacks in
-`items/defaults.ts`, base-object defaults in `game-object.ts`, shared craft
-fallbacks in `craft.ts`, and type-specific values in each content spec.
-Client code imports those values. Cargo invokes `scripts/generate-rust-catalog.ts`
-to embed them in the server. Test scenarios live in `tests/parity/scenarios`; one runner,
-`tests/parity/generate-fixtures.ts`, writes their computed results to
-`tests/fixtures` for client/server simulation and protocol comparisons. Scenario
-masses, health values, coordinates, seeds, and tick counts are test inputs,
-not runtime defaults. Item construction and HTTP handling use direct tests.
+- [Codebase workflow](.agents/skills/codebase-workflow/SKILL.md) covers builds, tests, protocol changes, and content authoring.
+- [Code style](.agents/skills/code-style/SKILL.md) covers TypeScript, CSS, and formatting conventions.
+- [Code terminology](.agents/skills/code-terminology/SKILL.md) covers naming in gameplay and networking code.
+- [Code golfing](.agents/skills/code-golfing/SKILL.md) covers reducing production JavaScript and measuring chunk sizes.
+- [Sound design](.agents/skills/sound-design/SKILL.md) covers procedural audio, the Sound Editor, and measurement.
+- [Fly deployment](.agents/skills/fly-deployment/SKILL.md) covers releases, first-time setup, and live operations.
 
 ## Documentation
 
-### Current references
-
-- [Client chunk loading](docs/CHUNK_LOADING.md)
-- [Code terminology](docs/terminology.md)
-- [Todo](docs/todo.md)
-- [Ideas](docs/ideas.md)
-
-### Benchmarks
-
-[Benchmark instructions](benchmarking/README.md) describe the single-browser
-rendering suite, lightweight server CPU matrix, and four-client input latency
-suite. New captures go under ignored `benchmarking/_local/`.
+- [Persistence and world maintenance](docs/persistence.md)
+- [Game terminology](docs/terminology.md)
+- [Benchmarks](benchmarking/README.md)
+- [Todo](docs/todo.md) and [ideas](docs/ideas.md)
 
 ## Deploy on Fly.io
 
-The production movement channel uses a dedicated public IPv4 and UDP port 8081
-on the same Machine as the WebSocket. For a new Fly app, allocate a dedicated
-address with `fly ips allocate-v4` and update `MOVEMENT_PUBLIC_ADDRESS` in
-`fly.toml`. The server listens on `MOVEMENT_BIND_ADDRESS=fly-global-services:8081`.
-Clients with unreachable UDP use the WebSocket automatically.
-See [Fly's UDP service requirements](https://docs.fly.io/networking/udp-and-tcp).
-
-The public game runs at [unicorn-mining.co](https://unicorn-mining.co/) on one
-Fly Machine in London. Its SQLite database and backups live on the mounted
-`game_data` volume. The server stores the world in `/data/world.sqlite`
-and its backups in `/data/backups`. Restarts reuse that database. The `www` hostname redirects to the root domain.
-
-1. Install `flyctl` using [Fly's installation guide](https://fly.io/agent-ready.md),
-   sign in with `fly auth login`, and run `fly apps list` to check whether the
-   app already exists. If `unicorn-mining-co` is unavailable, choose another
-   app name and update `fly.toml` before deploying.
-2. Create the app with `fly apps create unicorn-mining-co` if it does not
-   already exist. Check `fly ips list`, allocate a dedicated public IPv4 and
-   an IPv6 address if needed, and set `MOVEMENT_PUBLIC_ADDRESS` to that IPv4
-   and port 8081. Deploy with
-   `SERVER_BUILD_TARGET=x86_64-unknown-linux-gnu RUSTFLAGS="-C target-feature=+crt-static" npm run build` followed by
-   `fly deploy --ha=false --no-public-ips`, then check `fly status`, `fly logs`, and the
-   app's `https://<app>.fly.dev/` URL. Verify that exactly one Machine is
-   running and `/healthz` returns `ok`.
-3. Create a named, app-scoped deploy token with
-   `fly tokens create deploy -a <app> --name github-actions --expiry 2160h`.
-   Save it in the GitHub repository's Actions secrets as `FLY_API_TOKEN`;
-   rotate it before expiry. The workflow checks the code and automatically
-   deploys each push to `main`. Do not put the token in source or `fly.toml`.
-4. Attach both hostnames using `fly certs add unicorn-mining.co` and
-   `fly certs add www.unicorn-mining.co`. Run `fly certs setup` for each to
-   obtain the exact DNS values. In Namecheap's **Advanced DNS**, replace only
-   the parking A record for `@` with Fly's A and AAAA addresses, and replace
-   the parking `www` record with Fly's CNAME target. Add any ownership or
-   ACME verification records that `fly certs setup` requests. Keep the
-   existing MX and SPF records used for email forwarding. Use
-   `fly certs check` for both hostnames until both certificates are active.
-5. Verify HTTPS at the root, the HTTPS redirect from `www`, and a WSS game
-   connection from a second network. Update public links and disable the old
-   GitHub Pages publication once the Fly site is working. Inspect Fly logs
-   and CPU/memory graphs during the first player session.
-
-CI builds `bin/server` and `dist/` once, then runs the full test suite with
-`--skip-build`. Integration tests launch that server binary. Checksums verify
-that the artifacts remain unchanged before Fly packages them. Rust unit and
-transport tests also run in CI. Cargo compiles the test drivers separately.
-CI uses `flyctl deploy --ha=false --local-only` to package the tested artifacts
-with the runner's Docker daemon, avoiding the remote builder queue.
-The production Dockerfile copies the tested artifacts into a scratch image;
-it contains only `server` and `dist/`, with no build stages or npm dependencies.
-Manual deployment also requires a Linux amd64 build first. On Linux amd64,
-run `npm test -- --skip-build` before deploying to test that build locally.
-The listener binds to
-`0.0.0.0:$PORT`; `fly.toml` supplies port 8080, HTTPS, and an HTTP health check.
-Its single-world simulation requires one Machine. Player progress and world
-changes persist in SQLite on the `game_data` Fly Volume. Before the first
-persistence deployment, create that volume; see [persistence and maintenance](docs/PERSISTENCE.md)
-for setup, save guarantees, backups and direct database editing.
+Production runs on one Fly Machine in London with a mounted SQLite volume.
+Pushes to `main` trigger the [deploy workflow](.github/workflows/deploy.yml).
+See the [Fly deployment skill](.agents/skills/fly-deployment/SKILL.md) for
+setup and manual releases, and the [persistence guide](docs/persistence.md) for backups and resets.
