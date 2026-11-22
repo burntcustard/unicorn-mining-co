@@ -3,7 +3,7 @@ import type { ModuleSpec } from '../../types';
 
 export const thrusterSingleMd = {
   ...thruster,
-  mass: 235,
+  mass: 315,
   name: 'Thruster md',
   health: 15,
   power: 1.1,
