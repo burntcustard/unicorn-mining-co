@@ -149,7 +149,7 @@
 [x] Zoom in and zoom out buttons in big map
 [ ] World map with sectors and lines between them (+ players?)
 [-] Small asteroid chunk pop animation
-[ ] Make big ships turn slow
+[-] Make big ships turn slow
 [x] Make Items and other Game Objects block light
 
 ## Big future things
