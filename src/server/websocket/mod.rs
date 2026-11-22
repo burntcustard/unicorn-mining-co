@@ -10,7 +10,7 @@ use std::future::Future;
 use std::io::{self, Cursor, IoSlice};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, Weak};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
 use std::time::{Duration, Instant};
 
 use axum::extract::Request;
@@ -27,6 +27,8 @@ use tokio::net::{TcpStream, tcp::OwnedWriteHalf};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
+
+use crate::movement_transport::MovementSender;
 
 pub const MAX_PAYLOAD: usize = 32 * 1024;
 pub const MAX_SOCKET_BUFFER: usize = 1024 * 1024;
@@ -125,11 +127,13 @@ struct SocketState {
     closing: AtomicBool,
     done: CancellationToken,
     last_pong: Mutex<Instant>,
+    movement: OnceLock<MovementSender>,
     direct: Option<Weak<OwnedWriteHalf>>,
 }
 
 const SNAPSHOT_DELTA_QUERY: &str = "snapshotDeltas=1";
 const STATION_REPLICATION_QUERY: &str = "snapshotDeltas=1&stationReplication=1";
+const MOVEMENT_QUERY_SUFFIX: &str = "&movement=1";
 
 /// Shareable writer handle for the game session.
 #[derive(Clone)]
@@ -138,6 +142,7 @@ pub struct WebSocket {
     queue: mpsc::Sender<Outbound>,
     snapshot_deltas: bool,
     station_replication: bool,
+    movement_requested: bool,
 }
 
 impl WebSocket {
@@ -154,6 +159,7 @@ impl WebSocket {
             closing: AtomicBool::new(false),
             done: CancellationToken::new(),
             last_pong: Mutex::new(Instant::now()),
+            movement: OnceLock::new(),
             direct,
         });
         (
@@ -162,6 +168,7 @@ impl WebSocket {
                 queue,
                 snapshot_deltas: false,
                 station_replication: false,
+                movement_requested: false,
             },
             receiver,
         )
@@ -173,6 +180,22 @@ impl WebSocket {
 
     pub(crate) fn station_replication(&self) -> bool {
         self.station_replication
+    }
+
+    pub(crate) fn movement_requested(&self) -> bool {
+        self.movement_requested
+    }
+
+    pub(crate) fn attach_movement(&self, sender: MovementSender) {
+        let _ = self.state.movement.set(sender);
+    }
+
+    pub(crate) fn movement(&self) -> Option<&MovementSender> {
+        self.state.movement.get()
+    }
+
+    pub(crate) fn send_text(&self, message: &str) -> Result<(), SocketError> {
+        self.enqueue(Opcode::Text, message.as_bytes())
     }
 
     pub fn send_binary(&self, payload: &[u8]) -> Result<(), SocketError> {
@@ -443,6 +466,13 @@ mod tests {
         assert!(upgrade_key(&invalid, false).is_none());
         for query in [SNAPSHOT_DELTA_QUERY, STATION_REPLICATION_QUERY] {
             assert!(upgrade_key(&request(&format!("/game-socket?{query}"), ""), false).is_some());
+            assert!(
+                upgrade_key(
+                    &request(&format!("/game-socket?{query}{MOVEMENT_QUERY_SUFFIX}"), ""),
+                    false
+                )
+                .is_some()
+            );
         }
         assert!(upgrade_key(&request("/game-socket?token=1", ""), false).is_none());
         assert!(upgrade_key(&request("/game-socket?", ""), false).is_none());

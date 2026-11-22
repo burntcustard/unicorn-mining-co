@@ -22,8 +22,8 @@ pub use snapshot_delivery::{
 
 pub use profile_chat::{
     BANNED_CODE, BANNED_MESSAGE, ChatDispatch, ChatThrottle, GateAccess, GateReplies, OnlinePlayer,
-    ProfileChange, ProfileFields, ProfileRoster, ProfileView, assign_initial_owner, list_players,
-    player_chat, receives_relay, set_profile_name, system_chat, teleport_reply,
+    ProfileChange, ProfileFields, ProfileMatch, ProfileRoster, ProfileView, assign_initial_owner,
+    list_players, player_chat, receives_relay, set_profile_name, system_chat, teleport_reply,
 };
 
 pub use world_sounds::{

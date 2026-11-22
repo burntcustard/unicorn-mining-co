@@ -20,6 +20,7 @@ use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Instant, MissedTickBehavior, interval_at, sleep, timeout_at};
 use tokio_util::sync::CancellationToken;
 
+use crate::movement_transport::MovementTransport;
 use crate::protocol::{Control, decode_client_control, parse_uuid};
 use crate::specs::{Catalog, Protocol};
 use crate::websocket::{self, MessageKind, WebSocket, WebSocketReader};
@@ -35,6 +36,8 @@ const GREETING_TIMEOUT: Duration = Duration::from_secs(10);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
 const MESSAGE_WINDOW: Duration = Duration::from_secs(1);
 const MIN_TICK_DELAY: Duration = Duration::from_millis(1);
+const MOVEMENT_SIGNAL_PREFIX: &str = "movement\n";
+const MAX_MOVEMENT_OFFER_BYTES: usize = 8192;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClientId(pub u64);
@@ -57,6 +60,7 @@ pub trait Session: 'static {
 pub struct ServerOptions<F> {
     pub production: bool,
     pub storage_available: F,
+    pub movement: Option<MovementTransport>,
 }
 
 struct Lifecycle {
@@ -197,6 +201,7 @@ where
         catalog,
         production: options.production,
         storage_available: options.storage_available,
+        movement: options.movement,
     });
     let router = assets.layer(middleware::from_fn_with_state(state, dispatch));
     let task = tokio::spawn(serve_http(listener, router, Arc::clone(&lifecycle)));
@@ -256,6 +261,7 @@ struct RequestState<F> {
     catalog: Arc<Catalog>,
     production: bool,
     storage_available: F,
+    movement: Option<MovementTransport>,
 }
 
 impl<F> RequestState<F> {
@@ -439,7 +445,34 @@ async fn read_connection<F>(
     };
     let mut bytes = Vec::new();
     let step = state.catalog.simulation.simulation_step;
+    let mut movement = state
+        .movement
+        .as_ref()
+        .filter(|_| socket.movement_requested());
+    let mut movement_advertised = false;
     while let Ok((kind, payload)) = reader.read_message_into(&mut bytes).await {
+        if movement_advertised
+            && kind == MessageKind::Text
+            && payload.len() <= MAX_MOVEMENT_OFFER_BYTES
+            && let Ok(message) = std::str::from_utf8(payload)
+            && let Some(offer) = message.strip_prefix(MOVEMENT_SIGNAL_PREFIX)
+            && let Some(transport) = movement.take()
+        {
+            let (transport, offer, socket) = (transport.clone(), offer.to_owned(), socket.clone());
+            tokio::spawn(async move {
+                if let Ok(Ok((answer, sender))) = timeout_at(
+                    Instant::now() + Duration::from_secs(2),
+                    transport.offer(offer),
+                )
+                .await
+                    && socket.is_open()
+                {
+                    socket.attach_movement(sender);
+                    let _ = socket.send_text(&format!("{MOVEMENT_SIGNAL_PREFIX}{answer}"));
+                }
+            });
+            continue;
+        }
         let greeted = window.greeted;
         let control =
             match window.control(kind, payload, Instant::now(), &state.catalog.protocol, step) {
@@ -452,8 +485,12 @@ async fn read_connection<F>(
         if !greeted && window.greeted {
             greeting.abort();
         }
+        let playing = matches!(control, Control::Hello { .. } | Control::Play);
         if !state.enqueue(SocketEvent::Control { id, control }).await {
             break;
+        }
+        if playing && window.greeted && !movement_advertised && movement.is_some() {
+            movement_advertised = socket.send_text("movement").is_ok();
         }
     }
     greeting.abort();
@@ -797,6 +834,7 @@ mod tests {
             catalog,
             production: true,
             storage_available: || true,
+            movement: None,
         };
 
         let not_post = handle_identity(&state, identity_request(Method::GET, String::new())).await;
@@ -910,6 +948,7 @@ mod tests {
             ServerOptions {
                 production: true,
                 storage_available: || true,
+                movement: None,
             },
         )
         .unwrap();

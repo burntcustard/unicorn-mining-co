@@ -84,6 +84,10 @@ struct HostState {
 }
 
 impl SectorNpcs {
+    pub fn references_player(&self, account: &str, observer: i64) -> bool {
+        self.pirates.references_player(account, observer)
+    }
+
     pub fn new(tick: u64, catalog: &Catalog) -> Self {
         Self {
             pirates: pirate::Manager::default(),

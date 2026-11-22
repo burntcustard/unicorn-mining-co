@@ -70,12 +70,7 @@ impl Hangar {
 impl AuthoritativeSession {
     pub(super) fn update_stored_ships(&mut self, tick: u64, duration: f64) {
         for account in self.accounts.values_mut() {
-            if account.socket.is_none()
-                && account
-                    .hidden
-                    .as_ref()
-                    .is_some_and(|entity| !entity.model.object().dead)
-            {
+            if account.socket.is_none() && account.hidden.is_some() {
                 continue;
             }
             if !account.hangar.no_ship

@@ -9,9 +9,15 @@ The server generates private version 4 player UUIDs. The browser
 keeps its UUID in `localStorage` under `playerToken`.
 That UUID is the database player's `id` and primary key. It also identifies
 the browser when it reconnects, so it is sent only to its own client. Numeric
-player IDs are allocated for live game messages on each server run; they are not
-stored and are not login credentials. Clearing browser storage loses access to
-that anonymous identity. Display names are stored as player metadata.
+player IDs are allocated for live game messages on each server run. Clearing
+browser storage loses access to that anonymous identity. Display names are
+stored as player metadata.
+
+Dormant accounts stay in SQLite. Login loads the account and its ships on
+demand, and an identity preview reads the saved ship directly. After a socket
+disconnects, the server releases the account and its ships from memory once
+the hull is hidden and its pending save has committed. An active pirate
+encounter can retain an account until the encounter releases it.
 
 ## Player columns
 

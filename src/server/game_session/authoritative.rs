@@ -49,10 +49,10 @@ use hangar::Hangar;
 
 use super::{
     BANNED_CODE, BANNED_MESSAGE, ChatDispatch, ChatThrottle, ConnectionStats, FinishedConnection,
-    GateAccess, InputPacket, InputQueue, OnlinePlayer, ProfileChange, ProfileFields, ProfileRoster,
-    ProfileView, ServerLoadStats, SessionTotals, SnapshotDelivery, SnapshotRequest, SnapshotSample,
-    SnapshotStall, SoundRecipient, SoundShip, WorldSoundLookup, build_world_sounds, list_players,
-    nearby_world_sounds, player_chat, set_profile_name, system_chat, teleport_reply,
+    GateAccess, InputPacket, InputQueue, OnlinePlayer, ProfileChange, ProfileFields, ProfileMatch,
+    ProfileRoster, ProfileView, ServerLoadStats, SessionTotals, SnapshotDelivery, SnapshotRequest,
+    SnapshotSample, SnapshotStall, SoundRecipient, SoundShip, WorldSoundLookup, build_world_sounds,
+    list_players, nearby_world_sounds, player_chat, set_profile_name, system_chat, teleport_reply,
 };
 
 const REPLACED_CODE: u16 = 4001;
@@ -428,6 +428,61 @@ impl ProfileRoster for AuthoritativeSession {
             banned: &mut account.banned,
         })
     }
+
+    fn has_owner(&self) -> bool {
+        self.profiles()
+            .any(|profile| profile.role == PlayerRole::Owner)
+            || self
+                .storage
+                .as_ref()
+                .is_some_and(|storage| storage.reader.has_owner().unwrap_or(true))
+    }
+
+    fn find_named_profile(&mut self, name: &str) -> ProfileMatch {
+        use super::name_matching::equal_name;
+
+        let resident = {
+            let mut matches = self
+                .profiles()
+                .filter(|profile| equal_name(profile.display_name, name));
+            let first = matches
+                .next()
+                .map(|profile| (profile.player_id, profile.role));
+            if matches.next().is_some() {
+                return ProfileMatch::Ambiguous;
+            }
+            first
+        };
+        let saved = self
+            .storage
+            .as_ref()
+            .map(|storage| {
+                storage.reader.matching_profiles(|token, display_name| {
+                    !self.tokens.contains_key(token) && equal_name(display_name, name)
+                })
+            })
+            .transpose();
+        let saved = match saved {
+            Ok(saved) => saved.unwrap_or_default(),
+            Err(error) => {
+                eprintln!("find saved player profile: {error}");
+                return ProfileMatch::Unavailable;
+            }
+        };
+        match (resident, saved.as_slice()) {
+            (None, []) => ProfileMatch::Missing,
+            (Some((id, role)), []) => ProfileMatch::Unique(id, role),
+            (None, [(token, role)]) => match self.load_account(token, Instant::now()) {
+                Ok(Some(id)) => ProfileMatch::Unique(id, *role),
+                Ok(None) => ProfileMatch::Missing,
+                Err(error) => {
+                    eprintln!("load saved player profile: {error}");
+                    ProfileMatch::Unavailable
+                }
+            },
+            _ => ProfileMatch::Ambiguous,
+        }
+    }
 }
 
 impl Session for AuthoritativeSession {
@@ -535,6 +590,7 @@ impl Session for AuthoritativeSession {
             sector.running.world.tick = end_tick;
         }
         self.background_save(now);
+        self.release_saved_accounts();
 
         if let Some(load) = &mut self.load {
             if super::stats_due(tick, ticks, step) {
@@ -558,17 +614,36 @@ impl Session for AuthoritativeSession {
     }
 
     fn identity_preview(&mut self, private_id: &str) -> Option<serde_json::Value> {
-        let account = self.accounts.get(self.tokens.get(private_id)?)?;
-        let entity = account.hidden.as_ref().or_else(|| {
-            self.sectors[account.sector]
-                .running
-                .world
-                .entity(account.ship_id)
-        })?;
-        let EntityKind::Ship(ship) = &entity.model else {
-            return None;
+        use crate::objects::saved_ship::SavedShip;
+
+        let (name, credits, ship) = if let Some(account) = self
+            .tokens
+            .get(private_id)
+            .and_then(|id| self.accounts.get(id))
+        {
+            let entity = account.hidden.as_ref().or_else(|| {
+                self.sectors[account.sector]
+                    .running
+                    .world
+                    .entity(account.ship_id)
+            })?;
+            let EntityKind::Ship(ship) = &entity.model else {
+                return None;
+            };
+            (
+                account.name.clone(),
+                account.credits,
+                SavedShip::capture(ship, &self.catalog),
+            )
+        } else {
+            let saved = self
+                .storage
+                .as_ref()?
+                .reader
+                .player::<SavedShip>(private_id)
+                .ok()??;
+            (saved.display_name, saved.credits, saved.ship)
         };
-        let ship = crate::objects::saved_ship::SavedShip::capture(ship, &self.catalog);
         let modules = ship
             .modules
             .iter()
@@ -585,8 +660,8 @@ impl Session for AuthoritativeSession {
             .collect::<Vec<_>>();
         let paint = ship.paint.map_or(-1, |paint| paint as i64);
         Some(serde_json::json!([
-            account.name,
-            account.credits,
+            name,
+            credits,
             [ship.definition, paint, ship.hull, modules]
         ]))
     }

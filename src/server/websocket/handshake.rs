@@ -74,6 +74,10 @@ fn allowed_origin(origin: &str, host: &str, production: bool) -> bool {
     })
 }
 
+fn snapshot_query(query: &str) -> &str {
+    query.strip_suffix(MOVEMENT_QUERY_SUFFIX).unwrap_or(query)
+}
+
 pub(super) fn upgrade_key(request: &Request, production: bool) -> Option<HeaderValue> {
     let headers = request.headers();
     let origin = headers
@@ -94,10 +98,12 @@ pub(super) fn upgrade_key(request: &Request, production: bool) -> Option<HeaderV
         .unwrap_or_default();
     if request.method() != Method::GET
         || request.uri().path() != "/game-socket"
-        || request
-            .uri()
-            .query()
-            .is_some_and(|query| !matches!(query, SNAPSHOT_DELTA_QUERY | STATION_REPLICATION_QUERY))
+        || request.uri().query().is_some_and(|query| {
+            !matches!(
+                snapshot_query(query),
+                SNAPSHOT_DELTA_QUERY | STATION_REPLICATION_QUERY
+            )
+        })
         || !has_token(header_value(headers, header::CONNECTION), "upgrade")
         || !has_token(header_value(headers, header::UPGRADE), "websocket")
         || header_value(headers, header::SEC_WEBSOCKET_VERSION) != "13"
@@ -132,7 +138,11 @@ where
             .into_response();
     }
 
-    let query = request.uri().query();
+    let movement_requested = request
+        .uri()
+        .query()
+        .is_some_and(|query| query.ends_with(MOVEMENT_QUERY_SUFFIX));
+    let query = request.uri().query().map(snapshot_query);
     let station_replication = query == Some(STATION_REPLICATION_QUERY);
     let snapshot_deltas = station_replication || query == Some(SNAPSHOT_DELTA_QUERY);
     let upgraded = hyper::upgrade::on(&mut request);
@@ -148,6 +158,7 @@ where
             let (mut socket, outbound) = WebSocket::new(direct, PACKET_QUEUE_CAPACITY);
             socket.snapshot_deltas = snapshot_deltas;
             socket.station_replication = station_replication;
+            socket.movement_requested = movement_requested;
             let pump = tokio::spawn(write_pump(socket.clone(), outbound, write));
 
             connected(socket.clone(), WebSocketReader::new(socket.clone(), read)).await;

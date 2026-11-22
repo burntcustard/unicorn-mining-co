@@ -1,5 +1,72 @@
 use super::*;
 
+use crate::movement_transport::{MAX_MOVEMENT_BYTES, MOVEMENT_SHIP_LIMIT, MovementSender};
+use crate::simulation::world::World;
+
+#[cold]
+fn send_movement(sender: &MovementSender, account: &Account, world: &World, visible_range: f64) {
+    // Keep a second of pose traffic within the SCTP congestion window even
+    // without acknowledgments. Crowds also share a lower per-observer rate.
+    let crowded = world.players.len() > 4;
+    let interval = if crowded { 3 } else { 1 };
+    if !sender.should_send(world.tick, interval)
+        || crowded && !account.delivery.wants_movement(world.tick)
+    {
+        return;
+    }
+
+    let mut nearby = SmallVec::<[_; 40]>::new();
+    let range_squared = visible_range * visible_range;
+
+    for player in world.players.values() {
+        let id = player.ship_id;
+        if id == account.ship_id || !account.selection.contains(id) {
+            continue;
+        }
+        let Some(EntityKind::Ship(ship)) = world.entity(id).map(|entity| &entity.model) else {
+            continue;
+        };
+        let craft = &ship.craft;
+        let object = &craft.object;
+        let distance = object.position.distance_squared(account.position);
+        if object.dead
+            || craft.docked_to.is_some()
+            || craft.launching != 0.0
+            || distance > range_squared
+        {
+            continue;
+        }
+        nearby.push((distance, id, object));
+    }
+    if nearby.len() > MOVEMENT_SHIP_LIMIT {
+        nearby.select_nth_unstable_by(MOVEMENT_SHIP_LIMIT, |left, right| {
+            left.0.total_cmp(&right.0)
+        });
+    }
+
+    let mut packet = [0; MAX_MOVEMENT_BYTES];
+    packet[..8].copy_from_slice(&world.tick.to_le_bytes());
+    let mut size = 8;
+    for &(_, id, object) in nearby.iter().take(MOVEMENT_SHIP_LIMIT) {
+        packet[size..size + 8].copy_from_slice(&id.to_le_bytes());
+        size += 8;
+        for value in [
+            object.position.x,
+            object.position.y,
+            object.velocity.x,
+            object.velocity.y,
+            object.rotation,
+            object.spin,
+        ] {
+            packet[size..size + 4].copy_from_slice(&(value as f32).to_le_bytes());
+            size += 4;
+        }
+    }
+    if size > 8 {
+        sender.send(world.tick, &packet[..size]);
+    }
+}
+
 pub(super) fn send_snapshot(
     account: &mut Account,
     sector: &mut SectorRuntime,
@@ -97,6 +164,13 @@ pub(super) fn send_snapshot(
         Err(stall) => {
             if stall == SnapshotStall::SocketLimit {
                 socket.terminate();
+            } else if regular && let Some(sender) = socket.movement() {
+                send_movement(
+                    sender,
+                    account,
+                    &sector.running.world,
+                    catalog.simulation.visible_range,
+                );
             }
             if let Some(stats) = &mut account.stats {
                 stats.record_stall(stall);

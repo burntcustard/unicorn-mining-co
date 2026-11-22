@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Row, params};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -151,6 +151,91 @@ pub struct Store {
     _lock: File,
 }
 
+pub(crate) struct AccountReader {
+    connection: Connection,
+}
+
+const PLAYER_COLUMNS: &str = "id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector";
+
+fn read_player<Ship: DeserializeOwned>(row: &Row<'_>) -> Result<SavedPlayer<Ship>> {
+    Ok(SavedPlayer {
+        id: row.get(0)?,
+        display_name: row.get(1)?,
+        role: PlayerRole::parse(row.get_ref(2)?.as_str()?)?,
+        banned: row.get(3)?,
+        first_joined_at: row.get(4)?,
+        last_seen_at: row.get(5)?,
+        played_for: row.get::<_, i64>(6)? as f64,
+        credits: row.get::<_, i64>(7)? as f64,
+        unlocked_paints: row.get(8)?,
+        visited: serde_json::from_str(row.get_ref(9)?.as_str()?)?,
+        ship: serde_json::from_str(row.get_ref(10)?.as_str()?)?,
+        sector_id: row.get(11)?,
+    })
+}
+
+impl AccountReader {
+    pub(crate) fn player<Ship: DeserializeOwned>(
+        &self,
+        token: &str,
+    ) -> Result<Option<SavedPlayer<Ship>>> {
+        self.connection
+            .prepare_cached(&format!("SELECT {PLAYER_COLUMNS} FROM players WHERE id=?"))?
+            .query([token])?
+            .next()?
+            .map(read_player)
+            .transpose()
+    }
+
+    pub(crate) fn observer(&self, token: &str) -> Result<Option<i64>> {
+        Ok(self
+            .connection
+            .prepare_cached("SELECT observer FROM player_observers WHERE id=?")?
+            .query_row([token], |row| row.get(0))
+            .optional()?)
+    }
+
+    pub(crate) fn record_observer(&self, token: &str, observer: i64) -> Result<()> {
+        self.connection
+            .prepare_cached(
+                "INSERT INTO player_observers(id,observer) VALUES(?,?) ON CONFLICT(id) DO NOTHING",
+            )?
+            .execute(params![token, observer])?;
+        Ok(())
+    }
+
+    pub(crate) fn has_owner(&self) -> Result<bool> {
+        Ok(self
+            .connection
+            .prepare_cached("SELECT EXISTS(SELECT 1 FROM players WHERE role='owner')")?
+            .query_row([], |row| row.get(0))?)
+    }
+
+    pub(crate) fn matching_profiles(
+        &self,
+        mut matches: impl FnMut(&str, &str) -> bool,
+    ) -> Result<Vec<(String, PlayerRole)>> {
+        let mut query = self
+            .connection
+            .prepare_cached("SELECT id,display_name,role FROM players WHERE display_name<>''")?;
+        let mut rows = query.query([])?;
+        let mut found = Vec::new();
+        while let Some(row) = rows.next()? {
+            let token = row.get_ref(0)?.as_str()?;
+            if matches(token, row.get_ref(1)?.as_str()?) {
+                found.push((
+                    token.to_owned(),
+                    PlayerRole::parse(row.get_ref(2)?.as_str()?)?,
+                ));
+                if found.len() == 2 {
+                    break;
+                }
+            }
+        }
+        Ok(found)
+    }
+}
+
 pub(super) fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
     name.push(suffix);
@@ -252,6 +337,20 @@ impl Store {
         }))
     }
 
+    pub(crate) fn account_reader(&self) -> Result<AccountReader> {
+        let connection = Connection::open_with_flags(
+            &self.path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        connection.busy_timeout(Duration::from_millis(10))?;
+        // World objects may still refer to a player who reconnects in this run.
+        connection.execute_batch(
+            "PRAGMA temp_store=FILE;
+             CREATE TEMP TABLE player_observers (id TEXT PRIMARY KEY, observer INTEGER NOT NULL) WITHOUT ROWID;",
+        )?;
+        Ok(AccountReader { connection })
+    }
+
     pub(crate) fn load_world(&self, seed: f64) -> Result<Option<WorldState>> {
         let world_row = self.connection.query_row(
             "SELECT seed,generation_digest,tick,random_state,next_entity_id,next_object_id,sectors FROM world WHERE id=1",
@@ -278,25 +377,12 @@ impl Store {
         &self,
         mut restore: impl FnMut(SavedPlayer<Ship>) -> Result<()>,
     ) -> Result<()> {
-        let mut player_query = self.connection.prepare(
-            "SELECT id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector FROM players ORDER BY id",
-        )?;
+        let mut player_query = self
+            .connection
+            .prepare(&format!("SELECT {PLAYER_COLUMNS} FROM players ORDER BY id"))?;
         let mut rows = player_query.query([])?;
         while let Some(row) = rows.next()? {
-            restore(SavedPlayer {
-                id: row.get(0)?,
-                display_name: row.get(1)?,
-                role: PlayerRole::parse(row.get_ref(2)?.as_str()?)?,
-                banned: row.get(3)?,
-                first_joined_at: row.get(4)?,
-                last_seen_at: row.get(5)?,
-                played_for: row.get::<_, i64>(6)? as f64,
-                credits: row.get::<_, i64>(7)? as f64,
-                unlocked_paints: row.get(8)?,
-                visited: serde_json::from_str(row.get_ref(9)?.as_str()?)?,
-                ship: serde_json::from_str(row.get_ref(10)?.as_str()?)?,
-                sector_id: row.get(11)?,
-            })?;
+            restore(read_player(row)?)?;
         }
         Ok(())
     }

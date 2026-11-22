@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io;
 use std::ops::{Index, IndexMut};
 use std::sync::Arc;
@@ -36,6 +37,7 @@ pub(super) struct SectorRuntime {
     pub(super) last_sync: Option<u64>,
     pub(super) checkpoint: WorldCheckpoint,
     pub(super) npcs: SectorNpcs,
+    pub(super) pirate_cooldowns: BTreeMap<String, u64>,
     traffic: PortalTraffic,
     effects: PortalEffects,
 }
@@ -75,6 +77,7 @@ impl SectorRuntime {
             last_sync: None,
             checkpoint: WorldCheckpoint::new(now),
             npcs: SectorNpcs::new(tick, catalog),
+            pirate_cooldowns: BTreeMap::new(),
             traffic: PortalTraffic::default(),
             effects: PortalEffects::default(),
         })
@@ -802,7 +805,11 @@ mod tests {
 
         let mut reloaded = AuthoritativeSession::new(25.0, catalog).unwrap();
         reloaded.open_player_accounts(&db, backups).unwrap();
-        let id = reloaded.tokens[&token];
+        assert!(reloaded.accounts.is_empty());
+        let id = reloaded
+            .load_account(&token, Instant::now())
+            .unwrap()
+            .unwrap();
         let account = reloaded.accounts.get(&id).unwrap();
         assert_eq!(account.sector, destination_index);
         assert_eq!(account.ship_id, ship_id);

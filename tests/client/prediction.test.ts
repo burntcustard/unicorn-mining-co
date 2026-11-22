@@ -750,6 +750,70 @@ installExampleModules();
   );
 }
 
+// A disposable movement sample can influence only the known remote ship's pose.
+{
+  const world = createWorld();
+  const local = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const remote = addEntity(world, createPlayerShip(world, { playerId: 2 }));
+  const motion = new RemoteMotion();
+
+  remote.position = Vec.create(200);
+  world.tick = 40;
+
+  const movement = {
+    id: remote.id,
+    position: Vec.create(230),
+    rotation: 0,
+    spin: 0,
+    tick: 40,
+    velocity: Vec.create(),
+  };
+
+  const present = (now: number, serverTick = 39) => {
+    motion.updateMovement({
+      now,
+      world,
+      predicted: world,
+      serverTick,
+      shipId: local.id,
+      renderTick: world.tick,
+    });
+
+    return motion.sample({ now, world });
+  };
+
+  motion.receiveMovement([movement, { ...movement, id: local.id }], 0);
+  assert.deepEqual(present(0).get(remote.id)?.position, remote.position);
+  const moving = present(100);
+
+  assert.equal(moving.get(remote.id)!.position.x, 206);
+  assert.deepEqual(moving.get(local.id)?.position, local.position);
+  assert.equal(
+    remote.position.x,
+    200,
+    'the movement lane is presentation only',
+  );
+
+  motion.receiveMovement(
+    [{ ...movement, tick: 39, position: Vec.create() }],
+    100,
+  );
+  assert.deepEqual(
+    present(100),
+    moving,
+    'an older datagram cannot replace motion',
+  );
+  assert.deepEqual(present(100, 40), moving, 'snapshot fallback is continuous');
+  assert(present(200, 40).get(remote.id)!.position.x < 201);
+
+  motion.receiveMovement([movement], 210);
+  assert(!motion.hasMovement, 'expiry retains the newest datagram tick');
+
+  world.entities.delete(remote.id);
+  motion.receiveMovement([{ ...movement, tick: 41 }], 210);
+  assert(!present(210, 40).has(remote.id), 'a datagram cannot restore a ship');
+}
+
 // Rendering predicts the unfinished tick, not the previous tick's pose.
 // Sampling more frames must not advance history or change the eventual solve.
 for (const fps of [60, 120, 144]) {

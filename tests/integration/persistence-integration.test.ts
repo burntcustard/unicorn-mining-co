@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
+import { on, once } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
@@ -10,6 +10,7 @@ import {
   encodeClientMessage,
 } from '../../src/client/protocol/binary-control';
 import { decodeBinarySnapshot } from '../../src/client/protocol/binary-snapshot';
+import type { ClientMessage } from '../../src/client/protocol/network';
 
 const directory = mkdtempSync(resolve(tmpdir(), 'unicorn-recovery-'));
 
@@ -60,12 +61,17 @@ async function stop(signal: 'SIGTERM' | 'SIGKILL') {
   await stopped;
 }
 
-async function join(address: string, token: string | null) {
+function connect(address: string) {
   const socket = new WebSocket(address, {
     origin: address.replace('ws:', 'https:').replace('/game-socket', ''),
   });
 
   sockets.push(socket);
+  return socket;
+}
+
+async function join(address: string, token: string | null) {
+  const socket = connect(address);
 
   return new Promise<{
     token: string;
@@ -128,6 +134,29 @@ async function join(address: string, token: string | null) {
   });
 }
 
+async function requestControl(
+  socket: WebSocket,
+  request: Extract<ClientMessage, { type: 'chat' | 'profile' }>,
+) {
+  const messages = on(socket, 'message', {
+    close: ['close'],
+    signal: AbortSignal.timeout(2000),
+  });
+
+  socket.send(encodeClientMessage(request));
+
+  for await (const [data] of messages) {
+    const packet = new Uint8Array(data as Buffer);
+
+    if (packet[1] !== 0x43) continue;
+    const control = decodeServerControl(packet);
+
+    if (control.type === request.type) return control;
+  }
+
+  throw new Error(`Connection closed before ${request.type} reply`);
+}
+
 const timeout = setTimeout(() => {
   sockets.forEach((socket) => socket.terminate());
   server?.kill('SIGKILL');
@@ -173,13 +202,73 @@ try {
   address = await start();
   const savedDeveloper = await join(address, developer.token);
 
+  const owner = await requestControl(sockets.at(-1)!, {
+    type: 'profile',
+    displayName: 'burntcustard',
+  });
+
+  assert(owner.type === 'profile');
+  assert.equal(owner.displayName, 'burntcustard');
   assert.equal(savedDeveloper.credits, developer.credits);
   const newProductionPlayer = await join(address, null);
 
+  const pilot = await requestControl(sockets.at(-1)!, {
+    type: 'profile',
+    displayName: 'Dormant Pilot',
+  });
+
+  assert(pilot.type === 'profile');
+  assert.equal(pilot.displayName, 'Dormant Pilot');
   assert.equal(newProductionPlayer.credits, 2000);
   await stop('SIGTERM');
+
+  address = await start();
+  await join(address, savedDeveloper.token);
+
+  const ban = await requestControl(sockets.at(-1)!, {
+    type: 'chat',
+    channel: 0,
+    text: '/ban Dormant Pilot',
+  });
+
+  assert(ban.type === 'chat');
+  assert.equal(ban.text, 'Dormant Pilot has been banned.');
+  await stop('SIGTERM');
+
+  address = await start();
+  const blocked = connect(address);
+
+  await once(blocked, 'open');
+  const closed = once(blocked, 'close');
+
+  blocked.send(
+    encodeClientMessage({
+      type: 'hello',
+      playerToken: newProductionPlayer.token,
+    }),
+  );
+
+  assert.equal((await closed)[0], 4003);
+
+  await join(address, savedDeveloper.token);
+
+  const pardon = await requestControl(sockets.at(-1)!, {
+    type: 'chat',
+    channel: 0,
+    text: '/pardon Dormant Pilot',
+  });
+
+  assert(pardon.type === 'chat');
+  assert.equal(pardon.text, 'Dormant Pilot has been pardoned.');
+  const returned = await join(address, newProductionPlayer.token);
+
+  assert.equal(returned.token, newProductionPlayer.token);
+  assert.equal(returned.shipId, newProductionPlayer.shipId);
+  assert.equal(returned.credits, newProductionPlayer.credits);
+  assert.equal(returned.paints, newProductionPlayer.paints);
+  await stop('SIGTERM');
   console.log(
-    'SQLite refresh, graceful restart, abrupt process kill and development starting credits passed',
+    'SQLite refresh, restarts, starting credits, and offline moderation passed',
   );
 } finally {
   clearTimeout(timeout);

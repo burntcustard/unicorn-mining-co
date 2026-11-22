@@ -204,6 +204,12 @@ pub struct Manager {
 }
 
 impl Manager {
+    pub fn references_player(&self, account: &str, observer: i64) -> bool {
+        self.pirates
+            .iter()
+            .any(|pirate| pirate.victim == account || pirate.aggressors.contains(&observer))
+    }
+
     pub fn dispatch(&mut self, catalog: &Catalog, environment: &mut impl PirateEnvironment) {
         let tick = environment.tick();
         let step = catalog.simulation.simulation_step;

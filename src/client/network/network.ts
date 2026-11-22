@@ -51,6 +51,7 @@ import { shadesOf } from '../../specs/colors';
 import { hangarState, setHangarActionDispatcher } from './hangar-actions';
 import { type HangarAction } from '../protocol/network';
 import { shipSpecsById } from '../../specs/ships';
+import { MovementChannel } from './movement-channel';
 
 const asteroidRecords = new WeakMap<Asteroid, ReplicatedEntity>();
 const stationRecords = new WeakMap<Station, ReplicatedEntity>();
@@ -382,6 +383,7 @@ export class NetworkClient {
   private readonly socketUrl: string;
   private socket!: WebSocket;
   private snapshotDeltas = true;
+  private movementCapable = true;
   spawnPosition = Vec.create();
   private welcomed = false;
   readonly world = createWorld();
@@ -531,9 +533,16 @@ export class NetworkClient {
   private connect() {
     const url = this.socketUrl;
     const snapshotDeltas = this.snapshotDeltas && url.endsWith('/game-socket');
+    const movementCapable =
+      snapshotDeltas &&
+      this.movementCapable &&
+      typeof RTCPeerConnection !== 'undefined';
     const socket = new WebSocket(
-      snapshotDeltas ? `${url}?${snapshotDeltaQuery}` : url,
+      snapshotDeltas
+        ? `${url}?${snapshotDeltaQuery}${movementCapable ? '&movement=1' : ''}`
+        : url,
     );
+    let movement: MovementChannel | undefined;
     let opened = false;
 
     this.socket = socket;
@@ -560,6 +569,45 @@ export class NetworkClient {
     socket.onmessage = ({ data }) => {
       if (this.socket !== socket) return;
 
+      if (movementCapable && typeof data === 'string') {
+        if (data === 'movement') {
+          try {
+            movement ??= new MovementChannel({
+              sendOffer: (sdp) => {
+                if (
+                  this.socket === socket &&
+                  socket.readyState === WebSocket.OPEN
+                ) {
+                  socket.send(`movement\n${sdp}`);
+                }
+              },
+              receiveMovement: (samples) => {
+                const tick = samples[0]?.tick;
+
+                if (
+                  this.socket === socket &&
+                  this.connected &&
+                  tick !== undefined &&
+                  tick > this.serverTick &&
+                  tick <= this.world.tick + 1
+                ) {
+                  this.remoteMotion.receiveMovement(samples);
+                }
+              },
+            });
+          } catch {
+            // The game socket stays in use if WebRTC is unavailable.
+          }
+
+          return;
+        }
+
+        if (data.startsWith('movement\n')) {
+          movement?.answer(data.slice(9));
+          return;
+        }
+      }
+
       try {
         if (!(data instanceof ArrayBuffer || data instanceof Uint8Array)) {
           throw new Error('Invalid server message');
@@ -584,8 +632,15 @@ export class NetworkClient {
 
     socket.onclose = ({ code, reason }) => {
       clearTimeout(handshakeTimer);
+      movement?.close();
 
       if (this.socket !== socket) return;
+
+      if (movementCapable && !opened && code === 1006) {
+        this.movementCapable = false;
+        this.connect();
+        return;
+      }
 
       // Older servers require the unmodified socket URL.
       if (snapshotDeltas && !opened && code === 1006) {
@@ -595,6 +650,7 @@ export class NetworkClient {
       }
 
       this.connected = false;
+      this.remoteMotion.clearMovement();
       this.leaving = false;
       this.pendingProfile?.reject(
         new Error('Connection lost. Please try again.'),
@@ -694,6 +750,7 @@ export class NetworkClient {
   leaveWorld() {
     this.playing = false;
     this.connected = false;
+    this.remoteMotion.clearMovement();
     this.worldReady = new Promise((resolve) => (this.resolveReady = resolve));
     this.dockSequence = this.acknowledgedDockSequence = 0;
     this.leaving = this.welcomed && this.socket.readyState === WebSocket.OPEN;
@@ -726,6 +783,35 @@ export class NetworkClient {
     return this.prediction.predictFrame({
       elapsed: (now - this.inputTickStartedAt) / 1000,
     });
+  }
+
+  presentedPoses({
+    now,
+    predicted,
+  }: {
+    now: number;
+    predicted: SimulationWorld;
+  }) {
+    if (this.remoteMotion.hasMovement) {
+      this.remoteMotion.updateMovement({
+        now,
+        world: this.world,
+        predicted,
+        shipId: this.shipId,
+        serverTick: this.serverTick,
+        renderTick:
+          this.world.tick +
+          Math.max(
+            0,
+            Math.min(
+              1,
+              (now - this.inputTickStartedAt) / (simulationStep * 1000),
+            ),
+          ),
+      });
+    }
+
+    return this.remoteMotion.sample({ now, world: this.world, predicted });
   }
 
   private receive({ message }: { message: ServerMessage }) {

@@ -425,12 +425,7 @@ const gameLoop = GameLoop({
       ({ projectile }) => projectile.playerId === network.playerId,
     );
 
-    const remotePoses = network.remoteMotion.sample({
-      now,
-      world: network.world,
-      predicted,
-      shipId: network.shipId,
-    });
+    const remotePoses = network.presentedPoses({ now, predicted });
 
     const viewShip = game.viewShip || player.ship;
     const predictedViewShip = predicted.entities.get(viewShip.id);

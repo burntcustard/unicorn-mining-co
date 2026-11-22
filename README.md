@@ -76,6 +76,11 @@ New players start with 2,000 credits. Existing players keep their saved balance.
 The same Rust server supports source and production clients through binary packets.
 Node is used only for frontend builds, generators, and development/test tooling.
 
+The local server also listens on UDP port 3001 for an optional WebRTC movement
+channel. During a snapshot stall it sends current poses for nearby player ships.
+The WebSocket still carries authoritative simulation state, inputs, and normal
+snapshots. Use `MOVEMENT_DISABLED=1` to test WebSocket-only behavior.
+
 To preview object specs independently, run `npm run tool:object-viewer` and open
 the URL printed by Vite (starting at port 3100). The development-only GameObject Viewer needs no game server.
 It uses the actual client renderers for ships, stations, nav beacons, items and procedural
@@ -384,6 +389,13 @@ suite. New captures go under ignored `benchmarking/_local/`.
 
 ## Deploy on Fly.io
 
+The production movement channel uses a dedicated public IPv4 and UDP port 8081
+on the same Machine as the WebSocket. For a new Fly app, allocate a dedicated
+address with `fly ips allocate-v4` and update `MOVEMENT_PUBLIC_ADDRESS` in
+`fly.toml`. The server listens on `MOVEMENT_BIND_ADDRESS=fly-global-services:8081`.
+Clients with unreachable UDP use the WebSocket automatically.
+See [Fly's UDP service requirements](https://docs.fly.io/networking/udp-and-tcp).
+
 The public game runs at [unicorn-mining.co](https://unicorn-mining.co/) on one
 Fly Machine in London. Its SQLite database and backups live on the mounted
 `game_data` volume. The server stores the world in `/data/world.sqlite`
@@ -394,11 +406,11 @@ and its backups in `/data/backups`. Restarts reuse that database. The `www` host
    app already exists. If `unicorn-mining-co` is unavailable, choose another
    app name and update `fly.toml` before deploying.
 2. Create the app with `fly apps create unicorn-mining-co` if it does not
-   already exist. This keeps the committed `fly.toml`. Allocate public
-   addresses with `fly ips allocate-v4 --shared` and `fly ips allocate-v6`
-   (check `fly ips list` first if the app already existed). Deploy with
+   already exist. Check `fly ips list`, allocate a dedicated public IPv4 and
+   an IPv6 address if needed, and set `MOVEMENT_PUBLIC_ADDRESS` to that IPv4
+   and port 8081. Deploy with
    `SERVER_BUILD_TARGET=x86_64-unknown-linux-gnu RUSTFLAGS="-C target-feature=+crt-static" npm run build` followed by
-   `fly deploy --ha=false`, then check `fly status`, `fly logs`, and the
+   `fly deploy --ha=false --no-public-ips`, then check `fly status`, `fly logs`, and the
    app's `https://<app>.fly.dev/` URL. Verify that exactly one Machine is
    running and `/healthz` returns `ok`.
 3. Create a named, app-scoped deploy token with

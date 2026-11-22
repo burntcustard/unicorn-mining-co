@@ -264,6 +264,7 @@ for (const production of [false, true]) {
     firstSocket.onmessage!(load);
     await firstReady;
     built.returnToMenu(client);
+    assert.equal(decodeClientMessage(firstSocket.sent.at(-1)!).type, 'leave');
     firstSocket.onmessage!({ data: encodeServerControl({ type: 'leave' }) });
     firstSocket.readyState = TestWebSocket.CLOSED;
     firstSocket.onclose!({ code, reason: '' });

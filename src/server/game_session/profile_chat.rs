@@ -27,10 +27,33 @@ pub struct ProfileFields<'a> {
     pub banned: &'a mut bool,
 }
 
+pub enum ProfileMatch {
+    Missing,
+    Unique(i64, PlayerRole),
+    Ambiguous,
+    Unavailable,
+}
+
 pub trait ProfileRoster {
     fn profiles(&self) -> impl Iterator<Item = ProfileView<'_>>;
     fn profile(&self, id: i64) -> Option<ProfileView<'_>>;
     fn profile_mut(&mut self, id: i64) -> Option<ProfileFields<'_>>;
+
+    fn has_owner(&self) -> bool {
+        self.profiles()
+            .any(|profile| profile.role == PlayerRole::Owner)
+    }
+
+    fn find_named_profile(&mut self, name: &str) -> ProfileMatch {
+        let mut matches = self
+            .profiles()
+            .filter(|profile| equal_name(profile.display_name, name));
+        match (matches.next(), matches.next()) {
+            (None, _) => ProfileMatch::Missing,
+            (Some(profile), None) => ProfileMatch::Unique(profile.player_id, profile.role),
+            _ => ProfileMatch::Ambiguous,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,19 +86,12 @@ pub fn set_profile_name(
 
 /// Bootstrap ownership once for a uniquely matching account.
 pub fn assign_initial_owner(roster: &mut impl ProfileRoster) -> Option<i64> {
-    let mut candidate = None;
-    for profile in roster.profiles() {
-        if profile.role == PlayerRole::Owner {
-            return None;
-        }
-        if equal_name(profile.display_name, INITIAL_OWNER_NAME)
-            && candidate.replace(profile.player_id).is_some()
-        {
-            return None;
-        }
+    if roster.has_owner() {
+        return None;
     }
-
-    let id = candidate?;
+    let ProfileMatch::Unique(id, _) = roster.find_named_profile(INITIAL_OWNER_NAME) else {
+        return None;
+    };
     *roster.profile_mut(id)?.role = PlayerRole::Owner;
     Some(id)
 }
@@ -183,24 +199,19 @@ fn moderation_command(
         return reply(channel, format!("Usage: {command} playername"));
     }
 
-    let target_id = {
-        let mut matches = roster
-            .profiles()
-            .filter(|candidate| equal_name(candidate.display_name, target_name));
-        let Some(target) = matches.next() else {
-            return reply(channel, "Player not found.");
-        };
-        if matches.next().is_some() {
+    let target_id = match roster.find_named_profile(target_name) {
+        ProfileMatch::Missing => return reply(channel, "Player not found."),
+        ProfileMatch::Ambiguous => {
             return reply(
                 channel,
                 "More than one player has that name; no changes were made.",
             );
         }
-        if target.role == PlayerRole::Owner {
+        ProfileMatch::Unavailable => return reply(channel, "Player lookup unavailable."),
+        ProfileMatch::Unique(_, PlayerRole::Owner) => {
             return reply(channel, "Owners cannot be changed by this command.");
         }
-
-        target.player_id
+        ProfileMatch::Unique(id, _) => id,
     };
 
     let Some(target) = roster.profile_mut(target_id) else {

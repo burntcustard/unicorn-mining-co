@@ -248,6 +248,13 @@ impl SnapshotDelivery {
         self.receipt_lag
     }
 
+    pub(crate) fn wants_movement(&self, tick: u64) -> bool {
+        self.pending
+            .back()
+            .and_then(|snapshot| snapshot.tick)
+            .is_none_or(|sent| tick.wrapping_sub(sent) > MAX_HEALTHY_LAG)
+    }
+
     pub fn joining(&self, tick: u64) -> bool {
         self.join_until == 0 || tick < self.join_until
     }

@@ -18,6 +18,8 @@ PORT = '8080'
 WORLD_SEED = '25'
 DATABASE_PATH = '/data/world.sqlite'
 BACKUP_DIRECTORY = '/data/backups'
+MOVEMENT_BIND_ADDRESS = 'fly-global-services:8081'
+MOVEMENT_PUBLIC_ADDRESS = '149.248.205.68:8081'
 
 [[mounts]]
 source = 'game_data'
@@ -37,6 +39,13 @@ timeout = '5s'
 grace_period = '10s'
 method = 'GET'
 path = '/healthz'
+
+[[services]]
+protocol = 'udp'
+internal_port = 8081
+
+[[services.ports]]
+port = 8081
 
 [[vm]]
 # Shared CPU quota is pooled across the machine's vCPUs.

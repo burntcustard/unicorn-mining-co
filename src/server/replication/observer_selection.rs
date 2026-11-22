@@ -277,6 +277,10 @@ impl ObserverSelection {
         self.snapshot_deltas = enabled;
     }
 
+    pub(crate) fn contains(&self, id: i64) -> bool {
+        self.members.contains_key(&id)
+    }
+
     pub fn select<'a>(
         &'a mut self,
         view: &'a mut ReplicationView,

@@ -3,10 +3,21 @@ use super::*;
 impl AuthoritativeSession {
     pub(super) fn greet(&mut self, client: &Client, player_token: Option<String>, play: bool) {
         let now = Instant::now();
-        let id = player_token
-            .as_ref()
-            .and_then(|token| self.tokens.get(token).copied())
-            .or_else(|| self.create_account(now));
+        let lookup = player_token
+            .as_deref()
+            .map(|token| self.load_account(token, now))
+            .transpose();
+        let saved = match lookup {
+            Ok(saved) => saved.flatten(),
+            Err(error) => {
+                eprintln!("load player account: {error}");
+                client
+                    .socket
+                    .close_with(1013, "Storage temporarily unavailable");
+                return;
+            }
+        };
+        let id = saved.or_else(|| self.create_account(now));
         let Some(id) = id else {
             client.socket.close_with(1011, "Ship unavailable");
             return;
@@ -235,5 +246,40 @@ impl AuthoritativeSession {
             self.disconnect_with_reason(client.id, "idle");
             client.socket.close_with(4002, "Idle timeout");
         }
+    }
+}
+
+#[cfg(all(test, feature = "test-fixtures"))]
+mod tests {
+    use crate::websocket::FixtureSocket;
+
+    use super::*;
+
+    #[test]
+    fn leaving_hides_the_ship_immediately_and_allows_reentry() {
+        let catalog = Arc::new(Catalog::load().unwrap());
+        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
+        let mut socket = FixtureSocket::new();
+        let client = Client {
+            id: ClientId(1),
+            socket: socket.socket(),
+        };
+
+        session.receive(&client, Control::Hello { player_token: None });
+        socket.drain(|_| {});
+        let id = session.sockets[&client.id];
+        let account = session.accounts.get(&id).unwrap();
+        let (sector, ship) = (account.sector, account.ship_id);
+        assert!(session.sectors[sector].running.world.entity(ship).is_some());
+
+        session.receive(&client, Control::Leave);
+        assert!(session.sectors[sector].running.world.entity(ship).is_none());
+        assert_eq!(session.sockets[&client.id], id);
+
+        session.receive(&client, Control::Play);
+        assert!(session.sectors[sector].running.world.entity(ship).is_some());
+
+        session.disconnect(&client);
+        assert!(session.sectors[sector].running.world.entity(ship).is_some());
     }
 }
