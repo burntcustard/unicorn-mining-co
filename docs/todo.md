@@ -43,7 +43,7 @@
 [-] New sounds
 [x] Fix unnecessary scroll on right card thing
 [?] Can't buy search light
-[-] Map UI (tab or M?)
+[x] Map UI (tab or M?)
 [x] Move currency to somewhere on the right
 [x] Make FPS not on by default
 [x] Make laser use significantly more power while firing
@@ -59,12 +59,12 @@
 [x] Fix hull smash sound when shield & asteroid collide
 [ ] New icon for wormholes
 [ ] Add more ship stats to hangar tab
-[ ] Fix thrusters not going to 0 in outfitting
-[ ] Lg thruster should have more fuel and power usage as downside to speed
+[x] Fix thrusters not going to 0 in outfitting
+[x] Lg thruster should have more fuel and power usage as downside to speed
 [x] Mustang maybe shouldn't have lg thruster
 [ ] Wreck pieces explode in weird way sometimes
 [ ] Wreck should break if rear large piece of ship destroyed
-[ ] Make cursor not highlight if the thing went under and un-moving cursor
+[x] Make cursor not highlight if the thing went under and un-moving cursor
 [ ] Asteroid chunks with Items in should have mass of the item plus the asteroid
 [ ] Sell animations
 [x] Projectile ammo should be slightly more expensive

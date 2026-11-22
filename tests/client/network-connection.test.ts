@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { rolldown } from 'rolldown';
 import { buildPrePlugin } from '../../plugins/build-plugins';
-import { encodeServerControl } from '../../src/client/protocol/binary-control';
+import {
+  decodeClientMessage,
+  encodeServerControl,
+} from '../../src/client/protocol/binary-control';
 import { snapshotDeltaQuery } from '../../src/client/protocol/binary-snapshot';
 import { testBuildPlugin } from '../support/build-plugin.ts';
 
@@ -11,7 +14,9 @@ const sockets: TestWebSocket[] = [];
 
 class TestWebSocket {
   static OPEN = 1;
-  readyState = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+  readyState = TestWebSocket.OPEN;
   onclose?: (event: { code: number; reason: string }) => void;
   onopen?: () => void;
   onmessage?: (event: { data: Uint8Array }) => void;
@@ -28,6 +33,7 @@ class TestWebSocket {
 
   close(code = 1000) {
     assert(code === 1000 || (code >= 3000 && code <= 4999));
+    this.readyState = TestWebSocket.CLOSED;
     this.closed.push(code);
     this.onclose?.({ code, reason: '' });
   }
@@ -114,6 +120,8 @@ for (const production of [false, true]) {
             ? `import {NetworkClient} from '${resolve('src/client/network/network.ts')}';
                import {emptyPlayerInput} from '${resolve('src/client/protocol/input.ts')}';
                export default (url = 'test', deferred = false) => new NetworkClient({url, deferred});
+               export const startPlaying = client => client.enterWorld();
+               export const returnToMenu = client => client.leaveWorld();
                export const inspectSnapshot = client => [
                  [...client.entityRecords.keys()],
                  [...client.pendingEntities.keys()],
@@ -242,6 +250,57 @@ for (const production of [false, true]) {
   assert.equal(status.hidden, true);
 
   const socketUrl = 'ws://localhost/game-socket';
+
+  for (const code of [4002, 1006]) {
+    timers.clear();
+    const client = connect(socketUrl, true);
+    const firstSocket = sockets.at(-1)!;
+    const load = { data: Uint8Array.from([0x55, 0x4d, 1, 1, 1, 8, 0]) };
+
+    firstSocket.onopen!();
+    firstSocket.onmessage!(welcome);
+    const firstReady = built.startPlaying(client);
+
+    firstSocket.onmessage!(load);
+    await firstReady;
+    built.returnToMenu(client);
+    firstSocket.onmessage!({ data: encodeServerControl({ type: 'leave' }) });
+    firstSocket.readyState = TestWebSocket.CLOSED;
+    firstSocket.onclose!({ code, reason: '' });
+    const socketCount = sockets.length;
+
+    if (code === 4002) {
+      advanceTimers(1000);
+      assert.equal(sockets.length, socketCount);
+      assert.equal(
+        status.textContent,
+        'AWAY TOO LONG - PRESS PLAY TO RECONNECT',
+      );
+    }
+
+    const nextReady = built.startPlaying(client);
+    const newSocket = sockets.at(-1)!;
+
+    assert.equal(newSocket.url, firstSocket.url);
+    assert.equal(sockets.length, socketCount + 1);
+    assert.equal(built.startPlaying(client), nextReady);
+    newSocket.onopen!();
+    assert.deepEqual(
+      newSocket.sent.map((frame) => decodeClientMessage(frame).type),
+      ['prepare'],
+    );
+    newSocket.onmessage!(welcome);
+    assert.deepEqual(
+      newSocket.sent.map((frame) => decodeClientMessage(frame).type),
+      ['prepare', 'play'],
+    );
+    newSocket.onmessage!(load);
+    await nextReady;
+    advanceTimers(1000);
+    assert.equal(sockets.length, socketCount + 1);
+    assert.equal(status.hidden, true);
+  }
+
   const extended = connect(socketUrl);
   const extendedSocket = sockets.at(-1)!;
 

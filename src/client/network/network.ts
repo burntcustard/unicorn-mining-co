@@ -379,6 +379,7 @@ export class NetworkClient {
   shipId?: number;
   ownedShips?: Ship[];
   snapshotReceivedAt = 0;
+  private readonly socketUrl: string;
   private socket!: WebSocket;
   private snapshotDeltas = true;
   spawnPosition = Vec.create();
@@ -527,7 +528,8 @@ export class NetworkClient {
     }
   }
 
-  private connect(url: string) {
+  private connect() {
+    const url = this.socketUrl;
     const snapshotDeltas = this.snapshotDeltas && url.endsWith('/game-socket');
     const socket = new WebSocket(
       snapshotDeltas ? `${url}?${snapshotDeltaQuery}` : url,
@@ -536,6 +538,7 @@ export class NetworkClient {
 
     this.socket = socket;
     this.welcomed = false;
+    this.leaving = false;
     socket.binaryType = 'arraybuffer';
     const handshakeTimer = setTimeout(() => socket.close(), 15000);
 
@@ -587,7 +590,7 @@ export class NetworkClient {
       // Older servers require the unmodified socket URL.
       if (snapshotDeltas && !opened && code === 1006) {
         this.snapshotDeltas = false;
-        this.connect(url);
+        this.connect();
         return;
       }
 
@@ -614,7 +617,11 @@ export class NetworkClient {
       }
 
       if (code === 4002) {
-        this.showConnectionStatus('AWAY TOO LONG - RELOAD TO PLAY');
+        this.showConnectionStatus(
+          this.playing
+            ? 'AWAY TOO LONG - RELOAD TO PLAY'
+            : 'AWAY TOO LONG - PRESS PLAY TO RECONNECT',
+        );
         return;
       }
 
@@ -632,7 +639,10 @@ export class NetworkClient {
       const delay = this.retryDelay * (0.8 + Math.random() * 0.4);
 
       this.retryDelay = Math.min(10000, this.retryDelay * 2);
-      setTimeout(() => this.connect(url), delay);
+
+      setTimeout(() => {
+        if (this.socket === socket) this.connect();
+      }, delay);
     };
   }
 
@@ -646,6 +656,7 @@ export class NetworkClient {
     player?: Pick<typeof player, 'credits' | 'unlockedPaints'>;
   }) {
     this.player = state;
+    this.socketUrl = url;
     this.deferred = deferred;
     this.playing = !deferred;
     this.prediction = new PredictionManager({ world: this.world });
@@ -659,14 +670,22 @@ export class NetworkClient {
       delay: connectionStatusDelay,
     });
 
-    this.connect(url);
+    this.connect();
   }
 
   enterWorld() {
     if (!this.playing) {
       this.playing = true;
 
-      if (this.welcomed && !this.leaving) this.send({ type: 'play' });
+      if (this.socket.readyState >= WebSocket.CLOSING) {
+        this.showConnectionStatus('CONNECTING TO GAME...', {
+          delay: connectionStatusDelay,
+        });
+
+        this.connect();
+      } else if (this.welcomed && !this.leaving) {
+        this.send({ type: 'play' });
+      }
     }
 
     return this.ready;
