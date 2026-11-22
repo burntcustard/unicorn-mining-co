@@ -15,7 +15,7 @@ export const checkTelemetry = () => {
   const previousHideUi = hideUi;
   const world = createWorld();
   const ship = createPlayerShip(world);
-  const target = addEntity(world, new GameObject({ id: 1001 }));
+  const target = addEntity(world, new GameObject({ id: 1001, radius: 12.5 }));
   const station = addEntity(
     world,
     new Station({ id: 1002, spin: 0.123456789 }),
@@ -25,12 +25,30 @@ export const checkTelemetry = () => {
   addEntity(world, ship);
   world.tick = 42;
   Vec.setXY(ship.position, 12.3456789012345, -98.7654321098765);
+  Vec.setXY(target.position, ship.position.x + 30, ship.position.y + 40);
+
+  const nearby = addEntity(
+    world,
+    new GameObject({
+      id: 1004,
+      position: Vec.create(ship.position.x - 3, ship.position.y - 4),
+      radius: 1.25,
+    }),
+  );
+
   Vec.setXY(ship.velocity, 1.23456789, -2.3456789);
   ship.rotation = 0.123456789;
   ship.spin = -0.987654321;
   let targetId: number | undefined;
   let connected = true;
   let samples = 0;
+  let closestScans = 0;
+  const values = world.entities.values.bind(world.entities);
+
+  world.entities.values = () => {
+    closestScans++;
+    return values();
+  };
 
   const telemetry = createTelemetry({
     element,
@@ -50,6 +68,7 @@ export const checkTelemetry = () => {
   const panel = element.querySelector<HTMLElement>('.hud-telemetry')!;
   const playerSelector = '.telemetry-player';
   const targetSelector = '.telemetry-target';
+  const closestSelector = '.telemetry-closest';
   const parentSelector = '.telemetry-parent';
   const row = (selector: string) => panel.querySelector(selector)!;
   const field = (selector: string, prefix: string) =>
@@ -63,10 +82,12 @@ export const checkTelemetry = () => {
     );
   const snapshotAge = () => Number(clock()[2].replace(/\D/g, ''));
   const checks: Record<string, boolean> = {};
-  let now = 1000;
+  let now = 1005;
   const update = () => telemetry.update({ now: (now += 100) });
 
   try {
+    saveHideUi(false);
+
     const observer = new MutationObserver(() => {});
 
     observer.observe(panel, {
@@ -78,7 +99,10 @@ export const checkTelemetry = () => {
 
     update();
     checks['off by default, with no sampling or DOM updates'] =
-      panel.hidden && samples === 0 && observer.takeRecords().length === 0;
+      panel.hidden &&
+      samples === 0 &&
+      closestScans === 0 &&
+      observer.takeRecords().length === 0;
     telemetry.toggle();
     update();
     checks['movement values are readable directly from the visible text'] =
@@ -99,20 +123,41 @@ export const checkTelemetry = () => {
       panel.querySelector('.telemetry-frame')!.childElementCount === 0;
     checks['no target record when nothing is selected'] =
       !panel.querySelector(targetSelector);
+    checks[
+      'closest object excludes the ship and displays distance and radius'
+    ] =
+      field(closestSelector, 'Closest object #') === String(nearby.id) &&
+      field(closestSelector, 'Distance ') === '5.000 m' &&
+      field(closestSelector, 'Radius ') === '1.250 m';
     const count = samples;
+    const scans = closestScans;
 
-    telemetry.update({ now: now + 50 });
-    checks['updates limited to 10 Hz'] = samples === count;
     const [tick, time] = clock();
     const age = snapshotAge();
 
-    update();
+    for (let frame = 1; frame <= 60; frame++) {
+      telemetry.update({ now: now + (frame * 1000) / 60 + (frame % 2) });
+    }
+
+    now += 1000;
+    checks[
+      'irregular 60 FPS frames produce 30 updates and closest-object scans per second'
+    ] = samples === count + 30 && closestScans === scans + 30;
     checks['DOM refresh cannot advance simulation freshness'] =
       tick === 'Simulation tick 42' &&
       tick === clock()[0] &&
       time === 'Simulation time 1 s' &&
       time === clock()[1] &&
-      snapshotAge() === age + 100;
+      snapshotAge() === age + 1000;
+
+    const visibleSamples = samples;
+    const visibleScanCount = closestScans;
+
+    element.hidden = true;
+    update();
+    checks['hidden HUD skips sampling and closest-object scans'] =
+      samples === visibleSamples && closestScans === visibleScanCount;
+    element.hidden = false;
     const canvas = document.createElement('canvas');
 
     canvas.width = 640;
@@ -169,6 +214,11 @@ export const checkTelemetry = () => {
         '-10.000/50.000' &&
       field('.telemetry-rendered .telemetry-target', 'Screen pos ') ===
         '-150.000/460.000 px';
+    checks['target distance uses simulation positions and its own radius'] =
+      field(targetSelector, 'Distance ') === '50.000 m' &&
+      field(targetSelector, 'Radius ') === '12.500 m' &&
+      field(closestSelector, 'Closest object #') === String(nearby.id);
+    nearby.dead = true;
     frameTime = 17;
     renderTime = 2.5;
     now += 100;
@@ -176,6 +226,10 @@ export const checkTelemetry = () => {
     checks['timings omit trailing zeros while retaining measured fractions'] =
       clock().includes('Frame time 17 ms') &&
       clock().includes('Render time (CPU) 2.5 ms');
+    checks['closest object updates when the previous closest dies'] =
+      field(closestSelector, 'Closest object #') === String(target.id) &&
+      field(closestSelector, 'Distance ') === '50.000 m' &&
+      field(closestSelector, 'Radius ') === '12.500 m';
     canvas.parentNode!.removeChild(canvas);
     saveHideUi(true);
     const content = panel.textContent;
@@ -191,9 +245,16 @@ export const checkTelemetry = () => {
       Boolean(ui.current && ui.current.element.parentElement === ui.element) &&
       ui.current!.element.closest('.hud-overlay') === null &&
       getComputedStyle(ui.current!.element).opacity === '1';
+    const visibleScans = closestScans;
+
     update();
     checks['transparent telemetry continues updating'] =
       snapshotAge() === now - 100;
+    checks['transparent HUD omits object measurements and skips the scan'] =
+      closestScans === visibleScans &&
+      !panel.querySelector(closestSelector) &&
+      field(targetSelector, 'Distance ') === undefined &&
+      field(targetSelector, 'Radius ') === undefined;
     saveHideUi(false);
     checks['UI opacity can be restored'] =
       getComputedStyle(ui.hudElement).opacity === '1';
@@ -285,7 +346,8 @@ export const checkTelemetry = () => {
     checks['disconnection is explicit and clears movement records'] =
       row(playerSelector).textContent === 'Player: unavailable' &&
       row(targetSelector).textContent === 'Target: unavailable' &&
-      !panel.querySelector(parentSelector);
+      !panel.querySelector(parentSelector) &&
+      !panel.querySelector(closestSelector);
     telemetry.toggle();
     observer.takeRecords();
     const stopped = samples;

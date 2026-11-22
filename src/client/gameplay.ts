@@ -723,7 +723,7 @@ const gameLoop = GameLoop({
     }
 
     telemetry.update({
-      now: performance.now(),
+      now,
       readPresentation: () => {
         const transform = new DOMMatrix()
           .scale(scale, scale)

@@ -295,9 +295,13 @@ Use `UI_HUD_ONLY=1 npm run test:ui` for static HUD
 desktop scenes, with `UI_CAPTURE_DIR` to retain screenshots and geometry.
 
 Movement telemetry toggles with **V** (rebindable in Settings → Controls) and
-starts off on every page load. While enabled, `.hud-telemetry` refreshes at about
-10 Hz. Bold Simulation and Rendered headings separate fixed-tick world data
-from displayed poses. Simulation includes position, rotation, and native motion.
+starts off on every page load. While enabled, `.hud-telemetry` refreshes at the
+simulation's 30 Hz cadence. Bold Simulation and Rendered headings separate
+fixed-tick world data from displayed poses. Simulation includes position,
+rotation, and native motion.
+While the panel is visible, Simulation also shows the closest game object and
+reports center-to-center distance from the ship and object radius in meters
+for both the closest object and the current target.
 Rendered includes world position, rotation, and screen position for the displayed
 player and selected target. The world-to-screen transform uses CSS viewport pixels:
 `screen X = world X * scale + offset X`, likewise for Y. It includes camera
@@ -315,10 +319,10 @@ fuel, cargo, power, and module activation.
 
 Read `.hud-telemetry`'s visible text. Scope `.telemetry-player` and
 `.telemetry-target` rows to `.telemetry-simulation` or `.telemetry-rendered`;
-`.telemetry-parent` rows appear only under Simulation. Values are displayed only in
-text, without duplicate data attributes. Movement values use three decimal
-places. Positions are meters, rotations are radians, native velocities
-are meters per second, and native spin is radians per second.
+`.telemetry-closest` and `.telemetry-parent` rows appear only under Simulation.
+Values are displayed only in text, without duplicate data attributes. Movement
+values use three decimal places. Positions are meters, rotations are radians,
+native velocities are meters per second, and native spin is radians per second.
 
 Native motion excludes station-carried motion. When active, the visible
 `localMovementRate` is a dimensionless blend rate and `Carrier #` identifies

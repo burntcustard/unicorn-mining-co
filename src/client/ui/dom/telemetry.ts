@@ -2,6 +2,8 @@ import { type SimulationWorld } from '../../simulation/world';
 import { type GameObject } from '../../objects/game-object';
 import { type Pose } from '../../types';
 import { simulationStep } from '../../../specs/simulation';
+import * as Vec from '../../utilities/vector';
+import { hideUi } from './graphics';
 
 /**
  * Keep fixed-tick simulation values separate from rendered poses. Tick/time
@@ -47,7 +49,7 @@ export const createTelemetry = ({
   rendered.hidden = true;
   panel.append(simulation, rendered);
   element.append(panel);
-  let nextUpdate = 0;
+  let lastRefresh = -1;
 
   const number = (value: number) => value.toFixed(3);
 
@@ -58,6 +60,17 @@ export const createTelemetry = ({
       line.textContent = text;
       return line;
     });
+
+  const measurements = ({
+    radius,
+    distance,
+  }: {
+    radius: number;
+    distance?: number;
+  }) =>
+    lines(
+      `Distance ${distance === undefined ? 'unavailable' : `${number(distance)} m`}\nRadius ${number(radius)} m`,
+    );
 
   const update = ({
     now,
@@ -73,8 +86,12 @@ export const createTelemetry = ({
       targetPose?: Pose;
     };
   }) => {
-    if (panel.hidden || now < nextUpdate) return;
-    nextUpdate = now + 100;
+    if (panel.hidden || element.hidden) return;
+
+    const refresh = Math.floor(now / (simulationStep * 1000));
+
+    if (refresh === lastRefresh) return;
+    lastRefresh = refresh;
     const { world, shipId, targetId, connected, snapshotReceivedAt } =
       readSample();
     const age = snapshotReceivedAt
@@ -124,6 +141,15 @@ export const createTelemetry = ({
         ),
       );
 
+      if (role === 'Target' && !hideUi) {
+        row.append(
+          ...measurements({
+            distance: player && Vec.distance(player.position, position),
+            radius: object.radius,
+          }),
+        );
+      }
+
       if (
         parent &&
         localMovementRate !== undefined &&
@@ -145,6 +171,41 @@ export const createTelemetry = ({
     record('Player', player);
 
     if (targetId !== undefined) record('Target', target);
+
+    if (player && !hideUi) {
+      let closest: GameObject | undefined;
+      let closestDistanceSquared = Infinity;
+
+      for (const object of world.entities.values()) {
+        if (object === player || object.dead) continue;
+        const distanceSquared = Vec.distanceSquared(
+          player.position,
+          object.position,
+        );
+
+        if (distanceSquared < closestDistanceSquared) {
+          closest = object;
+          closestDistanceSquared = distanceSquared;
+        }
+      }
+
+      if (closest) {
+        const row = document.createElement('div');
+
+        row.className = 'telemetry-closest';
+
+        row.append(
+          ...lines(`Closest object #${closest.id}`),
+          ...measurements({
+            distance: Math.sqrt(closestDistanceSquared),
+            radius: closest.radius,
+          }),
+        );
+
+        rows.push(row);
+      }
+    }
+
     parents.forEach((parent) => record('Parent', parent));
 
     if (presentation) {
@@ -194,7 +255,7 @@ export const createTelemetry = ({
   return {
     toggle() {
       panel.hidden = !panel.hidden;
-      nextUpdate = 0;
+      lastRefresh = -1;
     },
     update,
   };
