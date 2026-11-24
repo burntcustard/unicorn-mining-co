@@ -180,9 +180,9 @@ const bannedMessage =
 const welcome = {
   data: encodeServerControl({
     type: 'welcome',
-    playerId: 1,
+    playerNumber: 1,
     shipId: 7,
-    playerToken: '01234567-89ab-cdef-0123-456789abcdef',
+    playerId: '01234567-89ab-cdef-0123-456789abcdef',
     serverTick: 0,
     worldSeed: 25,
     spawn: { x: 0, y: 0 },
@@ -243,9 +243,9 @@ for (const production of [false, true]) {
                };
                export const switchDockedShip = client => {
                  client.connected = true;
-                 client.playerId = 1;
+                 client.playerNumber = 1;
                  client.shipId = 7;
-                 client.world.players.set(1, {shipId: 7});
+                 client.world.players.set(1, {playerNumber: 1, shipId: 7});
                  client.world.entities.set(7, {id: 7, dockedTo: 100, dead: false});
                  client.receive({message: {type: 'respawn', shipId: 8}});
                  const during = client.shipDestroyed;

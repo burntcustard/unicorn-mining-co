@@ -2417,7 +2417,7 @@ const miningActivity = {
 
 const ownFracture = {
   sound: { effect: 4, id: 10, by: 7, position: Vec.create(10, 0) },
-  playerId: 7,
+  playerNumber: 7,
   drilling: true,
   anchor: Vec.create(),
 };
@@ -2434,7 +2434,7 @@ assert(
 );
 
 assert(
-  !ownMiningFracture({ ...ownFracture, playerId: 8 }),
+  !ownMiningFracture({ ...ownFracture, playerNumber: 8 }),
   "Another player's nearby fracture cannot prove own mining",
 );
 assert(

@@ -154,9 +154,9 @@ console.log(
 );
 
 const chargingWorld = createWorld();
-const chargingShip = createPlayerShip(chargingWorld, { playerId: 1 });
+const chargingShip = createPlayerShip(chargingWorld, { playerNumber: 1 });
 
-chargingWorld.players.set(1, { id: 1, shipId: chargingShip.id });
+chargingWorld.players.set(1, { playerNumber: 1, shipId: chargingShip.id });
 const gun = new PlasmaAccelerator();
 
 chargingShip.fit(

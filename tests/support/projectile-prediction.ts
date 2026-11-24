@@ -77,7 +77,7 @@ for (const [renderEvery, delay] of snapshotTimings) {
   const tolerance = .01;
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {
-    type: 'welcome', playerToken: 'test', playerId: 1, shipId: 1,
+    type: 'welcome', playerId: 'test', playerNumber: 1, shipId: 1,
     worldSeed: 25, serverTick: 0, spawn: { x: 0, y: 0 }, unlockedPaints: [],
   }});
   network.receive({ message: decode(fixture.initial) });
@@ -163,7 +163,7 @@ const miningTimings = [[0, 2], [241, 4]];
 for (const [start, framesPerTick] of miningTimings) {
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {
-    type: 'welcome', playerToken: 'test', playerId: 1, shipId: 1,
+    type: 'welcome', playerId: 'test', playerNumber: 1, shipId: 1,
     worldSeed: 25, serverTick: start, spawn: { x: 0, y: 0 }, unlockedPaints: [],
   }});
   // A fresh client must also handle fragments created before it joined/reloaded.
@@ -208,7 +208,7 @@ for (const [delay, framesPerTick] of triangleTimings) {
   assert(fixture.frames.some(frame => frame.splits.includes(100)), 'autogun splits the untouched triangle');
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {
-    type: 'welcome', playerToken: 'test', playerId: 1, shipId: 1,
+    type: 'welcome', playerId: 'test', playerNumber: 1, shipId: 1,
     worldSeed: 25, serverTick: 0, spawn: { x: 0, y: 0 }, unlockedPaints: [],
   }});
   network.receive({ message: decode(fixture.initial) });

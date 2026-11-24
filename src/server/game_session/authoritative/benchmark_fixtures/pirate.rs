@@ -153,8 +153,8 @@ impl AuthoritativeSession {
             let observer = if slot == 0 {
                 id
             } else {
-                let observer = self.next_player_id;
-                self.next_player_id += 1;
+                let observer = self.next_player_number;
+                self.next_player_number += 1;
                 ships[slot] = world.ids.entity();
                 observer
             };
@@ -163,7 +163,7 @@ impl AuthoritativeSession {
                 definition,
                 ObjectProperties {
                     position: position + offsets[slot],
-                    player_id: Some(observer),
+                    player_number: Some(observer),
                     name: Some(match weapon {
                         Some(_) => format!("Pirate {definition}"),
                         None => "Render pirate".into(),
@@ -215,7 +215,7 @@ impl AuthoritativeSession {
                 ship.npc_state = "Fighting";
                 world.add_entity(EntityKind::Ship(Box::new(ship)), false);
                 world.set_player(Player {
-                    id: observer,
+                    player_number: observer,
                     ship_id: ships[slot],
                     observer_range: 0.0,
                 });
@@ -306,7 +306,7 @@ impl AuthoritativeSession {
                     },
                 );
                 self.inputs.insert(
-                    object.player_id.unwrap(),
+                    object.player_number.unwrap(),
                     InputFrame {
                         input: Input {
                             thrust,
@@ -381,7 +381,7 @@ impl AuthoritativeSession {
         let world = &mut self.sectors[encounter.index].running.world;
         for id in &encounter.ships[1..] {
             if let Some(entity) = world.remove_entity(*id)
-                && let Some(observer) = entity.model.object().player_id
+                && let Some(observer) = entity.model.object().player_number
             {
                 world.remove_player(observer);
             }

@@ -648,15 +648,15 @@ try {
       frames.length = 0;
       now = 0;
       const world = createWorld();
-      const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+      const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
       ship.drag = 0;
       ship.engine.forwardThrust = speed / 17;
       ship.velocity.x = speed;
-      addPlayer(world, { id: 1, shipId: ship.id });
+      addPlayer(world, { playerNumber: 1, shipId: ship.id });
       const prediction = new PredictionManager({ world });
 
-      prediction.setLocalPlayer({ playerId: 1 });
+      prediction.setLocalPlayer({ playerNumber: 1 });
       let pending = 0;
       let tickStartedAt = 0;
       let previous = 0;

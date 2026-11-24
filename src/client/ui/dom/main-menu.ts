@@ -1,6 +1,6 @@
 import html from './main-menu.html?raw';
 import { createScreen, query } from './ui';
-import { verifyIdentity, type Identity } from './identity';
+import { playerIdStorageKey, verifyIdentity, type Identity } from './identity';
 import { version } from '../../../../package.json';
 import { fontText } from '../../utilities/font-text';
 import { preloadSound } from '../../audio/sound-loader';
@@ -66,7 +66,7 @@ export const createMainMenu = ({
     { signal: screen.signal },
   );
 
-  const privateId = localStorage.getItem('playerToken');
+  const playerId = localStorage.getItem(playerIdStorageKey);
 
   let shipPreview: ReturnType<
     (typeof import('./ship-preview'))['default']['createShipPreview']
@@ -103,7 +103,7 @@ export const createMainMenu = ({
     try {
       localStorage.setItem(
         'unicorn-preview',
-        JSON.stringify([privateId, identity]),
+        JSON.stringify([playerId, identity]),
       );
     } catch {
       /* The current preview works without storage. */
@@ -111,7 +111,7 @@ export const createMainMenu = ({
   };
 
   const loadPreview = async () => {
-    if (identity || !privateId) {
+    if (identity || !playerId) {
       return showPreview(identity);
     }
 
@@ -120,7 +120,7 @@ export const createMainMenu = ({
         localStorage.getItem('unicorn-preview') || 'null',
       );
 
-      if (saved?.[0] === privateId) await showPreview(saved[1]);
+      if (saved?.[0] === playerId) await showPreview(saved[1]);
     } catch {
       /* Ignore an old or invalid preview and fetch the saved ship. */
     }
@@ -129,7 +129,7 @@ export const createMainMenu = ({
 
     // An uncached identity must not hold the preview or preparation behind HTTP.
     if (!shipPreview) await showPreview();
-    await showPreview(await verifyIdentity(privateId, screen.signal));
+    await showPreview(await verifyIdentity(playerId, screen.signal));
   };
 
   let previewFrame = 0;

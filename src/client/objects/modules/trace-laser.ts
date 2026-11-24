@@ -33,7 +33,8 @@ export const traceLaser = ({
       entity.dead ||
       entity.buried ||
       entity.kind === 'projectile' ||
-      (craft.playerId !== undefined && entity.playerId === craft.playerId)
+      (craft.playerNumber !== undefined &&
+        entity.playerNumber === craft.playerNumber)
     ) {
       continue;
     }

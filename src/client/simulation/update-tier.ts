@@ -1,7 +1,7 @@
 import * as Vec from '../utilities/vector';
 import { type GameObject } from '../objects/game-object';
 import { type SimulationWorld } from './world';
-import { type PlayerId } from '../protocol/entities';
+import { type PlayerNumber } from '../protocol/entities';
 import { type PlayerInput } from '../protocol/input';
 import { type InputFrame } from '../protocol/input-frame';
 import { type SimulationEvent } from '../protocol/events';
@@ -46,7 +46,7 @@ export const updateEntities = ({
   world: SimulationWorld;
   entities?: GameObject[];
   tick?: number;
-  inputs?: Map<PlayerId, PlayerInput | InputFrame>;
+  inputs?: Map<PlayerNumber, PlayerInput | InputFrame>;
   events?: SimulationEvent[];
   dt?: number;
   inputOffset?: number;
@@ -153,8 +153,8 @@ export const updateEntities = ({
       entity.pendingUpdateTime -= duration;
       const end = elapsed + duration;
       const input =
-        entity instanceof Ship && entity.playerId !== undefined
-          ? inputs?.get(entity.playerId)
+        entity instanceof Ship && entity.playerNumber !== undefined
+          ? inputs?.get(entity.playerNumber)
           : undefined;
 
       // Split only where a control actually changed, preserving short taps

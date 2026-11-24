@@ -6,7 +6,7 @@ import { type PredictedShot } from '../objects/ship';
 import { type Projectile } from '../objects/projectile';
 import { type Collider } from '../collision/types';
 import { Station } from '../objects/station';
-import { type PlayerId } from '../protocol/entities';
+import { type PlayerNumber } from '../protocol/entities';
 import { type InputFrame } from '../protocol/input-frame';
 import {
   addEntity,
@@ -64,16 +64,16 @@ export class FramePrediction {
 
   sample({
     world,
-    playerId,
+    playerNumber,
     input,
     elapsed,
   }: {
     world: SimulationWorld;
-    playerId: PlayerId;
+    playerNumber: PlayerNumber;
     input: InputFrame;
     elapsed: number;
   }) {
-    const player = world.players.get(playerId);
+    const player = world.players.get(playerNumber);
     const ship = player && world.entities.get(player.shipId);
 
     if (!ship) {
@@ -87,7 +87,7 @@ export class FramePrediction {
       this.dueShots = [];
       this.pendingShots = [];
       this.world.entities.clear();
-      this.world.players = new Map([[playerId, { ...player! }]]);
+      this.world.players = new Map([[playerNumber, { ...player! }]]);
       this.world.tick = world.tick;
       this.world.nextEntityId = world.nextEntityId;
       this.world.random.state = world.random.state;
@@ -142,7 +142,7 @@ export class FramePrediction {
 
         updateWorld({
           onShot: (shot) => {
-            if (shot.projectile.playerId === playerId) {
+            if (shot.projectile.playerNumber === playerNumber) {
               this.pendingShots.push(shot);
             }
           },
@@ -164,7 +164,7 @@ export class FramePrediction {
             }
           },
           world: this.world,
-          inputs: new Map([[playerId, input]]),
+          inputs: new Map([[playerNumber, input]]),
           dt: simulationStep,
         });
 

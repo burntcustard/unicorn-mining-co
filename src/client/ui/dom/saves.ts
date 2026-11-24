@@ -1,15 +1,15 @@
 import html from './saves.html?raw';
 import { createScreen, query, ui } from './ui';
-import { verifyIdentity } from './identity';
+import { playerIdStorageKey, verifyIdentity } from './identity';
 
 export const createSaves = () => {
   const screen = createScreen(html);
-  const privateId = query<HTMLInputElement>(
+  const playerIdInput = query<HTMLInputElement>(
     screen.element,
     '[data-private-id]',
   );
 
-  privateId.value = localStorage.getItem('playerToken') || '';
+  playerIdInput.value = localStorage.getItem(playerIdStorageKey) || '';
   const saveStatus = query(screen.element, '[data-save-status]');
   const importStatus = query(screen.element, '[data-import-status]');
   const reveal = query<HTMLButtonElement>(screen.element, '[data-reveal]');
@@ -20,15 +20,15 @@ export const createSaves = () => {
     '[data-clear-dialog]',
   );
 
-  reveal.disabled = copy.disabled = clear.disabled = !privateId.value;
+  reveal.disabled = copy.disabled = clear.disabled = !playerIdInput.value;
 
-  if (!privateId.value) {
+  if (!playerIdInput.value) {
     saveStatus.textContent =
       'Connecting to create a pilot, or import an existing private ID.';
   }
 
   const setVisible = (visible: boolean) => {
-    privateId.setAttribute('type', visible ? 'text' : 'password');
+    playerIdInput.setAttribute('type', visible ? 'text' : 'password');
     reveal.children[0].setAttribute('aria-hidden', String(visible));
     reveal.children[1].setAttribute('aria-hidden', String(!visible));
     reveal.setAttribute('aria-pressed', String(visible));
@@ -37,7 +37,7 @@ export const createSaves = () => {
   reveal.addEventListener(
     'ui-press',
     () => {
-      setVisible(privateId.getAttribute('type') === 'password');
+      setVisible(playerIdInput.getAttribute('type') === 'password');
     },
     { signal: screen.signal },
   );
@@ -46,11 +46,11 @@ export const createSaves = () => {
     'ui-press',
     async () => {
       try {
-        await navigator.clipboard.writeText(privateId.value);
+        await navigator.clipboard.writeText(playerIdInput.value);
         saveStatus.textContent = 'Private ID copied.';
       } catch {
         setVisible(true);
-        privateId.select();
+        playerIdInput.select();
         saveStatus.textContent =
           'Copy is unavailable. Select and copy your private ID manually.';
       }
@@ -75,7 +75,7 @@ export const createSaves = () => {
       clearDialog.returnValue = '';
 
       try {
-        localStorage.removeItem('playerToken');
+        localStorage.removeItem(playerIdStorageKey);
         localStorage.removeItem('unicorn-preview');
         location.reload();
       } catch {
@@ -97,7 +97,7 @@ export const createSaves = () => {
     '[data-import-dialog]',
   );
   const form = query<HTMLFormElement>(screen.element, '[data-import]');
-  let verifiedId = '';
+  let verifiedPlayerId = '';
 
   verify.addEventListener('ui-press', () => form.requestSubmit(), {
     signal: screen.signal,
@@ -109,7 +109,7 @@ export const createSaves = () => {
       event.preventDefault();
 
       if (verify.disabled) return;
-      verifiedId = '';
+      verifiedPlayerId = '';
       verify.disabled = true;
       input.readOnly = true;
       importStatus.textContent = 'Verifying with the server…';
@@ -119,7 +119,7 @@ export const createSaves = () => {
         const identity = await verifyIdentity(candidate, screen.signal);
 
         if (screen.signal.aborted) return;
-        verifiedId = candidate;
+        verifiedPlayerId = candidate;
         query(screen.element, '[data-preview]').textContent =
           `${identity[0]} · ${identity[2][0]} · ${identity[1]}$`;
         importStatus.textContent =
@@ -147,9 +147,9 @@ export const createSaves = () => {
   dialog.addEventListener(
     'close',
     () => {
-      if (dialog.returnValue === 'confirm' && verifiedId) {
+      if (dialog.returnValue === 'confirm' && verifiedPlayerId) {
         try {
-          localStorage.setItem('playerToken', verifiedId);
+          localStorage.setItem(playerIdStorageKey, verifiedPlayerId);
           location.reload();
         } catch {
           importStatus.textContent =
@@ -160,7 +160,7 @@ export const createSaves = () => {
           'Import canceled. Your identity is unchanged.';
       }
 
-      verifiedId = '';
+      verifiedPlayerId = '';
       dialog.returnValue = '';
     },
     { signal: screen.signal },

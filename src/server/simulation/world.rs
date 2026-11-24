@@ -110,7 +110,7 @@ pub(crate) struct EntityChange {
 impl Entity {
     pub(crate) fn belongs_in_world_save(&self) -> bool {
         let object = self.model.object();
-        object.player_id.is_none()
+        object.player_number.is_none()
             && !matches!(object.kind.as_str(), "jumpGate" | "wormhole")
             && !matches!(self.model, EntityKind::Projectile(_))
     }
@@ -127,7 +127,7 @@ impl Entity {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Player {
-    pub id: i64,
+    pub player_number: i64,
     pub ship_id: i64,
     pub observer_range: f64,
 }
@@ -212,14 +212,14 @@ impl World {
     pub fn players(&self) -> impl Iterator<Item = &Player> {
         self.players.values()
     }
-    pub fn player(&self, id: i64) -> Option<&Player> {
-        self.players.get(&id)
+    pub fn player(&self, player_number: i64) -> Option<&Player> {
+        self.players.get(&player_number)
     }
     pub fn set_player(&mut self, player: Player) {
-        self.players.set(player.id, player);
+        self.players.set(player.player_number, player);
     }
-    pub fn remove_player(&mut self, id: i64) -> Option<Player> {
-        self.players.remove(&id)
+    pub fn remove_player(&mut self, player_number: i64) -> Option<Player> {
+        self.players.remove(&player_number)
     }
 
     pub fn add_entity(&mut self, model: EntityKind, generated: bool) {
@@ -251,7 +251,7 @@ impl World {
         if let Some(entity) = self.remove_entity(id)
             && matches!(entity.model, EntityKind::Ship(_))
             && entity.model.object().dead
-            && entity.model.object().player_id.is_some()
+            && entity.model.object().player_number.is_some()
         {
             self.destroyed_ships.push(entity);
         }
@@ -281,8 +281,8 @@ impl World {
         if let Some(changes) = &mut self.save_changes
             && let Some(entity) = self.entities.get(&id)
         {
-            if let Some(player_id) = entity.model.object().player_id {
-                self.changed_player_ships.push((player_id, id));
+            if let Some(player_number) = entity.model.object().player_number {
+                self.changed_player_ships.push((player_number, id));
             } else if entity.belongs_in_world_save() {
                 changes.insert(
                     id,
@@ -390,18 +390,18 @@ impl World {
 
     pub fn spawn_player_ship(
         &mut self,
-        player: i64,
+        player_number: i64,
         definition: &str,
         mut properties: ObjectProperties,
     ) -> Option<i64> {
         let id = self.ids.entity();
-        properties.player_id = Some(player);
+        properties.player_number = Some(player_number);
         let ship = Ship::new_player(id, definition, properties, &self.catalog, || {
             self.ids.object()
         })?;
         self.add_entity(EntityKind::Ship(Box::new(ship)), false);
         self.set_player(Player {
-            id: player,
+            player_number,
             ship_id: id,
             observer_range: 0.0,
         });

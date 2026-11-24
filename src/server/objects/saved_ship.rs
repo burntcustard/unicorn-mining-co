@@ -198,14 +198,14 @@ impl SavedShip {
         }
     }
 
-    pub fn restore(&self, player_id: i64, catalog: &Catalog) -> Result<Ship, String> {
+    pub fn restore(&self, player_number: i64, catalog: &Catalog) -> Result<Ship, String> {
         if self.id == 0 {
             return Err("invalid saved ship ID".to_owned());
         }
         let properties = ObjectProperties {
             position: Vector::new(self.position[0] as f64, self.position[1] as f64),
             rotation: self.rotation,
-            player_id: Some(player_id),
+            player_number: Some(player_number),
             name: self.name.clone(),
             ..ObjectProperties::default()
         };

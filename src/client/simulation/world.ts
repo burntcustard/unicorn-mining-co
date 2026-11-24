@@ -2,7 +2,7 @@ import { createRandom, type Random } from '../utilities/seeded-random';
 import {
   type EntityId,
   type Player,
-  type PlayerId,
+  type PlayerNumber,
 } from '../protocol/entities';
 import { type GameObject } from '../objects/game-object';
 
@@ -10,7 +10,7 @@ export interface SimulationWorld {
   entities: Map<EntityId, GameObject>;
   movementParents?: GameObject[];
   nextEntityId: EntityId;
-  players: Map<PlayerId, Player>;
+  players: Map<PlayerNumber, Player>;
   random: Random;
   tick: number;
 }
@@ -22,7 +22,7 @@ export const createWorld = ({
 } = {}): SimulationWorld => ({
   entities: new Map<EntityId, GameObject>(),
   nextEntityId: 1,
-  players: new Map<PlayerId, Player>(),
+  players: new Map<PlayerNumber, Player>(),
   random: createRandom(seed),
   tick: 0,
 });
@@ -38,7 +38,7 @@ export const addEntity = <Object extends GameObject>(
 };
 
 export const addPlayer = (world: SimulationWorld, player: Player) => {
-  world.players.set(player.id, player);
+  world.players.set(player.playerNumber, player);
   return player;
 };
 

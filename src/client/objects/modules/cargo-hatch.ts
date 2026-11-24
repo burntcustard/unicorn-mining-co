@@ -128,7 +128,7 @@ class CargoHatchModule extends Module {
     if (
       !(item instanceof Item) ||
       !cargoContactAllowed(throat, pickup) ||
-      ship.playerId === undefined ||
+      ship.playerNumber === undefined ||
       !ship.moduleActive({ module: CargoHatch }) ||
       !world.entities.has(item.id) ||
       (item.message === undefined &&
@@ -142,7 +142,7 @@ class CargoHatchModule extends Module {
     item.remove();
 
     events.push({
-      by: ship.playerId,
+      by: ship.playerNumber,
       itemId: item.id,
       ...(item.message !== undefined && {
         message: item.message,

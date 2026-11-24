@@ -34,13 +34,13 @@ struct Frame {
 fn firing_case(weapon: &'static str, catalog: Arc<Catalog>) -> Result<Case, Box<dyn Error>> {
     let mut running = RunningWorld::new(25.0, Arc::clone(&catalog));
     let world = &mut running.world;
-    let player_id = 1;
+    let player_number = 1;
     let ship_id = world.ids.entity();
     let mut ship = Ship::new_player(
         ship_id,
         "mustang",
         ObjectProperties {
-            player_id: Some(player_id),
+            player_number: Some(player_number),
             ..ObjectProperties::default()
         },
         &catalog,
@@ -71,7 +71,7 @@ fn firing_case(weapon: &'static str, catalog: Arc<Catalog>) -> Result<Case, Box<
         .push(CargoObject::Item(Box::new(ammunition)));
     world.add_entity(EntityKind::Ship(Box::new(ship)), false);
     world.set_player(Player {
-        id: player_id,
+        player_number,
         ship_id,
         observer_range: 0.0,
     });
@@ -85,7 +85,7 @@ fn firing_case(weapon: &'static str, catalog: Arc<Catalog>) -> Result<Case, Box<
         ..Input::default()
     };
     let mut inputs = HashMap::from([(
-        player_id,
+        player_number,
         InputFrame {
             input: active,
             changes: Vec::with_capacity(2),
@@ -96,7 +96,9 @@ fn firing_case(weapon: &'static str, catalog: Arc<Catalog>) -> Result<Case, Box<
 
     for tick in 0..180 {
         let phase = tick % 90;
-        let frame = inputs.get_mut(&player_id).expect("fixture player input");
+        let frame = inputs
+            .get_mut(&player_number)
+            .expect("fixture player input");
         frame.input = previous;
         frame.changes.clear();
         if phase < 30 {

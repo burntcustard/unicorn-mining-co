@@ -52,7 +52,7 @@ class HornDrillModule extends Module {
 
     if (
       segment.activationProgress <= this.activationThreshold ||
-      ship.playerId === undefined ||
+      ship.playerNumber === undefined ||
       !world.entities.has(target.owner.id) ||
       !(before > 0)
     ) {
@@ -84,7 +84,7 @@ class HornDrillModule extends Module {
 
     events.push({
       targetId: target.owner.id,
-      by: ship.playerId,
+      by: ship.playerNumber,
       damage: drillDamage,
       color: outlineColorOf(target),
       ...(asteroid && { resource: asteroid.resource }),
@@ -95,7 +95,7 @@ class HornDrillModule extends Module {
     if (
       asteroid?.fracture({
         asteroidSegment: target.asteroidSegment,
-        by: ship.playerId,
+        by: ship.playerNumber,
         events,
         world,
       })

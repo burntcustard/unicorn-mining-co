@@ -364,6 +364,6 @@ export async function prepareLatencyClients({
 
   return {
     preparation,
-    pilot: { shipId: pilot.shipId, playerId: pilot.playerId },
+    pilot: { shipId: pilot.shipId, playerNumber: pilot.playerNumber },
   };
 }

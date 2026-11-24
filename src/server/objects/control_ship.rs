@@ -58,11 +58,11 @@ impl Ship {
             if matches!(
                 id,
                 "cargoHatch" | "searchLight" | "shieldGenerator" | "flightMode"
-            ) && let Some(player_id) = self.craft.object.player_id
+            ) && let Some(player_number) = self.craft.object.player_number
             {
                 events.push(SimulationEvent::ModuleChanged {
                     module: id.to_owned(),
-                    player_id,
+                    player_number,
                     active: enabled,
                 });
             }

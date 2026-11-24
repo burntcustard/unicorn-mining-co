@@ -59,7 +59,7 @@ impl AuthoritativeSession {
             if let Some(stats) = &mut account.stats {
                 stats.record_compression(prepared.compressed_ticks);
             }
-            let frame = self.inputs.entry(account.id).or_default();
+            let frame = self.inputs.entry(account.player_number).or_default();
             frame.input = prepared.frame.input;
             frame.changes.clone_from(&prepared.frame.changes);
         }
@@ -138,11 +138,11 @@ impl AuthoritativeSession {
                     }
                 }
                 SimulationEvent::Docked {
-                    player_id,
+                    player_number,
                     docked_to,
                 } => {
-                    if let Some(account) = self.accounts.get_mut(player_id) {
-                        changed.push(*player_id);
+                    if let Some(account) = self.accounts.get_mut(player_number) {
+                        changed.push(*player_number);
                         account.visited.push(*docked_to);
                         if account.unlocked_paints & (1 << 3) == 0 {
                             let mut unique = SmallVec::<[i64; 3]>::new();
@@ -172,7 +172,7 @@ impl AuthoritativeSession {
                 .or_else(|| self.sectors[index].running.world.entity(account.ship_id))
                 .is_some_and(|entity| entity.model.object().dead);
             if dead && unlock_paint(account, 0) {
-                changed.push(account.id);
+                changed.push(account.player_number);
             }
         }
         for id in changed {
@@ -203,7 +203,7 @@ impl AuthoritativeSession {
             let sounds = nearby_world_sounds(
                 &self.sounds,
                 SoundRecipient {
-                    player_id: account.id,
+                    player_number: account.player_number,
                     position: account.position,
                     socket_open: client.socket.is_open(),
                     needs_load: account.delivery.needs_load(),

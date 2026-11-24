@@ -14,7 +14,7 @@ const fields = [
   'openingTarget',
   'sweepStart',
   'definitionId',
-  'playerId',
+  'playerNumber',
   'rotation',
   'rotationJump',
   'spin',

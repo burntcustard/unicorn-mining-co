@@ -119,7 +119,7 @@ const cases = [
       world,
       createPlayerShip(world, {
         id: i + 1,
-        playerId: i + 1,
+        playerNumber: i + 1,
         position,
         rotation: scenario.name === 'contact' && i % 2 ? Math.PI : 0,
         shipType: scenario.name === 'moth-thrusters' ? 'moth' : 'mustang',
@@ -174,7 +174,7 @@ const cases = [
       module.id = -1000 - i * 100 - index;
     });
 
-    addPlayer(world, { id: i + 1, shipId: ship.id });
+    addPlayer(world, { playerNumber: i + 1, shipId: ship.id });
   }
 
   if (scenario.name === 'drill') {

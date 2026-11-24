@@ -66,12 +66,12 @@ pub fn run(input: impl Read, output: impl Write) -> Result<(), Box<dyn Error>> {
         sockets
             .entry(action.socket)
             .or_insert_with(|| Connection::new(action.socket));
-        let token = if action.kind == "reconnect" {
+        let player_id = if action.kind == "reconnect" {
             let welcome = sockets
                 .get(&action.buffer)
                 .and_then(|connection| connection.packets.first())
                 .ok_or("old socket has no welcome packet")?;
-            Some(welcome_token(welcome)?)
+            Some(welcome_player_id(welcome)?)
         } else {
             None
         };
@@ -107,12 +107,7 @@ pub fn run(input: impl Read, output: impl Write) -> Result<(), Box<dyn Error>> {
             "buffer" => connection
                 .socket
                 .set_buffered_bytes(usize::try_from(action.buffer)?),
-            "reconnect" => session.receive(
-                &connection.client,
-                Control::Hello {
-                    player_token: token,
-                },
-            ),
+            "reconnect" => session.receive(&connection.client, Control::Hello { player_id }),
             _ => return Err(format!("unknown session fixture action {}", action.kind).into()),
         }
         for connection in sockets.values_mut() {
@@ -201,15 +196,17 @@ fn receipt(packet: &[u8]) -> Option<u64> {
     read_unsigned(&mut fields)
 }
 
-fn welcome_token(packet: &[u8]) -> Result<String, Box<dyn Error>> {
+fn welcome_player_id(packet: &[u8]) -> Result<String, Box<dyn Error>> {
     let mut fields = packet.get(4..).ok_or("fixture welcome header missing")?;
     for _ in 0..3 {
         read_unsigned(&mut fields).ok_or("fixture welcome field missing")?;
     }
-    Ok(
-        uuid::Uuid::from_slice(fields.get(..16).ok_or("fixture welcome token missing")?)?
-            .to_string(),
-    )
+    Ok(uuid::Uuid::from_slice(
+        fields
+            .get(..16)
+            .ok_or("fixture welcome player ID missing")?,
+    )?
+    .to_string())
 }
 
 #[cfg(test)]
@@ -224,7 +221,7 @@ mod tests {
         let catalog = Arc::new(load_example_catalog().unwrap());
         let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
         let mut connection = Connection::new(1);
-        session.receive(&connection.client, Control::Prepare { player_token: None });
+        session.receive(&connection.client, Control::Prepare { player_id: None });
         let id = session.sockets[&connection.client.id];
         let account = session.accounts.get(&id).unwrap();
         assert!(!account.playing);

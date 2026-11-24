@@ -2,7 +2,7 @@ import * as Vec from '../utilities/vector';
 import { Craft } from '../objects/craft';
 import { FramePrediction } from './frame-prediction';
 import { Module } from '../objects/modules/module';
-import { type PlayerId } from '../protocol/entities';
+import { type PlayerNumber } from '../protocol/entities';
 import { type InputFrame } from '../protocol/input-frame';
 import {
   emptyPlayerInput,
@@ -121,7 +121,7 @@ const applyEntity = ({
   entity.health = server.health;
   entity.dead = server.dead;
   entity.definitionId = server.definitionId;
-  entity.playerId = server.playerId;
+  entity.playerNumber = server.playerNumber;
   entity.pendingUpdateTime = server.pendingUpdateTime;
   entity.rounds = server.rounds;
   entity.name = server.name;
@@ -252,7 +252,7 @@ export class PredictionManager {
   private history = new Map<number, SimulationWorldState>();
   private lastSent?: PlayerInput;
   private localInputs = new Map<number, InputFrame['changes']>();
-  private localPlayerId?: PlayerId;
+  private localPlayerNumber?: PlayerNumber;
   private sequence = 0;
   private serverNextEntityId = 0;
   private world: SimulationWorld;
@@ -357,11 +357,11 @@ export class PredictionManager {
   }
 
   predictFrame({ elapsed }: { elapsed: number }) {
-    return this.localPlayerId === undefined
+    return this.localPlayerNumber === undefined
       ? this.world
       : this.frame.sample({
           world: this.world,
-          playerId: this.localPlayerId,
+          playerNumber: this.localPlayerNumber,
           input: this.inputAt({ tick: this.world.tick }),
           elapsed,
         });
@@ -435,8 +435,8 @@ export class PredictionManager {
     const own = entities?.find(
       (entity): entity is Ship =>
         entity instanceof Ship &&
-        this.localPlayerId !== undefined &&
-        entity.playerId === this.localPlayerId,
+        this.localPlayerNumber !== undefined &&
+        entity.playerNumber === this.localPlayerNumber,
     );
     const predicted = own && state.entities.get(own.id);
     // Damage and entity membership cannot be carried forward by movement
@@ -485,7 +485,7 @@ export class PredictionManager {
           !entity ||
           entity.kind !== server.kind ||
           entity.definitionId !== server.definitionId ||
-          entity.playerId !== server.playerId ||
+          entity.playerNumber !== server.playerNumber ||
           !before ||
           Math.abs(before.health - server.health) > 1e-8 ||
           Vec.distance(before.position, server.position) > 1e-8 ||
@@ -612,7 +612,7 @@ export class PredictionManager {
       offset: number;
     }) => void;
   }) {
-    if (this.localPlayerId === undefined) return;
+    if (this.localPlayerNumber === undefined) return;
     const tick = this.world.tick;
 
     // Preserve every edge, including multiple changes within the same tick.
@@ -649,8 +649,8 @@ export class PredictionManager {
     this.lastSent = undefined;
   }
 
-  setLocalPlayer({ playerId }: { playerId: PlayerId }) {
-    this.localPlayerId = playerId;
+  setLocalPlayer({ playerNumber }: { playerNumber: PlayerNumber }) {
+    this.localPlayerNumber = playerNumber;
   }
 
   private simulate({ tick }: { tick: number }) {
@@ -661,16 +661,16 @@ export class PredictionManager {
     // left behind rather than measuring the next correction against it.
     this.history.set(tick, captureWorld({ world: this.world }));
 
-    const inputs = new Map<PlayerId, InputFrame>();
+    const inputs = new Map<PlayerNumber, InputFrame>();
 
-    inputs.set(this.localPlayerId!, this.inputAt({ tick }));
+    inputs.set(this.localPlayerNumber!, this.inputAt({ tick }));
     return updateWorld({ world: this.world, inputs: inputs });
   }
 
   step(
     options: Parameters<PredictionManager['recordInput']>[0],
   ): SimulationEvent[] {
-    if (this.localPlayerId === undefined) return [];
+    if (this.localPlayerNumber === undefined) return [];
     this.recordInput(options);
     const events = this.simulate({ tick: this.world.tick });
 

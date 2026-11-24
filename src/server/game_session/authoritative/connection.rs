@@ -1,11 +1,11 @@
 use super::*;
 
 impl AuthoritativeSession {
-    pub(super) fn greet(&mut self, client: &Client, player_token: Option<String>, play: bool) {
+    pub(super) fn greet(&mut self, client: &Client, player_id: Option<String>, play: bool) {
         let now = Instant::now();
-        let lookup = player_token
+        let lookup = player_id
             .as_deref()
-            .map(|token| self.load_account(token, now))
+            .map(|player_id| self.load_account(player_id, now))
             .transpose();
         let saved = match lookup {
             Ok(saved) => saved.flatten(),
@@ -17,13 +17,16 @@ impl AuthoritativeSession {
                 return;
             }
         };
-        let id = saved.or_else(|| self.create_account(now));
-        let Some(id) = id else {
+        let player_number = saved.or_else(|| self.create_account(now));
+        let Some(player_number) = player_number else {
             client.socket.close_with(1011, "Ship unavailable");
             return;
         };
 
-        let account = self.accounts.get(&id).expect("connected account exists");
+        let account = self
+            .accounts
+            .get(&player_number)
+            .expect("connected account exists");
         if account.banned {
             client.socket.close_with(BANNED_CODE, BANNED_MESSAGE);
             return;
@@ -37,7 +40,7 @@ impl AuthoritativeSession {
 
         let account = self
             .accounts
-            .get_mut(&id)
+            .get_mut(&player_number)
             .expect("connected account exists");
         let world = &mut self.sectors[account.sector].running.world;
         if account.hidden.is_none() {
@@ -74,12 +77,12 @@ impl AuthoritativeSession {
         account.disconnected_at = None;
         account.inputs.reset_connection(held);
         account.stats = Some(ConnectionStats::new(now, world.tick));
-        self.sockets.insert(client.id, id);
-        self.mark_dirty(id, true);
+        self.sockets.insert(client.id, player_number);
+        self.mark_dirty(player_number, true);
         if play {
-            self.play(id);
+            self.play(player_number);
         } else {
-            self.send_snapshot(id);
+            self.send_snapshot(player_number);
         }
     }
 
@@ -265,7 +268,7 @@ mod tests {
             socket: socket.socket(),
         };
 
-        session.receive(&client, Control::Hello { player_token: None });
+        session.receive(&client, Control::Hello { player_id: None });
         socket.drain(|_| {});
         let id = session.sockets[&client.id];
         let account = session.accounts.get(&id).unwrap();

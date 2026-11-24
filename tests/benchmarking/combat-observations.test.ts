@@ -5,7 +5,7 @@ const combat = createCombatObservations();
 
 const ship = {
   id: 1,
-  playerId: 10,
+  playerNumber: 10,
   role: 'player',
   definition: 'Courser',
   position: { x: 0, y: 0 },
@@ -20,7 +20,7 @@ const ship = {
 const beam: typeof ship = {
   ...ship,
   id: 2,
-  playerId: 20,
+  playerNumber: 20,
   role: 'pirate',
   definition: 'Arrow',
   ammunition: 0,
@@ -29,7 +29,7 @@ const beam: typeof ship = {
 
 combat.observe({
   ships: [ship, beam],
-  projectiles: [{ id: 90, playerId: 10 }],
+  projectiles: [{ id: 90, playerNumber: 10 }],
 });
 
 combat.observe({
@@ -43,9 +43,9 @@ combat.observe({
     { ...beam, health: 97 },
   ],
   projectiles: [
-    { id: 90, playerId: 10 },
-    { id: 91, playerId: 10 },
-    { id: 92, playerId: 30 },
+    { id: 90, playerNumber: 10 },
+    { id: 91, playerNumber: 10 },
+    { id: 92, playerNumber: 30 },
   ],
 });
 
@@ -59,7 +59,7 @@ combat.observe({
     },
     { ...beam, health: 97 },
   ],
-  projectiles: [{ id: 91, playerId: 10 }],
+  projectiles: [{ id: 91, playerNumber: 10 }],
 });
 
 const [player, laser] = combat.summary();

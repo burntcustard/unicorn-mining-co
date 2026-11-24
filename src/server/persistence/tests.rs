@@ -49,7 +49,7 @@ fn batch(sequence: u64) -> SaveBatch<String, BodyState> {
 
 fn player() -> SavedPlayer<String> {
     SavedPlayer {
-        id: "a".to_owned(),
+        player_id: "a".to_owned(),
         display_name: "Ace".to_owned(),
         role: PlayerRole::Owner,
         banned: false,
@@ -129,12 +129,12 @@ fn initializes_an_empty_file_and_keeps_profile_indexes_current() {
     let mut initial = batch(1);
     for (id, name, role) in [
         ("a", "BurntCuſtard", PlayerRole::Owner),
-        ("b", "BURNTCUSTARD", PlayerRole::User),
-        ("c", "burntcustard", PlayerRole::Admin),
+        ("b", "Straße", PlayerRole::User),
+        ("c", "", PlayerRole::User),
         ("d", "", PlayerRole::User),
     ] {
         let mut account = player();
-        account.id = id.to_owned();
+        account.player_id = id.to_owned();
         account.display_name = name.to_owned();
         account.role = role;
         initial.players.push(account);
@@ -147,24 +147,29 @@ fn initializes_an_empty_file_and_keeps_profile_indexes_current() {
         "mustang"
     );
     assert!(reader.has_owner().unwrap());
-    let mut matches = reader
-        .matching_profiles("BuRnTcUsTaRd", |id| id != "a")
-        .unwrap();
-    matches.sort_by(|left, right| left.0.cmp(&right.0));
     assert_eq!(
-        matches,
-        [
-            ("b".to_owned(), PlayerRole::User),
-            ("c".to_owned(), PlayerRole::Admin)
-        ]
+        reader.matching_profile("BuRnTcUsTaRd", |_| true).unwrap(),
+        Some(("a".to_owned(), PlayerRole::Owner))
     );
-    assert!(reader.matching_profiles("", |_| true).unwrap().is_empty());
+    assert!(reader.name_taken("burntcustard").unwrap());
+    assert!(reader.name_taken("STRAẞE").unwrap());
+    assert!(!reader.name_taken("STRASSE").unwrap());
+    assert!(!reader.name_taken("").unwrap());
+
+    let mut duplicate = batch(2);
+    let mut account = player();
+    account.player_id = "e".to_owned();
+    account.display_name = "BURNTCUSTARD".to_owned();
+    duplicate.players.push(account);
+    assert!(store.save(&duplicate).is_err());
+    assert!(reader.player::<String>("e").unwrap().is_none());
+    assert_eq!(store.load_world(25.0).unwrap().unwrap().tick, 1);
 
     for (query, values, expected_index) in [
         (
             PROFILE_LOOKUP,
             &["burntcustard"][..],
-            "players_display_name_key",
+            "players_display_name",
         ),
         (OWNER_LOOKUP, &[][..], "players_owner"),
     ] {
@@ -187,43 +192,102 @@ fn initializes_an_empty_file_and_keeps_profile_indexes_current() {
     store.save(&renamed).unwrap();
     assert_eq!(
         reader
-            .matching_profiles("BURNTCUſTARD", |id| id == "a")
+            .matching_profile("BURNTCUſTARD", |id| id == "a")
             .unwrap(),
-        [("a".to_owned(), PlayerRole::User)]
+        Some(("a".to_owned(), PlayerRole::User))
     );
     assert!(!reader.has_owner().unwrap());
     renamed.players[0].display_name = "AceΩ".to_owned();
     store.save(&renamed).unwrap();
     assert!(
         reader
-            .matching_profiles("burntcustard", |id| id == "a")
+            .matching_profile("burntcustard", |id| id == "a")
             .unwrap()
-            .is_empty()
+            .is_none()
     );
     assert_eq!(
-        reader.matching_profiles("ACEω", |_| true).unwrap(),
-        [("a".to_owned(), PlayerRole::User)]
+        reader.matching_profile("ACEω", |_| true).unwrap(),
+        Some(("a".to_owned(), PlayerRole::User))
     );
     drop(reader);
     drop(store);
 
     let maintenance = Connection::open(&path).unwrap();
     maintenance
-        .execute("UPDATE players SET display_name='Straße' WHERE id='b'", [])
+        .execute("UPDATE players SET credits=5 WHERE id='b'", [])
         .unwrap();
     drop(maintenance);
     let store = Store::open(&path).unwrap();
     let reader = store.account_reader().unwrap();
+    assert_eq!(reader.player::<String>("b").unwrap().unwrap().credits, 5.0);
     assert_eq!(
-        reader.matching_profiles("STRAẞE", |_| true).unwrap(),
-        [("b".to_owned(), PlayerRole::User)]
+        reader.matching_profile("STRAẞE", |_| true).unwrap(),
+        Some(("b".to_owned(), PlayerRole::User))
     );
     assert!(
         reader
-            .matching_profiles("STRASSE", |_| true)
+            .matching_profile("STRASSE", |_| true)
             .unwrap()
-            .is_empty()
+            .is_none()
     );
+}
+
+#[test]
+fn upgrades_legacy_players_after_duplicate_names_are_resolved() {
+    for version in [0, 1] {
+        let directory = TestDirectory::new();
+        let path = directory.0.join("world.sqlite");
+        let legacy = Connection::open(&path).unwrap();
+        legacy.execute_batch(CREATE_SCHEMA).unwrap();
+        legacy.pragma_update(None, "user_version", version).unwrap();
+        if version == 0 {
+            legacy
+                .execute_batch(
+                    "ALTER TABLE players ADD COLUMN display_name_key TEXT;
+                     CREATE INDEX players_display_name_key ON players(display_name_key);
+                     CREATE TRIGGER players_invalidate_name_key AFTER UPDATE OF display_name ON players
+                     BEGIN
+                         UPDATE players SET display_name_key=NULL WHERE id=NEW.id;
+                     END;",
+                )
+                .unwrap();
+        }
+        legacy
+            .execute_batch(
+                "INSERT INTO players(id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector)
+                 VALUES ('a','AceΩ','owner',0,1,2,3,7,0,'[]','\"mustang\"',''),
+                        ('b','ACEω','user',0,1,2,3,7,0,'[]','\"mustang\"','');",
+            )
+            .unwrap();
+
+        let error = Store::open(&path).err().unwrap();
+        assert!(error.to_string().contains("duplicate player display names"));
+        assert_eq!(
+            legacy
+                .pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+                .unwrap(),
+            version
+        );
+        legacy
+            .execute("UPDATE players SET display_name='Bob' WHERE id='b'", [])
+            .unwrap();
+        drop(legacy);
+
+        let store = Store::open(&path).unwrap();
+        let reader = store.account_reader().unwrap();
+        assert_eq!(
+            reader.matching_profile("ACEω", |_| true).unwrap(),
+            Some(("a".to_owned(), PlayerRole::Owner))
+        );
+        assert_eq!(reader.player::<String>("b").unwrap().unwrap().credits, 7.0);
+        assert!(reader.name_taken("bob").unwrap());
+        assert!(
+            store
+                .connection
+                .prepare("SELECT display_name_key FROM players")
+                .is_err()
+        );
+    }
 }
 
 #[test]

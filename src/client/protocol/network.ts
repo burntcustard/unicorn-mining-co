@@ -88,7 +88,7 @@ export type ReplicatedEntity = {
   shapeOutline?: number[][];
   paint?: number;
   shades?: readonly string[];
-  playerId?: number;
+  playerNumber?: number;
   pointCount?: number;
   position: NetworkVector;
   radius: number;
@@ -136,7 +136,7 @@ export type ClientMessage =
   | { type: 'chat'; channel: number; text: string }
   | { type: 'profile'; displayName: string }
   | {
-      playerToken: string | null;
+      playerId: string | null;
       type: 'hello' | 'prepare';
     }
   | ({ type: 'dock'; sequence?: number } & CraftAction)
@@ -171,8 +171,8 @@ export type ServerMessage =
       type: 'respawn';
     }
   | {
-      playerId: number;
-      playerToken: string;
+      playerNumber: number;
+      playerId: string;
       serverTick: number;
       shipId: number;
       spawn: NetworkVector;

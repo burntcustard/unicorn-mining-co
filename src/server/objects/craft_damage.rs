@@ -62,7 +62,10 @@ impl Craft {
         mut next_entity_id: impl FnMut() -> i64,
     ) -> CraftDamage {
         let mut effects = CraftDamage::default();
-        if self.cockpit.is_none() && self.object.player_id.is_none() && self.object.kind != "ship" {
+        if self.cockpit.is_none()
+            && self.object.player_number.is_none()
+            && self.object.kind != "ship"
+        {
             return effects;
         }
 

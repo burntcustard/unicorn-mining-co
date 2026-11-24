@@ -431,18 +431,18 @@ class Socket {
   }
 }
 
-let storedToken: string | null = 'malformed-token';
-let tokenCleared = false;
-const playerToken = '00000000-0000-4000-8000-000000000001';
+let storedPlayerId: string | null = 'malformed-id';
+let playerIdCleared = false;
+const playerId = '00000000-0000-4000-8000-000000000001';
 
 Object.assign(globalThis, {
   WebSocket: Socket,
   localStorage: {
-    getItem: () => storedToken,
-    setItem: (_key: string, value: string) => (storedToken = value),
+    getItem: () => storedPlayerId,
+    setItem: (_key: string, value: string) => (storedPlayerId = value),
     removeItem: () => {
-      storedToken = null;
-      tokenCleared = true;
+      storedPlayerId = null;
+      playerIdCleared = true;
     },
   },
   location: { protocol: 'http:', host: 'localhost' },
@@ -468,17 +468,17 @@ socket.onopen?.();
 
 assert.deepEqual(decodeClientMessage(socket.sent[0]), {
   type: 'hello',
-  playerToken: null,
+  playerId: null,
 });
 
-assert.equal(tokenCleared, true, 'malformed stored tokens are cleared');
-assert.equal(storedToken, null);
+assert.equal(playerIdCleared, true, 'malformed stored player IDs are cleared');
+assert.equal(storedPlayerId, null);
 
 socket.onmessage?.({
   data: encodeServerControl({
     type: 'welcome',
-    playerToken,
-    playerId: 1,
+    playerId,
+    playerNumber: 1,
     shipId: 1,
     serverTick: 0,
     worldSeed: 2,
@@ -621,7 +621,7 @@ socket.onmessage?.({
 assert.equal(client.player.unlockedPaints, unlockedPaints);
 assert(!client.player.unlockedPaints.includes(colors.red));
 assert.equal(client.player.credits, 380);
-assert.equal(storedToken, playerToken);
+assert.equal(storedPlayerId, playerId);
 const reconnectClient = new NetworkClient({ url: 'ws://reconnect-test' });
 const reconnectSocket = Socket.sockets.at(-1)!;
 
@@ -630,7 +630,7 @@ reconnectSocket.onopen?.();
 
 assert.deepEqual(decodeClientMessage(reconnectSocket.sent[0]), {
   type: 'hello',
-  playerToken,
+  playerId,
 });
 
 const authoritative = Reflect.get(client, 'authoritativeEntities') as Map<
@@ -722,8 +722,8 @@ const receiveRestored = Reflect.get(restoredClient, 'receive').bind(
 receiveRestored({
   message: {
     type: 'welcome',
-    playerToken,
-    playerId: 1,
+    playerId,
+    playerNumber: 1,
     shipId: 1,
     serverTick: 0,
     worldSeed: 2,
@@ -733,7 +733,7 @@ receiveRestored({
 
 const savedShip = createPlayerShip(restoredClient.world, {
   id: 1,
-  playerId: 1,
+  playerNumber: 1,
 });
 
 for (const active of [true, false]) {
@@ -752,7 +752,7 @@ for (const active of [true, false]) {
         {
           id: 1,
           kind: 'ship',
-          playerId: 1,
+          playerNumber: 1,
           position: { x: 0, y: 0 },
           radius: savedShip.radius,
           rotation: 0,
@@ -786,8 +786,8 @@ for (const gap of [1, maxPredictionTicks, maxPredictionTicks + 1]) {
   receive({
     message: {
       type: 'welcome',
-      playerToken,
-      playerId: 1,
+      playerId,
+      playerNumber: 1,
       shipId: 1,
       serverTick: 0,
       worldSeed: 2,
@@ -855,8 +855,8 @@ for (const ahead of [0, 1]) {
   receive({
     message: {
       type: 'welcome',
-      playerToken,
-      playerId: 1,
+      playerId,
+      playerNumber: 1,
       shipId: 1,
       serverTick: 0,
       worldSeed: 2,

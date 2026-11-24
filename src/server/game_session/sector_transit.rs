@@ -18,7 +18,7 @@ const DEPARTURE_COMPLETE: f64 = -1e-6;
 
 #[derive(Clone, Copy, Debug)]
 pub struct PortalPlayer<'a> {
-    pub player_id: i64,
+    pub player_number: i64,
     pub ship_id: i64,
     pub travelled_tick: Option<u64>,
     pub display_name: &'a str,
@@ -27,7 +27,7 @@ pub struct PortalPlayer<'a> {
 
 #[derive(Clone, Copy)]
 struct PlayerSweep {
-    player_id: i64,
+    player_number: i64,
     ship_id: i64,
     from: Vector,
     travelled_tick: Option<u64>,
@@ -62,7 +62,7 @@ pub enum TransitAction {
     OpenDestination(PortalEndpoint),
     /// Load the other sector, resolve the paired portal, and relocate this ship.
     Arrive {
-        player_id: i64,
+        player_number: i64,
         ship_id: i64,
         player_name: String,
         departure: PortalEndpoint,
@@ -157,7 +157,7 @@ impl PortalTraffic {
                 self.gate_positions.clear();
                 self.gate_positions
                     .extend(players.into_iter().filter_map(|player| {
-                        world.player(player.player_id)?;
+                        world.player(player.player_number)?;
                         ship(world, player.ship_id)
                             .map(|ship| ship.craft.object.position)
                             .or(player.hidden_position)
@@ -194,7 +194,7 @@ impl PortalTraffic {
         self.refresh_portals(world);
         self.before.clear();
         for player in players {
-            if world.player(player.player_id).is_none() {
+            if world.player(player.player_number).is_none() {
                 continue;
             }
             let Some(ship) = ship(world, player.ship_id) else {
@@ -203,7 +203,7 @@ impl PortalTraffic {
             let craft = &ship.craft;
             let from = craft.object.position;
             self.before.push(PlayerSweep {
-                player_id: player.player_id,
+                player_number: player.player_number,
                 ship_id: player.ship_id,
                 from,
                 travelled_tick: player.travelled_tick,
@@ -342,9 +342,9 @@ impl PortalTraffic {
                 if craft.transit_time >= DEPARTURE_COMPLETE
                     && let Some(gate) = craft.transit_gate.and_then(|id| portal(world, id))
                 {
-                    let player_name = player_name(sweep.player_id);
+                    let player_name = player_name(sweep.player_number);
                     effects.travel.push(TransitAction::Arrive {
-                        player_id: sweep.player_id,
+                        player_number: sweep.player_number,
                         ship_id: sweep.ship_id,
                         departure: gate.into(),
                         player_name: if player_name.is_empty() {
@@ -522,15 +522,15 @@ pub fn apply_arrival(ship: &mut Ship, arrival: SectorArrival, rules: &PortalRule
 pub fn transfer_player(
     source: &mut World,
     destination: &mut World,
-    player_id: i64,
+    player_number: i64,
     ship_id: i64,
     arrival: SectorArrival,
 ) -> bool {
     if !source
-        .player(player_id)
+        .player(player_number)
         .is_some_and(|player| player.ship_id == ship_id)
         || ship(source, ship_id).is_none()
-        || destination.player(player_id).is_some()
+        || destination.player(player_number).is_some()
         || destination.entity(ship_id).is_some()
     {
         return false;
@@ -539,7 +539,7 @@ pub fn transfer_player(
         .remove_entity(ship_id)
         .expect("validated traveling ship exists");
     let player = source
-        .remove_player(player_id)
+        .remove_player(player_number)
         .expect("validated traveling player exists");
     let EntityKind::Ship(mut ship) = entity.model else {
         unreachable!("validated entity is a ship")
@@ -552,12 +552,12 @@ pub fn transfer_player(
 
 pub fn relocate_local_player(
     world: &mut World,
-    player_id: i64,
+    player_number: i64,
     ship_id: i64,
     arrival: SectorArrival,
 ) -> bool {
     if !world
-        .player(player_id)
+        .player(player_number)
         .is_some_and(|player| player.ship_id == ship_id)
         || ship(world, ship_id).is_none()
     {
@@ -567,7 +567,7 @@ pub fn relocate_local_player(
         .remove_entity(ship_id)
         .expect("validated traveling ship exists");
     let player = world
-        .remove_player(player_id)
+        .remove_player(player_number)
         .expect("validated traveling player exists");
     let EntityKind::Ship(mut ship) = entity.model else {
         unreachable!("validated entity is a ship")

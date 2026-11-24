@@ -33,7 +33,11 @@ impl AuthoritativeSession {
             .map(PathBuf::from)
             .map(pirate::Fixture::load)
             .transpose()?;
-        Ok(self.fixtures.movement || self.fixtures.npc.is_some() || self.fixtures.pirate.is_some())
+        Ok(self.uses_benchmark_fixtures())
+    }
+
+    pub(super) fn uses_benchmark_fixtures(&self) -> bool {
+        self.fixtures.movement || self.fixtures.npc.is_some() || self.fixtures.pirate.is_some()
     }
 
     pub(super) fn prune_benchmark_sectors(&mut self) {

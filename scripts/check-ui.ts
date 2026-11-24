@@ -1559,6 +1559,8 @@ checkUi: try {
     await capture('credits');
     await click('[data-back]');
 
+    const pilotName = `UI${crypto.randomUUID().slice(0, 8)}`;
+    const unicodeName = `${pilotName}🦄<&`;
     const playEvents = c.events.length;
 
     await click('[data-action="play"]');
@@ -1607,7 +1609,7 @@ checkUi: try {
     );
     await check(`(() => {
       const input = document.querySelector('#profile-name');
-      input.value = 'asterPilot🦄<&';
+      input.value = ${JSON.stringify(unicodeName)};
       input.dispatchEvent(new Event('input'));
     })()`);
     await capture('profile');
@@ -2026,19 +2028,19 @@ checkUi: try {
     );
     await capture('docked');
     assert.equal(errors().length, 0, errors().join('\n'));
-    const savedToken = await check(`localStorage.getItem('playerToken')`);
+    const savedPlayerId = await check(`localStorage.getItem('playerToken')`);
 
-    assert(savedToken);
+    assert(savedPlayerId);
 
     const namedIdentity = await fetch('http://localhost:3000/api/identity', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: savedToken,
+      body: savedPlayerId,
     }).then((response) => response.json());
 
     assert.equal(
       namedIdentity[0],
-      'asterPilot🦄<&',
+      unicodeName,
       'server stores the original Unicode profile name',
     );
 
@@ -2062,7 +2064,7 @@ checkUi: try {
       await check(
         `document.querySelector('.ui-main [data-pilot]').textContent`,
       ),
-      'asterPilot□□□',
+      `${pilotName}□□□`,
       'main menu shows the saved profile with fallback glyphs',
     );
     await pressKey('Escape', { repeat: true });
@@ -2156,7 +2158,7 @@ checkUi: try {
     );
     assert.equal(
       await check(`localStorage.getItem('playerToken')`),
-      savedToken,
+      savedPlayerId,
     );
     await reopenMenu();
     await c.send('Network.setBlockedURLs', { urls: [] });
@@ -2178,7 +2180,7 @@ checkUi: try {
     );
     assert.equal(
       await check(`localStorage.getItem('playerToken')`),
-      savedToken,
+      savedPlayerId,
     );
     assert.deepEqual(
       await check(
@@ -2213,7 +2215,7 @@ checkUi: try {
     await click('[data-import-dialog] button[value="cancel"]');
     assert.equal(
       await check(`localStorage.getItem('playerToken')`),
-      savedToken,
+      savedPlayerId,
     );
     const preferences = await check(
       `[localStorage.getItem('unicorn-controls'), localStorage.getItem('unicorn-graphics')]`,
@@ -2224,19 +2226,19 @@ checkUi: try {
     assert(await check(`document.querySelector('[data-clear-dialog]').open`));
     assert.equal(
       await check(`localStorage.getItem('playerToken')`),
-      savedToken,
+      savedPlayerId,
     );
     await click('[data-clear-dialog] button[value="cancel"]');
     assert.equal(
       await check(`localStorage.getItem('playerToken')`),
-      savedToken,
+      savedPlayerId,
     );
     await click('[data-clear]');
     await click('[data-clear-dialog] button[value="confirm"]');
     await pause(1000);
     assert(
       await check(
-        `localStorage.getItem('playerToken') !== ${JSON.stringify(savedToken)} && !localStorage.getItem('unicorn-preview')`,
+        `localStorage.getItem('playerToken') !== ${JSON.stringify(savedPlayerId)} && !localStorage.getItem('unicorn-preview')`,
       ),
       'clearing a save replaces the local identity and removes the cached ship',
     );
@@ -2270,7 +2272,7 @@ checkUi: try {
       'http://localhost:3000/api/identity',
       {
         method: 'POST',
-        body: savedToken,
+        body: savedPlayerId,
       },
     );
 
@@ -2279,7 +2281,7 @@ checkUi: try {
     assert(await check(`!document.querySelector('[data-clear]').disabled`));
 
     await check(
-      `localStorage.setItem('playerToken', ${JSON.stringify(savedToken)})`,
+      `localStorage.setItem('playerToken', ${JSON.stringify(savedPlayerId)})`,
     );
     await click('[data-back]');
     await c.send('Page.reload');

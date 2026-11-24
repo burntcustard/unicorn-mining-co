@@ -11,11 +11,11 @@ import { addEffect } from './effect';
 export const presentEvents = ({
   events,
   onMessage,
-  playerId,
+  playerNumber,
 }: {
   events: SimulationEvent[];
   onMessage?: (note: { message: string; unlock?: string }) => void;
-  playerId?: number;
+  playerNumber?: number;
   shipId?: number;
 }) => {
   // A dedicated explosion replaces its source's generic damage sparks.
@@ -39,7 +39,7 @@ export const presentEvents = ({
         position: event.position,
       });
     } else if (event.type === 'itemCollected') {
-      if (event.by !== playerId) return;
+      if (event.by !== playerNumber) return;
 
       if (event.message) {
         onMessage?.({ message: event.message, unlock: event.unlock });

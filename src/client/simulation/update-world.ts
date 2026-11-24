@@ -1,5 +1,5 @@
 import { Projectile, type ProjectileHitObserver } from '../objects/projectile';
-import { type PlayerId } from '../protocol/entities';
+import { type PlayerNumber } from '../protocol/entities';
 import { type SimulationEvent } from '../protocol/events';
 import { emptyPlayerInput, type PlayerInput } from '../protocol/input';
 import { type InputFrame } from '../protocol/input-frame';
@@ -31,7 +31,7 @@ export const updateWorld = ({
   onProjectileHit,
 }: {
   world: SimulationWorld;
-  inputs: Map<PlayerId, PlayerInput | InputFrame>;
+  inputs: Map<PlayerNumber, PlayerInput | InputFrame>;
   dt?: number;
   ticks?: number;
   onShot?: ShotObserver;
@@ -49,10 +49,10 @@ export const updateWorld = ({
     }
   });
 
-  world.players.forEach((player, playerId) => {
+  world.players.forEach((player, playerNumber) => {
     const ship = world.entities.get(player.shipId);
 
-    const input = inputs.get(playerId) || emptyPlayerInput();
+    const input = inputs.get(playerNumber) || emptyPlayerInput();
 
     if (ship instanceof Ship) {
       controlShip(ship, 'changes' in input ? input.input : input, events);

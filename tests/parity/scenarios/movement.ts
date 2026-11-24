@@ -45,7 +45,7 @@ const objects = [
 objects.forEach((properties) =>
   addEntity(world, new GameObject(structuredClone(properties))),
 );
-addPlayer(world, { id: 1, shipId: 1 });
+addPlayer(world, { playerNumber: 1, shipId: 1 });
 const holder = addEntity(world, new GameObject({ id: 20, spin: 0.7 }));
 
 holder.holds = (child: GameObject) =>
@@ -115,7 +115,7 @@ class ProbeShip extends Ship {
 
 const timedWorld = createWorld();
 
-addEntity(timedWorld, new ProbeShip({ id: 1, playerId: 1, segments: [] }));
+addEntity(timedWorld, new ProbeShip({ id: 1, playerNumber: 1, segments: [] }));
 const step = simulationStep;
 const input = emptyPlayerInput();
 

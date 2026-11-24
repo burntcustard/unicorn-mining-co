@@ -10,7 +10,7 @@ use super::trace_laser::{LaserTrace, trace_laser};
 #[derive(Clone, Copy, Debug)]
 pub struct LaserBeam {
     pub source: i64,
-    pub player_id: i64,
+    pub player_number: i64,
     pub start: Vector,
     pub end: Vector,
     pub damage: f64,
@@ -21,10 +21,10 @@ impl Ship {
     pub fn laser_beams(&self) -> impl Iterator<Item = LaserBeam> + '_ {
         let craft = &self.craft;
         let source = &craft.object;
-        let player_id = source
-            .player_id
+        let player_number = source
+            .player_number
             .filter(|_| self.firing && !source.dead && !craft.docked() && craft.launching == 0.0);
-        player_id.into_iter().flat_map(move |player_id| {
+        player_number.into_iter().flat_map(move |player_number| {
             craft.mounts.iter().filter_map(move |mount| {
                 let module = mount.module.as_ref()?;
                 if !craft.hulls[mount.hull].present
@@ -51,7 +51,7 @@ impl Ship {
                     );
                 Some(LaserBeam {
                     source: source.id,
-                    player_id,
+                    player_number,
                     start,
                     end,
                     damage: module.spec.damage,
@@ -80,7 +80,7 @@ pub fn resolve_laser<W: WeaponWorld>(
     let applied = context.world.damage_weapon_target(
         impact.collider,
         beam.damage * 30.0 * dt,
-        beam.player_id,
+        beam.player_number,
         context.events,
     );
     if applied <= 0.0 {
@@ -93,7 +93,7 @@ pub fn resolve_laser<W: WeaponWorld>(
     );
     context.events.push(SimulationEvent::LaserDamage {
         target_id: impact.collider.owner,
-        by: beam.player_id,
+        by: beam.player_number,
         damage: applied,
         color,
         position,
@@ -102,7 +102,7 @@ pub fn resolve_laser<W: WeaponWorld>(
         context.world.fracture_asteroid(
             impact.collider.owner,
             FractureTarget::Direct(asteroid_segment(impact.collider)),
-            beam.player_id,
+            beam.player_number,
             context.catalog,
             context.events,
         );

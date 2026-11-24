@@ -123,8 +123,8 @@ impl AuthoritativeSession {
                     encounter_accounts.extend(pirate.aggressors);
                 }
             }
-            for token in encounter_accounts {
-                if let Some(player) = reader.player(&token).map_err(io::Error::other)? {
+            for player_id in encounter_accounts {
+                if let Some(player) = reader.player(&player_id).map_err(io::Error::other)? {
                     self.restore_account(player, now, None)?;
                 }
             }
@@ -139,7 +139,7 @@ impl AuthoritativeSession {
                             running: &mut sector.running,
                             regions: &mut sector.regions,
                             players: &mut self.npc_players,
-                            next_observer_id: &mut self.next_player_id,
+                            next_observer_id: &mut self.next_player_number,
                             inputs: &mut self.inputs,
                         },
                         &state,
@@ -163,25 +163,32 @@ impl AuthoritativeSession {
         Ok(())
     }
 
-    pub(super) fn load_account(&mut self, token: &str, now: Instant) -> io::Result<Option<i64>> {
-        if let Some(&id) = self.tokens.get(token) {
-            return Ok(Some(id));
+    pub(super) fn load_account(
+        &mut self,
+        player_id: &str,
+        now: Instant,
+    ) -> io::Result<Option<i64>> {
+        if let Some(&player_number) = self.player_numbers_by_id.get(player_id) {
+            return Ok(Some(player_number));
         }
         let Some(storage) = &self.storage else {
             return Ok(None);
         };
-        let Some(saved) = storage.reader.player(token).map_err(io::Error::other)? else {
+        let Some(saved) = storage.reader.player(player_id).map_err(io::Error::other)? else {
             return Ok(None);
         };
-        let observer = storage.reader.observer(token).map_err(io::Error::other)?;
-        self.restore_account(saved, now, observer).map(Some)
+        let player_number = storage
+            .reader
+            .player_number(player_id)
+            .map_err(io::Error::other)?;
+        self.restore_account(saved, now, player_number).map(Some)
     }
 
     fn restore_account(
         &mut self,
         mut saved: SavedPlayer<SavedShip>,
         now: Instant,
-        observer: Option<i64>,
+        previous_player_number: Option<i64>,
     ) -> io::Result<i64> {
         let index = if saved.sector_id.is_empty() {
             self.sectors.start
@@ -191,11 +198,11 @@ impl AuthoritativeSession {
                 .ok_or_else(|| io::Error::other("unknown player sector"))?
         };
         self.sectors.load(index, now, self.sectors.tick)?;
-        let id = observer.unwrap_or(self.next_player_id);
+        let player_number = previous_player_number.unwrap_or(self.next_player_number);
         let ship_id = saved.ship.id;
         let mut ship = saved
             .ship
-            .restore(id, &self.catalog)
+            .restore(player_number, &self.catalog)
             .map_err(io::Error::other)?;
         ship.craft
             .object
@@ -204,8 +211,17 @@ impl AuthoritativeSession {
         let world = &mut self.sectors[index].running.world;
         let entity = world.make_entity(EntityKind::Ship(Box::new(ship)), false);
         world.ids.record_entity(ship_id);
-        let mut account = Account::new(id, index, saved.id, entity, now, &self.catalog);
-        account.hangar.restore(&mut saved.ship, id, world)?;
+        let mut account = Account::new(
+            player_number,
+            index,
+            saved.player_id,
+            entity,
+            now,
+            &self.catalog,
+        );
+        account
+            .hangar
+            .restore(&mut saved.ship, player_number, world)?;
         self.sectors.commit_ids(index);
         account.name = saved.display_name;
         account.role = saved.role;
@@ -218,14 +234,15 @@ impl AuthoritativeSession {
         account.visited = saved.visited;
         account.encounter_after = self.sectors[index]
             .pirate_cooldowns
-            .remove(&account.token)
+            .remove(&account.player_id)
             .unwrap_or_default();
-        self.tokens.insert(account.token.clone(), id);
-        self.accounts.set(id, account);
-        if observer.is_none() {
-            self.next_player_id += 1;
+        self.player_numbers_by_id
+            .insert(account.player_id.clone(), player_number);
+        self.accounts.set(player_number, account);
+        if previous_player_number.is_none() {
+            self.next_player_number += 1;
         }
-        Ok(id)
+        Ok(player_number)
     }
 
     pub fn storage_health(&self) -> impl Fn() -> bool + Send + Sync + 'static {
@@ -281,7 +298,7 @@ impl AuthoritativeSession {
                 self.accounts
                     .values()
                     .filter(|account| account.socket.is_some())
-                    .map(|account| account.id),
+                    .map(|account| account.player_number),
             );
             storage.checkpoint_at = now + CHECKPOINT_INTERVAL;
         }
@@ -308,13 +325,13 @@ impl AuthoritativeSession {
             return true;
         };
         for sector in self.sectors.active_mut() {
-            for (player_id, ship_id) in sector.running.world.drain_changed_player_ships() {
+            for (player_number, ship_id) in sector.running.world.drain_changed_player_ships() {
                 if self
                     .accounts
-                    .get(&player_id)
+                    .get(&player_number)
                     .is_some_and(|account| account.ship_id == ship_id)
                 {
-                    storage.pending.insert(player_id);
+                    storage.pending.insert(player_number);
                 }
             }
         }
@@ -380,26 +397,30 @@ impl AuthoritativeSession {
                 && !account.playing
                 && account.hidden.is_some()
                 && account.save_sequence <= committed
-                && !storage.pending.contains(&account.id)
-                && !self
-                    .sectors
-                    .active()
-                    .any(|sector| sector.npcs.references_player(&account.token, account.id))
+                && !storage.pending.contains(&account.player_number)
+                && !self.sectors.active().any(|sector| {
+                    sector
+                        .npcs
+                        .references_player(&account.player_id, account.player_number)
+                })
             {
-                if let Err(error) = storage.reader.record_observer(&account.token, account.id) {
-                    eprintln!("record disconnected observer: {error}");
+                if let Err(error) = storage
+                    .reader
+                    .record_player_number(&account.player_id, account.player_number)
+                {
+                    eprintln!("record disconnected player number: {error}");
                     return;
                 }
-                release.push(account.id);
+                release.push(account.player_number);
             }
         }
         for id in release {
             let account = self.accounts.remove(&id).expect("saved account exists");
-            self.tokens.remove(&account.token);
+            self.player_numbers_by_id.remove(&account.player_id);
             if account.encounter_after > self.sectors.tick {
                 self.sectors[account.sector]
                     .pirate_cooldowns
-                    .insert(account.token, account.encounter_after);
+                    .insert(account.player_id, account.encounter_after);
             }
         }
     }
@@ -413,7 +434,7 @@ impl AuthoritativeSession {
         };
         storage
             .pending
-            .extend(self.accounts.values().map(|account| account.id));
+            .extend(self.accounts.values().map(|account| account.player_number));
         for sector in self.sectors.active_mut() {
             sector.checkpoint.stage_active(&sector.running.world);
         }
@@ -453,7 +474,7 @@ impl AuthoritativeSession {
                     running: &mut sector.running,
                     regions: &mut sector.regions,
                     players: &mut self.npc_players,
-                    next_observer_id: &mut self.next_player_id,
+                    next_observer_id: &mut self.next_player_number,
                     inputs: &mut self.inputs,
                 },
                 &mut state,
@@ -477,7 +498,7 @@ impl AuthoritativeSession {
                     return None;
                 };
                 Some(SavedPlayer {
-                    id: account.token.clone(),
+                    player_id: account.player_id.clone(),
                     display_name: account.name.clone(),
                     role: account.role,
                     banned: account.banned,
@@ -552,10 +573,10 @@ mod tests {
             id: ClientId(1),
             socket: socket.socket(),
         };
-        session.receive(&client, Control::Hello { player_token: None });
+        session.receive(&client, Control::Hello { player_id: None });
         let id = session.sockets[&client.id];
         let account = session.accounts.get(&id).unwrap();
-        let token = account.token.clone();
+        let player_id = account.player_id.clone();
         let ship = account.ship_id;
 
         for (client_id, credits) in [(2, 41.0), (3, 83.0)] {
@@ -576,8 +597,8 @@ mod tests {
                 std::thread::sleep(Duration::from_millis(1));
             }
             session.release_saved_accounts();
-            assert!(session.accounts.is_empty() && session.tokens.is_empty());
-            let preview = session.identity_preview(&token).unwrap().unwrap();
+            assert!(session.accounts.is_empty() && session.player_numbers_by_id.is_empty());
+            let preview = session.identity_preview(&player_id).unwrap().unwrap();
             assert_eq!(preview[1].as_f64(), Some(credits));
             assert!(
                 session.accounts.is_empty(),
@@ -592,7 +613,7 @@ mod tests {
             session.receive(
                 &client,
                 Control::Hello {
-                    player_token: Some(token.clone()),
+                    player_id: Some(player_id.clone()),
                 },
             );
             assert_eq!(session.sockets[&client.id], id);

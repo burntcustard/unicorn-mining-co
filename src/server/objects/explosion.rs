@@ -16,7 +16,7 @@ use super::projectile::{FractureTarget, WeaponContext, WeaponWorld};
 #[derive(Clone, Copy, Debug)]
 pub struct ExplosionSource {
     pub id: i64,
-    pub player_id: Option<i64>,
+    pub player_number: Option<i64>,
     pub position: Vector,
     pub velocity: Vector,
 }
@@ -104,7 +104,7 @@ fn damage_nearby<W: WeaponWorld>(
     let linear_slop = context.catalog.simulation.linear_slop;
     let explosion = Shape::circle(Vector::ZERO, spec.radius);
     let explosion_pose = TransformValue::new(source.position, 0.0);
-    let by = source.player_id.unwrap_or(0);
+    let by = source.player_number.unwrap_or(0);
     for id in potential {
         let Some(entity) = context.world.weapon_target(id) else {
             continue;

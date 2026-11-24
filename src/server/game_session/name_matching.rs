@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 // Unicode 17.0.0 simple case-folding orbits.
 // Each range maps code points at the given stride to the smallest orbit member.
 const SIMPLE_FOLDS: &[(u32, u32, u32, i32)] = &[
@@ -237,13 +239,11 @@ pub(super) fn equal_name(left: &str, right: &str) -> bool {
     if left.is_ascii() && right.is_ascii() {
         left.eq_ignore_ascii_case(right)
     } else {
-        left.chars().map(fold).eq(right.chars().map(fold))
+        compare_names(left, right).is_eq()
     }
 }
 
-/// Produce the shared representation for indexed display name lookup.
-pub(crate) fn name_key(name: &str) -> String {
-    name.chars()
-        .map(|value| char::from_u32(fold(value)).expect("simple case fold is a Unicode scalar"))
-        .collect()
+/// Order display names by Unicode simple case folding for the SQLite index.
+pub(crate) fn compare_names(left: &str, right: &str) -> Ordering {
+    left.chars().map(fold).cmp(right.chars().map(fold))
 }

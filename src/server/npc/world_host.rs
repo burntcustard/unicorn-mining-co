@@ -204,7 +204,7 @@ impl SectorNpcs {
                 ShipView {
                     id: object.id,
                     name: object.name.clone(),
-                    observer_id: object.player_id.unwrap_or_default(),
+                    observer_id: object.player_number.unwrap_or_default(),
                     dead: true,
                     ..ShipView::default()
                 },
@@ -271,13 +271,13 @@ impl SectorNpcs {
             }
             let observer = *host.world.next_observer_id;
             *host.world.next_observer_id = observer.wrapping_add(1);
-            ship.craft.object.player_id = Some(observer);
+            ship.craft.object.player_number = Some(observer);
             ship.craft.object.hostile = !matches!(controller, SavedController::Collector(_));
             ship.craft.suppress_drops = matches!(controller, SavedController::Marauder(_));
             world.ids.record_entity(entry.id);
             world.add_entity(model, false);
             world.set_player(Player {
-                id: observer,
+                player_number: observer,
                 ship_id: entry.id,
                 observer_range: SIGHT_RANGE,
             });
@@ -426,7 +426,7 @@ impl<'a, 'world> Host<'a, 'world> {
         let id = world.ids.entity();
         let observer_id = *self.world.next_observer_id;
         *self.world.next_observer_id = observer_id.wrapping_add(1);
-        properties.player_id = Some(observer_id);
+        properties.player_number = Some(observer_id);
         let mut ship = Ship::new_player(id, definition, properties, &world.catalog, || {
             world.ids.object()
         })?;
@@ -434,7 +434,7 @@ impl<'a, 'world> Host<'a, 'world> {
         configure(&mut ship, world);
         world.add_entity(EntityKind::Ship(Box::new(ship)), false);
         world.set_player(Player {
-            id: observer_id,
+            player_number: observer_id,
             ship_id: id,
             observer_range: SIGHT_RANGE,
         });
@@ -1250,7 +1250,7 @@ fn pirate_ship(ship: &Ship, catalog: &Catalog, resident: bool) -> ShipView {
     ShipView {
         id: object.id,
         name: object.name.clone(),
-        observer_id: object.player_id.unwrap_or_default(),
+        observer_id: object.player_number.unwrap_or_default(),
         motion,
         dead: object.dead,
         resident,
@@ -1416,7 +1416,7 @@ fn contact_forecast<'a>(
             docking,
             can_dock: ship_model.craft.cockpit.is_some() && ship_model.craft.launching == 0.0,
             can_collect: object.item
-                && ship_model.craft.object.player_id.is_some()
+                && ship_model.craft.object.player_number.is_some()
                 && ship_model.craft.module_active("cargoHatch")
                 && (object.message.is_some()
                     || ship_model.craft.cargo_contents.len() < ship_model.cargo_space),

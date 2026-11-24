@@ -84,7 +84,7 @@
 
 **hull** - The structural body of a craft or jump gate, made from hull segments rather than fitted modules.
 
-**hangar** - The station tab for managing owned ships and buying ships. Owned ships are accessible at every station, including multiple instances of the same model. Each station instance has its own `shipsForSale` array of ship IDs and complete purchase prices, initialized from its spec and sent by the server when using the Hangar. A ship spec's `price` is the bare hull value; standard fitted modules are added to the station's purchase price. Selling returns the full hull, current fitted module, and cargo values, without depreciation for damage. Custom ship names contain 1 to 16 characters and do not change the player's profile name.
+**hangar** - The station tab for managing owned ships and buying ships. Owned ships are accessible at every station, including multiple instances of the same model. Each station instance has its own `shipsForSale` array of ship IDs and complete purchase prices, initialized from its spec and sent by the server when using the Hangar. A ship spec's `price` is the bare hull value; standard fitted modules are added to the station's purchase price. Selling returns the full hull, current fitted module, and cargo values, without depreciation for damage. Custom ship names contain 1 to 16 characters and belong to the individual ship.
 
 **hull segment** - One structural piece of a craft's or jump gate's hull. It has its own shape and health and may carry a mount.
 
@@ -124,7 +124,7 @@
 
 **mount** - A location on a craft where a module can be fitted. The mount is the fitting location rather than the module itself.
 
-**name** - Human-readable display text for a game object or spec. A player’s ship uses the player profile name; other objects start with their spec name or object-kind name. `definitionId`/`DefinitionID` is the internal spec key, never display text.
+**name** - Human-readable display text for a game object or spec. Objects start with their spec name or object-kind name. A player can give an owned ship a custom name in the Hangar. Use `definitionId` or `DefinitionID` for the internal spec key.
 
 **navigation destination** - A position a controller intends to reach. Prefer destination or waypoint for new navigation APIs, reserving target for gameplay object targeting.
 
@@ -136,14 +136,19 @@
 
 **physics substep** - A shorter interval that the continuous collision solver advances after a time-of-impact contact within a simulation tick. It is separate from the game’s movement subdivision.
 
-**player** - A participant in the game who owns credits, ships, and unlocked paints, and pilots one active ship at a time. Player state also tracks visited stations, current and queued messages, HUD visibility, and whether play has started. Players fly and dock their ships, operate modules, collect cargo, buy and sell items or modules, repair and equip their ships, apply unlocked paints, and earn rewards. Cargo contents and fitted modules belong to the individual ship; credits, paint unlocks, and player progress remain with the player when the active ship is replaced.
+**player** - A participant in the game who can pilot one active ship at a time. A player can also stay at a station without owning a ship. Players fly and dock their ships, operate modules, collect cargo, buy and sell items or modules, repair and equip their ships, apply unlocked paints, and earn rewards. The client tracks whether play has started and queues HUD messages.
+
+**player account** - A player's saved profile and progress, including their display name, role, ban status, credits, unlocked paints, docking history, and owned ships. Fitted modules and cargo contents belong to each ship.
+
+**player display name** - The public name a player claims once during profile creation. Names are unique under Unicode case-insensitive matching and remain reserved while the account is offline or banned. Chat, moderation commands, and the active ship's target label use this name.
+
+**player ID** - The private UUID for a saved player account. The browser uses it to reconnect to the account across server restarts.
 
 **player input** - The controls a player uses to fly a ship or operate its modules.
 
-**player role** - A saved account's server-enforced permissions: `user` by default,
-`admin` for moderation and teleport commands, or `owner` with those permissions
-and protection from demotion and banning through chat. Roles belong to players,
-not their ships, modules, segments, or colliders. Banned status is separate from role.
+**player number** - An incrementing number used in the simulation and game messages. Players and NPCs draw from the same counter, and a player's number can change after a server restart.
+
+**player role** - A saved account's permission level. The default is `user`. The `admin` and `owner` roles can moderate and teleport. Chat commands protect owners from demotion and bans.
 
 **point count** - The number of points used to form a shape, such as an asteroid's shape outline.
 

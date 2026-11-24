@@ -53,7 +53,7 @@ pub trait Session: 'static {
     fn receive(&mut self, client: &Client, control: Control);
     fn disconnect(&mut self, client: &Client);
     fn tick(&mut self, ticks: u64);
-    fn identity_preview(&mut self, private_id: &str) -> io::Result<Option<serde_json::Value>>;
+    fn identity_preview(&mut self, player_id: &str) -> io::Result<Option<serde_json::Value>>;
     fn shutdown(&mut self, deadline: Instant) -> impl Future<Output = io::Result<()>> + Send;
 }
 
@@ -247,7 +247,7 @@ impl SocketEvent {
 }
 
 struct IdentityRequest {
-    private_id: String,
+    player_id: String,
     result: oneshot::Sender<io::Result<Option<serde_json::Value>>>,
 }
 
@@ -338,7 +338,7 @@ async fn identity_response<F>(state: &RequestState<F>, request: Request) -> Resp
     let Ok(body) = to_bytes(request.into_body(), 64).await else {
         return http_error(StatusCode::BAD_REQUEST, "Invalid ID\n");
     };
-    let Some(private_id) = std::str::from_utf8(&body)
+    let Some(player_id) = std::str::from_utf8(&body)
         .ok()
         .map(|value| value.trim().to_ascii_lowercase())
         .filter(|value| parse_uuid(value).is_some())
@@ -348,7 +348,7 @@ async fn identity_response<F>(state: &RequestState<F>, request: Request) -> Resp
 
     let (send, result) = oneshot::channel();
     let request = IdentityRequest {
-        private_id,
+        player_id,
         result: send,
     };
     let sent = tokio::select! {
@@ -602,7 +602,7 @@ async fn run_session(
                     .map_err(io::Error::other)?;
             }
             Some(request) = identities.recv() => {
-                let result = session.identity_preview(&request.private_id);
+                let result = session.identity_preview(&request.player_id);
                 if let Err(error) = &result {
                     eprintln!("read player identity: {error}");
                 }
@@ -696,7 +696,7 @@ mod tests {
         let id = ClientId(1);
         for (control, wakes) in [
             (Control::Play, true),
-            (Control::Prepare { player_token: None }, true),
+            (Control::Prepare { player_id: None }, true),
             (Control::SnapshotAck { sequence: 2 }, false),
             (
                 Control::Input {
@@ -811,7 +811,7 @@ mod tests {
                 protocol,
                 step
             ),
-            Ok(Control::Prepare { player_token: None }),
+            Ok(Control::Prepare { player_id: None }),
         );
         assert_eq!(
             window.control(
@@ -864,7 +864,7 @@ mod tests {
 
         let respond = tokio::spawn(async move {
             let request = requests.recv().await.unwrap();
-            assert_eq!(request.private_id, "12345678-abcd-1234-1234-123456789abc");
+            assert_eq!(request.player_id, "12345678-abcd-1234-1234-123456789abc");
             request
                 .result
                 .send(Ok(Some(serde_json::json!([
@@ -949,7 +949,7 @@ mod tests {
             self.0.send(Call::Tick(ticks)).unwrap();
         }
 
-        fn identity_preview(&mut self, _private_id: &str) -> io::Result<Option<serde_json::Value>> {
+        fn identity_preview(&mut self, _player_id: &str) -> io::Result<Option<serde_json::Value>> {
             Ok(None)
         }
 
@@ -1038,7 +1038,7 @@ mod tests {
         masked_client_packet(client.get_mut(), 2, &hello).await;
         assert_eq!(
             timeout(deadline, observed.recv()).await.unwrap(),
-            Some(Call::Receive(id, Control::Hello { player_token: None })),
+            Some(Call::Receive(id, Control::Hello { player_id: None })),
         );
 
         masked_client_packet(client.get_mut(), 2, &input).await;

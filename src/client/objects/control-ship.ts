@@ -133,7 +133,7 @@ export const controlShip = (
     if (enabled && !ship.moduleActive({ module: Type })) return;
 
     if (
-      ship.playerId !== undefined &&
+      ship.playerNumber !== undefined &&
       command !== 'hornDrill' &&
       command !== 'plasmaActive' &&
       command !== 'autogunActive' &&
@@ -143,7 +143,7 @@ export const controlShip = (
         type: 'moduleChanged',
         module: command,
         active: enabled,
-        playerId: ship.playerId,
+        playerNumber: ship.playerNumber,
       });
     }
   });

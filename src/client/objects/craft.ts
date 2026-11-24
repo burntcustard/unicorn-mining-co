@@ -205,7 +205,7 @@ export class Craft extends GameObject {
   declare hullSegments: HullSegmentPlan[];
   kind = 'craft';
   declare mass: number;
-  declare playerId?: number;
+  declare playerNumber?: number;
   declare segments: Segment[];
   static shades = colors.white;
   declare shades: Shades;
@@ -252,9 +252,9 @@ export class Craft extends GameObject {
         segment.active = 0;
       });
 
-      if (ship.playerId !== undefined) {
+      if (ship.playerNumber !== undefined) {
         events.push({
-          playerId: ship.playerId,
+          playerNumber: ship.playerNumber,
           dockedTo: this.id,
           type: 'docked',
         });
@@ -1365,7 +1365,11 @@ export class Craft extends GameObject {
     }
 
     // Hydrated player ships can have lost all cores already.
-    if (this.cockpit || this.playerId !== undefined || this.kind === 'ship') {
+    if (
+      this.cockpit ||
+      this.playerNumber !== undefined ||
+      this.kind === 'ship'
+    ) {
       // Count first; most ticks nothing is broken and nothing is allocated.
       const segments = this.segments;
       let brokenMount = false;

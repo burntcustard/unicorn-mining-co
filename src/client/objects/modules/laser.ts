@@ -57,7 +57,7 @@ class LaserModule extends Module {
     if (
       !craft.moduleFiring(this) ||
       !this.ready(craft) ||
-      craft.playerId === undefined
+      craft.playerNumber === undefined
     ) {
       return;
     }
@@ -75,7 +75,7 @@ class LaserModule extends Module {
     events.push({
       type: 'laserDamage',
       targetId: first.owner.id,
-      by: craft.playerId,
+      by: craft.playerNumber,
       damage: applied,
       color: outlineColorOf(first),
       position: Vec.add(
@@ -90,7 +90,7 @@ class LaserModule extends Module {
     if (first.owner instanceof Asteroid) {
       first.owner.fracture({
         asteroidSegment: first.asteroidSegment,
-        by: craft.playerId,
+        by: craft.playerNumber,
         events,
         world: craft.world,
       });

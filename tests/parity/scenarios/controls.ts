@@ -6,7 +6,7 @@ import { emptyPlayerInput } from '../../../src/client/protocol/input';
 import type { ClientMessage } from '../../../src/client/protocol/network';
 
 const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
-const token = '01234567-89ab-cdef-0123-456789abcdef';
+const playerId = '01234567-89ab-cdef-0123-456789abcdef';
 
 const client: ClientMessage[] = [
   { type: 'sectorMap', position: { x: -12500.25, y: 62000.5 } },
@@ -21,10 +21,10 @@ const client: ClientMessage[] = [
   { type: 'gateAccess', gateId: 2 ** 45 },
   { type: 'chat', channel: 0, text: 'Hello 🦄 <&>' },
   { type: 'chat', channel: 1, text: '🦄'.repeat(240) },
-  { type: 'hello', playerToken: null },
-  { type: 'hello', playerToken: token },
-  { type: 'prepare', playerToken: null },
-  { type: 'prepare', playerToken: token },
+  { type: 'hello', playerId: null },
+  { type: 'hello', playerId },
+  { type: 'prepare', playerId: null },
+  { type: 'prepare', playerId },
   { type: 'play' },
   { type: 'profile', displayName: 'aé🦄 <&>\u0000' },
   { type: 'input', tick: 130, sequence: 52, input: emptyPlayerInput() },
@@ -139,10 +139,10 @@ const server = [
   { type: 'profile' as const, displayName: 'aé🦄 <&>\u0000' },
   {
     type: 'welcome' as const,
-    playerId: 2,
+    playerNumber: 2,
     shipId: 5,
     serverTick: 80,
-    playerToken: token,
+    playerId,
     worldSeed: 25,
     spawn: { x: -400, y: 250 },
     unlockedPaints: 486,
@@ -152,10 +152,10 @@ const server = [
   },
   {
     type: 'welcome' as const,
-    playerId: 2,
+    playerNumber: 2,
     shipId: 5,
     serverTick: 80,
-    playerToken: token,
+    playerId,
     worldSeed: 25,
     spawn: { x: -400, y: 250 },
   },

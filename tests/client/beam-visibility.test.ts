@@ -49,7 +49,7 @@ const decode = hex => decodeBinarySnapshot(Uint8Array.from(Buffer.from(hex, 'hex
 const connect = () => {
   const client = new NetworkClient({ url: 'test' });
   client.receive({ message: {
-    type: 'welcome', playerToken: 'test', playerId: 1, shipId: fixture.observerId,
+    type: 'welcome', playerId: 'test', playerNumber: 1, shipId: fixture.observerId,
     worldSeed: 25, serverTick: 0, spawn: { x: 0, y: 0 },
   }});
   return client;

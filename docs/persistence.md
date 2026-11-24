@@ -6,10 +6,11 @@ and a background writer encodes and commits them.
 
 ## Accounts and records
 
-The browser stores its private player UUID in `localStorage` as `playerToken`.
-The UUID is the database key and identifies the browser on reconnect. Keep it
-private. Clearing browser storage loses access to that anonymous account.
-Numeric player IDs are allocated at runtime for game messages.
+The player ID (`playerId`) is the private account UUID stored in `players.id`.
+The browser stores it under the existing `playerToken` localStorage key and
+sends it on reconnect. Clearing browser storage loses access to that account.
+The server allocates a player number (`playerNumber`) at runtime for the
+simulation and game messages. The number can change after a server restart.
 
 Dormant accounts stay in SQLite. Login loads the account and its ships on
 demand, and identity preview reads the saved profile directly. A missing account
@@ -25,19 +26,22 @@ the pending save commits. An active pirate encounter can retain the account.
 - `entities` stores the entity ID, sector, generated flag, and CBOR mechanics
   or a deletion tombstone.
 
-Display names have an indexed Unicode simple-case-fold lookup key. Owner lookup
-has a partial index. The ship record stores the active and stored hulls,
-positions, condition, fitted modules, and cargo. A player who sells their last
-ship retains a `no_ship` berth record for their station and camera position.
+SQLite indexes display names directly using the game's Unicode simple case
+folding. A name can belong to only one account, including while its owner is
+offline or banned. New accounts can stay unnamed until they choose a name.
+Owner lookup has a partial index. The ship record stores the active and stored
+hulls, positions, condition, fitted modules, and cargo. A player who sells their
+last ship retains a `no_ship` berth record for their station and camera position.
 Ships rebuild defaults from specs and resume stationary. World entity records
 retain movement. Player and world records share a transaction with the ID
 counters, so a cargo transfer and removal of its source commit together.
 
 ## Changes to content and saves
 
-A missing or empty database gets the current tables and indexes. The server
-assumes an existing database has the current layout. Reset the world if a
-change makes the saved format incompatible.
+A missing or empty database gets the current tables and indexes. On first
+open, older saves gain the unique display name index. If names conflict, the
+server preserves the save and keeps maintenance available. Resolve the
+duplicate names in the old database or explicitly reset the world.
 
 Ship, module, and player cargo records reference catalog definition IDs. Add a
 purchasable weapon to the station module catalog or a new hull to station ship
@@ -152,9 +156,9 @@ accepts a reset. Check health and logs before taking further action.
 ### Edit saved player data
 
 Stop the game server cleanly and back up the database before editing it with
-SQLite tools. The server lock only coordinates game processes. Credits, display
-names, and playtime are ordinary columns. A name edit invalidates its lookup
-key, which the server rebuilds on startup.
+SQLite tools. The server lock only coordinates game processes. Credits and
+playtime can be edited with stock SQLite. Writes that affect the display name
+index require the game's `player_name` collation on the SQLite connection.
 
 On Fly, use a maintenance image with SQLite tools and preserve the existing
 volume. Keep the game process stopped during edits. Fly SSH needs a running

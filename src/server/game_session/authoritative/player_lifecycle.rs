@@ -2,32 +2,33 @@ use super::*;
 
 impl AuthoritativeSession {
     pub(super) fn create_account(&mut self, now: Instant) -> Option<i64> {
-        let id = self.next_player_id;
+        let player_number = self.next_player_number;
         let sector = self.sectors.start;
         let nearest = self.sectors[sector].regions.nearest_station(Vector::ZERO);
         let (position, radius) = nearest.map_or((Vector::ZERO, 0.0), |station| {
             (station.position, station.radius)
         });
-        let (sin, cos) = (id as f64 * 2.4).sin_cos();
+        let (sin, cos) = (player_number as f64 * 2.4).sin_cos();
         let position = round_spawn(position.add_scaled(Vector::new(cos, sin), radius + 250.0));
         let definition = "mustang".to_owned();
-        let ship_id = self.spawn_ship(sector, id, &definition, position, 0.0, None)?;
+        let ship_id = self.spawn_ship(sector, player_number, &definition, position, 0.0, None)?;
         let hidden = self.sectors[sector].running.world.remove_entity(ship_id)?;
-        let token = uuid::Uuid::new_v4().to_string();
-        self.next_player_id += 1;
-        self.tokens.insert(token.clone(), id);
+        let player_id = uuid::Uuid::new_v4().to_string();
+        self.next_player_number += 1;
+        self.player_numbers_by_id
+            .insert(player_id.clone(), player_number);
         self.accounts.set(
-            id,
-            Account::new(id, sector, token, hidden, now, &self.catalog),
+            player_number,
+            Account::new(player_number, sector, player_id, hidden, now, &self.catalog),
         );
-        self.mark_dirty(id, true);
-        Some(id)
+        self.mark_dirty(player_number, true);
+        Some(player_number)
     }
 
     pub(super) fn spawn_ship(
         &mut self,
         sector: usize,
-        player_id: i64,
+        player_number: i64,
         definition: &str,
         position: Vector,
         rotation: f64,
@@ -39,7 +40,7 @@ impl AuthoritativeSession {
         let properties = ObjectProperties {
             position,
             rotation,
-            player_id: Some(player_id),
+            player_number: Some(player_number),
             ..Default::default()
         };
         let mut ship = Ship::new_player(id, definition, properties, &self.catalog, || {
@@ -73,7 +74,7 @@ impl AuthoritativeSession {
         account.playing = true;
         account.played_at = Some(Instant::now());
         world.set_player(Player {
-            id,
+            player_number: id,
             ship_id: account.ship_id,
             observer_range: 0.0,
         });
@@ -86,11 +87,21 @@ impl AuthoritativeSession {
 
     pub(super) fn set_name(&mut self, id: i64, name: String) {
         let change = set_profile_name(self, id, name);
-        if change == ProfileChange::Ignored {
-            return;
-        }
         let Some(account) = self.accounts.get_mut(&id) else {
             return;
+        };
+        let change = match change {
+            Ok(ProfileChange::Ignored) => return,
+            Ok(change) => change,
+            Err(error) => {
+                eprintln!("check player display name: {error}");
+                if let Some(client) = &account.socket {
+                    client
+                        .socket
+                        .close_with(1013, "Storage temporarily unavailable");
+                }
+                return;
+            }
         };
         account.profile_pending = true;
         if matches!(change, ProfileChange::Changed { .. }) {
@@ -215,7 +226,7 @@ impl AuthoritativeSession {
         }
         account.inputs.clear_input_lead();
         self.sectors[index].running.world.set_player(Player {
-            id,
+            player_number: id,
             ship_id: replacement,
             observer_range: 0.0,
         });
@@ -253,7 +264,7 @@ impl AuthoritativeSession {
                 account.position = ship.craft.object.position;
             }
             account.hidden = Some(entity);
-            hidden.push(account.id);
+            hidden.push(account.player_number);
         }
         for id in hidden {
             self.mark_dirty(id, false);
@@ -265,7 +276,7 @@ impl AuthoritativeSession {
         for entity in destroyed {
             self.sectors[index].npcs.remember_destroyed_ship(&entity);
             let object = entity.model.object();
-            let Some(id) = object.player_id else {
+            let Some(id) = object.player_number else {
                 continue;
             };
             if let Some(account) = self.accounts.get_mut(&id)

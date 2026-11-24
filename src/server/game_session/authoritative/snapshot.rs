@@ -86,10 +86,10 @@ pub(super) fn send_snapshot(
         send_control(
             socket,
             ServerControl::Welcome {
-                player_id: account.id as u64,
+                player_number: account.player_number as u64,
                 ship_id: account.ship_id as u64,
                 server_tick: sector.running.world.tick,
-                player_token: &account.token,
+                player_id: &account.player_id,
                 world_seed,
                 spawn: account.position,
                 unlocked_paints: Some(account.unlocked_paints),

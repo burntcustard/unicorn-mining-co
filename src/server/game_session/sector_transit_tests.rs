@@ -10,7 +10,7 @@ use super::*;
 
 fn player(ship_id: i64) -> PortalPlayer<'static> {
     PortalPlayer {
-        player_id: 1,
+        player_number: 1,
         ship_id,
         travelled_tick: None,
         display_name: "Custard",
@@ -22,7 +22,7 @@ fn player_names(players: &[PortalPlayer<'static>]) -> impl Fn(i64) -> &'static s
     |id| {
         players
             .iter()
-            .find(|player| player.player_id == id)
+            .find(|player| player.player_number == id)
             .map_or("", |player| player.display_name)
     }
 }

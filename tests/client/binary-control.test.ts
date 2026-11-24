@@ -13,7 +13,7 @@ import {
 } from '../../src/client/protocol/input';
 import type { ClientMessage } from '../../src/client/protocol/network';
 
-const token = '12345678-9abc-4def-8012-3456789abcde';
+const playerId = '12345678-9abc-4def-8012-3456789abcde';
 
 for (const displayName of ['', 'a'.repeat(17), '🦄'.repeat(17)]) {
   assert.throws(() => encodeClientMessage({ type: 'profile', displayName }));
@@ -46,10 +46,10 @@ const controls: ClientMessage[] = [
       cargoRelease: true,
     },
   },
-  { type: 'hello', playerToken: null },
-  { type: 'hello', playerToken: token },
-  { type: 'prepare', playerToken: null },
-  { type: 'prepare', playerToken: token },
+  { type: 'hello', playerId: null },
+  { type: 'hello', playerId },
+  { type: 'prepare', playerId: null },
+  { type: 'prepare', playerId },
   { type: 'play' },
   { type: 'profile', displayName: 'aé🦄 <&>\u0000' },
   { type: 'profile', displayName: '🦄'.repeat(16) },
@@ -298,8 +298,8 @@ for (const message of [
   { type: 'profile' as const, displayName: 'aé🦄 <&>\u0000' },
   {
     type: 'welcome' as const,
-    playerId: 2,
-    playerToken: token,
+    playerNumber: 2,
+    playerId,
     shipId: 7,
     serverTick: 80,
     worldSeed: 25,
@@ -311,8 +311,8 @@ for (const message of [
   },
   {
     type: 'welcome' as const,
-    playerId: 2,
-    playerToken: token,
+    playerNumber: 2,
+    playerId,
     shipId: 7,
     serverTick: Number.MAX_SAFE_INTEGER,
     worldSeed: 8675309,
@@ -326,8 +326,8 @@ for (const message of [
   { type: 'progress' as const, unlockedPaints: 100, credits: 0 },
   {
     type: 'welcome' as const,
-    playerId: 2,
-    playerToken: token,
+    playerNumber: 2,
+    playerId,
     shipId: 7,
     serverTick: 500,
     worldSeed: 25,
@@ -387,7 +387,7 @@ function changedMapKind() {
   return packet;
 }
 
-const hello = encodeClientMessage({ type: 'hello', playerToken: null });
+const hello = encodeClientMessage({ type: 'hello', playerId: null });
 const activity = encodeClientMessage({ type: 'activity' });
 
 assert.deepEqual([...activity], [0x55, 0x43, 1, 7]);
@@ -475,8 +475,8 @@ for (const invalid of [
 }
 
 assert.throws(
-  () => encodeClientMessage({ type: 'hello', playerToken: 'bad' }),
-  /Invalid binary control token/,
+  () => encodeClientMessage({ type: 'hello', playerId: 'bad' }),
+  /Invalid binary control player ID/,
 );
 assert.throws(
   () => encodeClientMessage({ type: 'dock', action: 'sell', objectIds: [] }),

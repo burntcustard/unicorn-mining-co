@@ -291,7 +291,7 @@ test('shared protocol runtime emits a usable codec and the ordinary catalog', as
     }
 
     const messages: ClientMessage[] = [
-      { type: 'hello', playerToken: null },
+      { type: 'hello', playerId: null },
       { type: 'snapshotAck', sequence: 257 },
     ];
 

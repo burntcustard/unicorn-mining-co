@@ -34,7 +34,8 @@ pub struct ObjectProperties {
     pub buried: Option<bool>,
     pub shape_outline: Option<ShapeOutline>,
     pub message: Option<String>,
-    pub player_id: Option<i64>,
+    #[serde(alias = "playerId")]
+    pub player_number: Option<i64>,
     pub resource: Option<i32>,
     pub name: Option<String>,
 }
@@ -85,7 +86,9 @@ pub struct GameObject {
     pub name: String,
     pub target_label: String,
     pub message: Option<String>,
-    pub player_id: Option<i64>,
+    // Keep the stored world entity field name for existing saves.
+    #[serde(rename = "player_id")]
+    pub player_number: Option<i64>,
     pub paint: Option<i32>,
     pub point_count: usize,
     pub resource: Option<i32>,
@@ -148,7 +151,7 @@ impl GameObject {
             name: String::new(),
             target_label: String::new(),
             message: None,
-            player_id: None,
+            player_number: None,
             paint: None,
             point_count: 0,
             resource: None,
@@ -191,7 +194,7 @@ impl GameObject {
         self.physics = properties.physics.unwrap_or(self.physics);
         self.buried = properties.buried.unwrap_or(self.buried);
         self.bounciness = properties.bounciness.or(self.bounciness);
-        self.player_id = properties.player_id.or(self.player_id);
+        self.player_number = properties.player_number.or(self.player_number);
         self.resource = properties.resource.or(self.resource);
         if let Some(outline) = properties.shape_outline {
             self.shape_outline = Some(outline);

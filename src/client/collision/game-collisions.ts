@@ -584,7 +584,7 @@ export class GameCollisions {
           if (hit.owner instanceof Asteroid && hit.owner.world) {
             hit.owner.fracture({
               asteroidSegment: hit.asteroidSegment,
-              by: struckBy.owner.playerId ?? 0,
+              by: struckBy.owner.playerNumber ?? 0,
               events,
               world: hit.owner.world,
             });

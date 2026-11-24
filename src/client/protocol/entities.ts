@@ -1,5 +1,5 @@
 export type EntityId = number;
-export type PlayerId = number;
+export type PlayerNumber = number;
 
 export type AsteroidSegment = {
   contents: number[];
@@ -10,6 +10,6 @@ export type AsteroidSegment = {
 };
 
 export type Player = {
-  id: PlayerId;
+  playerNumber: PlayerNumber;
   shipId: EntityId;
 };

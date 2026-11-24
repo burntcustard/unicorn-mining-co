@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::sync::mpsc as inbox;
 
-use crate::game_session::name_key;
+use crate::game_session::compare_names;
 use crate::specs::Catalog;
 
 mod backups;
@@ -29,6 +29,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 const QUEUE_CAPACITY: usize = 64;
 const BACKUP_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 const RETRY_INTERVAL: Duration = Duration::from_secs(1);
+const SCHEMA_VERSION: i64 = 2;
 pub const DEFAULT_PAINTS: u16 = (1 << 9) - 1;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -103,7 +104,7 @@ pub fn generation_digest(catalog: &Catalog) -> Result<String> {
 
 #[derive(Debug)]
 pub struct SavedPlayer<Ship> {
-    pub id: String,
+    pub player_id: String,
     pub display_name: String,
     pub role: PlayerRole,
     pub banned: bool,
@@ -157,13 +158,12 @@ pub(crate) struct AccountReader {
 
 const PLAYER_COLUMNS: &str = "id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector";
 const OWNER_LOOKUP: &str = "SELECT EXISTS(SELECT 1 FROM players WHERE role='owner')";
-const PROFILE_LOOKUP: &str = "SELECT id,role FROM players WHERE display_name_key=?";
-const UPDATE_NAME_KEY: &str =
-    "UPDATE players SET display_name_key=? WHERE id=? AND display_name_key IS NULL";
+const PROFILE_LOOKUP: &str = "SELECT id,role FROM players
+    WHERE display_name <> '' AND display_name = ? COLLATE player_name";
 
 fn read_player<Ship: DeserializeOwned>(row: &Row<'_>) -> Result<SavedPlayer<Ship>> {
     Ok(SavedPlayer {
-        id: row.get(0)?,
+        player_id: row.get(0)?,
         display_name: row.get(1)?,
         role: PlayerRole::parse(row.get_ref(2)?.as_str()?)?,
         banned: row.get(3)?,
@@ -181,30 +181,31 @@ fn read_player<Ship: DeserializeOwned>(row: &Row<'_>) -> Result<SavedPlayer<Ship
 impl AccountReader {
     pub(crate) fn player<Ship: DeserializeOwned>(
         &self,
-        token: &str,
+        player_id: &str,
     ) -> Result<Option<SavedPlayer<Ship>>> {
         self.connection
             .prepare_cached(&format!("SELECT {PLAYER_COLUMNS} FROM players WHERE id=?"))?
-            .query([token])?
+            .query([player_id])?
             .next()?
             .map(read_player)
             .transpose()
     }
 
-    pub(crate) fn observer(&self, token: &str) -> Result<Option<i64>> {
+    pub(crate) fn player_number(&self, player_id: &str) -> Result<Option<i64>> {
         Ok(self
             .connection
-            .prepare_cached("SELECT observer FROM player_observers WHERE id=?")?
-            .query_row([token], |row| row.get(0))
+            .prepare_cached("SELECT player_number FROM disconnected_players WHERE player_id=?")?
+            .query_row([player_id], |row| row.get(0))
             .optional()?)
     }
 
-    pub(crate) fn record_observer(&self, token: &str, observer: i64) -> Result<()> {
+    pub(crate) fn record_player_number(&self, player_id: &str, player_number: i64) -> Result<()> {
         self.connection
             .prepare_cached(
-                "INSERT INTO player_observers(id,observer) VALUES(?,?) ON CONFLICT(id) DO NOTHING",
+                "INSERT INTO disconnected_players(player_id,player_number) VALUES(?,?)
+                 ON CONFLICT(player_id) DO NOTHING",
             )?
-            .execute(params![token, observer])?;
+            .execute(params![player_id, player_number])?;
         Ok(())
     }
 
@@ -215,30 +216,31 @@ impl AccountReader {
             .query_row([], |row| row.get(0))?)
     }
 
-    pub(crate) fn matching_profiles(
+    pub(crate) fn name_taken(&self, name: &str) -> Result<bool> {
+        Ok(self
+            .connection
+            .prepare_cached(PROFILE_LOOKUP)?
+            .exists([name])?)
+    }
+
+    pub(crate) fn matching_profile(
         &self,
         name: &str,
-        mut include: impl FnMut(&str) -> bool,
-    ) -> Result<Vec<(String, PlayerRole)>> {
-        if name.is_empty() {
-            return Ok(Vec::new());
-        }
+        include: impl FnOnce(&str) -> bool,
+    ) -> Result<Option<(String, PlayerRole)>> {
         let mut query = self.connection.prepare_cached(PROFILE_LOOKUP)?;
-        let mut rows = query.query([name_key(name)])?;
-        let mut found = Vec::new();
-        while let Some(row) = rows.next()? {
-            let token = row.get_ref(0)?.as_str()?;
-            if include(token) {
-                found.push((
-                    token.to_owned(),
-                    PlayerRole::parse(row.get_ref(1)?.as_str()?)?,
-                ));
-                if found.len() == 2 {
-                    break;
-                }
-            }
+        let mut rows = query.query([name])?;
+        let Some(row) = rows.next()? else {
+            return Ok(None);
+        };
+        let player_id = row.get_ref(0)?.as_str()?;
+        if !include(player_id) {
+            return Ok(None);
         }
-        Ok(found)
+        Ok(Some((
+            player_id.to_owned(),
+            PlayerRole::parse(row.get_ref(1)?.as_str()?)?,
+        )))
     }
 }
 
@@ -249,7 +251,7 @@ const CREATE_SCHEMA: &str = "CREATE TABLE world (
     next_object_id INTEGER NOT NULL, sectors TEXT NOT NULL
 );
 CREATE TABLE players (
-    id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL, display_name_key TEXT,
+    id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('user','admin','owner')),
     banned INTEGER NOT NULL CHECK(banned IN (0,1)),
     first_joined_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
@@ -260,32 +262,41 @@ CREATE TABLE players (
 ) WITHOUT ROWID;
 CREATE TABLE entities (
     id INTEGER PRIMARY KEY, sector TEXT NOT NULL, generated INTEGER NOT NULL, state BLOB
-);
-CREATE INDEX players_display_name_key ON players(display_name_key);
-CREATE INDEX players_owner ON players(role) WHERE role='owner';
-CREATE TRIGGER players_invalidate_name_key AFTER UPDATE OF display_name ON players
-WHEN NEW.display_name IS NOT OLD.display_name
-BEGIN
-    UPDATE players SET display_name_key=NULL WHERE id=NEW.id;
-END;";
+);";
 
-fn refresh_name_keys(tx: &Transaction<'_>) -> Result<()> {
-    let mut missing_keys =
-        tx.prepare("SELECT id,display_name FROM players WHERE display_name_key IS NULL LIMIT 256")?;
-    let mut update_key = tx.prepare(UPDATE_NAME_KEY)?;
-    loop {
-        let names = missing_keys
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        if names.is_empty() {
-            return Ok(());
-        }
-        for (id, name) in names {
-            update_key.execute(params![name_key(&name), id])?;
-        }
+fn index_player_names(tx: &Transaction<'_>) -> Result<()> {
+    let create_index = tx.execute_batch(
+        "CREATE UNIQUE INDEX players_display_name ON players(display_name COLLATE player_name)
+         WHERE display_name <> '';",
+    );
+    if matches!(
+        create_index,
+        Err(rusqlite::Error::SqliteFailure(error, _))
+            if error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE
+    ) {
+        return Err("saved world has duplicate player display names; resolve the duplicates or use a fresh world database".into());
     }
+    create_index?;
+    tx.execute_batch(
+        "CREATE INDEX IF NOT EXISTS players_owner ON players(role) WHERE role='owner';",
+    )?;
+    Ok(())
+}
+
+fn remove_legacy_name_key(tx: &Transaction<'_>) -> Result<()> {
+    let has_key: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('players') WHERE name='display_name_key')",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_key {
+        tx.execute_batch(
+            "DROP TRIGGER IF EXISTS players_invalidate_name_key;
+             DROP INDEX IF EXISTS players_display_name_key;
+             ALTER TABLE players DROP COLUMN display_name_key;",
+        )?;
+    }
+    Ok(())
 }
 
 pub(super) fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
@@ -331,14 +342,25 @@ impl Store {
             Err(error) => return Err(error.into()),
         };
         let mut connection = Connection::open(path)?;
+        connection.create_collation("player_name", compare_names)?;
         connection.busy_timeout(Duration::from_secs(1))?;
         connection.execute_batch("PRAGMA synchronous=FULL;")?;
+        let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        if !(0..=SCHEMA_VERSION).contains(&version) {
+            return Err(format!(
+                "unsupported Rust world database schema {version}, expected up to {SCHEMA_VERSION}"
+            )
+            .into());
+        }
         let tx = connection.transaction()?;
         if fresh {
             tx.execute_batch(CREATE_SCHEMA)?;
-        } else {
-            // Maintenance can edit names directly while the server is stopped.
-            refresh_name_keys(&tx)?;
+        } else if version == 0 {
+            remove_legacy_name_key(&tx)?;
+        }
+        if version < SCHEMA_VERSION {
+            index_player_names(&tx)?;
+            tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         }
         tx.commit()?;
         connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=1000;")?;
@@ -373,11 +395,14 @@ impl Store {
             &self.path,
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )?;
+        connection.create_collation("player_name", compare_names)?;
         connection.busy_timeout(Duration::from_millis(10))?;
         // World objects may still refer to a player who reconnects in this run.
         connection.execute_batch(
             "PRAGMA temp_store=FILE;
-             CREATE TEMP TABLE player_observers (id TEXT PRIMARY KEY, observer INTEGER NOT NULL) WITHOUT ROWID;",
+             CREATE TEMP TABLE disconnected_players (
+                 player_id TEXT PRIMARY KEY, player_number INTEGER NOT NULL
+             ) WITHOUT ROWID;",
         )?;
         Ok(AccountReader { connection })
     }
@@ -484,16 +509,14 @@ impl Store {
         )?;
         if !batch.players.is_empty() {
             let mut upsert = tx.prepare_cached(
-                "INSERT INTO players(id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector,display_name_key)
-                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name,role=excluded.role,banned=excluded.banned,
+                "INSERT INTO players(id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector)
+                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name,role=excluded.role,banned=excluded.banned,
                  last_seen_at=excluded.last_seen_at,played_for=excluded.played_for,credits=excluded.credits,unlocked_paints=excluded.unlocked_paints,
                  visited=excluded.visited,ship=excluded.ship,sector=excluded.sector",
             )?;
-            let mut update_key = tx.prepare_cached(UPDATE_NAME_KEY)?;
             for (player, (visits, ship)) in batch.players.iter().zip(player_values) {
-                let key = name_key(&player.display_name);
                 upsert.execute(params![
-                    player.id,
+                    player.player_id,
                     player.display_name,
                     player.role.as_str(),
                     player.banned,
@@ -505,9 +528,7 @@ impl Store {
                     visits,
                     ship,
                     player.sector_id,
-                    key,
                 ])?;
-                update_key.execute(params![key, player.id])?;
             }
         }
         if !batch.entities.is_empty() {
@@ -708,7 +729,7 @@ fn coalesce<Ship, Entity>(
     let mut players: HashMap<_, _> = first
         .players
         .into_iter()
-        .map(|player| (player.id.clone(), player))
+        .map(|player| (player.player_id.clone(), player))
         .collect();
     let mut entities: HashMap<_, _> = first
         .entities
@@ -726,7 +747,7 @@ fn coalesce<Ship, Entity>(
             batch
                 .players
                 .into_iter()
-                .map(|player| (player.id.clone(), player)),
+                .map(|player| (player.player_id.clone(), player)),
         );
         entities.extend(batch.entities.into_iter().map(|entity| (entity.id, entity)));
     }

@@ -318,8 +318,8 @@ const rebuild = () => {
 
     craft.world = world;
     craft.moduleFiring = (module) => firingModules.has(module);
-    craft.playerId = 1;
-    world.players.set(1, { id: 1, shipId: craft.id });
+    craft.playerNumber = 1;
+    world.players.set(1, { playerNumber: 1, shipId: craft.id });
     craft.cargoContents.push(new Item(autogunAmmo, { rounds: Infinity }));
     state.modules[spec.key] ||= {};
     state.attachments[spec.key] ||= {};

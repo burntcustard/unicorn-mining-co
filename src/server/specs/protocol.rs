@@ -54,7 +54,7 @@ pub struct BinaryFields {
     pub shape_outline: i32,
     pub paint: i32,
     pub shades: i32,
-    pub player_id: i32,
+    pub player_number: i32,
     pub point_count: i32,
     pub position: i32,
     pub radius: i32,

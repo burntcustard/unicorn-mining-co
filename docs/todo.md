@@ -71,6 +71,7 @@
 [x] Fuzzy items inside asteroids
 [x] 'Connecting to game' shown when you disconnect
 [x] Prevent ESC from turning ship modules off
+[ ] Improve player-name already taken message
 
 ## MVP
 

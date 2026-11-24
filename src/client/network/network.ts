@@ -10,7 +10,7 @@ import { player, syncPaintUnlocks } from '../player';
 import {
   encodeClientMessage,
   decodeServerControl,
-  isPlayerToken,
+  isPlayerId,
 } from '../protocol/binary-control';
 import {
   decodeBinarySnapshot,
@@ -52,6 +52,7 @@ import { hangarState, setHangarActionDispatcher } from './hangar-actions';
 import { type HangarAction } from '../protocol/network';
 import { shipSpecsById } from '../../specs/ships';
 import { MovementChannel } from './movement-channel';
+import { playerIdStorageKey } from '../ui/dom/identity';
 
 const asteroidRecords = new WeakMap<Asteroid, ReplicatedEntity>();
 const stationRecords = new WeakMap<Station, ReplicatedEntity>();
@@ -98,7 +99,7 @@ const makeEntity = ({
   if (entity.kind === 'projectile') {
     return new Projectile(entity.definitionId as WeaponId, {
       ...common,
-      playerId: entity.playerId,
+      playerNumber: entity.playerNumber,
     });
   }
 
@@ -227,7 +228,7 @@ const makeEntity = ({
       hostile: !!entity.hostile,
       npcState: entity.npcState,
       paint: entity.paint,
-      playerId: entity.playerId,
+      playerNumber: entity.playerNumber,
       thrust: entity.thrust ?? 0,
       turn: entity.turn ?? 0,
     },
@@ -341,7 +342,7 @@ export class NetworkClient {
   >;
   private pendingTime = 0;
   private changingDockedShip = false;
-  playerId?: number;
+  playerNumber?: number;
   private prediction: PredictionManager;
   private worldReady: Promise<void>;
   get ready() {
@@ -553,15 +554,15 @@ export class NetworkClient {
 
     socket.onopen = () => {
       opened = true;
-      const storedToken = localStorage.getItem('playerToken');
-      const playerToken = isPlayerToken(storedToken) ? storedToken : null;
+      const storedPlayerId = localStorage.getItem(playerIdStorageKey);
+      const playerId = isPlayerId(storedPlayerId) ? storedPlayerId : null;
 
-      if (storedToken !== null && playerToken === null) {
-        localStorage.removeItem('playerToken');
+      if (storedPlayerId !== null && playerId === null) {
+        localStorage.removeItem(playerIdStorageKey);
       }
 
       this.send({
-        playerToken,
+        playerId,
         type: this.deferred ? 'prepare' : 'hello',
       });
     };
@@ -863,7 +864,15 @@ export class NetworkClient {
 
     if (message.type === 'profile') {
       this.displayName = message.displayName;
-      this.pendingProfile?.resolve();
+
+      if (message.displayName) {
+        this.pendingProfile?.resolve();
+      } else {
+        this.pendingProfile?.reject(
+          new Error('That name is already taken. Choose another.'),
+        );
+      }
+
       this.pendingProfile = undefined;
       return;
     }
@@ -931,8 +940,8 @@ export class NetworkClient {
       this.sounds.length = 0;
       this.remoteMotion.reset();
       this.prediction.reset();
-      localStorage.setItem('playerToken', message.playerToken);
-      this.playerId = message.playerId;
+      localStorage.setItem(playerIdStorageKey, message.playerId);
+      this.playerNumber = message.playerNumber;
       this.shipId = message.shipId;
       Vec.set(this.spawnPosition, message.spawn);
       this.worldSeed = message.worldSeed;
@@ -942,11 +951,11 @@ export class NetworkClient {
       this.world.random = createRandom(message.worldSeed);
 
       addPlayer(this.world, {
-        id: message.playerId,
+        playerNumber: message.playerNumber,
         shipId: message.shipId,
       });
 
-      this.prediction.setLocalPlayer({ playerId: message.playerId });
+      this.prediction.setLocalPlayer({ playerNumber: message.playerNumber });
       this.welcomed = true;
       this.resolveAuthenticated();
 
@@ -970,7 +979,7 @@ export class NetworkClient {
       this.shipId = message.shipId;
       this.pendingSnapshot = undefined;
       this.pendingEntities.clear();
-      this.world.players.get(this.playerId!)!.shipId = message.shipId;
+      this.world.players.get(this.playerNumber!)!.shipId = message.shipId;
       this.pendingDockActions.length = 0;
       return;
     }
@@ -1255,7 +1264,7 @@ export class NetworkClient {
     input: PlayerInput;
     now?: number;
   }) {
-    if (!this.connected || this.playerId === undefined) return;
+    if (!this.connected || this.playerNumber === undefined) return;
 
     const predictionInput: Parameters<PredictionManager['recordInput']>[0] = {
       input: this.ownedShips?.length === 0 ? emptyPlayerInput() : input,

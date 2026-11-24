@@ -71,7 +71,7 @@ impl Ship {
         mut next_entity_id: impl FnMut() -> i64,
     ) -> SmallVec<[Box<Projectile>; 4]> {
         let mut spawned = SmallVec::new();
-        let Some(player_id) = self.craft.object.player_id else {
+        let Some(player_number) = self.craft.object.player_number else {
             return spawned;
         };
         if self.craft.object.dead
@@ -136,7 +136,7 @@ impl Ship {
                     ObjectProperties {
                         position,
                         velocity,
-                        player_id: Some(player_id),
+                        player_number: Some(player_number),
                         ..ObjectProperties::default()
                     },
                     catalog,
@@ -210,7 +210,7 @@ mod tests {
                 1,
                 name,
                 ObjectProperties {
-                    player_id: Some(9),
+                    player_number: Some(9),
                     ..ObjectProperties::default()
                 },
                 catalog,
@@ -265,7 +265,7 @@ mod tests {
         let shots = ship.fire_projectiles(0.0, &catalog, || 51);
         assert_eq!(shots.len(), 1);
         assert_eq!(shots[0].object.id, 51);
-        assert_eq!(shots[0].object.player_id, Some(9));
+        assert_eq!(shots[0].object.player_number, Some(9));
         assert_eq!(shots[0].object.position, muzzle);
         assert!((shots[0].object.velocity.distance(start) - spec.projectile.speed).abs() <= 1e-8);
         let expected_recoil = Vector::new(0.0, -spec.recoil / ship.craft.object.force_mass());

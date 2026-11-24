@@ -73,12 +73,12 @@ function connect(address: string) {
   return socket;
 }
 
-async function join(address: string, token: string | null) {
+async function join(address: string, playerId: string | null) {
   const socket = connect(address);
 
   return new Promise<{
-    token: string;
-    playerId: number;
+    playerId: string;
+    playerNumber: number;
     shipId: number;
     credits: number;
     paints: number;
@@ -90,7 +90,7 @@ async function join(address: string, token: string | null) {
       reject(new Error('Connection closed before load')),
     );
     socket.once('open', () =>
-      socket.send(encodeClientMessage({ type: 'hello', playerToken: token })),
+      socket.send(encodeClientMessage({ type: 'hello', playerId })),
     );
 
     socket.on('message', (data) => {
@@ -124,8 +124,8 @@ async function join(address: string, token: string | null) {
         if (!ship || welcome.credits === undefined) return;
 
         resolvePlayer({
-          token: welcome.playerToken,
           playerId: welcome.playerId,
+          playerNumber: welcome.playerNumber,
           shipId: welcome.shipId,
           credits: welcome.credits,
           paints: welcome.unlockedPaints!,
@@ -160,13 +160,23 @@ async function requestControl(
   throw new Error(`Connection closed before ${request.type} reply`);
 }
 
+async function requestProfile(socket: WebSocket, displayName: string) {
+  const profile = await requestControl(socket, {
+    type: 'profile',
+    displayName,
+  });
+
+  assert(profile.type === 'profile');
+  return profile.displayName;
+}
+
 async function expectGreetingRejection({
   address,
-  token,
+  playerId,
   code,
 }: {
   address: string;
-  token: string;
+  playerId: string;
   code: number;
 }) {
   const socket = connect(`${address}?snapshotDeltas=1&movement=1`);
@@ -179,7 +189,7 @@ async function expectGreetingRejection({
   await once(socket, 'open');
   const closed = once(socket, 'close');
 
-  socket.send(encodeClientMessage({ type: 'hello', playerToken: token }));
+  socket.send(encodeClientMessage({ type: 'hello', playerId }));
   socket.send('movement\ninvalid offer');
 
   assert.equal((await closed)[0], code);
@@ -201,14 +211,14 @@ try {
 
   sockets[0].terminate();
   await firstClosed;
-  const refresh = await join(address, first.token);
+  const refresh = await join(address, first.playerId);
 
   assert.deepEqual(refresh, first);
   await stop('SIGTERM');
   address = await start();
-  const resumed = await join(address, first.token);
+  const resumed = await join(address, first.playerId);
 
-  assert.equal(resumed.playerId, first.playerId);
+  assert.equal(resumed.playerNumber, first.playerNumber);
   assert.equal(resumed.shipId, first.shipId);
   assert.equal(resumed.credits, first.credits);
   assert.equal(resumed.paints, first.paints);
@@ -216,7 +226,7 @@ try {
   // Kill without a disconnect or shutdown flush and reconnect to the same ID.
   await stop('SIGKILL');
   address = await start();
-  const recovered = await join(address, first.token);
+  const recovered = await join(address, first.playerId);
 
   assert.deepEqual(recovered, resumed);
   await stop('SIGTERM');
@@ -224,67 +234,79 @@ try {
   const developer = await join(address, null);
 
   assert.equal(developer.credits, 99999);
-  const existing = await join(address, first.token);
+  const existing = await join(address, first.playerId);
 
   assert.equal(existing.credits, first.credits);
   await stop('SIGTERM');
   address = await start();
-  const savedDeveloper = await join(address, developer.token);
+  const savedDeveloper = await join(address, developer.playerId);
 
-  const owner = await requestControl(sockets.at(-1)!, {
-    type: 'profile',
-    displayName: 'burntcustard',
-  });
-
-  assert(owner.type === 'profile');
-  assert.equal(owner.displayName, 'burntcustard');
+  assert.equal(
+    await requestProfile(sockets.at(-1)!, 'burntcustard'),
+    'burntcustard',
+  );
   assert.equal(savedDeveloper.credits, developer.credits);
-  const newProductionPlayer = await join(address, null);
+  const firstPilot = await join(address, null);
+  const firstPilotSocket = sockets.at(-1)!;
+  const secondPilot = await join(address, null);
+  const pilotName = 'Dormant Scout';
+  const claimedNames = await Promise.all([
+    requestProfile(firstPilotSocket, pilotName),
+    requestProfile(sockets.at(-1)!, pilotName),
+  ]);
 
-  const pilot = await requestControl(sockets.at(-1)!, {
-    type: 'profile',
-    displayName: 'Dormant Pilot',
-  });
+  assert.deepEqual([...claimedNames].sort(), ['', pilotName]);
+  const [newProductionPlayer, unnamed] = claimedNames[0]
+    ? [firstPilot, secondPilot]
+    : [secondPilot, firstPilot];
 
-  assert(pilot.type === 'profile');
-  assert.equal(pilot.displayName, 'Dormant Pilot');
   assert.equal(newProductionPlayer.credits, 2000);
-  await stop('SIGTERM');
+  // A successful claim should survive a crash before a shutdown flush.
+  await stop('SIGKILL');
 
   address = await start();
-  await join(address, savedDeveloper.token);
+  const retrying = await join(address, unnamed.playerId);
+  const retryingSocket = sockets.at(-1)!;
+
+  assert.equal(retrying.playerId, unnamed.playerId);
+  assert.equal(await requestProfile(retryingSocket, 'DORMANT ſCOUT'), '');
+  assert.equal(
+    await requestProfile(retryingSocket, 'Another Scout'),
+    'Another Scout',
+  );
+  await join(address, savedDeveloper.playerId);
 
   const ban = await requestControl(sockets.at(-1)!, {
     type: 'chat',
     channel: 0,
-    text: '/ban Dormant Pilot',
+    text: `/ban ${pilotName.toUpperCase()}`,
   });
 
   assert(ban.type === 'chat');
-  assert.equal(ban.text, 'Dormant Pilot has been banned.');
+  assert.equal(ban.text, `${pilotName} has been banned.`);
   await stop('SIGTERM');
 
   address = await start();
 
   await expectGreetingRejection({
     address,
-    token: newProductionPlayer.token,
+    playerId: newProductionPlayer.playerId,
     code: 4003,
   });
 
-  await join(address, savedDeveloper.token);
+  await join(address, savedDeveloper.playerId);
 
   const pardon = await requestControl(sockets.at(-1)!, {
     type: 'chat',
     channel: 0,
-    text: '/pardon Dormant Pilot',
+    text: `/pardon ${pilotName}`,
   });
 
   assert(pardon.type === 'chat');
-  assert.equal(pardon.text, 'Dormant Pilot has been pardoned.');
-  const returned = await join(address, newProductionPlayer.token);
+  assert.equal(pardon.text, `${pilotName} has been pardoned.`);
+  const returned = await join(address, newProductionPlayer.playerId);
 
-  assert.equal(returned.token, newProductionPlayer.token);
+  assert.equal(returned.playerId, newProductionPlayer.playerId);
   assert.equal(returned.shipId, newProductionPlayer.shipId);
   assert.equal(returned.credits, newProductionPlayer.credits);
   assert.equal(returned.paints, newProductionPlayer.paints);
@@ -295,7 +317,7 @@ try {
   try {
     const result = database
       .prepare('UPDATE players SET ship = ? WHERE id = ?')
-      .run('{', returned.token);
+      .run('{', returned.playerId);
 
     assert.equal(result.changes, 1);
   } finally {
@@ -309,7 +331,7 @@ try {
 
   const unavailable = await fetch(identity, {
     method: 'POST',
-    body: returned.token,
+    body: returned.playerId,
   });
 
   assert.equal(unavailable.status, 503);
@@ -323,10 +345,10 @@ try {
 
   assert.equal(unknown.status, 404);
   assert.equal(await unknown.text(), 'Unknown ID\n');
-  await expectGreetingRejection({ address, token: returned.token, code: 1013 });
+  await expectGreetingRejection({ address, playerId: returned.playerId, code: 1013 });
   await stop('SIGTERM');
   console.log(
-    'SQLite refresh, restarts, starting credits, offline moderation, and identity errors passed',
+    'SQLite refresh, restarts, starting credits, unique names, offline moderation, and identity errors passed',
   );
 } finally {
   clearTimeout(timeout);

@@ -246,9 +246,9 @@ impl<E: Copy> MovementSchedule<E> {
                 let mut elapsed = duration - object.pending_update_time;
                 object.pending_update_time -= segment;
                 let end = elapsed + segment;
-                let player_id = object.player_id;
+                let player_number = object.player_number;
 
-                let input = player_id
+                let input = player_number
                     .and_then(|id| options.inputs?.get(&id))
                     .filter(|_| world.is_controlled_ship(entity.id));
                 if let Some(input) = input {
@@ -623,7 +623,7 @@ mod tests {
             objects: vec![GameObject::new(
                 1,
                 ObjectProperties {
-                    player_id: Some(1),
+                    player_number: Some(1),
                     ..ObjectProperties::default()
                 },
                 rules,

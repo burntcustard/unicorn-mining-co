@@ -48,7 +48,7 @@ export class GameObject {
   paint?: number = undefined;
   pendingUpdateTime = 0;
   physics = true;
-  playerId?: number = undefined;
+  playerNumber?: number = undefined;
   pointCount?: number = undefined;
   position: Vec.Value;
   radius = 0;

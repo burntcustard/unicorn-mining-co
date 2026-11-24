@@ -31,10 +31,10 @@ pub enum Control {
         display_name: String,
     },
     Hello {
-        player_token: Option<String>,
+        player_id: Option<String>,
     },
     Prepare {
-        player_token: Option<String>,
+        player_id: Option<String>,
     },
     Input {
         tick: u64,
@@ -156,10 +156,10 @@ pub enum ServerControl<'a> {
         ship_id: u64,
     },
     Welcome {
-        player_id: u64,
+        player_number: u64,
         ship_id: u64,
         server_tick: u64,
-        player_token: &'a str,
+        player_id: &'a str,
         world_seed: f64,
         spawn: Vector,
         unlocked_paints: Option<u16>,
@@ -281,15 +281,15 @@ pub fn decode_client_control(
             Control::Profile { display_name }
         }
         id if id == message_id("hello") || id == message_id("prepare") => {
-            let player_token = match reader.byte()? {
+            let player_id = match reader.byte()? {
                 0 => None,
                 1 => Some(reader.uuid()?),
                 _ => return Err(ProtocolError::Control),
             };
             if id == message_id("prepare") {
-                Control::Prepare { player_token }
+                Control::Prepare { player_id }
             } else {
-                Control::Hello { player_token }
+                Control::Hello { player_id }
             }
         }
         id if id == message_id("input") => decode_input(&mut reader, step)?,
@@ -596,10 +596,10 @@ pub fn encode_server_control(
         }
         ServerControl::Respawn { ship_id } => writer.unsigned(ship_id),
         ServerControl::Welcome {
-            player_id,
+            player_number,
             ship_id,
             server_tick,
-            player_token,
+            player_id,
             world_seed,
             spawn,
             unlocked_paints,
@@ -615,10 +615,10 @@ pub fn encode_server_control(
                 return Err(ProtocolError::Control);
             }
 
-            writer.unsigned(player_id);
+            writer.unsigned(player_number);
             writer.unsigned(ship_id);
             writer.unsigned(server_tick);
-            writer.uuid(player_token)?;
+            writer.uuid(player_id)?;
             writer.number(world_seed);
             writer.vector(spawn);
             if let Some(unlocked_paints) = unlocked_paints {
@@ -689,10 +689,10 @@ mod tests {
             ship_id: u64,
         },
         Welcome {
-            player_id: u64,
+            player_number: u64,
             ship_id: u64,
             server_tick: u64,
-            player_token: String,
+            player_id: String,
             world_seed: f64,
             spawn: Vector,
             unlocked_paints: Option<u16>,
@@ -730,10 +730,10 @@ mod tests {
                 },
                 Self::Respawn { ship_id } => ServerControl::Respawn { ship_id: *ship_id },
                 Self::Welcome {
-                    player_id,
+                    player_number,
                     ship_id,
                     server_tick,
-                    player_token,
+                    player_id,
                     world_seed,
                     spawn,
                     unlocked_paints,
@@ -741,10 +741,10 @@ mod tests {
                     display_name,
                     sector_name,
                 } => ServerControl::Welcome {
-                    player_id: *player_id,
+                    player_number: *player_number,
                     ship_id: *ship_id,
                     server_tick: *server_tick,
-                    player_token,
+                    player_id,
                     world_seed: *world_seed,
                     spawn: *spawn,
                     unlocked_paints: *unlocked_paints,

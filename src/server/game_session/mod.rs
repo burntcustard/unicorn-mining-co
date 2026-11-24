@@ -10,7 +10,7 @@ pub mod world_checkpoint;
 mod world_sounds;
 
 pub use input_queue::{InputDisposition, InputPacket, InputQueue, InputReceipt, PreparedInput};
-pub(crate) use name_matching::name_key;
+pub(crate) use name_matching::compare_names;
 pub use server_load::{ProcessSample, ServerLoadReport, ServerLoadStats};
 pub use session_stats::{
     ConnectionReport, ConnectionStats, FinishedConnection, OpenConnection, SessionTotals,
