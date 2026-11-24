@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
+import type { ReplicatedEntity } from '../../src/client/protocol/network.ts';
+import * as Vec from '../../src/client/utilities/vector.ts';
 import {
   dockingControls,
   approachControls,
+  hasStationClearance,
+  headingControls,
   stationSafeTarget,
   compatibleWeaponMount,
   neutralInput,
@@ -15,9 +19,9 @@ import type { ProtocolCatalog } from '../utilities/protocol-runtime.ts';
 type Value = Record<string, any>;
 
 /**
- * Enter a deployed game through its normal menu without importing local code.
+ * Prepare the normal menu for a trusted Play key or submit the pilot profile.
  */
-function advanceBenchmarkMenu(displayName: string) {
+function prepareBenchmarkMenu(displayName: string) {
   const input = document.querySelector<HTMLInputElement>('#profile-name');
 
   if (input) {
@@ -27,22 +31,16 @@ function advanceBenchmarkMenu(displayName: string) {
       input.form.requestSubmit();
     }
 
-    return;
+    return false;
   }
 
   const play = document.querySelector<HTMLButtonElement>(
     '[data-action="play"]',
   );
 
-  if (play && !play.disabled && play.getClientRects().length) {
-    play.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        isPrimary: true,
-        button: 0,
-      }),
-    );
-  }
+  if (!play || play.disabled || !play.getClientRects().length) return false;
+  play.focus({ preventScroll: true });
+  return document.activeElement === play;
 }
 
 export async function prepareLatencyClients({
@@ -88,14 +86,22 @@ export async function prepareLatencyClients({
   while (!loaded.every(Boolean)) {
     for (let index = 0; index < pages.length; index++) {
       if (loaded[index]) continue;
+      const page = pages[index];
       const displayName = `Bench ${runId}-${index + 1}`;
-
-      await evaluate(
-        pages[index],
-        `(${advanceBenchmarkMenu.toString()})(${JSON.stringify(displayName)})`,
+      const playFocused = await evaluate(
+        page,
+        `(${prepareBenchmarkMenu.toString()})(${JSON.stringify(displayName)})`,
       );
+
+      if (playFocused) {
+        // A trusted menu press lets the normal game unlock browser audio.
+        await page.activate();
+        await page.key('keyDown', ' ');
+        await page.key('keyUp', ' ');
+      }
+
       loaded[index] = await evaluate(
-        pages[index],
+        page,
         `(${installLatencyClient.toString()})(${JSON.stringify({ properties, tags })})`,
       );
     }
@@ -284,21 +290,64 @@ export async function prepareLatencyClients({
     );
   }
 
-  const actor = (await execute(pages[0], 'inspect')).own;
+  const offsets = [
+    Vec.create(),
+    Vec.create(-100, -110),
+    Vec.create(-120, 0),
+    Vec.create(-100, 110),
+  ];
 
-  stage = 'launch clearance and observer gathering';
-  // Continue out of the launch corridor and then let normal drag settle the
-  // actor. Steering/fire trials do not force positions, velocities, or cameras.
-  await control(pages[0], { ...neutralInput(), thrust: 1 });
-  await pause(1200);
+  const formationRadius = Math.max(
+    ...offsets.map((offset, index) => {
+      const ship = preparation.identities[index].own;
+
+      assert(
+        ship && !ship.dead,
+        `Client ${index} has no ship for the formation`,
+      );
+      return Vec.length(offset) + ship.radius;
+    }),
+  );
+
+  stage = 'clearing the station for the observer formation';
+  let departure = (await execute(pages[0], 'inspect')) as Value;
+  const actor = departure.own;
+
+  // Clear enough room for ships gathering behind the actor to reach their
+  // targets through the same station clearance used by observer navigation.
+  while (true) {
+    const ship = departure.own;
+
+    assert(
+      ship && !ship.dead && !ship.dockedTo,
+      'Actor is unavailable during departure',
+    );
+
+    const station = departure.entities.find(
+      (entity: ReplicatedEntity) =>
+        entity.kind === 'station' &&
+        !hasStationClearance({
+          position: ship.position,
+          radius: formationRadius,
+          station: entity,
+        }),
+    );
+
+    if (!station) break;
+    const outward = Vec.subtract(ship.position, station.position);
+
+    await control(
+      pages[0],
+      headingControls({ ship, angle: Math.atan2(outward.y, outward.x) }),
+    );
+    await pause(80);
+    departure = await execute(pages[0], 'inspect');
+  }
+
   await control(pages[0], neutralInput());
   await pause(1500);
-  const offsets = [
-    { x: 0, y: 0 },
-    { x: -100, y: -110 },
-    { x: -120, y: 0 },
-    { x: -100, y: 110 },
-  ];
+
+  stage = 'gathering the observer formation';
 
   while (true) {
     const states = await Promise.all(

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { readFile } from 'node:fs/promises';
 import { setTimeout as wait } from 'node:timers/promises';
@@ -172,6 +173,7 @@ export class ProtocolClient {
   closedUnexpectedly = false;
   closing = false;
   private welcomed = false;
+  private profileAccepted = false;
   private receiptFailures = 0;
   private previousTick = 0;
   private tickGaps: number[] = [];
@@ -239,6 +241,8 @@ export class ProtocolClient {
     displayName?: string;
   }) {
     this.options = options;
+    const displayName =
+      options.displayName ?? `CPU ${randomBytes(6).toString('hex')}`;
     const target = new URL('/game-socket', options.url);
 
     target.protocol = ['https:', 'wss:'].includes(target.protocol)
@@ -336,11 +340,18 @@ export class ProtocolClient {
           this.tickAt = performance.now();
           this.credits = message.credits ?? this.credits;
 
-          this.send({
-            type: 'profile',
-            displayName:
-              options.displayName || `CPU benchmark ${options.index + 1}`,
-          });
+          this.send({ type: 'profile', displayName });
+
+          return;
+        }
+
+        if (message.type === 'profile') {
+          assert.equal(
+            message.displayName,
+            displayName,
+            `Server rejected benchmark display name ${displayName}`,
+          );
+          this.profileAccepted = true;
 
           // Compiler fixtures select a scenario at the ordinary Play boundary.
           if (options.displayName) this.send({ type: 'play' });
@@ -878,8 +889,8 @@ export class ProtocolClient {
 
   async ready() {
     await this.until(
-      () => this.welcomed && !!this.ship,
-      'Waiting for a live ship',
+      () => this.profileAccepted && !!this.ship,
+      'Waiting for an accepted profile and a live ship',
     );
   }
 

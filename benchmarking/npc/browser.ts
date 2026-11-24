@@ -193,8 +193,8 @@ export function installNPCCamera({
     );
 
   const select = () => {
-    // The protocol has a shape-free view anchor, never a playable ship. Keep
-    // it out of the scene and radar, including after snapshot reconstruction.
+    // The docked observer anchors the view. Keep it out of the scene and
+    // radar, including after snapshot reconstruction.
     const observerID = get(get(player, 'ship'), 'id');
 
     for (const name of ['sprites', 'crafts']) {

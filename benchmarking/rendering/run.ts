@@ -108,7 +108,7 @@ const report: Reply = {
   simulationStep,
   diagnostics: {
     nativeDisplay: true,
-    fullscreen: browserName === 'firefox' ? 'kiosk' : 'browser-window',
+    fullscreen: 'kiosk',
     profiler: Boolean(process.env.GAMEPLAY_PROFILE),
     trace: Boolean(process.env.GAMEPLAY_TRACE),
   },
@@ -456,6 +456,7 @@ Reflect.set(window, 'perf-capture', async action => {
     browserName === 'chrome'
       ? [
           '--new-window',
+          '--kiosk',
           `--remote-debugging-port=${port}`,
           `--user-data-dir=${profile}`,
           '--no-first-run',

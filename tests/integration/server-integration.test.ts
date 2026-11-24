@@ -625,13 +625,24 @@ try {
     },
   };
 
-  const paintObserver = makePaintClient(1, observerRuntime);
+  // Fresh CPU cases reuse client indices even though their profiles persist.
+  const paintObserver = makePaintClient(0, observerRuntime);
 
   paintPulse = setInterval(
     () => paintClients.forEach((client) => client.activity()),
     5000,
   );
   await Promise.all(paintClients.map((client) => client.ready()));
+  await Promise.all(
+    paintClients.map((client) =>
+      client.until(
+        () => Boolean(client.ship.targetLabel),
+        'Waiting for the CPU client display name to reach its ship',
+        5000,
+      ),
+    ),
+  );
+  assert.notEqual(painter.ship.targetLabel, paintObserver.ship.targetLabel);
   await painter.dock();
 
   const hatchType = runtime.catalog.moduleIds.indexOf('cargoHatch');

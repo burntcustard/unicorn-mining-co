@@ -98,7 +98,7 @@ const report = {
   protocolRuntimeSha256: null as string | null,
   fixture: null as { directory: string; items: number } | null,
   setup:
-    'A nonphysical view anchor streams the normal server simulation without a player ship. Collection scenes use paired seeded layouts and stock hulls with the shared collector policy and Pilot. They end on docking or the capture limit; the five collector CPU scenes retain fixed windows. Concurrent collection cases use separate copies of the same sector. CPU and generator counters cover the continuous suite, including between-run preparation, rejected early-completion attempts and finalization; they are not per-NPC costs. Single-lane collector cases allow up to three attempts if all pickups occur before capture; concurrent cases remain strict. Watch mode mirrors each stream without another connection.',
+    'A docked observer with an empty loadout anchors the normal server snapshot stream. Collection scenes use paired seeded layouts and stock hulls with the shared collector policy and Pilot. They end on docking or the capture limit; the five collector CPU scenes retain fixed windows. Concurrent collection cases use separate copies of the same sector. CPU and generator counters cover the continuous suite, including between-run preparation, rejected early-completion attempts and finalization; they are not per-NPC costs. Single-lane collector cases allow up to three attempts if all pickups occur before capture; concurrent cases remain strict. Watch mode mirrors each stream without another connection.',
   serverCores: null as
     | Awaited<ReturnType<typeof limitServerCores>>['metadata']
     | null,

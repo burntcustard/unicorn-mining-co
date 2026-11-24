@@ -184,6 +184,16 @@ export const circleWaypoint = ({
   );
 };
 
+export const hasStationClearance = ({
+  position,
+  radius,
+  station,
+}: {
+  position: Vec.Value;
+  radius: number;
+  station: ReplicatedEntity;
+}) => Vec.distance(position, station.position) >= station.radius + radius + 80;
+
 /*
  * Keep ordinary flight paths outside station hulls until they reach the bay's
  * exterior. This is navigation through snapshots, not an altered spawn pose.
@@ -215,8 +225,7 @@ export const stationSafeTarget = ({
     const nearest = Vec.addScaled(ship.position, route, projection);
 
     if (
-      Vec.distance(nearest, station.position) >=
-      station.radius + ship.radius + 80
+      hasStationClearance({ position: nearest, radius: ship.radius, station })
     ) {
       continue;
     }

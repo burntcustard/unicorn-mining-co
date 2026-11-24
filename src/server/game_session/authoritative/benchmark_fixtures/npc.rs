@@ -209,11 +209,14 @@ impl AuthoritativeSession {
         ship.craft.object.radius = 0.0;
         ship.craft.object.name = format!("Fixture {scenario}");
         ship.craft.object.player_number = None;
+        // Docked ships have no colliders. Keep the hull intact so normal
+        // damage resolution does not destroy this observer on its first tick.
         ship.craft.docked_to = Some(home_id);
-        for hull in &mut ship.craft.hulls {
-            hull.health = 0.0;
-            hull.present = false;
+        for mount in 0..ship.craft.mounts.len() {
+            ship.craft.fit(mount, None);
         }
+        ship.update_mass();
+        ship.stored_power = 0.0;
         account.hidden = Some(entity);
         account.sector = index;
         account.position = home.position;
@@ -462,5 +465,55 @@ impl AuthoritativeSession {
         self.player_numbers_by_id.remove(&account.player_id);
         self.accounts.delete(&player);
         self.fixtures.retired_sectors.push(index);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Instant;
+
+    use crate::game_server::Session;
+    use crate::specs::Catalog;
+
+    use super::*;
+
+    #[test]
+    fn docked_observer_survives_simulation_ticks() {
+        let catalog = Arc::new(Catalog::load().unwrap());
+        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
+        session.fixtures.npc = Some(Fixture {
+            directory: PathBuf::new(),
+            items: 6,
+            seeds: HashMap::new(),
+            encounters: HashMap::new(),
+        });
+        let player = session.create_account(Instant::now()).unwrap();
+        session.accounts.get_mut(&player).unwrap().name = "Collect empty".into();
+        session.play(player);
+
+        for _ in 0..4 {
+            session.tick(1);
+        }
+
+        let account = session.accounts.get(&player).unwrap();
+        let world = &session.sectors[account.sector].running.world;
+        let Some(EntityKind::Ship(anchor)) =
+            world.entity(account.ship_id).map(|entity| &entity.model)
+        else {
+            panic!("NPC observer must survive its first simulation ticks");
+        };
+        assert_eq!(anchor.craft.object.name, "Fixture collector-empty");
+        assert!(anchor.craft.docked());
+        assert!(
+            anchor
+                .craft
+                .mounts
+                .iter()
+                .all(|mount| mount.module.is_none())
+        );
+        anchor
+            .craft
+            .with_hitboxes(|colliders| assert!(colliders.is_empty()));
     }
 }

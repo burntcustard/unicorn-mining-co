@@ -162,11 +162,11 @@ NPC benchmarks live in `benchmarking/npc`, separate from rendering and the
 standard server CPU matrix. Run all seven cases with
 `npm run benchmark:npc -- --scenario all`. The default opens no browser.
 Add `--watch --browser chrome` to watch the running NPCs in a game client.
-Watch mode mirrors the benchmark's existing binary snapshot stream. Its view
-anchor has no hull, modules, collision body, or simulation player registration;
-only NPCs fly in the scene. Docking closes the collection view immediately, with
-no fallback to a player ship. The existing pirate combat
-rendering case remains part of the rendering suite above.
+Watch mode mirrors the benchmark's existing binary snapshot stream. A docked
+observer with an empty loadout anchors the view and stays outside collision
+simulation. The browser hides the observer so only NPCs fly in the scene. The
+collection view closes as soon as the NPC docks. The pirate combat case belongs
+to the rendering suite above.
 
 The collector workload has five matched cases: `collector-empty` observes an
 empty station area, `collector-idle` observes six loose items awaiting their
