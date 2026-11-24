@@ -307,7 +307,7 @@ fn detached_pickup_forecast_leaves_live_cargo_and_parent_unchanged() {
         1,
         "courser",
         ObjectProperties {
-            player_id: Some(1),
+            player_number: Some(1),
             ..ObjectProperties::default()
         },
         &catalog,

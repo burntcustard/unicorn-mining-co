@@ -1219,13 +1219,13 @@ assert(
   const ship = addEntity(
     world,
     createPlayerShip(world, {
-      playerId: 1,
+      playerNumber: 1,
       position: Vec.create(-85, 22.5),
       velocity: Vec.create(400),
     }),
   );
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
 
   const rock = addEntity(
     world,
@@ -1630,7 +1630,7 @@ closeTo(fastTriggerTarget.velocity.x, 0);
 // The item's physical body remains separate from its nonphysical center point.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 7 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 7 }));
   const mouthPart = ship.segments.find((segment) => segment.catches);
 
   ship.segments
@@ -1942,7 +1942,7 @@ const playerCollision = (shielded: boolean) => {
   const left = addEntity(
     world,
     createPlayerShip(world, {
-      playerId: 1,
+      playerNumber: 1,
       position: Vec.create(-120),
       velocity: Vec.create(200),
     }),
@@ -1951,14 +1951,14 @@ const playerCollision = (shielded: boolean) => {
   const right = addEntity(
     world,
     createPlayerShip(world, {
-      playerId: 2,
+      playerNumber: 2,
       position: Vec.create(120),
       velocity: Vec.create(-200),
     }),
   );
 
-  addPlayer(world, { id: 1, shipId: left.id });
-  addPlayer(world, { id: 2, shipId: right.id });
+  addPlayer(world, { playerNumber: 1, shipId: left.id });
+  addPlayer(world, { playerNumber: 2, shipId: right.id });
 
   if (shielded) left.fit(new ShieldGenerator());
 
@@ -2129,12 +2129,12 @@ for (const radiusEven of [undefined, 25]) {
 const flightWorld = createWorld();
 const flying = addEntity(
   flightWorld,
-  createPlayerShip(flightWorld, { playerId: 1 }),
+  createPlayerShip(flightWorld, { playerNumber: 1 }),
 );
 
-addPlayer(flightWorld, { id: 1, shipId: flying.id });
+addPlayer(flightWorld, { playerNumber: 1, shipId: flying.id });
 const referenceWorld = createWorld();
-const reference = createPlayerShip(referenceWorld, { playerId: 1 });
+const reference = createPlayerShip(referenceWorld, { playerNumber: 1 });
 
 for (let tick = 0; tick < 240; tick++) {
   const input = {
@@ -2161,9 +2161,9 @@ for (let tick = 0; tick < 240; tick++) {
 // allow half of the old/new step difference in integrated angle, not slower steering.
 for (const direction of [-1, 1]) {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   let angle = 0;
   let referenceAngle = 0;
   let referenceSpin = 0;
@@ -2228,13 +2228,13 @@ const offCenterStrike = ({
   angularInertiaScale?: number;
 }) => {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
   if (angularInertiaScale !== undefined) {
     ship.angularInertiaScale = angularInertiaScale;
   }
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
 
   addEntity(
     world,

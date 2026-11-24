@@ -56,9 +56,9 @@ assert.equal(
 );
 
 assert.equal(
-  replacePreTerser('observer.disconnect();'),
-  'observer.disconnect();',
-  'native observer cleanup must not be renamed',
+  replacePreTerser('observer.disconnect(); canvas?.remove();'),
+  'observer.disconnect(); canvas?.remove();',
+  'native DOM cleanup must not be renamed',
 );
 
 const replacedStationBranch = replacePreTerser(stationBranch);

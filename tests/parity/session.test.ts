@@ -28,7 +28,7 @@ function decoded(packet: string, records: Map<number, ReplicatedEntity>) {
   const message =
     data[1] === 0x43 ? decodeServerControl(data) : decodeBinarySnapshot(data);
 
-  if (message.type === 'welcome') message.playerToken = 'token';
+  if (message.type === 'welcome') message.playerId = 'token';
 
   if (message.type === 'load' || message.type === 'snapshot') {
     if (message.type === 'load') records.clear();

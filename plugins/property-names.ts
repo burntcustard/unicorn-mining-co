@@ -337,7 +337,7 @@ export const propertyNames = [
   'region',
   'regions',
   'release',
-  'remove',
+  // 'remove', // Preserve Element.remove() in the DOM.
   'reset',
   'resource',
   'rotation',

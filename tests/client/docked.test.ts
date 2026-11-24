@@ -200,15 +200,15 @@ assert(player.note === 'DAMAGED - RED UNLOCKED', 'red reward message');
 assert(!('unlock' in messageSpec), 'wreckage messages do not reward paint');
 const slatePickup = {type:'itemCollected',itemId:999,resource:4,message:'GOLD ORE 100/200'};
 const noteBeforeOtherPickup = player.note;
-presentEvents({playerId:1,events:[{...slatePickup,by:2}],onMessage:readSlate});
+presentEvents({playerNumber:1,events:[{...slatePickup,by:2}],onMessage:readSlate});
 assert(player.note === noteBeforeOtherPickup,
   'another player reading a slate does not show our message');
-presentEvents({playerId:1,events:[{...slatePickup,by:1}],onMessage:readSlate});
+presentEvents({playerNumber:1,events:[{...slatePickup,by:1}],onMessage:readSlate});
 assert(player.note === noteBeforeOtherPickup, 'coordinates wait for the current note');
 updatePlayer(10);
 assert(player.note === 'GOLD ORE 100/200', 'field coordinates follow the current note');
 player.noteFor = 0;
-presentEvents({playerId:1,events:[{...slatePickup,by:1,message:'AMETHYST CLUSTER 300/400'}],onMessage:readSlate});
+presentEvents({playerNumber:1,events:[{...slatePickup,by:1,message:'AMETHYST CLUSTER 300/400'}],onMessage:readSlate});
 assert(player.note === 'AMETHYST CLUSTER 300/400', 'wreckage messages show coordinates without a paint reward');
 applyCraftAction(ship,{action:'paint',paint:0,moduleId:bought.id,mount:0});
 assert(bought.shades===colors.red && first.shades===colors.red, 'paint purchased instance');

@@ -95,7 +95,7 @@ export const explode = ({
           asteroidSegment: entity.segments?.find(
             (segment) => segment.health < 1,
           ),
-          by: object.playerId,
+          by: object.playerNumber,
           events,
           world,
         });

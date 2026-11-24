@@ -386,7 +386,7 @@ impl ContactListener<ObjectCollider> for ForecastContacts<'_> {
         }
         if !docking && ship_and_target && a.cargo_contact_allowed(b) {
             let dropped = target.dropped_by.is_some()
-                && target.dropped_by == ship.player_id
+                && target.dropped_by == ship.player_number
                 && self.frame_tick < target.pickup_after;
             if self.options.can_collect && !dropped && !self.target_dead {
                 self.arrived = true;

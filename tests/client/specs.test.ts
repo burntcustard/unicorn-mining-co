@@ -312,7 +312,7 @@ try {
 
   assert.equal(createShip(world, { shipType: shipId }).modules.length, 0);
   assert.equal(
-    createShip(world, { shipType: shipId, playerId: 1 }).modules.length,
+    createShip(world, { shipType: shipId, playerNumber: 1 }).modules.length,
     0,
   );
   const first = createPlayerShip(world, { shipType: shipId });

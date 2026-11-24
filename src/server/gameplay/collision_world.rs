@@ -562,7 +562,7 @@ impl<C: GameplayCollider> GameCollisions<C> {
                     damage[0] = a.damage(
                         collider_a,
                         amount,
-                        b.object().player_id.unwrap_or(0),
+                        b.object().player_number.unwrap_or(0),
                         events,
                     );
                 }
@@ -570,7 +570,7 @@ impl<C: GameplayCollider> GameCollisions<C> {
                     damage[1] = b.damage(
                         collider_b,
                         amount,
-                        a.object().player_id.unwrap_or(0),
+                        a.object().player_number.unwrap_or(0),
                         events,
                     );
                 }

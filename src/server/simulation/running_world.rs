@@ -508,7 +508,7 @@ impl SteppedWorld for RunningWorld {
     fn players_in_order(&self) -> impl Iterator<Item = (i64, i64)> {
         self.world
             .players()
-            .map(|player| (player.id, player.ship_id))
+            .map(|player| (player.player_number, player.ship_id))
     }
 
     fn reset_biting(&mut self) {
@@ -723,7 +723,7 @@ impl RunningWorld {
         else {
             return;
         };
-        let Some(player_id) = ship.craft.object.player_id else {
+        let Some(player_number) = ship.craft.object.player_number else {
             return;
         };
         let Some(entity) = self.world.entity(item_id) else {
@@ -739,7 +739,7 @@ impl RunningWorld {
             return;
         }
         let pickup_cooldown =
-            object.dropped_by == Some(player_id) && self.world.tick < object.pickup_after;
+            object.dropped_by == Some(player_number) && self.world.tick < object.pickup_after;
         let hatch_active = ship.craft.mounts.iter().any(|mount| {
             mount.health >= 1.0
                 && mount.module.as_ref().is_some_and(|module| {
@@ -755,7 +755,7 @@ impl RunningWorld {
             return;
         }
         let collected = SimulationEvent::ItemCollected {
-            by: player_id,
+            by: player_number,
             item_id,
             resource: object.resource.unwrap_or(0),
             message: object.message.clone(),
@@ -804,7 +804,7 @@ impl RunningWorld {
         else {
             return;
         };
-        let Some(player_id) = ship.craft.object.player_id else {
+        let Some(player_number) = ship.craft.object.player_number else {
             return;
         };
         let Some(module) = ship
@@ -854,7 +854,7 @@ impl RunningWorld {
             if before.is_nan() || before <= 0.0 {
                 return;
             }
-            victim.damage(target, damage, player_id, events);
+            victim.damage(target, damage, player_number, events);
             let after = target_health(&victim.entity.model, target.part);
             if after >= before {
                 return;
@@ -863,7 +863,7 @@ impl RunningWorld {
         part.biting = true;
         events.push(SimulationEvent::DrillDamage {
             target_id: target.owner,
-            by: player_id,
+            by: player_number,
             damage,
             color,
             resource,
@@ -872,7 +872,8 @@ impl RunningWorld {
         if let Some(fracture) = fracture
             && let EntityKind::Asteroid(asteroid) = &victim.entity.model
         {
-            self.effects.fracture(asteroid, fracture, player_id, events);
+            self.effects
+                .fracture(asteroid, fracture, player_number, events);
             ship.craft.object.velocity = asteroid.object.velocity;
         }
         self.apply_effects();

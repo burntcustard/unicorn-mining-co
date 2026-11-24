@@ -150,7 +150,7 @@ for (const index of [5, 6, 7, 8, 9, 10]) {
 {
   const ship = createPlayerShip(createWorld(), {
     shipType: 'crescent',
-    playerId: 1,
+    playerNumber: 1,
   });
 
   controlShip(ship, { ...emptyPlayerInput(), thrust: 1, fire: true }, []);

@@ -52,14 +52,14 @@ export default async () => {
 const server = Reflect.get(globalThis, 'tradeServer');
 const outgoing = Reflect.get(globalThis, 'tradePackets');
 const client = new NetworkClient({ url: 'test' });
-let playerToken;
+let playerId;
 setCraftActionDispatcher((ship, action) => client.applyCraftAction(ship, action));
 const render = () => client.updateFrame({ input: emptyPlayerInput(), now: performance.now() + 1, dt: 0 });
 const receive = packets =>
   packets.map(hex => {
     const packet = Uint8Array.from(Buffer.from(hex, 'hex'));
     const message = packet[1] === 0x43 ? decodeServerControl(packet) : decodeBinarySnapshot(packet);
-    if (message.type === 'welcome') playerToken = message.playerToken;
+    if (message.type === 'welcome') playerId = message.playerId;
     client.receive({ message });
     render();
     return message;
@@ -359,7 +359,7 @@ assert.equal(ship().id, berthId);
 assert(ship().dockedTo, 'an empty hangar cannot launch over the wire');
 await server('disconnect', []);
 client.connect('test');
-receive(await server('receive', [encodeClientMessage({ type: 'prepare', playerToken })]));
+receive(await server('receive', [encodeClientMessage({ type: 'prepare', playerId })]));
 receive(await server('receive', [encodeClientMessage({ type: 'play' })]));
 assert.equal(client.ownedShips.length, 0, 'shipless reconnect preserves the empty fleet');
 assert(ship()?.dockedTo, 'shipless reconnect retains the docked station location');

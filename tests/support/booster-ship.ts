@@ -57,8 +57,8 @@ shipSpecsById.set(shipType, boosterShipSpec);
 
 export const createBoosterShip = ({
   world = createWorld(),
-  playerId,
+  playerNumber,
 }: {
   world?: ReturnType<typeof createWorld>;
-  playerId?: number;
-} = {}) => createPlayerShip(world, { shipType, playerId });
+  playerNumber?: number;
+} = {}) => createPlayerShip(world, { shipType, playerNumber });

@@ -62,7 +62,7 @@ impl AuthoritativeSession {
             "mustang",
             ObjectProperties {
                 position,
-                player_id: Some(id),
+                player_number: Some(id),
                 ..Default::default()
             },
             &catalog,

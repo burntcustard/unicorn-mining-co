@@ -174,7 +174,8 @@ export class Projectile extends GameObject {
         entity.dead ||
         entity.buried ||
         entity.kind === 'projectile' ||
-        (this.playerId !== undefined && entity.playerId === this.playerId)
+        (this.playerNumber !== undefined &&
+          entity.playerNumber === this.playerNumber)
       ) {
         continue;
       }
@@ -263,7 +264,7 @@ export class Projectile extends GameObject {
     if (first.owner instanceof Asteroid) {
       first.owner.fracture({
         asteroidSegment: first.asteroidSegment,
-        by: this.playerId,
+        by: this.playerNumber,
         events,
         world,
       });

@@ -83,7 +83,7 @@ controlShip(ship,playerInput,[]);
 assert(!ship.moduleActive({module:SearchLight}),'there are no hidden module key aliases');
 release('f');
 
-const flightShip=createPlayerShip(createWorld(),{shipType:'crescent',playerId:7});
+const flightShip=createPlayerShip(createWorld(),{shipType:'crescent',playerNumber:7});
 // Exercise player controls without changing the production NPC-only ship spec.
 assert(flightShip.mounts.some(mount=>mount.module instanceof FlightMode),'Crescent starts with its fitted flight controller');
 const flightBinding=moduleBinding('flightMode');
@@ -100,7 +100,7 @@ controlShip(flightShip,playerInput,flightEvents);
 assert.equal(playerInput.flightMode,true);
 assert.equal(inputChanges.at(-1).flightMode,true,'the new control produces an input transition immediately');
 assert(flightShip.moduleActive({module:FlightMode}),'C activates the fitted controller');
-assert.deepEqual(flightEvents,[{type:'moduleChanged',module:'flightMode',active:true,playerId:7}]);
+assert.deepEqual(flightEvents,[{type:'moduleChanged',module:'flightMode',active:true,playerNumber:7}]);
 const flightChangeCount=inputChanges.length;
 release('c');
 controlShip(flightShip,playerInput,flightEvents);
@@ -112,7 +112,7 @@ assert.equal(flightEvents.length,1,'release and repeat do not duplicate module e
 press('c');
 controlShip(flightShip,playerInput,flightEvents);
 assert(!flightShip.moduleActive({module:FlightMode}),'the next C press restores combat configuration');
-assert.deepEqual(flightEvents.at(-1),{type:'moduleChanged',module:'flightMode',active:false,playerId:7});
+assert.deepEqual(flightEvents.at(-1),{type:'moduleChanged',module:'flightMode',active:false,playerNumber:7});
 release('C');
 controlShip(flightShip,playerInput,flightEvents);
 assert(!flightShip.moduleActive({module:FlightMode}));

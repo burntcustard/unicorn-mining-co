@@ -11,7 +11,7 @@ pub struct SoundShip {
 }
 
 pub trait WorldSoundLookup {
-    fn player_ship(&self, player_id: i64) -> Option<SoundShip>;
+    fn player_ship(&self, player_number: i64) -> Option<SoundShip>;
     fn ship_player(&self, entity_id: i64) -> Option<i64>;
     fn entity_player(&self, entity_id: i64) -> Option<i64>;
     fn entity_position(&self, entity_id: i64) -> Option<Vector>;
@@ -46,7 +46,7 @@ pub fn build_world_sounds(
             SimulationEvent::ItemCollected { by, .. } => player_sound(2, *by, lookup, sounds),
             SimulationEvent::ModuleChanged {
                 module,
-                player_id,
+                player_number,
                 active,
             } => {
                 let effect = match (module.as_str(), active) {
@@ -57,7 +57,7 @@ pub fn build_world_sounds(
                     ("searchLight", _) => 9,
                     _ => continue,
                 };
-                player_sound(effect, *player_id, lookup, sounds);
+                player_sound(effect, *player_number, lookup, sounds);
             }
             SimulationEvent::CollisionEvent {
                 a,
@@ -182,7 +182,7 @@ fn fracture_sound(
 
 #[derive(Clone, Copy, Debug)]
 pub struct SoundRecipient {
-    pub player_id: i64,
+    pub player_number: i64,
     pub position: Vector,
     pub socket_open: bool,
     pub needs_load: bool,
@@ -206,7 +206,7 @@ pub fn nearby_world_sounds<'a>(
     {
         let squared_reach = reach * reach;
         nearby.extend(sounds.iter().copied().filter(|sound| {
-            sound.by == recipient.player_id
+            sound.by == recipient.player_number
                 || sound.position.distance_squared(recipient.position) <= squared_reach
         }));
     }
@@ -225,8 +225,8 @@ mod tests {
     struct Lookup;
 
     impl WorldSoundLookup for Lookup {
-        fn player_ship(&self, player_id: i64) -> Option<SoundShip> {
-            (player_id == ACTOR).then_some(SoundShip {
+        fn player_ship(&self, player_number: i64) -> Option<SoundShip> {
+            (player_number == ACTOR).then_some(SoundShip {
                 id: SHIP,
                 position: SHIP_POSITION,
             })
@@ -298,7 +298,7 @@ mod tests {
             ("flightMode", true),
         ] {
             events.push(SimulationEvent::ModuleChanged {
-                player_id: ACTOR,
+                player_number: ACTOR,
                 module: module.into(),
                 active,
             });
@@ -325,7 +325,7 @@ mod tests {
         );
 
         let observer = SoundRecipient {
-            player_id: 21,
+            player_number: 21,
             position: Vector::new(200.0, 200.0),
             socket_open: true,
             needs_load: false,
@@ -367,7 +367,7 @@ mod tests {
             assert!(nearby_world_sounds(&sounds, skipped, 200.0, &mut nearby).is_empty());
         }
         let actor = SoundRecipient {
-            player_id: ACTOR,
+            player_number: ACTOR,
             position: Vector::new(1e9, 0.0),
             ..observer
         };

@@ -3,6 +3,7 @@ pub mod game_server;
 pub mod game_session;
 pub mod gameplay;
 pub mod http;
+pub mod movement_transport;
 pub mod npc;
 pub mod objects;
 pub mod persistence;

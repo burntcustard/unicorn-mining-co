@@ -10,7 +10,7 @@ use std::future::Future;
 use std::io::{self, Cursor, IoSlice};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, Weak};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
 use std::time::{Duration, Instant};
 
 use axum::extract::Request;
@@ -27,6 +27,8 @@ use tokio::net::{TcpStream, tcp::OwnedWriteHalf};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
+
+use crate::movement_transport::MovementSender;
 
 pub const MAX_PAYLOAD: usize = 32 * 1024;
 pub const MAX_SOCKET_BUFFER: usize = 1024 * 1024;
@@ -125,11 +127,14 @@ struct SocketState {
     closing: AtomicBool,
     done: CancellationToken,
     last_pong: Mutex<Instant>,
+    movement_negotiation: OnceLock<CancellationToken>,
+    movement: OnceLock<MovementSender>,
     direct: Option<Weak<OwnedWriteHalf>>,
 }
 
 const SNAPSHOT_DELTA_QUERY: &str = "snapshotDeltas=1";
 const STATION_REPLICATION_QUERY: &str = "snapshotDeltas=1&stationReplication=1";
+const MOVEMENT_QUERY_SUFFIX: &str = "&movement=1";
 
 /// Shareable writer handle for the game session.
 #[derive(Clone)]
@@ -138,6 +143,7 @@ pub struct WebSocket {
     queue: mpsc::Sender<Outbound>,
     snapshot_deltas: bool,
     station_replication: bool,
+    movement_requested: bool,
 }
 
 impl WebSocket {
@@ -154,6 +160,8 @@ impl WebSocket {
             closing: AtomicBool::new(false),
             done: CancellationToken::new(),
             last_pong: Mutex::new(Instant::now()),
+            movement_negotiation: OnceLock::new(),
+            movement: OnceLock::new(),
             direct,
         });
         (
@@ -162,6 +170,7 @@ impl WebSocket {
                 queue,
                 snapshot_deltas: false,
                 station_replication: false,
+                movement_requested: false,
             },
             receiver,
         )
@@ -175,6 +184,49 @@ impl WebSocket {
         self.station_replication
     }
 
+    pub(crate) fn configure_movement(&mut self, available: bool) -> bool {
+        self.movement_requested &= available;
+        self.movement_requested
+    }
+
+    pub(crate) fn advertise_movement(&self) {
+        if !self.movement_requested
+            || !self.is_open()
+            || self.state.movement_negotiation.get().is_some()
+        {
+            return;
+        }
+        let cancellation = self.state.done.child_token();
+        if self
+            .state
+            .movement_negotiation
+            .set(cancellation.clone())
+            .is_ok()
+            && (!self.is_open() || self.send_text("movement").is_err())
+        {
+            cancellation.cancel();
+        }
+    }
+
+    pub(crate) fn movement_negotiation(&self) -> Option<&CancellationToken> {
+        self.state
+            .movement_negotiation
+            .get()
+            .filter(|cancellation| !cancellation.is_cancelled() && self.is_open())
+    }
+
+    pub(crate) fn attach_movement(&self, sender: MovementSender) {
+        let _ = self.state.movement.set(sender);
+    }
+
+    pub(crate) fn movement(&self) -> Option<&MovementSender> {
+        self.state.movement.get()
+    }
+
+    pub(crate) fn send_text(&self, message: &str) -> Result<(), SocketError> {
+        self.enqueue(Opcode::Text, message.as_bytes())
+    }
+
     pub fn send_binary(&self, payload: &[u8]) -> Result<(), SocketError> {
         self.enqueue(Opcode::Binary, payload)
     }
@@ -186,6 +238,9 @@ impl WebSocket {
     pub fn close_with(&self, code: u16, reason: &str) {
         if self.state.closing.swap(true, Ordering::AcqRel) {
             return;
+        }
+        if let Some(cancellation) = self.state.movement_negotiation.get() {
+            cancellation.cancel();
         }
 
         let mut payload = [0; MAX_CONTROL_PAYLOAD];
@@ -346,6 +401,31 @@ mod tests {
     const VALID_ACCEPT: &str = "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=";
     const EXCHANGE_TIMEOUT: Duration = Duration::from_secs(3);
 
+    #[test]
+    fn negotiated_movement_cancels_when_the_websocket_closes() {
+        for graceful in [true, false] {
+            let (mut socket, mut outbound) = WebSocket::new(None, 4);
+            socket.movement_requested = true;
+            assert!(socket.configure_movement(true));
+            assert!(socket.movement_negotiation().is_none());
+
+            socket.advertise_movement();
+            socket.advertise_movement();
+            assert_eq!(outbound.try_recv().unwrap().wire(), b"\x81\x08movement");
+            assert!(outbound.is_empty());
+            let cancellation = socket.movement_negotiation().unwrap().clone();
+
+            if graceful {
+                socket.close_with(1000, "Closed");
+            } else {
+                socket.terminate();
+            }
+
+            assert!(cancellation.is_cancelled());
+            assert!(socket.movement_negotiation().is_none());
+        }
+    }
+
     fn masked_frame(opcode: Opcode, final_fragment: bool, payload: &[u8]) -> Vec<u8> {
         let mask = [0x31, 0x72, 0xb3, 0xf4];
         let mut frame = Vec::with_capacity(FRAME_HEADER_SIZE + payload.len());
@@ -443,6 +523,13 @@ mod tests {
         assert!(upgrade_key(&invalid, false).is_none());
         for query in [SNAPSHOT_DELTA_QUERY, STATION_REPLICATION_QUERY] {
             assert!(upgrade_key(&request(&format!("/game-socket?{query}"), ""), false).is_some());
+            assert!(
+                upgrade_key(
+                    &request(&format!("/game-socket?{query}{MOVEMENT_QUERY_SUFFIX}"), ""),
+                    false
+                )
+                .is_some()
+            );
         }
         assert!(upgrade_key(&request("/game-socket?token=1", ""), false).is_none());
         assert!(upgrade_key(&request("/game-socket?", ""), false).is_none());

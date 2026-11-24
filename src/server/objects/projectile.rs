@@ -176,7 +176,7 @@ impl ProjectileTarget {
         }
         Some(Self {
             id: object.id,
-            player: object.player_id,
+            player: object.player_number,
             position: object.position,
             radius: object.radius,
             motion: dt.map_or(0.0, |dt| object.velocity.length() * dt),
@@ -471,7 +471,7 @@ impl Projectile {
         trace_world(
             Trace {
                 entity: self.object.id,
-                player: self.object.player_id,
+                player: self.object.player_number,
                 shape: &proxy.base,
                 start: self.sweep_start,
                 end: self.object.position,
@@ -494,7 +494,7 @@ impl Projectile {
             return Some(impact);
         }
 
-        let by = self.object.player_id.unwrap_or(0);
+        let by = self.object.player_number.unwrap_or(0);
         let target = context.world.weapon_target(impact.collider.owner)?;
         let velocity = target.object().velocity;
         let is_asteroid = target.object().kind == "asteroid";
@@ -550,7 +550,7 @@ impl Projectile {
             explode(
                 ExplosionSource {
                     id: self.object.id,
-                    player_id: self.object.player_id,
+                    player_number: self.object.player_number,
                     position: self.object.position,
                     velocity: self.object.velocity,
                 },

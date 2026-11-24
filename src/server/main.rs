@@ -1,17 +1,18 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
 use axum::http::StatusCode;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, lookup_host};
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::task::{JoinSet, LocalSet};
 use tokio::time::Instant;
 use unicorn_mining_server::game_server::{GameServer, ServerOptions};
 use unicorn_mining_server::game_session::authoritative::AuthoritativeSession;
 use unicorn_mining_server::http::asset_router;
+use unicorn_mining_server::movement_transport::MovementTransport;
 use unicorn_mining_server::persistence::{BackupAction, manage_backups, reset};
 use unicorn_mining_server::runtime::{Command, Config};
 use unicorn_mining_server::specs::Catalog;
@@ -93,6 +94,7 @@ async fn serve(config: &Config, local: &LocalSet) -> Result<()> {
         catalog: Arc::new(catalog),
         assets,
         server: None,
+        movement: None,
         port: config.port,
         can_reset: true,
         archived: false,
@@ -124,9 +126,45 @@ struct ActiveGame<'a> {
     catalog: Arc<Catalog>,
     assets: Router,
     server: Option<GameServer>,
+    movement: Option<MovementTransport>,
     port: u16,
     can_reset: bool,
     archived: bool,
+}
+
+async fn start_movement(
+    local: &LocalSet,
+    production: bool,
+    port: u16,
+) -> io::Result<Option<MovementTransport>> {
+    if std::env::var_os("MOVEMENT_DISABLED").is_some_and(|value| value == "1") {
+        return Ok(None);
+    }
+
+    let loopback = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+    let (bind, public) = match (
+        std::env::var("MOVEMENT_BIND_ADDRESS"),
+        std::env::var("MOVEMENT_PUBLIC_ADDRESS"),
+    ) {
+        (Ok(bind), Ok(public)) => {
+            let public: SocketAddr = public.parse().map_err(io::Error::other)?;
+            let bind = lookup_host(bind)
+                .await?
+                .find(|bind| bind.is_ipv4() == public.is_ipv4())
+                .ok_or_else(|| io::Error::other("No matching UDP bind address"))?;
+            (bind, public)
+        }
+        (Err(std::env::VarError::NotPresent), Err(std::env::VarError::NotPresent)) => {
+            if production {
+                return Ok(None);
+            }
+            (loopback, loopback)
+        }
+        _ => return Err(io::Error::other("Movement needs both UDP addresses")),
+    };
+    MovementTransport::start(local, bind, public)
+        .await
+        .map(Some)
 }
 
 impl ActiveGame<'_> {
@@ -144,6 +182,18 @@ impl ActiveGame<'_> {
             session.open_player_accounts(&self.config.database, self.config.backups.clone())?;
         }
         let storage_available = session.storage_health();
+        if self.movement.is_none() {
+            self.movement = start_movement(
+                self.local,
+                self.config.production,
+                listener.local_addr()?.port(),
+            )
+            .await
+            .unwrap_or_else(|error| {
+                eprintln!("Movement channel unavailable: {error}");
+                None
+            });
+        }
         let server = GameServer::start_local(
             self.local,
             listener,
@@ -153,6 +203,7 @@ impl ActiveGame<'_> {
             ServerOptions {
                 production: self.config.production,
                 storage_available,
+                movement: self.movement.clone(),
             },
         )?;
         self.port = server.local_addr().port();

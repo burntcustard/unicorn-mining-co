@@ -10,12 +10,13 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Row, Transaction, params};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::sync::mpsc as inbox;
 
+use crate::game_session::compare_names;
 use crate::specs::Catalog;
 
 mod backups;
@@ -25,10 +26,10 @@ pub use backups::{BackupAction, create_backup, manage_backups, reset};
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
-const SCHEMA_VERSION: i64 = 1;
 const QUEUE_CAPACITY: usize = 64;
 const BACKUP_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 const RETRY_INTERVAL: Duration = Duration::from_secs(1);
+const SCHEMA_VERSION: i64 = 2;
 pub const DEFAULT_PAINTS: u16 = (1 << 9) - 1;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -103,7 +104,7 @@ pub fn generation_digest(catalog: &Catalog) -> Result<String> {
 
 #[derive(Debug)]
 pub struct SavedPlayer<Ship> {
-    pub id: String,
+    pub player_id: String,
     pub display_name: String,
     pub role: PlayerRole,
     pub banned: bool,
@@ -151,6 +152,153 @@ pub struct Store {
     _lock: File,
 }
 
+pub(crate) struct AccountReader {
+    connection: Connection,
+}
+
+const PLAYER_COLUMNS: &str = "id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector";
+const OWNER_LOOKUP: &str = "SELECT EXISTS(SELECT 1 FROM players WHERE role='owner')";
+const PROFILE_LOOKUP: &str = "SELECT id,role FROM players
+    WHERE display_name <> '' AND display_name = ? COLLATE player_name";
+
+fn read_player<Ship: DeserializeOwned>(row: &Row<'_>) -> Result<SavedPlayer<Ship>> {
+    Ok(SavedPlayer {
+        player_id: row.get(0)?,
+        display_name: row.get(1)?,
+        role: PlayerRole::parse(row.get_ref(2)?.as_str()?)?,
+        banned: row.get(3)?,
+        first_joined_at: row.get(4)?,
+        last_seen_at: row.get(5)?,
+        played_for: row.get::<_, i64>(6)? as f64,
+        credits: row.get::<_, i64>(7)? as f64,
+        unlocked_paints: row.get(8)?,
+        visited: serde_json::from_str(row.get_ref(9)?.as_str()?)?,
+        ship: serde_json::from_str(row.get_ref(10)?.as_str()?)?,
+        sector_id: row.get(11)?,
+    })
+}
+
+impl AccountReader {
+    pub(crate) fn player<Ship: DeserializeOwned>(
+        &self,
+        player_id: &str,
+    ) -> Result<Option<SavedPlayer<Ship>>> {
+        self.connection
+            .prepare_cached(&format!("SELECT {PLAYER_COLUMNS} FROM players WHERE id=?"))?
+            .query([player_id])?
+            .next()?
+            .map(read_player)
+            .transpose()
+    }
+
+    pub(crate) fn player_number(&self, player_id: &str) -> Result<Option<i64>> {
+        Ok(self
+            .connection
+            .prepare_cached("SELECT player_number FROM disconnected_players WHERE player_id=?")?
+            .query_row([player_id], |row| row.get(0))
+            .optional()?)
+    }
+
+    pub(crate) fn record_player_number(&self, player_id: &str, player_number: i64) -> Result<()> {
+        self.connection
+            .prepare_cached(
+                "INSERT INTO disconnected_players(player_id,player_number) VALUES(?,?)
+                 ON CONFLICT(player_id) DO NOTHING",
+            )?
+            .execute(params![player_id, player_number])?;
+        Ok(())
+    }
+
+    pub(crate) fn has_owner(&self) -> Result<bool> {
+        Ok(self
+            .connection
+            .prepare_cached(OWNER_LOOKUP)?
+            .query_row([], |row| row.get(0))?)
+    }
+
+    pub(crate) fn name_taken(&self, name: &str) -> Result<bool> {
+        Ok(self
+            .connection
+            .prepare_cached(PROFILE_LOOKUP)?
+            .exists([name])?)
+    }
+
+    pub(crate) fn matching_profile(
+        &self,
+        name: &str,
+        include: impl FnOnce(&str) -> bool,
+    ) -> Result<Option<(String, PlayerRole)>> {
+        let mut query = self.connection.prepare_cached(PROFILE_LOOKUP)?;
+        let mut rows = query.query([name])?;
+        let Some(row) = rows.next()? else {
+            return Ok(None);
+        };
+        let player_id = row.get_ref(0)?.as_str()?;
+        if !include(player_id) {
+            return Ok(None);
+        }
+        Ok(Some((
+            player_id.to_owned(),
+            PlayerRole::parse(row.get_ref(1)?.as_str()?)?,
+        )))
+    }
+}
+
+const CREATE_SCHEMA: &str = "CREATE TABLE world (
+    id INTEGER PRIMARY KEY CHECK(id=1), seed REAL NOT NULL,
+    generation_digest TEXT NOT NULL, tick INTEGER NOT NULL,
+    random_state REAL NOT NULL, next_entity_id INTEGER NOT NULL,
+    next_object_id INTEGER NOT NULL, sectors TEXT NOT NULL
+);
+CREATE TABLE players (
+    id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('user','admin','owner')),
+    banned INTEGER NOT NULL CHECK(banned IN (0,1)),
+    first_joined_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
+    played_for INTEGER NOT NULL CHECK(typeof(played_for)='integer' AND played_for>=0),
+    credits INTEGER NOT NULL CHECK(typeof(credits)='integer' AND credits>=0),
+    unlocked_paints INTEGER NOT NULL CHECK(unlocked_paints BETWEEN 0 AND 511),
+    visited TEXT NOT NULL, ship TEXT NOT NULL, sector TEXT NOT NULL
+) WITHOUT ROWID;
+CREATE TABLE entities (
+    id INTEGER PRIMARY KEY, sector TEXT NOT NULL, generated INTEGER NOT NULL, state BLOB
+);";
+
+fn index_player_names(tx: &Transaction<'_>) -> Result<()> {
+    let create_index = tx.execute_batch(
+        "CREATE UNIQUE INDEX players_display_name ON players(display_name COLLATE player_name)
+         WHERE display_name <> '';",
+    );
+    if matches!(
+        create_index,
+        Err(rusqlite::Error::SqliteFailure(error, _))
+            if error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE
+    ) {
+        return Err("saved world has duplicate player display names; resolve the duplicates or use a fresh world database".into());
+    }
+    create_index?;
+    tx.execute_batch(
+        "CREATE INDEX IF NOT EXISTS players_owner ON players(role) WHERE role='owner';",
+    )?;
+    Ok(())
+}
+
+fn remove_legacy_name_key(tx: &Transaction<'_>) -> Result<()> {
+    let has_key: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('players') WHERE name='display_name_key')",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_key {
+        tx.execute_batch(
+            "DROP TRIGGER IF EXISTS players_invalidate_name_key;
+             DROP INDEX IF EXISTS players_display_name_key;
+             ALTER TABLE players DROP COLUMN display_name_key;",
+        )?;
+    }
+    Ok(())
+}
+
 pub(super) fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
     name.push(suffix);
@@ -188,44 +336,34 @@ impl Store {
         let path = path.as_ref();
         let lock =
             lock_database(path).map_err(|error| format!("cannot lock world database: {error}"))?;
+        let fresh = match std::fs::metadata(path) {
+            Ok(metadata) => metadata.len() == 0,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => true,
+            Err(error) => return Err(error.into()),
+        };
         let mut connection = Connection::open(path)?;
+        connection.create_collation("player_name", compare_names)?;
         connection.busy_timeout(Duration::from_secs(1))?;
+        connection.execute_batch("PRAGMA synchronous=FULL;")?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        if version != 0 && version != SCHEMA_VERSION {
+        if !(0..=SCHEMA_VERSION).contains(&version) {
             return Err(format!(
-                "unsupported Rust world database schema {version}, expected {SCHEMA_VERSION}"
+                "unsupported Rust world database schema {version}, expected up to {SCHEMA_VERSION}"
             )
             .into());
         }
-        connection.execute_batch(
-            "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA wal_autocheckpoint=1000;",
-        )?;
-        if version == 0 {
-            let tx = connection.transaction()?;
-            tx.execute_batch(
-                "CREATE TABLE world (
-                    id INTEGER PRIMARY KEY CHECK(id=1), seed REAL NOT NULL,
-                    generation_digest TEXT NOT NULL, tick INTEGER NOT NULL,
-                    random_state REAL NOT NULL, next_entity_id INTEGER NOT NULL,
-                    next_object_id INTEGER NOT NULL, sectors TEXT NOT NULL
-                );
-                CREATE TABLE players (
-                    id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL,
-                    role TEXT NOT NULL CHECK(role IN ('user','admin','owner')),
-                    banned INTEGER NOT NULL CHECK(banned IN (0,1)),
-                    first_joined_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
-                    played_for INTEGER NOT NULL CHECK(typeof(played_for)='integer' AND played_for>=0),
-                    credits INTEGER NOT NULL CHECK(typeof(credits)='integer' AND credits>=0),
-                    unlocked_paints INTEGER NOT NULL CHECK(unlocked_paints BETWEEN 0 AND 511),
-                    visited TEXT NOT NULL, ship TEXT NOT NULL, sector TEXT NOT NULL
-                ) WITHOUT ROWID;
-                CREATE TABLE entities (
-                    id INTEGER PRIMARY KEY, sector TEXT NOT NULL, generated INTEGER NOT NULL, state BLOB
-                );",
-            )?;
-            tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
-            tx.commit()?;
+        let tx = connection.transaction()?;
+        if fresh {
+            tx.execute_batch(CREATE_SCHEMA)?;
+        } else if version == 0 {
+            remove_legacy_name_key(&tx)?;
         }
+        if version < SCHEMA_VERSION {
+            index_player_names(&tx)?;
+            tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        }
+        tx.commit()?;
+        connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=1000;")?;
         Ok(Self {
             path: path.to_owned(),
             connection,
@@ -250,6 +388,23 @@ impl Store {
             players,
             entities: self.load_entities()?,
         }))
+    }
+
+    pub(crate) fn account_reader(&self) -> Result<AccountReader> {
+        let connection = Connection::open_with_flags(
+            &self.path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        connection.create_collation("player_name", compare_names)?;
+        connection.busy_timeout(Duration::from_millis(10))?;
+        // World objects may still refer to a player who reconnects in this run.
+        connection.execute_batch(
+            "PRAGMA temp_store=FILE;
+             CREATE TEMP TABLE disconnected_players (
+                 player_id TEXT PRIMARY KEY, player_number INTEGER NOT NULL
+             ) WITHOUT ROWID;",
+        )?;
+        Ok(AccountReader { connection })
     }
 
     pub(crate) fn load_world(&self, seed: f64) -> Result<Option<WorldState>> {
@@ -278,25 +433,12 @@ impl Store {
         &self,
         mut restore: impl FnMut(SavedPlayer<Ship>) -> Result<()>,
     ) -> Result<()> {
-        let mut player_query = self.connection.prepare(
-            "SELECT id,display_name,role,banned,first_joined_at,last_seen_at,played_for,credits,unlocked_paints,visited,ship,sector FROM players ORDER BY id",
-        )?;
+        let mut player_query = self
+            .connection
+            .prepare(&format!("SELECT {PLAYER_COLUMNS} FROM players ORDER BY id"))?;
         let mut rows = player_query.query([])?;
         while let Some(row) = rows.next()? {
-            restore(SavedPlayer {
-                id: row.get(0)?,
-                display_name: row.get(1)?,
-                role: PlayerRole::parse(row.get_ref(2)?.as_str()?)?,
-                banned: row.get(3)?,
-                first_joined_at: row.get(4)?,
-                last_seen_at: row.get(5)?,
-                played_for: row.get::<_, i64>(6)? as f64,
-                credits: row.get::<_, i64>(7)? as f64,
-                unlocked_paints: row.get(8)?,
-                visited: serde_json::from_str(row.get_ref(9)?.as_str()?)?,
-                ship: serde_json::from_str(row.get_ref(10)?.as_str()?)?,
-                sector_id: row.get(11)?,
-            })?;
+            restore(read_player(row)?)?;
         }
         Ok(())
     }
@@ -374,7 +516,7 @@ impl Store {
             )?;
             for (player, (visits, ship)) in batch.players.iter().zip(player_values) {
                 upsert.execute(params![
-                    player.id,
+                    player.player_id,
                     player.display_name,
                     player.role.as_str(),
                     player.banned,
@@ -385,7 +527,7 @@ impl Store {
                     player.unlocked_paints,
                     visits,
                     ship,
-                    player.sector_id
+                    player.sector_id,
                 ])?;
             }
         }
@@ -587,7 +729,7 @@ fn coalesce<Ship, Entity>(
     let mut players: HashMap<_, _> = first
         .players
         .into_iter()
-        .map(|player| (player.id.clone(), player))
+        .map(|player| (player.player_id.clone(), player))
         .collect();
     let mut entities: HashMap<_, _> = first
         .entities
@@ -605,7 +747,7 @@ fn coalesce<Ship, Entity>(
             batch
                 .players
                 .into_iter()
-                .map(|player| (player.id.clone(), player)),
+                .map(|player| (player.player_id.clone(), player)),
         );
         entities.extend(batch.entities.into_iter().map(|entity| (entity.id, entity)));
     }

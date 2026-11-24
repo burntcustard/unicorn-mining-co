@@ -980,8 +980,8 @@ export class Ship extends Craft {
   ) {
     if (
       !this.world ||
-      this.playerId === undefined ||
-      !this.world.players.has(this.playerId) ||
+      this.playerNumber === undefined ||
+      !this.world.players.has(this.playerNumber) ||
       this.dead ||
       this.dockedTo ||
       this.launching
@@ -1050,7 +1050,7 @@ export class Ship extends Craft {
             world: this.world,
             position,
             velocity,
-            playerId: this.playerId,
+            playerNumber: this.playerNumber,
           }),
         );
 
@@ -1213,7 +1213,7 @@ export class Ship extends Craft {
 
     // Other players' target choices are private input; retain their replicated
     // turret angles during remote movement extrapolation.
-    if (this.world?.players.has(this.playerId)) this.updateTurrets(dt);
+    if (this.world?.players.has(this.playerNumber)) this.updateTurrets(dt);
     this.fireWeapons(dt, shotState);
   }
 }

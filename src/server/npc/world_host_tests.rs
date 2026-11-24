@@ -92,7 +92,7 @@ fn pirates_launch_from_generated_stations_and_demand_cargo_privately() {
     let mut npcs = SectorNpcs::new(fixture.running.world.tick, &catalog);
     npcs.dispatch(fixture.context());
     let pirate = npcs.pirates.ship_ids().next().unwrap();
-    let observer = fixture.ship(pirate).craft.object.player_id.unwrap();
+    let observer = fixture.ship(pirate).craft.object.player_number.unwrap();
     assert_eq!(
         fixture
             .running
@@ -226,7 +226,7 @@ fn marauders_restore_their_ships_and_take_unique_observer_ids() {
     npcs.update(fixture.context());
     let id = npcs.marauders.ship_ids().next().unwrap();
     let ship = fixture.ship(id);
-    let old_observer = ship.craft.object.player_id.unwrap();
+    let old_observer = ship.craft.object.player_number.unwrap();
     assert!(ship.craft.object.hostile);
     assert!(ship.craft.suppress_drops);
     assert_eq!(ship.craft.cargo_contents.len(), 2);
@@ -247,7 +247,7 @@ fn marauders_restore_their_ships_and_take_unique_observer_ids() {
     assert_eq!(npcs.marauders.ship_ids().next(), Some(id));
     assert_eq!(restored.next_observer_id, 121);
     let restored_ship = restored.ship(id);
-    assert_eq!(restored_ship.craft.object.player_id, Some(120));
+    assert_eq!(restored_ship.craft.object.player_number, Some(120));
     assert_eq!(restored_ship.npc_state, "Pursuing");
     assert_eq!(
         restored_ship.craft.object.position,

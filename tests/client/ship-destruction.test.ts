@@ -59,7 +59,7 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
   const world=createWorld();
   const previous=new Map();
   const client=new NetworkClient({url:'test'});
-  client.receive({message:{type:'welcome',playerToken:'test',playerId:1,shipId:1,
+  client.receive({message:{type:'welcome',playerId:'test',playerNumber:1,shipId:1,
     worldSeed:25,serverTick:0,spawn:{x:0,y:0}}});
   for(const [stage,hex] of packets.entries()){
     const packet=decodeBinarySnapshot(Uint8Array.from(hex.match(/../g),byte=>parseInt(byte,16)));
@@ -103,7 +103,7 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
       assert(!client.shipDestroyed,'loading a living ship clears dead state');
     }
     if(stage===2&&!packet.entityIds.includes(1)){
-      client.receive({message:{type:'welcome',playerToken:'test',playerId:1,shipId:1,
+      client.receive({message:{type:'welcome',playerId:'test',playerNumber:1,shipId:1,
         worldSeed:25,serverTick:packet.serverTick,spawn:{x:0,y:0}}});
       client.receive({message:decodeBinarySnapshot(Uint8Array.from(hex.match(/../g),byte=>parseInt(byte,16)))});
       client.update({input:emptyPlayerInput()});
@@ -141,7 +141,7 @@ for(const [shipType,hull,...packets] of Reflect.get(globalThis,'destructionPacke
         damaged.update(0);
         const health=damaged.hullHealth;
         damaged.hullSegments.forEach((plan,index)=>{if(plan.core)health[index]=0;});
-        damaged.playerId=1;
+        damaged.playerNumber=1;
         damaged.hullHealth=health;
         assert(!damaged.cockpit,'hydration has already removed all cores');
         damaged.update(0);

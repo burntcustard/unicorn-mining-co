@@ -8,11 +8,11 @@ import * as Vec from '../utilities/vector';
  */
 export const presentWorldSounds = ({
   sounds,
-  playerId,
+  playerNumber,
   view,
 }: {
   sounds: WorldSound[];
-  playerId?: number;
+  playerNumber?: number;
   view: { position: Vec.Value; width: number; height: number };
 }) =>
   sounds.forEach((sound) =>
@@ -20,7 +20,7 @@ export const presentWorldSounds = ({
       id: sound.id,
       by: sound.by,
       volume:
-        sound.by === playerId
+        sound.by === playerNumber
           ? 1
           : remoteSoundVolume({
               position: sound.position,

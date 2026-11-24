@@ -19,6 +19,11 @@ description: Create and revise procedural one-shot sounds, audition them in the 
   Vite's printed URL, starting at port 3100. Save pending drafts before
   external edits because a reload replaces edits to that sound. Select or
   play a cue to enable audio, then keep it selected for live replay.
+- Use the searchable event list to select an event, play the full sound or
+  solo a layer, and inspect timing in the waveform. A valid edit previews the
+  sound. Save writes the selected event or layer. Use **New sound event** to
+  create a spec under `src/specs/sounds/`. Use **Continuous sounds** to preview
+  engine load or the horn drill biting.
 - Save reusable layers under `src/specs/sounds/unassigned/` as named
   `SoundEffect` specs. The editor's **Save layer** and **Add to event** create
   independent copies.

@@ -92,7 +92,7 @@
       "shades": ["#0ac", "#1bd", "#4df", "#148", "#cff"],
       "thrust": 1,
       "turn": 0,
-      "playerId": 1,
+      "playerNumber": 1,
       "id": 1,
       "kind": "ship",
       "mass": 9,

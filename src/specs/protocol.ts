@@ -54,7 +54,7 @@ export const binaryFieldIds = {
   shapeOutline: 19,
   paint: 20,
   shades: 21,
-  playerId: 22,
+  playerNumber: 22,
   pointCount: 23,
   position: 24,
   radius: 25,

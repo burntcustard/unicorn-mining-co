@@ -6,14 +6,18 @@ export type ShipPreview = [
   [number, number, number, number | null][],
 ];
 export type Identity = [string, number, ShipPreview];
-const validPrivateId = (value: string) =>
+
+// Keep existing browser saves and accounts accessible across client versions.
+export const playerIdStorageKey = 'playerToken';
+
+const isPlayerId = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 export const verifyIdentity = async (
-  privateId: string,
+  playerId: string,
   signal: AbortSignal,
 ): Promise<Identity> => {
-  if (!validPrivateId(privateId)) {
+  if (!isPlayerId(playerId)) {
     throw new Error(
       'Enter a valid private ID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).',
     );
@@ -22,7 +26,7 @@ export const verifyIdentity = async (
   const response = await fetch('/api/identity', {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: privateId,
+    body: playerId,
     signal,
     cache: 'no-store',
   });

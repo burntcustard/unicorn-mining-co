@@ -646,7 +646,10 @@ impl EntityReplication {
         );
         self.text(fields.message, object.message.as_deref());
         self.number(fields.paint, object.paint.map(f64::from));
-        self.number(fields.player_id, object.player_id.map(|id| id as f64));
+        self.number(
+            fields.player_number,
+            object.player_number.map(|id| id as f64),
+        );
         self.number(
             fields.point_count,
             (object.point_count != 0).then_some(object.point_count as f64),

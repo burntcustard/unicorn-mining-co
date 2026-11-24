@@ -165,7 +165,7 @@ assert.equal(lastVoice().destination.gain.value, 1, 'quiet remote effect cannot 
 for (const effect of [0, 1, 2, 3, 4, 5, 6, 7, 9]) {
   context.currentTime += 1;
   const count = context.sources.length;
-  presentWorldSounds({ playerId: 1, view: { position: view.view, width: view.width, height: view.height }, sounds: [
+  presentWorldSounds({ playerNumber: 1, view: { position: view.view, width: view.width, height: view.height }, sounds: [
     { effect, id: 42, by: 1, position: { x: 1200, y: 500 } },
     { effect, id: 43, by: 2, position: { x: 500, y: 500 } },
     { effect, id: 44, by: 3, position: { x: 1050, y: 500 } },

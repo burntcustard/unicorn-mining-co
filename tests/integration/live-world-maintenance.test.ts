@@ -43,7 +43,7 @@ const timeout = setTimeout(() => {
   server.kill('SIGKILL');
 }, 20000);
 
-async function player(token: string | null) {
+async function player(playerId: string | null) {
   const socket = new WebSocket(
     address.replace('http:', 'ws:') + '/game-socket',
     { origin: address.replace('http:', 'https:') },
@@ -51,13 +51,13 @@ async function player(token: string | null) {
 
   sockets.push(socket);
 
-  return new Promise<string>((resolveToken, reject) => {
+  return new Promise<string>((resolvePlayerId, reject) => {
     socket.once('error', reject);
     socket.once('close', () =>
       reject(new Error('Connection closed before welcome')),
     );
     socket.once('open', () =>
-      socket.send(encodeClientMessage({ type: 'hello', playerToken: token })),
+      socket.send(encodeClientMessage({ type: 'hello', playerId })),
     );
 
     socket.on('message', (data) => {
@@ -67,7 +67,7 @@ async function player(token: string | null) {
 
       const control = decodeServerControl(packet);
 
-      if (control.type === 'welcome') resolveToken(control.playerToken);
+      if (control.type === 'welcome') resolvePlayerId(control.playerId);
     });
   });
 }
@@ -194,7 +194,7 @@ try {
   assert.notEqual(
     rejoined,
     first,
-    'a pre-reset token receives a fresh player profile',
+    'a pre-reset player ID receives a fresh player profile',
   );
   assert.match(await command('--resume-world-live'), /no world reset was run/);
   assert.equal(

@@ -9,7 +9,7 @@ import { summarizeFrameIntervals } from './frame-metrics.ts';
 export function createCombatObservations() {
   type Ship = {
     id: number;
-    playerId: number;
+    playerNumber: number;
     role: string;
     definition: string;
     position: { x: number; y: number };
@@ -51,7 +51,7 @@ export function createCombatObservations() {
       projectiles,
     }: {
       ships: Ship[];
-      projectiles: { id: number; playerId?: number }[];
+      projectiles: { id: number; playerNumber?: number }[];
     }) {
       if (!started) {
         projectiles.forEach((projectile) =>
@@ -113,7 +113,7 @@ export function createCombatObservations() {
 
         for (const projectile of projectiles) {
           if (
-            projectile.playerId === ship.playerId &&
+            projectile.playerNumber === ship.playerNumber &&
             !initialProjectiles.has(projectile.id)
           ) {
             record.projectiles.add(projectile.id);
@@ -135,7 +135,7 @@ export function createCombatObservations() {
       [...records.values()].map((record) =>
         Object.fromEntries([
           ['ship-id', record.ship.id],
-          ['player-id', record.ship.playerId],
+          ['player-id', record.ship.playerNumber],
           ['role', record.ship.role],
           ['ship-type', record.ship.definition],
           ['samples', record.samples],
@@ -179,7 +179,12 @@ export const setupGameplay = `(async () => {
   const { network } = await loadedGameModule('network/network.ts');
   await network.authenticated;
   const scenario = new URLSearchParams(location.search).get('scenario');
-  if (!network.displayName) await network.createProfile(scenario === 'pirate' ? 'Render pirate' : 'Perf pilot');
+  if (!network.displayName) {
+    const displayName = scenario === 'pirate'
+      ? 'Render pirate'
+      : 'Perf ' + crypto.randomUUID().replaceAll('-', '').slice(0, 11);
+    await network.createProfile(displayName);
+  }
   await gameplay.start();
   const { ui } = await loadedGameModule('ui/dom/ui.ts');
   ui.clear();
@@ -245,9 +250,9 @@ export const createGameplayWorkload = ({
   world.random.state = 1;
   const ship = addEntity(
     world,
-    createPlayerShip(world, { id: 1, playerId: 1 }),
+    createPlayerShip(world, { id: 1, playerNumber: 1 }),
   );
-  addPlayer(world, { id: 1, shipId: 1 });
+  addPlayer(world, { playerNumber: 1, shipId: 1 });
   ship.fit(new Autogun({ id: -100 }), ship.mounts[0]);
   ship.cargoContents.push(new Item(autogunAmmo, { id: 500 }));
   addEntity(
@@ -280,9 +285,9 @@ export const createGameplayWorkload = ({
   }
   centerCamera(game, ship);
   const manager = new PredictionManager({ world });
-  manager.setLocalPlayer({ playerId: 1 });
+  manager.setLocalPlayer({ playerNumber: 1 });
   network.prediction = manager;
-  network.shipId = network.playerId = 1;
+  network.shipId = network.playerNumber = 1;
   adoptPlayerShip({ ship });
   network.remoteMotion.reset();
   const input = {
@@ -382,7 +387,7 @@ const measurement = `new Promise((resolve) => {
         const health = authoritative?.hullHealth?.reduce((sum, value) => sum + value, 0);
         return {
           id: ship.id,
-          playerId: ship.playerId,
+          playerNumber: ship.playerNumber,
           role: ship.id === player.ship.id ? 'player' : 'pirate',
           definition: ship.definitionId === 'courser' ? 'Courser' : ship.definitionId === 'arrow' ? 'Arrow' : !ship.definitionId || ship.definitionId === 'mustang' ? 'Mustang' : ship.name,
           position,
@@ -397,13 +402,13 @@ const measurement = `new Promise((resolve) => {
       projectiles: [...network.entityRecords.values()].filter(object => object.kind === 'projectile'),
     });
     if (!pirates.length) return;
-    const ids = new Set(pirates.map(object => object.playerId));
+    const ids = new Set(pirates.map(object => object.playerNumber));
     pirateSamples++;
     if (pirates.some(object => !object.dead)) livingPirateSamples++;
     if (pirates.some(object => object.npcState === 'Fighting')) fightingSamples++;
     if (pirates.some(object => object.firing)) pirateFiringSamples++;
     if (projectiles.length) projectileSamples++;
-    if (projectiles.some(object => ids.has(object.playerId))) pirateProjectileSamples++;
+    if (projectiles.some(object => ids.has(object.playerNumber))) pirateProjectileSamples++;
     for (const pirate of pirates) {
       if (!piratePositions.has(pirate.id)) piratePositions.set(pirate.id, {...pirate.position});
       const before = piratePositions.get(pirate.id);

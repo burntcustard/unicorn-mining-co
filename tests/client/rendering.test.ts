@@ -187,7 +187,7 @@ sparks.length = 0;
 presentEvents({ shipId: 10, events: [{ ...collision, impact: 1, damage: [0, 2] }] });
 assert.equal(sparks.length, 4, 'damaging contacts produce sparks even below the crash sound threshold');
 const sounds = Reflect.get(globalThis, 'capturedEffects').length;
-presentEvents({ playerId: 1, events: [
+presentEvents({ playerNumber: 1, events: [
   { type: 'itemCollected', by: 2, itemId: 889, resource: 0 },
   { ...collision, damage: [2, 2] },
 ] });
@@ -207,7 +207,7 @@ const hydratedProjectile = makeEntity({
     velocity: Vec.create(600, 0),
     rotation: 0,
     spin: 0,
-    playerId: 1,
+    playerNumber: 1,
   },
 });
 assert(hydratedProjectile instanceof Projectile);
@@ -881,8 +881,8 @@ for (const points of [undefined, [[0,-2],[-12,0],[0,2]]]) {
 // including frames that reuse the same solved tick and input changes mid-tick.
 for (const turn of [-1,1]) {
   const world = createWorld();
-  const ship = addEntity(world,createBoosterShip({world,playerId: 1}));
-  world.players.set(1,{id: 1,shipId: ship.id});
+  const ship = addEntity(world,createBoosterShip({world,playerNumber: 1}));
+  world.players.set(1,{playerNumber: 1,shipId: ship.id});
   let input = {...emptyPlayerInput(),thrust: 1,turn};
   controlShip(ship,input,[]);
   ship.updateModules(1);
@@ -895,7 +895,7 @@ for (const turn of [-1,1]) {
     return Reflect.get(draws[0].path,'vertices')[1];
   };
   const sample = elapsed => {
-    const copy = prediction.sample({world,playerId: 1,
+    const copy = prediction.sample({world,playerNumber: 1,
       input: {input,changes: []},elapsed}).entities.get(ship.id);
     const segment = copy.segmentsAtMount(copy.engine.mount)[0];
     const mechanics = [segment.active,segment.activationProgress,copy.position.x,copy.position.y];

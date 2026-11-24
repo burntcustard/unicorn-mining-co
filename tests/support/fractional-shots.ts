@@ -29,9 +29,9 @@ Object.assign(globalThis, {
 });
 
 const world = createWorld();
-const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-addPlayer(world, { id: 1, shipId: ship.id });
+addPlayer(world, { playerNumber: 1, shipId: ship.id });
 const gun = new Autogun();
 
 ship.fit(
@@ -56,7 +56,7 @@ const input: InputFrame = {
 
 const before = frame.sample({
   world,
-  playerId: 1,
+  playerNumber: 1,
   input,
   elapsed: simulationStep / 4,
 });
@@ -73,7 +73,7 @@ assert.equal(
 
 const after = frame.sample({
   world,
-  playerId: 1,
+  playerNumber: 1,
   input,
   elapsed: simulationStep * 0.8,
 });
@@ -110,7 +110,7 @@ const summarize = (world: SimulationWorld) => ({
 });
 
 const endpoint = summarize(
-  frame.sample({ world, playerId: 1, input, elapsed: simulationStep }),
+  frame.sample({ world, playerNumber: 1, input, elapsed: simulationStep }),
 );
 
 updateWorld({ world, inputs: new Map([[1, input]]) });
@@ -122,9 +122,9 @@ assert.deepEqual(
 
 const fixture = () => {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const gun = new Autogun();
 
   ship.fit(
@@ -155,7 +155,7 @@ for (const offset of [0.001, 0.008, 0.016, 0.024, 0.032]) {
   };
 
   const elapsed = Math.min(simulationStep, offset + 0.0001);
-  const predicted = frame.sample({ world, playerId: 1, input, elapsed });
+  const predicted = frame.sample({ world, playerNumber: 1, input, elapsed });
 
   assert.equal(
     frame.shots.length,
@@ -196,7 +196,7 @@ for (const offset of [0.001, 0.008, 0.016, 0.024, 0.032]) {
 
   const next = frame.sample({
     world,
-    playerId: 1,
+    playerNumber: 1,
     input: { input: input.changes[0].input, changes: [] },
     elapsed: 0.001,
   });
@@ -217,7 +217,7 @@ for (const cooldown of [0.005, 0.02, 0.03]) {
     changes: [],
   };
 
-  frame.sample({ world, playerId: 1, input, elapsed: cooldown / 2 });
+  frame.sample({ world, playerNumber: 1, input, elapsed: cooldown / 2 });
   assert.equal(
     frame.shots.length,
     0,
@@ -226,7 +226,7 @@ for (const cooldown of [0.005, 0.02, 0.03]) {
   assert.equal(
     [
       ...frame
-        .sample({ world, playerId: 1, input, elapsed: cooldown + 0.0001 })
+        .sample({ world, playerNumber: 1, input, elapsed: cooldown + 0.0001 })
         .entities.values(),
     ].filter((entity) => entity instanceof Projectile).length,
     1,
@@ -267,7 +267,7 @@ for (const blocked of ['empty', 'retracted', 'charging', 'released']) {
 
   const preview = frame.sample({
     world,
-    playerId: 1,
+    playerNumber: 1,
     input,
     elapsed: simulationStep,
   });
@@ -294,13 +294,13 @@ for (const blocked of ['empty', 'retracted', 'charging', 'released']) {
     changes: [],
   };
 
-  frame.sample({ world, playerId: 1, input, elapsed: 0.03 });
+  frame.sample({ world, playerNumber: 1, input, elapsed: 0.03 });
   assert.equal(
     frame.shots.length,
     0,
     'charge completion within a segment remains conservatively hidden until its end',
   );
-  frame.sample({ world, playerId: 1, input, elapsed: simulationStep });
+  frame.sample({ world, playerNumber: 1, input, elapsed: simulationStep });
   assert.equal(frame.shots.length, 1);
 }
 
@@ -322,7 +322,7 @@ for (const blocked of ['empty', 'retracted', 'charging', 'released']) {
   };
 
   for (const elapsed of [0.003, 0.006, 0.002, 0.02, 0, 0.006]) {
-    const preview = frame.sample({ world, playerId: 1, input, elapsed });
+    const preview = frame.sample({ world, playerNumber: 1, input, elapsed });
 
     assert.equal(
       frame.shots.length,
@@ -379,7 +379,7 @@ for (const blocked of ['empty', 'retracted', 'charging', 'released']) {
     ],
   };
 
-  const preview = frame.sample({ world, playerId: 1, input, elapsed: 0.00001 });
+  const preview = frame.sample({ world, playerNumber: 1, input, elapsed: 0.00001 });
   const shot = frame.shots[0];
 
   assert(
@@ -445,7 +445,7 @@ for (const mode of ['moving-target', 'moving-hull', 'immediate']) {
   };
 
   for (const elapsed of [0.003, 0.02, 0.0332, 0.003]) {
-    const preview = frame.sample({ world, playerId: 1, input, elapsed });
+    const preview = frame.sample({ world, playerNumber: 1, input, elapsed });
     const shots = [...preview.entities.values()].filter(
       (entity) => entity instanceof Projectile,
     );
@@ -467,7 +467,7 @@ for (const mode of ['moving-target', 'moving-hull', 'immediate']) {
   }
 
   const endpoint = summarize(
-    frame.sample({ world, playerId: 1, input, elapsed: simulationStep }),
+    frame.sample({ world, playerNumber: 1, input, elapsed: simulationStep }),
   );
 
   assert(

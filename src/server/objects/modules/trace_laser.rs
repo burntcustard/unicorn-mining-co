@@ -20,7 +20,7 @@ pub fn trace_laser<W: WeaponWorld>(
     let impact = trace_world(
         Trace {
             entity: beam.source,
-            player: Some(beam.player_id),
+            player: Some(beam.player_number),
             shape: &LASER
                 .get_or_init(|| CircleShape::new(Vector::ZERO, 0.5))
                 .base,

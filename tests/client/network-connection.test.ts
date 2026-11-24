@@ -7,6 +7,7 @@ import {
   encodeServerControl,
 } from '../../src/client/protocol/binary-control';
 import { snapshotDeltaQuery } from '../../src/client/protocol/binary-snapshot';
+import { maxPredictionTicks } from '../../src/specs/prediction';
 import { testBuildPlugin } from '../support/build-plugin.ts';
 
 const status = { hidden: true, textContent: '' };
@@ -19,16 +20,21 @@ class TestWebSocket {
   readyState = TestWebSocket.OPEN;
   onclose?: (event: { code: number; reason: string }) => void;
   onopen?: () => void;
-  onmessage?: (event: { data: Uint8Array }) => void;
+  onmessage?: (event: { data: Uint8Array | string }) => void;
   closed: number[] = [];
   sent: Uint8Array[] = [];
+  text: string[] = [];
 
   constructor(readonly url: string) {
     sockets.push(this);
   }
 
-  send(data: Uint8Array) {
-    this.sent.push(data);
+  send(data: Uint8Array | string) {
+    if (typeof data === 'string') {
+      this.text.push(data);
+    } else {
+      this.sent.push(data);
+    }
   }
 
   close(code = 1000) {
@@ -38,6 +44,81 @@ class TestWebSocket {
     this.onclose?.({ code, reason: '' });
   }
 }
+
+class TestDataChannel {
+  binaryType = 'blob';
+  onopen?: () => void;
+  onmessage?: (event: { data: ArrayBuffer | string }) => void;
+
+  constructor(
+    readonly label: string,
+    readonly options: RTCDataChannelInit,
+  ) {}
+}
+
+const peers: TestRTCPeerConnection[] = [];
+
+class TestRTCPeerConnection extends EventTarget {
+  iceGatheringState: RTCIceGatheringState = 'new';
+  connectionState: RTCPeerConnectionState = 'new';
+  localDescription?: RTCSessionDescriptionInit;
+  remoteDescription?: RTCSessionDescriptionInit;
+  channel?: TestDataChannel;
+  rejectAnswer = false;
+  closes = 0;
+
+  onconnectionstatechange?: () => void;
+
+  constructor() {
+    super();
+    peers.push(this);
+  }
+
+  createDataChannel(label: string, options: RTCDataChannelInit) {
+    this.channel = new TestDataChannel(label, options);
+    return this.channel;
+  }
+
+  async createOffer(): Promise<RTCSessionDescriptionInit> {
+    return { type: 'offer', sdp: 'initial offer' };
+  }
+
+  async setLocalDescription(description: RTCSessionDescriptionInit) {
+    this.localDescription = description;
+    this.iceGatheringState = 'gathering';
+  }
+
+  async setRemoteDescription(description: RTCSessionDescriptionInit) {
+    this.remoteDescription = description;
+
+    if (this.rejectAnswer) throw new Error('Invalid answer');
+  }
+
+  finishGathering() {
+    this.localDescription = { type: 'offer', sdp: 'offer with candidates' };
+    this.iceGatheringState = 'complete';
+    this.dispatchEvent(new Event('icegatheringstatechange'));
+  }
+
+  close() {
+    this.closes++;
+    this.connectionState = 'closed';
+  }
+}
+
+const settleRtc = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+const movementDatagram = (tick: bigint, id: bigint, position = 120) => {
+  const data = new ArrayBuffer(40);
+  const view = new DataView(data);
+
+  view.setBigUint64(0, tick, true);
+  view.setBigUint64(8, id, true);
+  [position, -20, 3, -4, 0.5, -0.25].forEach((value, index) =>
+    view.setFloat32(16 + index * 4, value, true),
+  );
+  return data;
+};
 
 const originalSetTimeout = globalThis.setTimeout;
 const originalClearTimeout = globalThis.clearTimeout;
@@ -99,14 +180,18 @@ const bannedMessage =
 const welcome = {
   data: encodeServerControl({
     type: 'welcome',
-    playerId: 1,
+    playerNumber: 1,
     shipId: 7,
-    playerToken: '01234567-89ab-cdef-0123-456789abcdef',
+    playerId: '01234567-89ab-cdef-0123-456789abcdef',
     serverTick: 0,
     worldSeed: 25,
     spawn: { x: 0, y: 0 },
   }),
 };
+
+const loadSnapshot = (tick: number) => ({
+  data: Uint8Array.from([0x55, 0x4d, 1, 1, tick, 8, 0]),
+});
 
 for (const production of [false, true]) {
   const bundle = await rolldown({
@@ -158,15 +243,26 @@ for (const production of [false, true]) {
                };
                export const switchDockedShip = client => {
                  client.connected = true;
-                 client.playerId = 1;
+                 client.playerNumber = 1;
                  client.shipId = 7;
-                 client.world.players.set(1, {shipId: 7});
+                 client.world.players.set(1, {playerNumber: 1, shipId: 7});
                  client.world.entities.set(7, {id: 7, dockedTo: 100, dead: false});
                  client.receive({message: {type: 'respawn', shipId: 8}});
                  const during = client.shipDestroyed;
                  client.world.entities.delete(7);
                  client.applySnapshot({message: {type: 'load', fullEntities: [], entityIds: [], nextEntityId: 1, serverTick: 1}});
                  return [during, client.shipDestroyed];
+               };
+               export const inspectMovement = client => [
+                 client.connected,
+                 client.serverTick,
+                 [...client.remoteMotion.pendingMovement.values()].map(sample => [
+                   sample.id, sample.tick, sample.position.x, sample.position.y,
+                   sample.velocity.x, sample.velocity.y, sample.rotation, sample.spin,
+                 ]),
+               ];
+               export const setWorldTick = (client, tick) => {
+                 client.world.tick = tick;
                };`
             : undefined,
       },
@@ -255,7 +351,7 @@ for (const production of [false, true]) {
     timers.clear();
     const client = connect(socketUrl, true);
     const firstSocket = sockets.at(-1)!;
-    const load = { data: Uint8Array.from([0x55, 0x4d, 1, 1, 1, 8, 0]) };
+    const load = loadSnapshot(1);
 
     firstSocket.onopen!();
     firstSocket.onmessage!(welcome);
@@ -264,6 +360,7 @@ for (const production of [false, true]) {
     firstSocket.onmessage!(load);
     await firstReady;
     built.returnToMenu(client);
+    assert.equal(decodeClientMessage(firstSocket.sent.at(-1)!).type, 'leave');
     firstSocket.onmessage!({ data: encodeServerControl({ type: 'leave' }) });
     firstSocket.readyState = TestWebSocket.CLOSED;
     firstSocket.onclose!({ code, reason: '' });
@@ -419,6 +516,151 @@ for (const production of [false, true]) {
   advanceTimers(1000);
   assert.equal(status.textContent, 'CONNECTION LOST - RETRYING...');
   timers.clear();
+
+  const originalRtc = globalThis.RTCPeerConnection;
+
+  Object.assign(globalThis, { RTCPeerConnection: TestRTCPeerConnection });
+
+  try {
+    const startMovement = () => {
+      const client = connect(socketUrl);
+      const socket = sockets.at(-1)!;
+      const peerCount = peers.length;
+
+      assert.equal(socket.url, `${socketUrl}?${snapshotDeltaQuery}&movement=1`);
+      socket.onopen!();
+      socket.onmessage!(welcome);
+      socket.onmessage!(loadSnapshot(1));
+      socket.onmessage!({ data: 'movement' });
+      assert.equal(peers.length, peerCount + 1);
+      return { client, socket, peer: peers.at(-1)! };
+    };
+
+    const { client, socket: movementSocket, peer } = startMovement();
+    const channel = peer.channel!;
+
+    assert.equal(channel.label, 'movement');
+
+    assert.deepEqual(channel.options, {
+      ordered: false,
+      maxPacketLifeTime: 32,
+    });
+
+    assert.equal(channel.binaryType, 'arraybuffer');
+    movementSocket.onmessage!({ data: 'movement' });
+    assert.equal(peers.at(-1), peer, 'a repeated advertisement keeps one peer');
+
+    await settleRtc();
+    assert.deepEqual(
+      movementSocket.text,
+      [],
+      'ICE gathering must finish first',
+    );
+    peer.finishGathering();
+    await settleRtc();
+    assert.deepEqual(movementSocket.text, ['movement\noffer with candidates']);
+    movementSocket.onmessage!({ data: 'movement\nanswer from server' });
+    await settleRtc();
+
+    assert.deepEqual(peer.remoteDescription, {
+      type: 'answer',
+      sdp: 'answer from server',
+    });
+
+    channel.onopen!();
+    advanceTimers(8000);
+    assert.equal(
+      peer.closes,
+      0,
+      'an open channel cancels its negotiation timeout',
+    );
+
+    for (const data of [
+      'not binary',
+      new ArrayBuffer(8),
+      new ArrayBuffer(41),
+      new ArrayBuffer(8 + 7 * 32),
+      movementDatagram(2n ** 53n, 7n),
+      movementDatagram(2n, 0n),
+      movementDatagram(2n, 2n ** 53n),
+      movementDatagram(2n, 7n, NaN),
+      movementDatagram(2n, 7n, Infinity),
+    ]) {
+      channel.onmessage!({ data });
+      assert.deepEqual(built.inspectMovement(client), [true, 1, []]);
+    }
+
+    built.setWorldTick(client, 1 + maxPredictionTicks);
+
+    channel.onmessage!({
+      data: movementDatagram(BigInt(2 + maxPredictionTicks), 7n),
+    });
+
+    assert.deepEqual(built.inspectMovement(client), [true, 1, []]);
+
+    channel.onmessage!({
+      data: movementDatagram(BigInt(maxPredictionTicks), 7n),
+    });
+
+    const movement = [
+      true,
+      1,
+      [[7, maxPredictionTicks, 120, -20, 3, -4, 0.5, -0.25]],
+    ];
+
+    assert.deepEqual(built.inspectMovement(client), movement);
+
+    peer.connectionState = 'failed';
+    peer.onconnectionstatechange!();
+    assert.equal(peer.closes, 1);
+
+    channel.onmessage!({
+      data: movementDatagram(BigInt(1 + maxPredictionTicks), 7n),
+    });
+
+    assert.deepEqual(
+      built.inspectMovement(client),
+      movement,
+      'a closed peer cannot add poses',
+    );
+    movementSocket.onmessage!(loadSnapshot(3));
+    assert.deepEqual(built.inspectMovement(client).slice(0, 2), [true, 3]);
+    assert.deepEqual(movementSocket.closed, []);
+
+    const timeout = startMovement();
+
+    await settleRtc();
+    advanceTimers(7999);
+    assert.equal(timeout.peer.closes, 0);
+    advanceTimers(1);
+    assert.equal(timeout.peer.closes, 1);
+    timeout.peer.finishGathering();
+    await settleRtc();
+    assert.deepEqual(
+      timeout.socket.text,
+      [],
+      'timed-out ICE cannot send an offer',
+    );
+    timeout.socket.onmessage!(loadSnapshot(2));
+    assert.deepEqual(built.inspectMovement(timeout.client), [true, 2, []]);
+    assert.deepEqual(timeout.socket.closed, []);
+
+    const failed = startMovement();
+
+    await settleRtc();
+    failed.peer.finishGathering();
+    await settleRtc();
+    failed.peer.rejectAnswer = true;
+    failed.socket.onmessage!({ data: 'movement\ninvalid answer' });
+    await settleRtc();
+    assert.equal(failed.peer.closes, 1);
+    failed.socket.onmessage!(loadSnapshot(2));
+    assert.deepEqual(built.inspectMovement(failed.client), [true, 2, []]);
+    assert.deepEqual(failed.socket.closed, []);
+  } finally {
+    Object.assign(globalThis, { RTCPeerConnection: originalRtc });
+    timers.clear();
+  }
 }
 
 Object.assign(globalThis, {

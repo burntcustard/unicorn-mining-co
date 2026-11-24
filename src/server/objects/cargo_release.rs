@@ -145,7 +145,7 @@ impl Ship {
         let position = ship.position + rotate_point(mount_position, ship.rotation);
         object.position = position.add_scaled(direction, object.radius + 2.0);
         object.velocity = ship.velocity.add_scaled(direction, 35.0);
-        object.dropped_by = ship.player_id;
+        object.dropped_by = ship.player_number;
         object.pickup_after = tick.wrapping_add((3.0 / catalog.simulation.simulation_step) as u64);
         object.dead = false;
         self.cargo_release_time = 0.5;
@@ -170,7 +170,7 @@ mod tests {
             1,
             "mustang",
             ObjectProperties {
-                player_id: Some(9),
+                player_number: Some(9),
                 velocity: Vector::new(2.0, -1.0),
                 ..ObjectProperties::default()
             },
@@ -208,7 +208,7 @@ mod tests {
             events,
             [SimulationEvent::ModuleChanged {
                 module: "cargoHatch".into(),
-                player_id: 9,
+                player_number: 9,
                 active: true
             }]
         );

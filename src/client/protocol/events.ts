@@ -1,4 +1,4 @@
-import { type EntityId, type PlayerId } from './entities';
+import { type EntityId, type PlayerNumber } from './entities';
 import * as Vec from '../utilities/vector';
 import { type EffectSpec } from '../effects/effect';
 
@@ -19,13 +19,13 @@ export type SimulationEvent =
   | { asteroidId: EntityId; childIds: EntityId[]; type: 'asteroidSplit' }
   | {
       asteroidId: EntityId;
-      by: PlayerId;
+      by: PlayerNumber;
       contents: number[];
       type: 'asteroidDestroyed';
     }
   | {
       targetId: EntityId;
-      by: PlayerId;
+      by: PlayerNumber;
       damage: number;
       color: string;
       resource?: number;
@@ -43,7 +43,7 @@ export type SimulationEvent =
       type: 'collision';
     }
   | {
-      by: PlayerId;
+      by: PlayerNumber;
       itemId: EntityId;
       message?: string;
       resource: number;
@@ -51,13 +51,13 @@ export type SimulationEvent =
       type: 'itemCollected';
     }
   | {
-      playerId: PlayerId;
+      playerNumber: PlayerNumber;
       dockedTo: EntityId;
       type: 'docked';
     }
   | {
       module: 'cargoHatch' | 'shieldGenerator' | 'searchLight' | 'flightMode';
-      playerId: PlayerId;
+      playerNumber: PlayerNumber;
       active: boolean;
       type: 'moduleChanged';
     };

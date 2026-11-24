@@ -64,13 +64,13 @@ export const replicatedAsteroidHealth = (entity: ReplicatedEntity) =>
  */
 export const ownMiningFracture = ({
   sound,
-  playerId,
+  playerNumber,
   drilling,
   anchor,
   targetIds,
 }: {
   sound: WorldSound;
-  playerId: number;
+  playerNumber: number;
   drilling: boolean;
   anchor?: Vec.Value;
   targetIds?: Set<number>;
@@ -78,7 +78,7 @@ export const ownMiningFracture = ({
   !!anchor &&
   drilling &&
   sound.effect === 4 &&
-  sound.by === playerId &&
+  sound.by === playerNumber &&
   (targetIds?.has(sound.id) ||
     miningAreaContains({
       position: sound.position,
@@ -140,7 +140,7 @@ export class ProtocolClient {
   miningTargetIds = new Set<number>();
   spreadCorridor: SpreadCorridor;
   shipId = 0;
-  playerId = 0;
+  playerNumber = 0;
   worldSeed: number;
   spawn: Vec.Value;
   sectorName: string;
@@ -254,7 +254,7 @@ export class ProtocolClient {
     this.socket.on('open', () =>
       this.send({
         type: options.displayName ? 'prepare' : 'hello',
-        playerToken: null,
+        playerId: null,
       }),
     );
 
@@ -292,7 +292,7 @@ export class ProtocolClient {
           for (const sound of message.sounds) {
             if (
               (sound.effect === 3 || sound.effect === 4) &&
-              (sound.by === this.playerId ||
+              (sound.by === this.playerNumber ||
                 (this.ship &&
                   Vec.distance(sound.position, this.ship.position) < 500))
             ) {
@@ -306,7 +306,7 @@ export class ProtocolClient {
             if (
               ownMiningFracture({
                 sound,
-                playerId: this.playerId,
+                playerNumber: this.playerNumber,
                 drilling: !!this.lastInput.hornDrill,
                 anchor: this.miningAnchor,
                 targetIds: this.miningTargetIds,
@@ -328,7 +328,7 @@ export class ProtocolClient {
         if (message.type === 'welcome') {
           this.welcomed = true;
           this.shipId = message.shipId;
-          this.playerId = message.playerId;
+          this.playerNumber = message.playerNumber;
           this.worldSeed = message.worldSeed;
           this.spawn = Vec.clone(message.spawn);
           this.sectorName = message.sectorName;
@@ -1690,7 +1690,7 @@ export class ProtocolClient {
 
     return {
       index: this.options.index,
-      playerId: this.playerId,
+      playerNumber: this.playerNumber,
       worldSeed: this.worldSeed,
       spawn: this.spawn,
       sectorName: this.sectorName,

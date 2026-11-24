@@ -153,7 +153,7 @@ impl AuthoritativeSession {
                 running: &mut sector.running,
                 regions: &mut sector.regions,
                 players: &mut [],
-                next_observer_id: &mut self.next_player_id,
+                next_observer_id: &mut self.next_player_number,
                 inputs: &mut self.inputs,
             };
             sector.npcs.launch_benchmark_collector(
@@ -208,7 +208,7 @@ impl AuthoritativeSession {
         ship.craft.object.position = home.position;
         ship.craft.object.radius = 0.0;
         ship.craft.object.name = format!("Fixture {scenario}");
-        ship.craft.object.player_id = None;
+        ship.craft.object.player_number = None;
         ship.craft.docked_to = Some(home_id);
         for hull in &mut ship.craft.hulls {
             hull.health = 0.0;
@@ -373,13 +373,14 @@ impl AuthoritativeSession {
                     });
                 }
                 SimulationEvent::Docked {
-                    player_id,
+                    player_number,
                     docked_to,
                 } if encounter.seed.is_some()
                     && encounter.docked_tick.is_none()
                     && docked_to == encounter.home.home_id =>
                 {
-                    let Some(ship_id) = world.player(player_id).map(|player| player.ship_id) else {
+                    let Some(ship_id) = world.player(player_number).map(|player| player.ship_id)
+                    else {
                         continue;
                     };
                     if !encounter.ships.contains(&ship_id) {
@@ -458,7 +459,7 @@ impl AuthoritativeSession {
         if let Err(error) = fs::write(path, report.to_string()) {
             eprintln!("NPC benchmark report: {error}");
         }
-        self.tokens.remove(&account.token);
+        self.player_numbers_by_id.remove(&account.player_id);
         self.accounts.delete(&player);
         self.fixtures.retired_sectors.push(index);
     }

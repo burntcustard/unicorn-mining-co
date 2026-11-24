@@ -126,7 +126,7 @@ pub(super) fn full_snapshot(catalog: &Catalog) -> Result<String, ProtocolError> 
     let mut projectile_fields = [
         field(f.kind, Text("projectile")),
         field(f.definition_id, Text("autogun")),
-        field(f.player_id, Number(1.0)),
+        field(f.player_number, Number(1.0)),
         field(f.health, Number(1.25)),
         field(f.position, point(5.0, 3.0)),
         field(f.velocity, point(600.0, 0.0)),

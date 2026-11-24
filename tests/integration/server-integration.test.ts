@@ -41,10 +41,10 @@ const bundle = await rolldown({
         import {decodeBinarySnapshot} from '${resolve('src/client/protocol/binary-snapshot.ts')}';
         import {emptyPlayerInput} from '${resolve('src/client/protocol/input.ts')}';
         export default [
-          token=>encodeClientMessage({type:'hello',playerToken:token}),
+          playerId=>encodeClientMessage({type:'hello',playerId}),
           tick=>encodeClientMessage({type:'input',tick,sequence:1,input:{...emptyPlayerInput(),thrust:1}}),
           sequence=>encodeClientMessage({type:'snapshotAck',sequence}),
-          packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerToken,message.playerId,message.shipId,message.serverTick,message.unlockedPaints,message.credits];},
+          packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerId,message.playerNumber,message.shipId,message.serverTick,message.unlockedPaints,message.credits];},
           packet=>{const message=decodeBinarySnapshot(packet);return [message.type==='load',message.snapshotSequence,message.acknowledgedSequence,message.serverTick,message.fullEntities.length];},
           ()=>encodeClientMessage({type:'activity'}),
           packet=>{const message=decodeServerControl(packet);return message.type==='sounds' ? message.sounds.map(sound=>[sound.effect,sound.id,sound.by,sound.position.x,sound.position.y]) : undefined;},
@@ -71,7 +71,7 @@ assert.deepEqual(
   production[0](null),
   encodeClientMessage({
     type: 'hello',
-    playerToken: null,
+    playerId: null,
   }),
 );
 
@@ -90,8 +90,8 @@ const decodeSounds = (packet: Uint8Array) => {
 };
 
 const source = [
-  (playerToken: string | null) =>
-    encodeClientMessage({ type: 'hello', playerToken }),
+  (playerId: string | null) =>
+    encodeClientMessage({ type: 'hello', playerId }),
   (tick: number) =>
     encodeClientMessage({
       type: 'input',
@@ -119,8 +119,8 @@ const source = [
 
     return [
       true,
-      message.playerToken,
       message.playerId,
+      message.playerNumber,
       message.shipId,
       message.serverTick,
       message.unlockedPaints,
@@ -214,7 +214,7 @@ try {
 
   const connect = async (
     codec: any[],
-    token: string | null = null,
+    playerId: string | null = null,
     query = '',
   ) => {
     const socket = new WebSocket(
@@ -224,7 +224,7 @@ try {
 
     sockets.push(socket);
 
-    return new Promise<{ token: string; playerId: number; shipId: number }>(
+    return new Promise<{ playerId: string; playerNumber: number; shipId: number }>(
       (resolveClient, reject) => {
         let welcome: any[];
         let received = 0;
@@ -242,7 +242,7 @@ try {
         });
 
         socket.on('open', () => {
-          socket.send(codec[0](token));
+          socket.send(codec[0](playerId));
           socket.send(codec[5]());
         });
 
@@ -301,8 +301,8 @@ try {
               socket.close();
 
               resolveClient({
-                token: welcome[1],
-                playerId: welcome[2],
+                playerId: welcome[1],
+                playerNumber: welcome[2],
                 shipId: welcome[3],
               });
             }
@@ -319,11 +319,11 @@ try {
   await once(sockets.at(-1)!, 'close');
   const resumed = await connect(
     production,
-    first.token,
+    first.playerId,
     `?${snapshotDeltaQuery}`,
   );
 
-  assert.equal(resumed.playerId, first.playerId);
+  assert.equal(resumed.playerNumber, first.playerNumber);
   assert.equal(resumed.shipId, first.shipId);
   await once(sockets.at(-1)!, 'close');
 
@@ -337,7 +337,7 @@ try {
 
     return new Promise<{
       socket: WebSocket;
-      playerId: number;
+      playerNumber: number;
       shipId: number;
       tick: number;
       entities: Map<number, ReplicatedEntity>;
@@ -355,7 +355,7 @@ try {
         socket.send(
           encodeClientMessage({
             type: 'hello',
-            playerToken: null,
+            playerId: null,
           }),
         ),
       );
@@ -410,7 +410,7 @@ try {
           if (welcome) {
             resolveClient({
               socket,
-              playerId: welcome.playerId,
+              playerNumber: welcome.playerNumber,
               shipId: welcome.shipId,
               tick: snapshot.serverTick,
               entities,
@@ -550,7 +550,7 @@ try {
             (sound: number[]) =>
               sound[0] === 0 &&
               sound[1] === actor.shipId &&
-              sound[2] === actor.playerId,
+              sound[2] === actor.playerNumber,
           )
         ) {
           resolveSound();

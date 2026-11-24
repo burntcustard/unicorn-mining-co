@@ -76,7 +76,7 @@ export function installLatencyClient({
     radius: get(object, 'radius'),
     health: get(object, 'health'),
     dead: Boolean(get(object, 'dead')),
-    playerId: get(object, 'playerId'),
+    playerNumber: get(object, 'playerNumber'),
     dockedTo: get(object, 'dockedTo'),
     launching: get(object, 'launching'),
     ...(get(object, 'modules') && {
@@ -111,7 +111,7 @@ export function installLatencyClient({
     at: performance.now(),
     connected: get(network, 'connected'),
     shipId: get(network, 'shipId'),
-    playerId: get(network, 'playerId'),
+    playerNumber: get(network, 'playerNumber'),
     own: own() && summarize(own()),
     entities: [...entities().values()]
       .filter((object) =>
@@ -168,7 +168,7 @@ export function installLatencyClient({
 
       return false;
     },
-    install(pilot: { shipId: number; playerId: number }) {
+    install(pilot: { shipId: number; playerNumber: number }) {
       if (page.latencyProbe) throw Error('Latency probe already installed');
       const Ship = refs.find(
         (value) =>
@@ -199,7 +199,7 @@ export function installLatencyClient({
 
       const capture: Value = {
         shipId: get(network, 'shipId'),
-        playerId: get(network, 'playerId'),
+        playerNumber: get(network, 'playerNumber'),
         pilot,
         startedAt: performance.now(),
         frames: [],
@@ -305,7 +305,7 @@ export function installLatencyClient({
       Projectile.prototype[key('render')] = function (...args: Value[]) {
         const previous = projectileDraw;
         const observe =
-          get(this, 'playerId') === pilot.playerId &&
+          get(this, 'playerNumber') === pilot.playerNumber &&
           name(get(this, 'definitionId')) === 'autogun';
         const pose = get(args[0], 'pose') || this;
 
@@ -347,7 +347,7 @@ export function installLatencyClient({
             if (
               entity &&
               name(get(entity, 'kind')) === 'projectile' &&
-              get(entity, 'playerId') === pilot.playerId
+              get(entity, 'playerNumber') === pilot.playerNumber
             ) {
               capture.shots.push({
                 id,

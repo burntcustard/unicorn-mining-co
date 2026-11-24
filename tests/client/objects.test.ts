@@ -328,7 +328,7 @@ for (const Type of [Craft, Station, Station, Ship]) {
     );
   }
 }
-const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 const gateCollider = gate.hitbox()[0];
 const shipCollider = ship.hitbox()[0];
 const savedPosition = Vec.clone(ship.position);

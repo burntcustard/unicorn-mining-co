@@ -1,18 +1,32 @@
 use super::*;
 
 impl AuthoritativeSession {
-    pub(super) fn greet(&mut self, client: &Client, player_token: Option<String>, play: bool) {
+    pub(super) fn greet(&mut self, client: &Client, player_id: Option<String>, play: bool) {
         let now = Instant::now();
-        let id = player_token
-            .as_ref()
-            .and_then(|token| self.tokens.get(token).copied())
-            .or_else(|| self.create_account(now));
-        let Some(id) = id else {
+        let lookup = player_id
+            .as_deref()
+            .map(|player_id| self.load_account(player_id, now))
+            .transpose();
+        let saved = match lookup {
+            Ok(saved) => saved.flatten(),
+            Err(error) => {
+                eprintln!("load player account: {error}");
+                client
+                    .socket
+                    .close_with(1013, "Storage temporarily unavailable");
+                return;
+            }
+        };
+        let player_number = saved.or_else(|| self.create_account(now));
+        let Some(player_number) = player_number else {
             client.socket.close_with(1011, "Ship unavailable");
             return;
         };
 
-        let account = self.accounts.get(&id).expect("connected account exists");
+        let account = self
+            .accounts
+            .get(&player_number)
+            .expect("connected account exists");
         if account.banned {
             client.socket.close_with(BANNED_CODE, BANNED_MESSAGE);
             return;
@@ -26,7 +40,7 @@ impl AuthoritativeSession {
 
         let account = self
             .accounts
-            .get_mut(&id)
+            .get_mut(&player_number)
             .expect("connected account exists");
         let world = &mut self.sectors[account.sector].running.world;
         if account.hidden.is_none() {
@@ -63,12 +77,12 @@ impl AuthoritativeSession {
         account.disconnected_at = None;
         account.inputs.reset_connection(held);
         account.stats = Some(ConnectionStats::new(now, world.tick));
-        self.sockets.insert(client.id, id);
-        self.mark_dirty(id, true);
+        self.sockets.insert(client.id, player_number);
+        self.mark_dirty(player_number, true);
         if play {
-            self.play(id);
+            self.play(player_number);
         } else {
-            self.send_snapshot(id);
+            self.send_snapshot(player_number);
         }
     }
 
@@ -235,5 +249,40 @@ impl AuthoritativeSession {
             self.disconnect_with_reason(client.id, "idle");
             client.socket.close_with(4002, "Idle timeout");
         }
+    }
+}
+
+#[cfg(all(test, feature = "test-fixtures"))]
+mod tests {
+    use crate::websocket::FixtureSocket;
+
+    use super::*;
+
+    #[test]
+    fn leaving_hides_the_ship_immediately_and_allows_reentry() {
+        let catalog = Arc::new(Catalog::load().unwrap());
+        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
+        let mut socket = FixtureSocket::new();
+        let client = Client {
+            id: ClientId(1),
+            socket: socket.socket(),
+        };
+
+        session.receive(&client, Control::Hello { player_id: None });
+        socket.drain(|_| {});
+        let id = session.sockets[&client.id];
+        let account = session.accounts.get(&id).unwrap();
+        let (sector, ship) = (account.sector, account.ship_id);
+        assert!(session.sectors[sector].running.world.entity(ship).is_some());
+
+        session.receive(&client, Control::Leave);
+        assert!(session.sectors[sector].running.world.entity(ship).is_none());
+        assert_eq!(session.sockets[&client.id], id);
+
+        session.receive(&client, Control::Play);
+        assert!(session.sectors[sector].running.world.entity(ship).is_some());
+
+        session.disconnect(&client);
+        assert!(session.sectors[sector].running.world.entity(ship).is_some());
     }
 }

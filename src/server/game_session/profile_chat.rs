@@ -1,3 +1,4 @@
+use std::io;
 use std::time::{Duration, Instant};
 
 use crate::persistence::PlayerRole;
@@ -15,7 +16,7 @@ pub const BANNED_MESSAGE: &str =
 
 #[derive(Clone, Copy)]
 pub struct ProfileView<'a> {
-    pub player_id: i64,
+    pub player_number: i64,
     pub display_name: &'a str,
     pub role: PlayerRole,
     pub banned: bool,
@@ -27,55 +28,84 @@ pub struct ProfileFields<'a> {
     pub banned: &'a mut bool,
 }
 
+pub enum ProfileMatch {
+    Missing,
+    Unique(i64, PlayerRole),
+    Ambiguous,
+    Unavailable,
+}
+
 pub trait ProfileRoster {
     fn profiles(&self) -> impl Iterator<Item = ProfileView<'_>>;
     fn profile(&self, id: i64) -> Option<ProfileView<'_>>;
     fn profile_mut(&mut self, id: i64) -> Option<ProfileFields<'_>>;
+
+    fn has_owner(&self) -> bool {
+        self.profiles()
+            .any(|profile| profile.role == PlayerRole::Owner)
+    }
+
+    fn name_taken(&self, name: &str) -> io::Result<bool> {
+        Ok(self
+            .profiles()
+            .any(|profile| equal_name(profile.display_name, name)))
+    }
+
+    fn find_named_profile(&mut self, name: &str) -> ProfileMatch {
+        let mut matches = self
+            .profiles()
+            .filter(|profile| equal_name(profile.display_name, name));
+        match (matches.next(), matches.next()) {
+            (None, _) => ProfileMatch::Missing,
+            (Some(profile), None) => ProfileMatch::Unique(profile.player_number, profile.role),
+            _ => ProfileMatch::Ambiguous,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProfileChange {
     Ignored,
+    NameTaken,
     Unchanged,
     Changed { assigned_owner: Option<i64> },
 }
 
 pub fn set_profile_name(
     roster: &mut impl ProfileRoster,
-    player_id: i64,
+    player_number: i64,
     display_name: String,
-) -> ProfileChange {
+) -> io::Result<ProfileChange> {
     if display_name.is_empty() || !valid_display_name(&display_name) {
-        return ProfileChange::Ignored;
+        return Ok(ProfileChange::Ignored);
     }
-    let Some(fields) = roster.profile_mut(player_id) else {
-        return ProfileChange::Ignored;
+    let Some(profile) = roster.profile(player_number) else {
+        return Ok(ProfileChange::Ignored);
     };
-    if !fields.display_name.is_empty() {
-        return ProfileChange::Unchanged;
+    if !profile.display_name.is_empty() {
+        return Ok(ProfileChange::Unchanged);
+    }
+    if roster.name_taken(&display_name)? {
+        return Ok(ProfileChange::NameTaken);
     }
 
+    let Some(fields) = roster.profile_mut(player_number) else {
+        return Ok(ProfileChange::Ignored);
+    };
     *fields.display_name = display_name;
-    ProfileChange::Changed {
+    Ok(ProfileChange::Changed {
         assigned_owner: assign_initial_owner(roster),
-    }
+    })
 }
 
 /// Bootstrap ownership once for a uniquely matching account.
 pub fn assign_initial_owner(roster: &mut impl ProfileRoster) -> Option<i64> {
-    let mut candidate = None;
-    for profile in roster.profiles() {
-        if profile.role == PlayerRole::Owner {
-            return None;
-        }
-        if equal_name(profile.display_name, INITIAL_OWNER_NAME)
-            && candidate.replace(profile.player_id).is_some()
-        {
-            return None;
-        }
+    if roster.has_owner() {
+        return None;
     }
-
-    let id = candidate?;
+    let ProfileMatch::Unique(id, _) = roster.find_named_profile(INITIAL_OWNER_NAME) else {
+        return None;
+    };
     *roster.profile_mut(id)?.role = PlayerRole::Owner;
     Some(id)
 }
@@ -120,7 +150,7 @@ impl ChatThrottle {
     pub fn dispatch<'a>(
         &mut self,
         roster: &mut impl ProfileRoster,
-        player_id: i64,
+        player_number: i64,
         channel: u8,
         text: &'a str,
         now: Instant,
@@ -133,7 +163,7 @@ impl ChatThrottle {
         {
             return ChatDispatch::Ignore;
         }
-        let Some(player) = roster.profile(player_id) else {
+        let Some(player) = roster.profile(player_number) else {
             return ChatDispatch::Ignore;
         };
         if player.banned {
@@ -183,24 +213,19 @@ fn moderation_command(
         return reply(channel, format!("Usage: {command} playername"));
     }
 
-    let target_id = {
-        let mut matches = roster
-            .profiles()
-            .filter(|candidate| equal_name(candidate.display_name, target_name));
-        let Some(target) = matches.next() else {
-            return reply(channel, "Player not found.");
-        };
-        if matches.next().is_some() {
+    let target_id = match roster.find_named_profile(target_name) {
+        ProfileMatch::Missing => return reply(channel, "Player not found."),
+        ProfileMatch::Ambiguous => {
             return reply(
                 channel,
                 "More than one player has that name; no changes were made.",
             );
         }
-        if target.role == PlayerRole::Owner {
+        ProfileMatch::Unavailable => return reply(channel, "Player lookup unavailable."),
+        ProfileMatch::Unique(_, PlayerRole::Owner) => {
             return reply(channel, "Owners cannot be changed by this command.");
         }
-
-        target.player_id
+        ProfileMatch::Unique(id, _) => id,
     };
 
     let Some(target) = roster.profile_mut(target_id) else {
@@ -589,7 +614,7 @@ mod tests {
     impl Account {
         fn view(&self) -> ProfileView<'_> {
             ProfileView {
-                player_id: self.id,
+                player_number: self.id,
                 display_name: &self.name,
                 role: self.role,
                 banned: self.banned,
@@ -646,26 +671,31 @@ mod tests {
     fn profile_values_are_authoritative_immutable_and_preserve_unicode() {
         let mut roster = Roster::new(&["", "", ""]);
         assert_eq!(
-            set_profile_name(&mut roster, 4, "unknown".into()),
+            set_profile_name(&mut roster, 4, "unknown".into()).unwrap(),
             ProfileChange::Ignored
         );
         for invalid in ["".to_owned(), "a".repeat(17), "🦄".repeat(17)] {
             assert_eq!(
-                set_profile_name(&mut roster, 2, invalid),
+                set_profile_name(&mut roster, 2, invalid).unwrap(),
                 ProfileChange::Ignored
             );
         }
 
         // Long s and ASCII s lie in the same simple-fold orbit.
         assert_eq!(
-            set_profile_name(&mut roster, 1, "BURNTCUſTARD".into()),
+            set_profile_name(&mut roster, 1, "BURNTCUſTARD".into()).unwrap(),
             ProfileChange::Changed {
                 assigned_owner: Some(1)
             },
         );
         assert_eq!(roster.profile(1).unwrap().role, PlayerRole::Owner);
         assert_eq!(
-            set_profile_name(&mut roster, 2, "burntcustard".into()),
+            set_profile_name(&mut roster, 2, "burntcustard".into()).unwrap(),
+            ProfileChange::NameTaken,
+        );
+        assert!(roster.profile(2).unwrap().display_name.is_empty());
+        assert_eq!(
+            set_profile_name(&mut roster, 2, "Another Pilot".into()).unwrap(),
             ProfileChange::Changed {
                 assigned_owner: None
             },
@@ -674,18 +704,18 @@ mod tests {
 
         let name = " aē🦄 <&>\0 ";
         assert_eq!(
-            set_profile_name(&mut roster, 3, name.into()),
+            set_profile_name(&mut roster, 3, name.into()).unwrap(),
             ProfileChange::Changed {
                 assigned_owner: None
             },
         );
         assert_eq!(
-            set_profile_name(&mut roster, 3, "replacement".into()),
+            set_profile_name(&mut roster, 3, "replacement".into()).unwrap(),
             ProfileChange::Unchanged
         );
         assert_eq!(roster.profile(3).unwrap().display_name, name);
         assert_eq!(
-            set_profile_name(&mut roster, 3, "".into()),
+            set_profile_name(&mut roster, 3, "".into()).unwrap(),
             ProfileChange::Ignored
         );
     }
@@ -759,7 +789,7 @@ mod tests {
                 reply(1, "Owners cannot be changed by this command.")
             );
         }
-        set_profile_name(&mut roster, 4, "Other Admin".into());
+        *roster.profile_mut(4).unwrap().display_name = "Other Admin".into();
         assert_eq!(
             dispatch(&mut roster, 1, "/admin Other Admin"),
             reply(

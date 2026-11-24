@@ -197,7 +197,7 @@ mod tests {
             1,
             "mustang",
             ObjectProperties {
-                player_id: Some(1),
+                player_number: Some(1),
                 velocity: Vector::new(1.0, 2.0),
                 ..ObjectProperties::default()
             },
@@ -214,7 +214,7 @@ mod tests {
         assert_eq!(
             events,
             [SimulationEvent::Docked {
-                player_id: 1,
+                player_number: 1,
                 docked_to: 50
             }]
         );

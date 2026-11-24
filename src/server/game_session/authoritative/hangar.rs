@@ -70,12 +70,7 @@ impl Hangar {
 impl AuthoritativeSession {
     pub(super) fn update_stored_ships(&mut self, tick: u64, duration: f64) {
         for account in self.accounts.values_mut() {
-            if account.socket.is_none()
-                && account
-                    .hidden
-                    .as_ref()
-                    .is_some_and(|entity| !entity.model.object().dead)
-            {
+            if account.socket.is_none() && account.hidden.is_some() {
                 continue;
             }
             if !account.hangar.no_ship
@@ -169,7 +164,7 @@ pub(super) fn apply(
             new_id,
             value,
             ObjectProperties {
-                player_id: Some(account.id),
+                player_number: Some(account.player_number),
                 ..Default::default()
             },
             &world.catalog,
@@ -292,7 +287,7 @@ fn pilot(account: &mut Account, world: &mut World, mut next: Entity) {
     next.replication = None;
     world.wake(next);
     world.set_player(Player {
-        id: account.id,
+        player_number: account.player_number,
         ship_id: account.ship_id,
         observer_range: 0.0,
     });
@@ -405,7 +400,7 @@ mod tests {
             id: ClientId(1),
             socket: socket.socket(),
         };
-        session.receive(&client, Control::Prepare { player_token: None });
+        session.receive(&client, Control::Prepare { player_id: None });
         let id = session.sockets[&client.id];
         let sector = session.sectors.start;
         let near = session.sectors[sector]
@@ -510,7 +505,14 @@ mod tests {
             .craft
             .docked_to = Some(1);
         let entity = world.remove_entity(starter).unwrap();
-        let mut account = Account::new(7, 0, "token".into(), entity, Instant::now(), &catalog);
+        let mut account = Account::new(
+            7,
+            0,
+            "fixture-player".into(),
+            entity,
+            Instant::now(),
+            &catalog,
+        );
         world.wake(account.hidden.take().unwrap());
         account.credits = 20.0;
 

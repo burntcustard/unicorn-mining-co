@@ -277,7 +277,7 @@ fn expiry_explodes_once_and_hit_keeps_direct_damage_out_of_splash() {
                 7,
                 definition,
                 ObjectProperties {
-                    player_id: Some(50),
+                    player_number: Some(50),
                     position: Vector::new(if hit { -80.0 } else { 13.0 }, 0.0),
                     velocity: if hit {
                         Vector::new(600.0, 0.0)
@@ -373,7 +373,7 @@ fn explosion_deduplicates_parts_and_pushes_fragments_created_by_damage() {
     explode(
         ExplosionSource {
             id: 3,
-            player_id: Some(5),
+            player_number: Some(5),
             position: Vector::ZERO,
             velocity: Vector::ZERO,
         },
@@ -424,7 +424,7 @@ fn beams_damage_nearest_target_once_per_tick_at_rotated_poses() {
         let mut events = Vec::new();
         let beam = LaserBeam {
             source: 3,
-            player_id: 7,
+            player_number: 7,
             start: position(10.0),
             end: position(350.0),
             damage: 0.1,
@@ -474,7 +474,7 @@ fn ship_lasers_require_an_active_fully_deployed_mount() {
         5,
         "mustang",
         ObjectProperties {
-            player_id: Some(12),
+            player_number: Some(12),
             position: source,
             rotation: angle,
             ..Default::default()
@@ -513,7 +513,7 @@ fn ship_lasers_require_an_active_fully_deployed_mount() {
         beam.start + rotate_point(Vector::new(spec.reach, 0.0), angle + 0.25)
     );
     assert_eq!(beam.damage, spec.damage);
-    assert_eq!((beam.source, beam.player_id), (5, 12));
+    assert_eq!((beam.source, beam.player_number), (5, 12));
 
     ship.craft.launching = 1.0;
     assert!(ship.laser_beams().next().is_none());

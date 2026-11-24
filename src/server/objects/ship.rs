@@ -422,9 +422,9 @@ impl Ship {
             }
         }
 
-        if let Some(player_id) = self.craft.object.player_id {
+        if let Some(player_number) = self.craft.object.player_number {
             events.push(SimulationEvent::Docked {
-                player_id,
+                player_number,
                 docked_to: docking_craft.object.id,
             });
         }

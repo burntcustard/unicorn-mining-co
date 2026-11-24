@@ -137,7 +137,7 @@ test('steering endpoints require completed stationary frames and actual onset', 
 });
 
 test('production preparation literals include property rewrites as well as protocol tags', () => {
-  assert.equal(latencyLiterals.remove, '_remove');
+  assert.equal(latencyLiterals.mount, '_mount');
   assert.notEqual(latencyLiterals.buyAmmo, 'buyAmmo');
   assert.notEqual(latencyLiterals.hornDrill, 'hornDrill');
 });
@@ -291,7 +291,7 @@ test('shared protocol runtime emits a usable codec and the ordinary catalog', as
     }
 
     const messages: ClientMessage[] = [
-      { type: 'hello', playerToken: null },
+      { type: 'hello', playerId: null },
       { type: 'snapshotAck', sequence: 257 },
     ];
 

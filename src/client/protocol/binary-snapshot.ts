@@ -635,8 +635,8 @@ export function decodeBinarySnapshot(
           entity.shades = clear ? null : shades();
           break;
 
-        case BinaryField.playerId:
-          entity.playerId = clear ? null : number();
+        case BinaryField.playerNumber:
+          entity.playerNumber = clear ? null : number();
           break;
 
         case BinaryField.pointCount:

@@ -74,7 +74,7 @@ fn projectile_impact_runs_inside_the_concrete_world() {
         ObjectProperties {
             position: Vector::new(-20.0, 0.0),
             velocity: Vector::new(1500.0, 0.0),
-            player_id: Some(3),
+            player_number: Some(3),
             ..ObjectProperties::default()
         },
         &catalog,
@@ -130,7 +130,7 @@ fn saved_player_ship_resumes_stationary_with_cargo_and_fuel() {
     assert_eq!(restored.craft.object.position, Vector::new(11.0, -21.0));
     assert_eq!(restored.craft.object.velocity, Vector::ZERO);
     assert_eq!(restored.fuel, ship.fuel);
-    assert_eq!(restored.craft.object.player_id, Some(3));
+    assert_eq!(restored.craft.object.player_number, Some(3));
     assert_eq!(
         restored
             .craft

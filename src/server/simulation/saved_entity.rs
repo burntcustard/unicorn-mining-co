@@ -235,7 +235,7 @@ impl SavedModel {
                 firing,
                 target_id,
             } => {
-                let mut ship = ship.restore(object.player_id.unwrap_or_default(), catalog)?;
+                let mut ship = ship.restore(object.player_number.unwrap_or_default(), catalog)?;
                 ship.craft.object = object;
                 ship.craft.launching = launching;
                 ship.craft.has_launching = has_launching;

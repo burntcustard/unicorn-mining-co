@@ -278,7 +278,7 @@ impl<Entity> StreamingRegions<Entity> {
         ids.extend(world.entities().filter_map(|entity| {
             let object = W::base(entity);
             (!self.managed.contains_key(&object.id)
-                && object.player_id.is_none()
+                && object.player_number.is_none()
                 && !matches!(object.kind.as_str(), "jumpGate" | "wormhole")
                 && !self.nearby(object))
             .then_some(object.id)

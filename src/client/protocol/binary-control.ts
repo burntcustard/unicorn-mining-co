@@ -46,7 +46,7 @@ const uuidPattern =
 const hex = '0123456789abcdef';
 const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 
-export const isPlayerToken = (value: string | null): value is string =>
+export const isPlayerId = (value: string | null): value is string =>
   value !== null && uuidPattern.test(value);
 
 class ControlWriter {
@@ -105,8 +105,8 @@ class ControlWriter {
   }
 
   uuid(value: string) {
-    if (!isPlayerToken(value)) {
-      throw new RangeError('Invalid binary control token');
+    if (!isPlayerId(value)) {
+      throw new RangeError('Invalid binary control player ID');
     }
 
     const digits = value.replaceAll('-', '');
@@ -335,9 +335,9 @@ export function encodeClientMessage(
         message.type === 'hello' ? hello : prepare,
       );
 
-      writer.byte(+(message.playerToken !== null));
+      writer.byte(+(message.playerId !== null));
 
-      if (message.playerToken !== null) writer.uuid(message.playerToken);
+      if (message.playerId !== null) writer.uuid(message.playerId);
       return writer.finish();
     }
 
@@ -547,13 +547,13 @@ export function decodeClientMessage(
     case hello:
 
     case prepare: {
-      const token = reader.byte();
+      const hasPlayerId = reader.byte();
 
-      if (token > 1) throw new Error('Invalid binary control');
+      if (hasPlayerId > 1) throw new Error('Invalid binary control');
 
       message = {
         type: reader.type === hello ? 'hello' : 'prepare',
-        playerToken: token & 1 ? reader.uuid() : null,
+        playerId: hasPlayerId ? reader.uuid() : null,
       };
 
       break;
@@ -862,10 +862,10 @@ export function encodeServerControl(
 
   const writer = new ControlWriter(welcome);
 
-  writer.unsigned(message.playerId);
+  writer.unsigned(message.playerNumber);
   writer.unsigned(message.shipId);
   writer.unsigned(message.serverTick);
-  writer.uuid(message.playerToken);
+  writer.uuid(message.playerId);
   writer.number(message.worldSeed);
   writer.number(message.spawn.x);
   writer.number(message.spawn.y);
@@ -1048,19 +1048,19 @@ export function decodeServerControl(
       break;
 
     case welcome: {
-      const playerId = reader.unsigned();
+      const playerNumber = reader.unsigned();
       const shipId = reader.unsigned();
       const serverTick = reader.unsigned();
-      const playerToken = reader.uuid();
+      const playerId = reader.uuid();
       const worldSeed = reader.number();
       const spawn = Vec.create(reader.number(), reader.number());
 
       message = {
         type: 'welcome',
-        playerId,
+        playerNumber,
         shipId,
         serverTick,
-        playerToken,
+        playerId,
         worldSeed,
         spawn,
       };

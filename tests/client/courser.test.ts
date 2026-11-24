@@ -27,7 +27,7 @@ import { rotatePoint } from '${process.cwd()}/src/client/utilities/geometry.ts';
 const world = createWorld();
 // Ship overrides keep fixed cannons fixed and telescope recessed barrels.
 for (const shipType of ['crescent', 'courser']) {
-  const craft = createPlayerShip(world, { shipType, playerId: 1 });
+  const craft = createPlayerShip(world, { shipType, playerNumber: 1 });
   if (shipType === 'crescent') {
     craft.fit(new CannonSm());
     craft.fit(new CannonSm());
@@ -64,17 +64,17 @@ for (const shipType of ['crescent', 'courser']) {
 }
 
 for (const shipType of ['courser', 'crotus']) {
-  const rejoining = createPlayerShip(world, { shipType, playerId: 1 });
+  const rejoining = createPlayerShip(world, { shipType, playerNumber: 1 });
   controlShip(rejoining, { ...playerInput, autogunActive: true }, []);
   const restoredInput = { ...playerInput };
   moduleControls.forEach(({ Type, writeInput }) => writeInput({ input: restoredInput, active: rejoining.moduleActive({ module: Type }) }));
   assert(restoredInput.autogunActive, 'reconnection preserves the shared kinetic weapon toggle');
 }
-const ship = addEntity(world, createPlayerShip(world, { shipType: 'courser', playerId: 1 }));
+const ship = addEntity(world, createPlayerShip(world, { shipType: 'courser', playerNumber: 1 }));
 assert.equal(ship.cargoSpace,8);
 const hullOutlines = ship.hullSegments.map(segment => segment.points.map(point => [...point]));
 assert.equal(outerEdges(hullOutlines).length, 1, 'all Courser hull segments stay connected through shared edges');
-world.players.set(1, { id: 1, shipId: ship.id });
+world.players.set(1, { playerNumber: 1, shipId: ship.id });
 const guns = ship.mounts.filter(mount => mount.module instanceof CannonSm);
 const hatch = ship.mounts.find(mount => mount.module instanceof CargoHatchPair);
 const shieldMount = ship.mounts.find(mount => mount.fits.includes(ShieldGeneratorXs));
@@ -158,7 +158,7 @@ for (const heading of [0, Math.PI / 2]) {
     [Vec.create(70, 0), true, opal],
   ]) {
     const testWorld = createWorld();
-    const testShip = addEntity(testWorld, createPlayerShip(testWorld, { shipType: 'courser', playerId: 2, position: Vec.create(100, 200), rotation: heading }));
+    const testShip = addEntity(testWorld, createPlayerShip(testWorld, { shipType: 'courser', playerNumber: 2, position: Vec.create(100, 200), rotation: heading }));
     controlShip(testShip, { ...playerInput, cargoHatch: true, autogunActive: true }, []);
     testShip.updateModules(1);
     const cargo = addEntity(testWorld, new Item(spec, {
@@ -206,7 +206,7 @@ for (const [mount, Type] of [[guns[0], CannonSm], [ship.mounts[3], CargoHatchPai
 
 for (const shipType of ['mustang','arrow','crotus','courser']) {
   const testWorld = createWorld();
-  const testShip = addEntity(testWorld,createPlayerShip(testWorld,{shipType,playerId:2}));
+  const testShip = addEntity(testWorld,createPlayerShip(testWorld,{shipType,playerNumber:2}));
   const engine = testShip.engine;
   const hull = engine.mount.hull;
   if (shipType === 'mustang' || shipType === 'courser') {

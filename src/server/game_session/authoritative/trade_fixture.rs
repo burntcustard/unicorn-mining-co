@@ -73,7 +73,7 @@ impl TradeFixture {
     }
 
     fn setup(&mut self) {
-        self.receive(Control::Hello { player_token: None });
+        self.receive(Control::Hello { player_id: None });
         let player = self.session.accounts.get_mut(&1).expect("fixture player");
         let sector = player.sector;
         player.credits = 10_000.0;

@@ -49,10 +49,10 @@ use hangar::Hangar;
 
 use super::{
     BANNED_CODE, BANNED_MESSAGE, ChatDispatch, ChatThrottle, ConnectionStats, FinishedConnection,
-    GateAccess, InputPacket, InputQueue, OnlinePlayer, ProfileChange, ProfileFields, ProfileRoster,
-    ProfileView, ServerLoadStats, SessionTotals, SnapshotDelivery, SnapshotRequest, SnapshotSample,
-    SnapshotStall, SoundRecipient, SoundShip, WorldSoundLookup, build_world_sounds, list_players,
-    nearby_world_sounds, player_chat, set_profile_name, system_chat, teleport_reply,
+    GateAccess, InputPacket, InputQueue, OnlinePlayer, ProfileChange, ProfileFields, ProfileMatch,
+    ProfileRoster, ProfileView, ServerLoadStats, SessionTotals, SnapshotDelivery, SnapshotRequest,
+    SnapshotSample, SnapshotStall, SoundRecipient, SoundShip, WorldSoundLookup, build_world_sounds,
+    list_players, nearby_world_sounds, player_chat, set_profile_name, system_chat, teleport_reply,
 };
 
 const REPLACED_CODE: u16 = 4001;
@@ -60,12 +60,12 @@ const IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 const REGION_INTERVAL: u64 = 8;
 
 struct Account {
-    id: i64,
+    player_number: i64,
     sector: usize,
     travelled_tick: Option<u64>,
     encounter_after: u64,
     arrival_message: Option<(String, String)>,
-    token: String,
+    player_id: String,
     name: String,
     role: PlayerRole,
     banned: bool,
@@ -104,9 +104,9 @@ struct Account {
 
 impl Account {
     fn new(
-        id: i64,
+        player_number: i64,
         sector: usize,
-        token: String,
+        player_id: String,
         entity: Entity,
         now: Instant,
         catalog: &Catalog,
@@ -114,12 +114,12 @@ impl Account {
         let ship = entity.model.object();
         let timestamp = unix_seconds();
         Self {
-            id,
+            player_number,
             sector,
             travelled_tick: None,
             encounter_after: 0,
             arrival_message: None,
-            token,
+            player_id,
             name: String::new(),
             role: PlayerRole::User,
             banned: false,
@@ -159,7 +159,7 @@ impl Account {
 
     fn as_profile(&self) -> ProfileView<'_> {
         ProfileView {
-            player_id: self.id,
+            player_number: self.player_number,
             display_name: &self.name,
             role: self.role,
             banned: self.banned,
@@ -186,10 +186,10 @@ pub struct AuthoritativeSession {
     dialog_random: SeededRandom,
     npc_players: Vec<NpcPlayer>,
     accounts: OrderedMap<i64, Account>,
-    tokens: HashMap<String, i64>,
+    player_numbers_by_id: HashMap<String, i64>,
     sockets: HashMap<ClientId, i64>,
     pending_ship_hiding: bool,
-    next_player_id: i64,
+    next_player_number: i64,
     inputs: HashMap<i64, InputFrame>,
     events: Vec<SimulationEvent>,
     sounds: Vec<WorldSound>,
@@ -212,10 +212,10 @@ impl AuthoritativeSession {
             dialog_random: SeededRandom::new(unix_seconds() as f64),
             npc_players: Vec::new(),
             accounts: OrderedMap::default(),
-            tokens: HashMap::new(),
+            player_numbers_by_id: HashMap::new(),
             sockets: HashMap::new(),
             pending_ship_hiding: false,
-            next_player_id: 1,
+            next_player_number: 1,
             inputs: HashMap::new(),
             events: Vec::new(),
             sounds: Vec::new(),
@@ -428,6 +428,82 @@ impl ProfileRoster for AuthoritativeSession {
             banned: &mut account.banned,
         })
     }
+
+    fn has_owner(&self) -> bool {
+        self.profiles()
+            .any(|profile| profile.role == PlayerRole::Owner)
+            || self
+                .storage
+                .as_ref()
+                .is_some_and(|storage| storage.reader.has_owner().unwrap_or(true))
+    }
+
+    fn name_taken(&self, name: &str) -> io::Result<bool> {
+        use super::name_matching::equal_name;
+
+        #[cfg(feature = "benchmark-fixtures")]
+        if self.storage.is_none() && self.uses_benchmark_fixtures() {
+            return Ok(false);
+        }
+
+        if self
+            .profiles()
+            .any(|profile| equal_name(profile.display_name, name))
+        {
+            return Ok(true);
+        }
+        self.storage.as_ref().map_or(Ok(false), |storage| {
+            storage.reader.name_taken(name).map_err(io::Error::other)
+        })
+    }
+
+    fn find_named_profile(&mut self, name: &str) -> ProfileMatch {
+        use super::name_matching::equal_name;
+
+        let resident = {
+            let mut matches = self
+                .profiles()
+                .filter(|profile| equal_name(profile.display_name, name));
+            let first = matches
+                .next()
+                .map(|profile| (profile.player_number, profile.role));
+            if matches.next().is_some() {
+                return ProfileMatch::Ambiguous;
+            }
+            first
+        };
+        let saved = self
+            .storage
+            .as_ref()
+            .map(|storage| {
+                storage.reader.matching_profile(name, |player_id| {
+                    !self.player_numbers_by_id.contains_key(player_id)
+                })
+            })
+            .transpose();
+        let saved = match saved {
+            Ok(saved) => saved.flatten(),
+            Err(error) => {
+                eprintln!("find saved player profile: {error}");
+                return ProfileMatch::Unavailable;
+            }
+        };
+        match (resident, saved) {
+            (None, None) => ProfileMatch::Missing,
+            (Some((id, role)), None) => ProfileMatch::Unique(id, role),
+            (None, Some((player_id, role))) => {
+                match self.load_account(&player_id, Instant::now()) {
+                    Ok(Some(id)) => ProfileMatch::Unique(id, role),
+                    Ok(None) => ProfileMatch::Missing,
+                    Err(error) => {
+                        eprintln!("load saved player profile: {error}");
+                        ProfileMatch::Unavailable
+                    }
+                }
+            }
+            _ => ProfileMatch::Ambiguous,
+        }
+    }
 }
 
 impl Session for AuthoritativeSession {
@@ -441,8 +517,8 @@ impl Session for AuthoritativeSession {
             return;
         }
         match control {
-            Control::Hello { player_token } => return self.greet(client, player_token, true),
-            Control::Prepare { player_token } => return self.greet(client, player_token, false),
+            Control::Hello { player_id } => return self.greet(client, player_id, true),
+            Control::Prepare { player_id } => return self.greet(client, player_id, false),
             _ => {}
         }
         let Some(id) = self.sockets.get(&client.id).copied() else {
@@ -535,6 +611,7 @@ impl Session for AuthoritativeSession {
             sector.running.world.tick = end_tick;
         }
         self.background_save(now);
+        self.release_saved_accounts();
 
         if let Some(load) = &mut self.load {
             if super::stats_due(tick, ticks, step) {
@@ -557,18 +634,45 @@ impl Session for AuthoritativeSession {
         }
     }
 
-    fn identity_preview(&mut self, private_id: &str) -> Option<serde_json::Value> {
-        let account = self.accounts.get(self.tokens.get(private_id)?)?;
-        let entity = account.hidden.as_ref().or_else(|| {
-            self.sectors[account.sector]
-                .running
-                .world
-                .entity(account.ship_id)
-        })?;
-        let EntityKind::Ship(ship) = &entity.model else {
-            return None;
+    fn identity_preview(&mut self, player_id: &str) -> io::Result<Option<serde_json::Value>> {
+        use crate::objects::saved_ship::SavedShip;
+
+        let (name, credits, ship) = if let Some(account) = self
+            .player_numbers_by_id
+            .get(player_id)
+            .and_then(|id| self.accounts.get(id))
+        {
+            let entity = account
+                .hidden
+                .as_ref()
+                .or_else(|| {
+                    self.sectors[account.sector]
+                        .running
+                        .world
+                        .entity(account.ship_id)
+                })
+                .ok_or_else(|| io::Error::other("player ship missing"))?;
+            let EntityKind::Ship(ship) = &entity.model else {
+                return Err(io::Error::other("invalid player ship"));
+            };
+            (
+                account.name.clone(),
+                account.credits,
+                SavedShip::capture(ship, &self.catalog),
+            )
+        } else {
+            let Some(storage) = &self.storage else {
+                return Ok(None);
+            };
+            let Some(saved) = storage
+                .reader
+                .player::<SavedShip>(player_id)
+                .map_err(io::Error::other)?
+            else {
+                return Ok(None);
+            };
+            (saved.display_name, saved.credits, saved.ship)
         };
-        let ship = crate::objects::saved_ship::SavedShip::capture(ship, &self.catalog);
         let modules = ship
             .modules
             .iter()
@@ -584,11 +688,11 @@ impl Session for AuthoritativeSession {
             })
             .collect::<Vec<_>>();
         let paint = ship.paint.map_or(-1, |paint| paint as i64);
-        Some(serde_json::json!([
-            account.name,
-            account.credits,
+        Ok(Some(serde_json::json!([
+            name,
+            credits,
             [ship.definition, paint, ship.hull, modules]
-        ]))
+        ])))
     }
 
     fn shutdown(
@@ -700,11 +804,11 @@ struct SoundLookup<'a> {
 }
 
 impl WorldSoundLookup for SoundLookup<'_> {
-    fn player_ship(&self, player_id: i64) -> Option<SoundShip> {
+    fn player_ship(&self, player_number: i64) -> Option<SoundShip> {
         // A portal transfer can move the player before the source sector sends its sounds.
         let account = self
             .accounts
-            .get(&player_id)
+            .get(&player_number)
             .filter(|account| account.sector == self.sector)?;
         Some(SoundShip {
             id: account.ship_id,
@@ -717,10 +821,10 @@ impl WorldSoundLookup for SoundLookup<'_> {
         self.accounts
             .values()
             .find(|account| account.ship_id == entity_id && account.sector == self.sector)
-            .map(|account| account.id)
+            .map(|account| account.player_number)
     }
     fn entity_player(&self, entity_id: i64) -> Option<i64> {
-        self.world.entity(entity_id)?.model.object().player_id
+        self.world.entity(entity_id)?.model.object().player_number
     }
     fn entity_position(&self, entity_id: i64) -> Option<Vector> {
         Some(self.world.entity(entity_id)?.model.object().position)

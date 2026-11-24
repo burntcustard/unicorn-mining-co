@@ -68,7 +68,7 @@ installExampleModules();
 
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
   const prediction = new PredictionManager({ world });
   const server = cloneEntity({ entity: ship }) as typeof ship;
 
@@ -89,9 +89,9 @@ installExampleModules();
 // Reusing display objects across ticks must refresh mechanics and refitted links.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const station = addEntity(
     world,
     createStockedStation(world, { position: Vec.create(2000) }),
@@ -115,12 +115,12 @@ installExampleModules();
   const input: InputFrame = { input: emptyPlayerInput(), changes: [] };
   const sample = () =>
     frames
-      .sample({ world, playerId: 1, input, elapsed: simulationStep / 2 })
+      .sample({ world, playerNumber: 1, input, elapsed: simulationStep / 2 })
       .entities.get(ship.id) as typeof ship;
   const first = sample();
   const copiedAmmo = first.cargoContents.find(({ id }) => id === ammo.id)!;
   const copiedRock = frames
-    .sample({ world, playerId: 1, input, elapsed: simulationStep / 2 })
+    .sample({ world, playerNumber: 1, input, elapsed: simulationStep / 2 })
     .entities.get(rock.id) as typeof rock;
   const geometry = copiedRock.geometrySource;
   const bodies = copiedRock.hitbox();
@@ -133,7 +133,7 @@ installExampleModules();
   assert.equal(
     (
       frames
-        .sample({ world, playerId: 1, input, elapsed: simulationStep / 2 })
+        .sample({ world, playerNumber: 1, input, elapsed: simulationStep / 2 })
         .entities.get(station.id) as Station
     ).cargoContents.length,
     0,
@@ -317,16 +317,16 @@ installExampleModules();
 
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const ammo = new Item(autogunAmmo, { id: 1000 });
 
   ship.cargoContents.push(ammo);
   const before = captureWorld({ world });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
 
   prediction.step({ input: emptyPlayerInput(), send() {} });
 
@@ -476,9 +476,9 @@ installExampleModules();
 
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const horn = ship.segments.find(
     (segment) => segment.module instanceof HornDrill,
   )!;
@@ -508,7 +508,7 @@ installExampleModules();
       'the active horn advances each display frame',
     );
     previousPhase = horn.phase;
-    const predicted = frames.sample({ world, playerId: 1, input, elapsed });
+    const predicted = frames.sample({ world, playerNumber: 1, input, elapsed });
     const drawn = predicted.entities
       .get(ship.id)!
       .segments.find(
@@ -532,12 +532,12 @@ installExampleModules();
 // Snapshot refits and rollbacks must not restart the horn's visual rotation.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   const horn = ship.segments.find(
     (segment) => segment.module instanceof HornDrill,
   )!;
@@ -581,12 +581,12 @@ installExampleModules();
 // Match the original activation-driven speed through wraps, snapshots and release.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   const moduleId = ship.modules.find(
     (module) => module instanceof HornDrill,
   )!.id;
@@ -649,13 +649,13 @@ installExampleModules();
 // Restoring an older checkpoint must not release IDs reserved by the server.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
   const authoritative = cloneEntity({ entity: ship });
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
 
   prediction.step({ input: emptyPlayerInput(), send: () => {} });
 
@@ -682,9 +682,9 @@ installExampleModules();
 // All visible bodies receive fractional prediction, even far from the pilot.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
 
   const rock = addEntity(
     world,
@@ -708,7 +708,7 @@ installExampleModules();
 
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   const motion = new RemoteMotion();
   const starts = [rock.position.x, item.position.x];
   let last = -Infinity;
@@ -750,17 +750,151 @@ installExampleModules();
   );
 }
 
+// A disposable movement sample can influence only the known remote ship's pose.
+{
+  const world = createWorld();
+  const local = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
+  const remote = addEntity(world, createPlayerShip(world, { playerNumber: 2 }));
+  const motion = new RemoteMotion();
+
+  remote.position = Vec.create(200);
+  world.tick = 40;
+
+  const movement = {
+    id: remote.id,
+    position: Vec.create(230),
+    rotation: 0,
+    spin: 0,
+    tick: 40,
+    velocity: Vec.create(),
+  };
+
+  const receive = (
+    samples: (typeof movement)[],
+    now: number,
+    serverTick = 39,
+  ) =>
+    motion.receiveMovement({ samples, serverTick, worldTick: world.tick, now });
+
+  const present = (now: number, serverTick = 39) => {
+    motion.updateMovement({
+      now,
+      world,
+      predicted: world,
+      serverTick,
+      shipId: local.id,
+      renderTick: world.tick,
+    });
+
+    return motion.sample({ now, world });
+  };
+
+  receive([movement, { ...movement, id: local.id }], 0);
+  assert.deepEqual(present(0).get(remote.id)?.position, remote.position);
+  const moving = present(100);
+
+  assert.equal(moving.get(remote.id)!.position.x, 206);
+  assert.deepEqual(moving.get(local.id)?.position, local.position);
+  assert.equal(
+    remote.position.x,
+    200,
+    'the movement lane is presentation only',
+  );
+
+  receive([{ ...movement, tick: 39, position: Vec.create() }], 100);
+  assert.deepEqual(
+    present(100),
+    moving,
+    'an older datagram cannot replace motion',
+  );
+  assert.deepEqual(present(100, 40), moving, 'snapshot fallback is continuous');
+  assert(present(200, 40).get(remote.id)!.position.x < 201);
+
+  receive([movement], 210);
+  assert(!motion.hasMovement, 'expiry retains the newest datagram tick');
+
+  world.entities.delete(remote.id);
+  receive([{ ...movement, tick: 41 }], 210, 40);
+  assert(!present(210, 40).has(remote.id), 'a datagram cannot restore a ship');
+}
+
+{
+  const world = createWorld();
+  const ship = addEntity(
+    world,
+    createPlayerShip(world, { playerNumber: 2, position: Vec.create(200) }),
+  );
+  const motion = new RemoteMotion();
+  const serverTick = 100;
+  const limit = serverTick + maxPredictionTicks;
+
+  const movement = {
+    id: ship.id,
+    position: Vec.create(199),
+    rotation: -0.05,
+    velocity: Vec.create(60),
+    spin: 3,
+    tick: limit - 1,
+  };
+
+  const receive = (sample: typeof movement, now: number) =>
+    motion.receiveMovement({
+      samples: [sample],
+      serverTick,
+      worldTick: world.tick,
+      now,
+    });
+
+  const present = (now: number, renderTick: number) => {
+    motion.updateMovement({
+      now,
+      world,
+      predicted: world,
+      serverTick,
+      renderTick,
+    });
+
+    return motion.sample({ now, world }).get(ship.id)!;
+  };
+
+  world.tick = limit;
+  receive({ ...movement, tick: limit + 1 }, 0);
+  assert(
+    !motion.hasMovement,
+    'the extra input tick cannot admit a future pose',
+  );
+
+  world.tick = limit - 1;
+  receive(movement, 0);
+  assert(
+    motion.hasMovement,
+    'a rejected tick cannot advance the ordering watermark',
+  );
+  assert.equal(present(0, limit - 0.5).position.x, 200);
+
+  world.tick = limit;
+  const capped = present(80, limit + 1);
+
+  assert.equal(capped.position.x, 201);
+  assert.equal(capped.rotation, 0.05);
+  assert.deepEqual(present(100, limit + 1), capped);
+
+  receive({ ...movement, ...capped, tick: limit }, 100);
+  assert.deepEqual(present(100, limit + 0.5), capped);
+  assert.deepEqual(present(200, limit + 1), capped);
+}
+
 // Rendering predicts the unfinished tick, not the previous tick's pose.
 // Sampling more frames must not advance history or change the eventual solve.
 for (const fps of [60, 120, 144]) {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   addEntity(world, new GameObject({ id: 100, position: Vec.create(8000) }));
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   const input = { ...emptyPlayerInput(), thrust: 1, turn: -1 };
   let messages = 0;
 
@@ -841,9 +975,9 @@ for (const fps of [60, 120, 144]) {
 // tiny display fraction. The full endpoint still equals committed physics.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
 
   addEntity(
     world,
@@ -857,7 +991,7 @@ for (const fps of [60, 120, 144]) {
 
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   const endpoint = Vec.clone(
     prediction.predictFrame({ elapsed: simulationStep }).entities.get(ship.id)!
       .position,
@@ -887,12 +1021,12 @@ for (const fps of [60, 120, 144]) {
 // Two immediate transitions in one tick must retain the duration of a short tap.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
 
   const sent: { offset: number; input: ReturnType<typeof emptyPlayerInput> }[] =
     [];
@@ -922,10 +1056,10 @@ for (const fps of [60, 120, 144]) {
   const expected = createWorld();
   const authoritative = addEntity(
     expected,
-    createPlayerShip(expected, { playerId: 1 }),
+    createPlayerShip(expected, { playerNumber: 1 }),
   );
 
-  addPlayer(expected, { id: 1, shipId: authoritative.id });
+  addPlayer(expected, { playerNumber: 1, shipId: authoritative.id });
 
   updateWorld({
     world: expected,
@@ -943,12 +1077,12 @@ for (const { active, progress } of [
   { active: 1, progress: 0.15 },
 ]) {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   const open = { ...emptyPlayerInput(), cargoHatch: true };
 
   for (let tick = 0; tick < 8; tick++) {
@@ -987,13 +1121,13 @@ for (const { active, progress } of [
 // Cargo and ammunition corrections apply even when ship motion matches.
 for (const correction of ['cargo', 'rounds'] as const) {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   ship.cargoContents.push(new Item(autogunAmmo, { world, id: 999 }));
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
 
   prediction.step({ input: emptyPlayerInput(), send() {} });
 
@@ -1027,12 +1161,12 @@ for (const correction of ['cargo', 'rounds'] as const) {
 // A clock reset must not leave a future input waiting to reactivate thrust.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   world.tick = 10;
 
   prediction.step({ input: { ...emptyPlayerInput(), thrust: 1 }, send() {} });
@@ -1053,16 +1187,16 @@ for (const correction of ['cargo', 'rounds'] as const) {
 
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const drifting = addEntity(
     world,
     new GameObject({ id: 99, position: Vec.create(500), spin: 1 }),
   );
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   world.tick = 6;
 
   prediction.reconcile({
@@ -1106,7 +1240,7 @@ for (const localId of [1, 2]) {
     world,
     createPlayerShip(world, {
       id: 1,
-      playerId: 1,
+      playerNumber: 1,
       position: Vec.create(-85),
       velocity: Vec.create(300),
     }),
@@ -1116,13 +1250,13 @@ for (const localId of [1, 2]) {
     world,
     createPlayerShip(world, {
       id: 2,
-      playerId: 2,
+      playerNumber: 2,
       position: Vec.create(),
       rotation: Math.PI,
     }),
   );
 
-  addPlayer(world, { id: localId, shipId: localId });
+  addPlayer(world, { playerNumber: localId, shipId: localId });
   const checkpoint = [...world.entities.values()].map((entity) =>
     cloneEntity({ entity }),
   );
@@ -1132,10 +1266,10 @@ for (const localId of [1, 2]) {
   const expected = createWorld();
 
   checkpoint.forEach((entity) => addEntity(expected, cloneEntity({ entity })));
-  addPlayer(expected, { id: localId, shipId: localId });
+  addPlayer(expected, { playerNumber: localId, shipId: localId });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: localId });
+  prediction.setLocalPlayer({ playerNumber: localId });
 
   for (let tick = 0; tick < 2; tick++) {
     prediction.step({ input: emptyPlayerInput(), send() {} });
@@ -1237,10 +1371,10 @@ console.log(
   );
 
   station.dockingBays = [Math.PI];
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
   ship.dockedTo = station.id;
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const prediction = new FramePrediction();
 
   const input = {
@@ -1254,12 +1388,12 @@ console.log(
   };
 
   const before = prediction
-    .sample({ world, playerId: 1, input, elapsed: simulationStep / 4 })
+    .sample({ world, playerNumber: 1, input, elapsed: simulationStep / 4 })
     .entities.get(ship.id)!;
 
   assert(Math.abs(before.rotation) < 1e-6);
   const after = prediction
-    .sample({ world, playerId: 1, input, elapsed: simulationStep * 0.75 })
+    .sample({ world, playerNumber: 1, input, elapsed: simulationStep * 0.75 })
     .entities.get(ship.id)!;
 
   assert(
@@ -1277,13 +1411,13 @@ console.log(
     world,
     new Station({ world, stationType: 'corral-6' }),
   );
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
 
   ship.dockedTo = station.id;
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const prediction = new PredictionManager({ world });
 
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
 
   const send = () => {};
 

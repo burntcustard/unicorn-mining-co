@@ -73,7 +73,7 @@ for (const fixture of fixtures) for (const [delay, skipTick] of timings) {
   calls.length = 0;
   const network = new NetworkClient({ url: 'test' });
   network.receive({ message: {
-    type: 'welcome', playerToken: 'test', playerId: 1, shipId: 1,
+    type: 'welcome', playerId: 'test', playerNumber: 1, shipId: 1,
     worldSeed: 25, serverTick: 0, spawn: { x: 0, y: 0 }, unlockedPaints: [],
   }});
   network.receive({ message: decode(fixture.initial) });

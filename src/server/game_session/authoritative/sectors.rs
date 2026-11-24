@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io;
 use std::ops::{Index, IndexMut};
 use std::sync::Arc;
@@ -36,6 +37,7 @@ pub(super) struct SectorRuntime {
     pub(super) last_sync: Option<u64>,
     pub(super) checkpoint: WorldCheckpoint,
     pub(super) npcs: SectorNpcs,
+    pub(super) pirate_cooldowns: BTreeMap<String, u64>,
     traffic: PortalTraffic,
     effects: PortalEffects,
 }
@@ -75,6 +77,7 @@ impl SectorRuntime {
             last_sync: None,
             checkpoint: WorldCheckpoint::new(now),
             npcs: SectorNpcs::new(tick, catalog),
+            pirate_cooldowns: BTreeMap::new(),
             traffic: PortalTraffic::default(),
             effects: PortalEffects::default(),
         })
@@ -247,11 +250,11 @@ impl AuthoritativeSession {
                 });
             }
             let player = &mut self.npc_players[count];
-            if player.observer_id != account.id {
-                player.account.clone_from(&account.token);
+            if player.observer_id != account.player_number {
+                player.account.clone_from(&account.player_id);
                 player.display_name.clone_from(&account.name);
             }
-            player.observer_id = account.id;
+            player.observer_id = account.player_number;
             player.ship_id = account.ship_id;
             player.ship_dead = account
                 .hidden
@@ -271,7 +274,7 @@ impl AuthoritativeSession {
             running: &mut sector.running,
             regions: &mut sector.regions,
             players: &mut self.npc_players,
-            next_observer_id: &mut self.next_player_id,
+            next_observer_id: &mut self.next_player_number,
             inputs: &mut self.inputs,
         };
         match phase {
@@ -285,7 +288,7 @@ impl AuthoritativeSession {
         if matches!(phase, NpcPhase::AfterTick) {
             // The account registry stays in the order used to build the NPC roster.
             for (account, player) in self.accounts.values_mut().zip(&self.npc_players) {
-                debug_assert_eq!(account.id, player.observer_id);
+                debug_assert_eq!(account.player_number, player.observer_id);
                 account.encounter_after = player.encounter_after;
             }
         }
@@ -299,7 +302,7 @@ impl AuthoritativeSession {
             };
             if let Some(recipient) = message.recipient {
                 if let Some(client) = self
-                    .tokens
+                    .player_numbers_by_id
                     .get(&recipient)
                     .and_then(|id| self.accounts.get(id))
                     .and_then(|account| account.socket.as_ref())
@@ -312,7 +315,7 @@ impl AuthoritativeSession {
                     .values()
                     .filter(|account| account.sector == index)
                 {
-                    if sector.running.world.player(account.id).is_some()
+                    if sector.running.world.player(account.player_number).is_some()
                         && let Some(client) = &account.socket
                     {
                         send_control(&client.socket, control, &self.catalog);
@@ -406,7 +409,7 @@ impl AuthoritativeSession {
                 .values()
                 .filter(|account| active(account))
                 .map(|account| PortalPlayer {
-                    player_id: account.id,
+                    player_number: account.player_number,
                     ship_id: account.ship_id,
                     travelled_tick: account.travelled_tick,
                     display_name: &account.name,
@@ -451,11 +454,11 @@ impl AuthoritativeSession {
                     }
                 }
                 TransitAction::Arrive {
-                    player_id,
+                    player_number,
                     ship_id,
                     player_name,
                     departure,
-                } => self.arrive(sector, player_id, ship_id, &player_name, &departure),
+                } => self.arrive(sector, player_number, ship_id, &player_name, &departure),
             }
         }
         self.sectors[sector].effects = effects;
@@ -483,7 +486,7 @@ impl AuthoritativeSession {
             .values()
             .filter(|account| account.sector == sector)
         {
-            if world.player(account.id).is_some()
+            if world.player(account.player_number).is_some()
                 && let Some(client) = &account.socket
             {
                 send_control(&client.socket, message, &self.catalog);
@@ -494,7 +497,7 @@ impl AuthoritativeSession {
     fn arrive(
         &mut self,
         source_index: usize,
-        player_id: i64,
+        player_number: i64,
         ship_id: i64,
         player_name: &str,
         departure: &PortalEndpoint,
@@ -531,7 +534,7 @@ impl AuthoritativeSession {
         if !transfer_player(
             &mut source.running.world,
             &mut destination.running.world,
-            player_id,
+            player_number,
             ship_id,
             arrival,
         ) {
@@ -539,15 +542,15 @@ impl AuthoritativeSession {
         }
         let account = self
             .accounts
-            .get_mut(&player_id)
+            .get_mut(&player_number)
             .expect("travelling account");
         account.sector = destination_index;
         account.arrival_message = arrival_message;
         reset_location(account, arrival, travelled_tick);
-        self.inputs.remove(&player_id);
+        self.inputs.remove(&player_number);
         self.sync_regions(destination_index, None);
-        self.mark_dirty(player_id, false);
-        self.send_snapshot(player_id);
+        self.mark_dirty(player_number, false);
+        self.send_snapshot(player_number);
     }
 }
 
@@ -606,9 +609,9 @@ mod tests {
         account.sector = destination;
         reset_location(account, arrival, 0);
 
-        let module_event = |player_id| SimulationEvent::ModuleChanged {
+        let module_event = |player_number| SimulationEvent::ModuleChanged {
             module: "searchLight".into(),
-            player_id,
+            player_number,
             active: true,
         };
         let contact = Vector::new(300.0, 400.0);
@@ -740,7 +743,7 @@ mod tests {
         let spectator = session.create_account(Instant::now()).unwrap();
         session.play(spectator);
         let ship_id = session.accounts.get(&id).unwrap().ship_id;
-        let token = session.accounts.get(&id).unwrap().token.clone();
+        let player_id = session.accounts.get(&id).unwrap().player_id.clone();
         session.accounts.get_mut(&id).unwrap().name = "Arriving pilot".into();
 
         let world = &mut session.sectors[start].running.world;
@@ -802,7 +805,11 @@ mod tests {
 
         let mut reloaded = AuthoritativeSession::new(25.0, catalog).unwrap();
         reloaded.open_player_accounts(&db, backups).unwrap();
-        let id = reloaded.tokens[&token];
+        assert!(reloaded.accounts.is_empty());
+        let id = reloaded
+            .load_account(&player_id, Instant::now())
+            .unwrap()
+            .unwrap();
         let account = reloaded.accounts.get(&id).unwrap();
         assert_eq!(account.sector, destination_index);
         assert_eq!(account.ship_id, ship_id);

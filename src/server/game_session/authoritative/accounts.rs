@@ -6,10 +6,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::game_session::world_checkpoint::{CHECKPOINT_BUDGET, WorldCheckpoint};
+use crate::npc::pirate::SavedPirate;
 use crate::npc::world_host::NpcWorld;
 use crate::objects::saved_ship::SavedShip;
 use crate::persistence::{
-    SaveBatch, SaveWriter, SavedPlayer, Store, WorldState, generation_digest,
+    AccountReader, SaveBatch, SaveWriter, SavedPlayer, Store, WorldState, generation_digest,
 };
 use crate::simulation::saved_entity::SavedModel;
 
@@ -24,6 +25,7 @@ const BATCH_SIZE: usize = 256;
 
 pub(super) struct AccountStorage {
     writer: AccountWriter,
+    pub(super) reader: AccountReader,
     generation_digest: String,
     sequence: u64,
     pending: BTreeSet<i64>,
@@ -47,6 +49,7 @@ impl AuthoritativeSession {
             ));
         }
         let store = Store::open(path).map_err(io::Error::other)?;
+        let reader = store.account_reader().map_err(io::Error::other)?;
         let digest = generation_digest(&self.catalog).map_err(io::Error::other)?;
         let now = Instant::now();
         self.sectors.enable_storage();
@@ -79,6 +82,10 @@ impl AuthoritativeSession {
                 self.sectors.load(index, now, state.tick)?;
                 let sector = &mut self.sectors[index];
                 WorldCheckpoint::restore_sector_state(&mut sector.running.world, state);
+                sector.pirate_cooldowns = state.pirate_cooldowns.clone();
+                sector
+                    .pirate_cooldowns
+                    .retain(|_, cooldown| *cooldown > saved.tick);
                 sector
                     .checkpoint
                     .restore(
@@ -106,22 +113,23 @@ impl AuthoritativeSession {
             world.tick = saved.tick;
             world.ids.next_entity = world.ids.next_entity.max(saved.next_entity_id);
             world.ids.last_object = world.ids.last_object.min(saved.next_object_id);
-            store
-                .for_each_player(|player| self.restore_account(player, now).map_err(Into::into))
-                .map_err(io::Error::other)?;
+            // Existing pirates still need to resolve their victims and aggressors.
+            let mut encounter_accounts = BTreeSet::new();
+            for state in saved.sectors.values() {
+                for npc in state.npcs.iter().filter(|npc| npc.kind == "pirate") {
+                    let pirate: SavedPirate =
+                        serde_json::from_value(npc.state.clone()).map_err(io::Error::other)?;
+                    encounter_accounts.insert(pirate.victim);
+                    encounter_accounts.extend(pirate.aggressors);
+                }
+            }
+            for player_id in encounter_accounts {
+                if let Some(player) = reader.player(&player_id).map_err(io::Error::other)? {
+                    self.restore_account(player, now, None)?;
+                }
+            }
             for (id, state) in saved.sectors {
                 let index = self.sectors.index_of(&id).expect("loaded sector");
-                for account in self
-                    .accounts
-                    .values_mut()
-                    .filter(|account| account.sector == index)
-                {
-                    account.encounter_after = state
-                        .pirate_cooldowns
-                        .get(&account.token)
-                        .copied()
-                        .unwrap_or_default();
-                }
                 self.prepare_npc_players(index);
                 let sector = &mut self.sectors[index];
                 sector
@@ -131,7 +139,7 @@ impl AuthoritativeSession {
                             running: &mut sector.running,
                             regions: &mut sector.regions,
                             players: &mut self.npc_players,
-                            next_observer_id: &mut self.next_player_id,
+                            next_observer_id: &mut self.next_player_number,
                             inputs: &mut self.inputs,
                         },
                         &state,
@@ -142,6 +150,7 @@ impl AuthoritativeSession {
         }
         self.storage = Some(AccountStorage {
             writer: store.start(backup_directory).map_err(io::Error::other)?,
+            reader,
             generation_digest: digest,
             sequence: 0,
             pending: BTreeSet::new(),
@@ -154,11 +163,33 @@ impl AuthoritativeSession {
         Ok(())
     }
 
+    pub(super) fn load_account(
+        &mut self,
+        player_id: &str,
+        now: Instant,
+    ) -> io::Result<Option<i64>> {
+        if let Some(&player_number) = self.player_numbers_by_id.get(player_id) {
+            return Ok(Some(player_number));
+        }
+        let Some(storage) = &self.storage else {
+            return Ok(None);
+        };
+        let Some(saved) = storage.reader.player(player_id).map_err(io::Error::other)? else {
+            return Ok(None);
+        };
+        let player_number = storage
+            .reader
+            .player_number(player_id)
+            .map_err(io::Error::other)?;
+        self.restore_account(saved, now, player_number).map(Some)
+    }
+
     fn restore_account(
         &mut self,
         mut saved: SavedPlayer<SavedShip>,
         now: Instant,
-    ) -> io::Result<()> {
+        previous_player_number: Option<i64>,
+    ) -> io::Result<i64> {
         let index = if saved.sector_id.is_empty() {
             self.sectors.start
         } else {
@@ -167,24 +198,30 @@ impl AuthoritativeSession {
                 .ok_or_else(|| io::Error::other("unknown player sector"))?
         };
         self.sectors.load(index, now, self.sectors.tick)?;
-        let id = self.next_player_id;
+        let player_number = previous_player_number.unwrap_or(self.next_player_number);
         let ship_id = saved.ship.id;
         let mut ship = saved
             .ship
-            .restore(id, &self.catalog)
+            .restore(player_number, &self.catalog)
             .map_err(io::Error::other)?;
         ship.craft
             .object
             .target_label
             .clone_from(&saved.display_name);
         let world = &mut self.sectors[index].running.world;
-        world.add_entity(EntityKind::Ship(Box::new(ship)), false);
-        let entity = world
-            .remove_entity(ship_id)
-            .ok_or_else(|| io::Error::other("restored ship missing"))?;
+        let entity = world.make_entity(EntityKind::Ship(Box::new(ship)), false);
         world.ids.record_entity(ship_id);
-        let mut account = Account::new(id, index, saved.id, entity, now, &self.catalog);
-        account.hangar.restore(&mut saved.ship, id, world)?;
+        let mut account = Account::new(
+            player_number,
+            index,
+            saved.player_id,
+            entity,
+            now,
+            &self.catalog,
+        );
+        account
+            .hangar
+            .restore(&mut saved.ship, player_number, world)?;
         self.sectors.commit_ids(index);
         account.name = saved.display_name;
         account.role = saved.role;
@@ -195,10 +232,17 @@ impl AuthoritativeSession {
         account.credits = saved.credits;
         account.unlocked_paints = saved.unlocked_paints;
         account.visited = saved.visited;
-        self.tokens.insert(account.token.clone(), id);
-        self.accounts.set(id, account);
-        self.next_player_id += 1;
-        Ok(())
+        account.encounter_after = self.sectors[index]
+            .pirate_cooldowns
+            .remove(&account.player_id)
+            .unwrap_or_default();
+        self.player_numbers_by_id
+            .insert(account.player_id.clone(), player_number);
+        self.accounts.set(player_number, account);
+        if previous_player_number.is_none() {
+            self.next_player_number += 1;
+        }
+        Ok(player_number)
     }
 
     pub fn storage_health(&self) -> impl Fn() -> bool + Send + Sync + 'static {
@@ -254,7 +298,7 @@ impl AuthoritativeSession {
                 self.accounts
                     .values()
                     .filter(|account| account.socket.is_some())
-                    .map(|account| account.id),
+                    .map(|account| account.player_number),
             );
             storage.checkpoint_at = now + CHECKPOINT_INTERVAL;
         }
@@ -281,13 +325,13 @@ impl AuthoritativeSession {
             return true;
         };
         for sector in self.sectors.active_mut() {
-            for (player_id, ship_id) in sector.running.world.drain_changed_player_ships() {
+            for (player_number, ship_id) in sector.running.world.drain_changed_player_ships() {
                 if self
                     .accounts
-                    .get(&player_id)
+                    .get(&player_number)
                     .is_some_and(|account| account.ship_id == ship_id)
                 {
-                    storage.pending.insert(player_id);
+                    storage.pending.insert(player_number);
                 }
             }
         }
@@ -327,7 +371,7 @@ impl AuthoritativeSession {
         storage.sequence += 1;
         for id in &storage.pending {
             if let Some(account) = self.accounts.get_mut(id)
-                && account.save_sequence == u64::MAX
+                && (account.save_sequence == u64::MAX || account.socket.is_none())
             {
                 account.save_sequence = storage.sequence;
             }
@@ -342,6 +386,45 @@ impl AuthoritativeSession {
         true
     }
 
+    pub(super) fn release_saved_accounts(&mut self) {
+        let Some(storage) = &self.storage else {
+            return;
+        };
+        let committed = storage.writer.committed();
+        let mut release = smallvec::SmallVec::<[i64; 8]>::new();
+        for account in self.accounts.values() {
+            if account.socket.is_none()
+                && !account.playing
+                && account.hidden.is_some()
+                && account.save_sequence <= committed
+                && !storage.pending.contains(&account.player_number)
+                && !self.sectors.active().any(|sector| {
+                    sector
+                        .npcs
+                        .references_player(&account.player_id, account.player_number)
+                })
+            {
+                if let Err(error) = storage
+                    .reader
+                    .record_player_number(&account.player_id, account.player_number)
+                {
+                    eprintln!("record disconnected player number: {error}");
+                    return;
+                }
+                release.push(account.player_number);
+            }
+        }
+        for id in release {
+            let account = self.accounts.remove(&id).expect("saved account exists");
+            self.player_numbers_by_id.remove(&account.player_id);
+            if account.encounter_after > self.sectors.tick {
+                self.sectors[account.sector]
+                    .pirate_cooldowns
+                    .insert(account.player_id, account.encounter_after);
+            }
+        }
+    }
+
     pub(super) fn finish_storage(
         &mut self,
         deadline: Instant,
@@ -351,7 +434,7 @@ impl AuthoritativeSession {
         };
         storage
             .pending
-            .extend(self.accounts.values().map(|account| account.id));
+            .extend(self.accounts.values().map(|account| account.player_number));
         for sector in self.sectors.active_mut() {
             sector.checkpoint.stage_active(&sector.running.world);
         }
@@ -376,10 +459,14 @@ impl AuthoritativeSession {
             self.prepare_npc_players(index);
             let sector = &mut self.sectors[index];
             let mut state = WorldCheckpoint::sector_state(&sector.running.world);
+            sector
+                .pirate_cooldowns
+                .retain(|_, cooldown| *cooldown > state.tick);
+            state.pirate_cooldowns.clone_from(&sector.pirate_cooldowns);
             state.pirate_cooldowns.extend(
                 self.npc_players
                     .iter()
-                    .filter(|player| player.in_sector && player.encounter_after != 0)
+                    .filter(|player| player.in_sector && player.encounter_after > state.tick)
                     .map(|player| (player.account.clone(), player.encounter_after)),
             );
             sector.npcs.capture(
@@ -387,7 +474,7 @@ impl AuthoritativeSession {
                     running: &mut sector.running,
                     regions: &mut sector.regions,
                     players: &mut self.npc_players,
-                    next_observer_id: &mut self.next_player_id,
+                    next_observer_id: &mut self.next_player_number,
                     inputs: &mut self.inputs,
                 },
                 &mut state,
@@ -411,7 +498,7 @@ impl AuthoritativeSession {
                     return None;
                 };
                 Some(SavedPlayer {
-                    id: account.token.clone(),
+                    player_id: account.player_id.clone(),
                     display_name: account.name.clone(),
                     role: account.role,
                     banned: account.banned,
@@ -466,6 +553,84 @@ mod tests {
     use crate::utilities::vector::Vector;
 
     use super::*;
+
+    #[cfg(feature = "test-fixtures")]
+    #[test]
+    fn dormant_accounts_reconnect_after_repeated_committed_evictions() {
+        use crate::game_server::{Client, ClientId};
+        use crate::protocol::Control;
+        use crate::websocket::FixtureSocket;
+
+        let catalog = Arc::new(Catalog::load().unwrap());
+        let path = std::env::temp_dir().join(format!("unicorn-residency-{}", uuid::Uuid::new_v4()));
+        let db = path.join("world.sqlite");
+        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
+        session
+            .open_player_accounts(&db, path.join("backups"))
+            .unwrap();
+        let socket = FixtureSocket::new();
+        let client = Client {
+            id: ClientId(1),
+            socket: socket.socket(),
+        };
+        session.receive(&client, Control::Hello { player_id: None });
+        let id = session.sockets[&client.id];
+        let account = session.accounts.get(&id).unwrap();
+        let player_id = account.player_id.clone();
+        let ship = account.ship_id;
+
+        for (client_id, credits) in [(2, 41.0), (3, 83.0)] {
+            let account = session.accounts.get_mut(&id).unwrap();
+            let client = account.socket.clone().unwrap();
+            account.credits = credits;
+            let grace = Duration::from_secs_f64(session.catalog.simulation.flight.launch_duration);
+            session.disconnect(&client);
+            session.hide_disconnected(Instant::now() + grace);
+            session.release_saved_accounts();
+            assert!(session.accounts.get(&id).is_some());
+
+            assert!(session.flush_accounts(Instant::now(), true));
+            let sequence = session.storage.as_ref().unwrap().sequence;
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while session.committed_sequence() < sequence {
+                assert!(Instant::now() < deadline, "account save did not commit");
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            session.release_saved_accounts();
+            assert!(session.accounts.is_empty() && session.player_numbers_by_id.is_empty());
+            let preview = session.identity_preview(&player_id).unwrap().unwrap();
+            assert_eq!(preview[1].as_f64(), Some(credits));
+            assert!(
+                session.accounts.is_empty(),
+                "preview keeps the player dormant"
+            );
+
+            let socket = FixtureSocket::new();
+            let client = Client {
+                id: ClientId(client_id),
+                socket: socket.socket(),
+            };
+            session.receive(
+                &client,
+                Control::Hello {
+                    player_id: Some(player_id.clone()),
+                },
+            );
+            assert_eq!(session.sockets[&client.id], id);
+            let account = session.accounts.get(&id).unwrap();
+            assert_eq!(account.ship_id, ship);
+            assert_eq!(account.credits, credits);
+        }
+        let deadline = Instant::now() + Duration::from_secs(5);
+        session
+            .finish_storage(deadline)
+            .unwrap()
+            .unwrap()
+            .close(deadline)
+            .unwrap();
+        drop(session);
+        std::fs::remove_dir_all(path).unwrap();
+    }
 
     #[tokio::test]
     async fn graceful_shutdown_saves_current_world_entity_positions() {

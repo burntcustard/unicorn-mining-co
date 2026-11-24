@@ -422,15 +422,10 @@ const gameLoop = GameLoop({
     previousFrameAt = now;
     const predicted = network.predictFrame({ now });
     const ownShots = network.predictedShots.filter(
-      ({ projectile }) => projectile.playerId === network.playerId,
+      ({ projectile }) => projectile.playerNumber === network.playerNumber,
     );
 
-    const remotePoses = network.remoteMotion.sample({
-      now,
-      world: network.world,
-      predicted,
-      shipId: network.shipId,
-    });
+    const remotePoses = network.presentedPoses({ now, predicted });
 
     const viewShip = game.viewShip || player.ship;
     const predictedViewShip = predicted.entities.get(viewShip.id);
@@ -784,7 +779,8 @@ const gameLoop = GameLoop({
       if (
         events.some(
           (event) =>
-            event.type === 'docked' && event.playerId === network.playerId,
+            event.type === 'docked' &&
+            event.playerNumber === network.playerNumber,
         )
       ) {
         moduleControls.forEach(({ writeInput }) =>
@@ -795,7 +791,7 @@ const gameLoop = GameLoop({
       presentEvents({
         events,
         onMessage: readSlate,
-        playerId: network.playerId,
+        playerNumber: network.playerNumber,
         shipId: network.shipId,
       });
     }
@@ -804,7 +800,7 @@ const gameLoop = GameLoop({
 
     presentWorldSounds({
       sounds: network.takeSounds(),
-      playerId: network.playerId,
+      playerNumber: network.playerNumber,
       view: { position: camera, width: game.width, height: game.height },
     });
 

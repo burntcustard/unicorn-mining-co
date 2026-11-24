@@ -51,12 +51,12 @@ pub enum SimulationEvent {
         unlock: Option<String>,
     },
     Docked {
-        player_id: i64,
+        player_number: i64,
         docked_to: i64,
     },
     ModuleChanged {
         module: String,
-        player_id: i64,
+        player_number: i64,
         active: bool,
     },
 }

@@ -1,7 +1,7 @@
 import {
   type EntityId,
   type Player,
-  type PlayerId,
+  type PlayerNumber,
 } from '../protocol/entities';
 import { type SimulationWorld } from './world';
 import { GameObject } from '../objects/game-object';
@@ -13,7 +13,7 @@ import { EntityState } from './entity-state';
 export type SimulationWorldState = {
   entities: Map<EntityId, EntityState>;
   nextEntityId: EntityId;
-  players: Map<PlayerId, Player>;
+  players: Map<PlayerNumber, Player>;
   randomState: number;
   tick: number;
 };

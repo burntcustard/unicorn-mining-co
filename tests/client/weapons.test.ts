@@ -70,8 +70,8 @@ installExampleModules();
 // A laser damages the nearest surface continuously without spawning projectiles.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
-  addPlayer(world, { id: 1, shipId: ship.id });
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const laser = new Laser();
   ship.fit(laser, ship.mounts.find((mount) => mount.fits.includes(Laser)));
   const y = laser.mount.localPosition.y;
@@ -137,8 +137,8 @@ installExampleModules();
 // Deployment and firing are independent, including reversals partway through.
 for (const Type of [PlasmaAccelerator, Autogun]) {
   const deploymentWorld = createWorld();
-  const deployedShip = addEntity(deploymentWorld, createPlayerShip(deploymentWorld, { playerId: 1 }));
-  addPlayer(deploymentWorld, { id: 1, shipId: deployedShip.id });
+  const deployedShip = addEntity(deploymentWorld, createPlayerShip(deploymentWorld, { playerNumber: 1 }));
+  addPlayer(deploymentWorld, { playerNumber: 1, shipId: deployedShip.id });
   const gun = new Type();
   const shutdown = gun.activationDuration + (gun.dischargeDuration ?? 0);
   const ratio = shutdown / gun.activationDuration;
@@ -274,7 +274,7 @@ for (const Type of [PlasmaAccelerator, Autogun]) {
 // Both weapons read independent movement, charge and discharge durations.
 for (const Type of [PlasmaAccelerator, Autogun]) {
   const timingWorld = createWorld();
-  const craft = addEntity(timingWorld, createPlayerShip(timingWorld, { playerId: 1 }));
+  const craft = addEntity(timingWorld, createPlayerShip(timingWorld, { playerNumber: 1 }));
   const spec = { ...moduleSpecs[Type.definitionId], activationDuration: 400, chargeDuration: 900, dischargeDuration: 600 };
   const runtimeSpec = moduleSpecForSimulation(spec);
   const gun = new Type({ ...runtimeSpec, model: Type.createModel(runtimeSpec) });
@@ -348,12 +348,12 @@ for (const weapon of [PlasmaAccelerator, Autogun])
       const recoilShip = addEntity(
         recoilWorld,
         createPlayerShip(recoilWorld, {
-          playerId: 1,
+          playerNumber: 1,
           rotation,
           velocity: moving ? Vec.create(7, -3) : Vec.create(),
         }),
       );
-      recoilWorld.players.set(1, { id: 1, shipId: recoilShip.id });
+      recoilWorld.players.set(1, { playerNumber: 1, shipId: recoilShip.id });
       const gun = new weapon();
       recoilShip.fit(
         gun,
@@ -404,8 +404,8 @@ for (const weapon of [PlasmaAccelerator, Autogun])
       }
     }
 const world = createWorld();
-const ship = addEntity(world, createPlayerShip(world, { playerId: 1 }));
-world.players.set(1, { id: 1, shipId: ship.id });
+const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
+world.players.set(1, { playerNumber: 1, shipId: ship.id });
 const plasma = new PlasmaAccelerator(),
   auto = new Autogun();
 ship.fit(
@@ -619,7 +619,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
           new Projectile(id, {
             world: targetWorld,
             id: 300 + n,
-            playerId: 1,
+            playerNumber: 1,
             position: Vec.create(-80, 0),
             velocity: Vec.create(600, 0),
           }),
@@ -711,7 +711,7 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
       }
     }
 }
-const remote = addEntity(world, createPlayerShip(world, { playerId: 2 }));
+const remote = addEntity(world, createPlayerShip(world, { playerNumber: 2 }));
 const remoteGun = new PlasmaAccelerator();
 remote.fit(
   remoteGun,
@@ -730,7 +730,7 @@ const friendly = addEntity(
   circleWorld,
   new GameObject({
     id: 1,
-    playerId: 1,
+    playerNumber: 1,
     health: 100,
     radius: 5,
     position: Vec.create(-10, 0),
@@ -740,7 +740,7 @@ const far = addEntity(
   circleWorld,
   new GameObject({
     id: 2,
-    playerId: 2,
+    playerNumber: 2,
     health: 100,
     radius: 5,
     position: Vec.create(40, 0),
@@ -750,7 +750,7 @@ const near = addEntity(
   circleWorld,
   new GameObject({
     id: 3,
-    playerId: 2,
+    playerNumber: 2,
     health: 100,
     radius: 5,
     position: Vec.create(20, 0),
@@ -760,7 +760,7 @@ const circleShot = addEntity(
   circleWorld,
   new Projectile('autogun', {
     id: 4,
-    playerId: 1,
+    playerNumber: 1,
     position: Vec.create(-80, 0),
     velocity: Vec.create(600, 0),
   }),
@@ -1423,7 +1423,7 @@ game.scale = 1;
 // Synthetic beam presentation follows spec color, range and first impact.
 {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 9 }));
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 9 }));
   const beamEffect = exampleBeamEffect;
   const laser = new Laser({ beamEffect, shades: ['#111111', '#222222', '#123456', '#444444', '#555555'], reach: 321 });
   ship.fit(laser, ship.mounts.find((mount) => mount.fits.includes(Laser)));
@@ -1510,12 +1510,12 @@ for (const Type of [Autogun, PlasmaAccelerator]) {
   const flashShip = addEntity(
     flashWorld,
     createPlayerShip(flashWorld, {
-      playerId: 11,
+      playerNumber: 11,
       position: Vec.create(30, 40),
       rotation: Math.PI / 2,
     }),
   );
-  flashWorld.players.set(11, { id: 11, shipId: flashShip.id });
+  flashWorld.players.set(11, { playerNumber: 11, shipId: flashShip.id });
   const gun = new Type({
     muzzleFlash: [{ type: 'glow', color: '#ff0', duration: 50, radius: 6 }],
   });
@@ -1644,9 +1644,9 @@ for (const definitionId of ['plasmaAccelerator', 'plasmaAcceleratorTurret']) {
 const rechargeWorld = createWorld();
 const chargingShip = addEntity(
   rechargeWorld,
-  createPlayerShip(rechargeWorld, { playerId: 3 }),
+  createPlayerShip(rechargeWorld, { playerNumber: 3 }),
 );
-rechargeWorld.players.set(3, { id: 3, shipId: chargingShip.id });
+rechargeWorld.players.set(3, { playerNumber: 3, shipId: chargingShip.id });
 const chargingGun = new PlasmaAccelerator({ shades: colors.cyan });
 chargingShip.fit(
   chargingGun,
@@ -1778,7 +1778,7 @@ assert.deepEqual(
 // The same spec settings work on another weapon, with different colors and glow.
 const genericShip = addEntity(
   rechargeWorld,
-  createPlayerShip(rechargeWorld, { playerId: 4 }),
+  createPlayerShip(rechargeWorld, { playerNumber: 4 }),
 );
 const genericGun = new Autogun({
   shades: colors.green,
@@ -1960,7 +1960,7 @@ for (const Type of [PlasmaAccelerator, Autogun])
       new Projectile('autogun', {
         world: collisionWorld,
         id: 2,
-        playerId: 2,
+        playerNumber: 2,
         position: Vec.add(gun.mount.localPosition, Vec.create(60, -1)),
         velocity: Vec.create(-600, 0),
       }),
@@ -2041,7 +2041,7 @@ for (const delay of [1, 3, 8]) {
   const server = createWorld();
   const serverShip = addEntity(
     server,
-    createPlayerShip(server, { id: 1, playerId: 1 }),
+    createPlayerShip(server, { id: 1, playerNumber: 1 }),
   );
   serverShip.fit(
     new Autogun(),
@@ -2052,7 +2052,7 @@ for (const delay of [1, 3, 8]) {
   serverShip.cargoContents.push(new Item(autogunAmmo));
   const serverAmmo = serverShip.cargoContents.find((item) => item.resource === 5);
   const initialRounds = serverAmmo.rounds;
-  addPlayer(server, { id: 1, shipId: serverShip.id });
+  addPlayer(server, { playerNumber: 1, shipId: serverShip.id });
   addEntity(
     server,
     new Asteroid({
@@ -2071,9 +2071,9 @@ for (const delay of [1, 3, 8]) {
   server.entities.forEach((entity) =>
     addEntity(client, cloneEntity({ entity })),
   );
-  addPlayer(client, { id: 1, shipId: 1 });
+  addPlayer(client, { playerNumber: 1, shipId: 1 });
   const prediction = new PredictionManager({ world: client });
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   const packets = [];
   const emitted = [];
   // The first fracture occurs at tick 99. Keep delayed reconciliation and a
@@ -2130,25 +2130,25 @@ for (const delay of [1, 3, 8]) {
   const world = createWorld();
   const ship = addEntity(
     world,
-    createPlayerShip(world, { id: 1, playerId: 1 }),
+    createPlayerShip(world, { id: 1, playerNumber: 1 }),
   );
-  addPlayer(world, { id: 1, shipId: ship.id });
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const shot = addEntity(
     world,
     new Projectile('autogun', {
       world,
       id: 100,
-      playerId: 1,
+      playerNumber: 1,
       position: Vec.create(500, 0),
       velocity: Vec.create(200, 0),
     }),
   );
   const reported = cloneEntity({ entity: shot });
   reported.definitionId = 'plasmaAccelerator';
-  reported.playerId = 2;
+  reported.playerNumber = 2;
   reported.health = 0.75;
   const prediction = new PredictionManager({ world });
-  prediction.setLocalPlayer({ playerId: 1 });
+  prediction.setLocalPlayer({ playerNumber: 1 });
   prediction.step({ input: playerInput, send() {} });
   prediction.reconcile({
     tick: 0,
@@ -2160,7 +2160,7 @@ for (const delay of [1, 3, 8]) {
     'the server corrects a reused projectile ID to its real weapon',
   );
   assert.equal(
-    shot.playerId,
+    shot.playerNumber,
     2,
     'the server corrects the owner used to exclude friendly hits',
   );
@@ -2176,7 +2176,7 @@ for (const delay of [1, 3, 8]) {
   );
   const saved = captureWorld({ world });
   shot.definitionId = 'autogun';
-  shot.playerId = 1;
+  shot.playerNumber = 1;
   restoreWorld({ world, state: saved });
   assert.equal(
     shot.definitionId,
@@ -2184,7 +2184,7 @@ for (const delay of [1, 3, 8]) {
     'rollback retains the corrected projectile weapon',
   );
   assert.equal(
-    shot.playerId,
+    shot.playerNumber,
     2,
     'rollback retains the corrected projectile owner',
   );

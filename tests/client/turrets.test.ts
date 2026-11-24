@@ -46,8 +46,8 @@ const pointClose = (actual, expected, message) => {
 };
 const fixture = (Type, properties = {}, shipProperties = {}) => {
   const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerId: 1, ...shipProperties }));
-  world.players.set(1, { id: 1, shipId: ship.id });
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1, ...shipProperties }));
+  world.players.set(1, { playerNumber: 1, shipId: ship.id });
   const mount = ship.mounts.find(mount => mount.fits.includes(Type));
   const gun = new Type(properties);
   ship.fit(gun, mount);
@@ -62,7 +62,7 @@ const projectiles = world => [...world.entities.values()].filter(entity => entit
 // Every turret is a purchasable choice on the Mustang's shield mount.
 for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   const world = createWorld();
-  const ship = createPlayerShip(world, { playerId: 1 });
+  const ship = createPlayerShip(world, { playerNumber: 1 });
   const mount = ship.mounts.find(mount => mount.fits.includes(ShieldGenerator));
   assert(mount.fits.includes(Type), 'shield mount accepts every turret family');
   assert(fitsOf(ship, mount).includes(Type), 'outfitting offers the turret on its compatible empty mount');
@@ -79,7 +79,7 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   const { world, ship, gun, mount } = fixture(Type, {}, { position: Vec.create(40, -30), rotation: 0.7 });
   const localToWorld = point => Vec.add(ship.position, rotatePoint(point, ship.rotation));
   const asteroid = addEntity(world, new Asteroid({ world, contents: [], radius: 12, position: localToWorld(Vec.add(mount.localPosition, Vec.create(0, 150))) }));
-  const enemy = addEntity(world, createPlayerShip(world, { playerId: 2, position: localToWorld(Vec.add(mount.localPosition, Vec.create(-150, 0))) }));
+  const enemy = addEntity(world, createPlayerShip(world, { playerNumber: 2, position: localToWorld(Vec.add(mount.localPosition, Vec.create(-150, 0))) }));
   controlShip(ship, { ...playerInput, targetId: asteroid.id, autogunActive: true, plasmaActive: true, laserActive: true }, []);
   ship.updateModules(gun.activationDuration + (gun.chargeDuration ?? 0));
   gun.turretTurnRate = 1;
@@ -318,11 +318,11 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   const frame = { input, changes: [] };
   for (let tick = 0; tick < 12; tick++) {
     const liveAim = gun.aimRotation;
-    const endpoint = prediction.sample({ world, playerId: 1, input: frame, elapsed: simulationStep });
+    const endpoint = prediction.sample({ world, playerNumber: 1, input: frame, elapsed: simulationStep });
     const end = endpoint.entities.get(ship.id).modules.find(module => module.id === gun.id).aimRotation;
     const turn = Math.atan2(Math.sin(end - liveAim), Math.cos(end - liveAim));
     for (const fraction of [0, 0.1, 0.4, 0.8, 1, 0.4, 1]) {
-      const sampled = prediction.sample({ world, playerId: 1, input: frame, elapsed: simulationStep * fraction });
+      const sampled = prediction.sample({ world, playerNumber: 1, input: frame, elapsed: simulationStep * fraction });
       const rendered = sampled.entities.get(ship.id);
       const turret = rendered.modules.find(module => module.id === gun.id);
       const position = Vec.add(rendered.position, rotatePoint(mount.localPosition, rendered.rotation));
@@ -347,7 +347,7 @@ for (const active of [false, true]) {
   const input = { ...emptyPlayerInput(), autogunActive: active, targetId: target.id };
   const prediction = new FramePrediction();
   for (const fraction of [0.1, 0.5, 1, 0.25, 1, 0]) {
-    const sampled = prediction.sample({ world, playerId: 1, input: { input, changes: [] }, elapsed: simulationStep * fraction });
+    const sampled = prediction.sample({ world, playerNumber: 1, input: { input, changes: [] }, elapsed: simulationStep * fraction });
     const aim = sampled.entities.get(ship.id).modules.find(module => module.id === gun.id).aimRotation;
     const turn = Math.atan2(Math.sin(aim - start), Math.cos(aim - start));
     close(turn, active ? gun.turretTurnRate * simulationStep * fraction : 0,
@@ -378,7 +378,7 @@ for (const Type of [Laser, LaserTurret]) {
     const frame = { input, changes: [] };
     const health = [target.health, target.segments?.map(segment => segment.health)];
     for (const fraction of [0.15, 0.5, 0.9, 1]) {
-      prediction.sample({ world, playerId: 1, input: frame, elapsed: simulationStep * fraction });
+      prediction.sample({ world, playerNumber: 1, input: frame, elapsed: simulationStep * fraction });
     }
     assert.deepEqual([target.health, target.segments?.map(segment => segment.health)], health, 'beam prediction leaves the live asteroid unchanged');
     hits += updateWorld({ world, inputs: new Map([[1, input]]) }).filter(event => event.type === 'laserDamage').length;
