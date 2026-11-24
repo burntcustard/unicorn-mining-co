@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 import {
   dockingControls,
@@ -16,12 +17,12 @@ type Value = Record<string, any>;
 /**
  * Enter a deployed game through its normal menu without importing local code.
  */
-function advanceBenchmarkMenu() {
+function advanceBenchmarkMenu(displayName: string) {
   const input = document.querySelector<HTMLInputElement>('#profile-name');
 
   if (input) {
     if (!input.readOnly) {
-      input.value = 'Benchmark pilot';
+      input.value = displayName;
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.form.requestSubmit();
     }
@@ -64,6 +65,7 @@ export async function prepareLatencyClients({
   const began = performance.now();
   const startedAt = new Date().toISOString();
   const deadline = began + timeoutMs;
+  const runId = randomBytes(4).toString('hex');
   let stage = 'normal profile/play and production discovery';
 
   const evaluate = (page: LatencyPage, expression: string) => {
@@ -86,7 +88,12 @@ export async function prepareLatencyClients({
   while (!loaded.every(Boolean)) {
     for (let index = 0; index < pages.length; index++) {
       if (loaded[index]) continue;
-      await evaluate(pages[index], `(${advanceBenchmarkMenu.toString()})()`);
+      const displayName = `Bench ${runId}-${index + 1}`;
+
+      await evaluate(
+        pages[index],
+        `(${advanceBenchmarkMenu.toString()})(${JSON.stringify(displayName)})`,
+      );
       loaded[index] = await evaluate(
         pages[index],
         `(${installLatencyClient.toString()})(${JSON.stringify({ properties, tags })})`,
