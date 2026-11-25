@@ -41,6 +41,10 @@ import {
 } from './utilities/lighting';
 import { adoptPlayerShip, player, readSlate, updatePlayer } from './player';
 import { renderSparks, sparks, updateSparks } from './effects/shrapnel';
+import {
+  clearAutogunShells,
+  renderAutogunShells,
+} from './effects/autogun-shells';
 import { effects, renderEffects, updateEffects } from './effects/effect';
 import { presentEvents } from './effects/present-events';
 import { GameLoop } from './game-loop';
@@ -256,6 +260,8 @@ const regionalObjects = new Map<number, SimulationObject>();
 
 let stationMarkers: { position: Vec.Value; radius: number }[] = [];
 
+let shellSector = network.sectorName;
+
 const materialize = ({ entity }: { entity: SimulationObject }) => {
   const object = entity.addToScene();
 
@@ -265,6 +271,11 @@ const materialize = ({ entity }: { entity: SimulationObject }) => {
 };
 
 const refreshReplication = () => {
+  if (shellSector !== network.sectorName) {
+    shellSector = network.sectorName;
+    clearAutogunShells();
+  }
+
   const entities = [...network.world.entities.values()];
 
   stationMarkers = [
@@ -529,7 +540,9 @@ const gameLoop = GameLoop({
       );
     });
 
-    for (const { projectile } of ownShots) {
+    for (const { projectile, weapon, deadline } of ownShots) {
+      weapon.presentShot({ craft: player.ship, deadline });
+
       if (
         !projectile.dead &&
         !network.world.entities.has(projectile.id) &&
@@ -600,6 +613,16 @@ const gameLoop = GameLoop({
         );
       }
 
+      if (zIndex === renderingLayers.shipHull) {
+        renderAutogunShells({
+          ctx,
+          dt: dt * 1000,
+          objects: lightObjects,
+          poses: remotePoses,
+          view: { position: camera, width: game.width, height: game.height },
+        });
+      }
+
       renderedCrafts.forEach((craft) => {
         craft.render({
           scenery: lightObjects,
@@ -621,10 +644,6 @@ const gameLoop = GameLoop({
         !object.dead &&
         object.render({ pose: remotePoses.get(object.id) }),
     );
-
-    for (const { weapon, deadline } of ownShots) {
-      weapon.presentShot({ craft: player.ship, deadline });
-    }
 
     renderEffects({ ctx, poses: remotePoses });
     // Sparks off the HornDrill sit over the asteroids and ships they come off
@@ -876,6 +895,7 @@ const leaveWorld = () => {
   player.noteFor = player.queuedNotes.length = 0;
   updateNotification('');
   effects.length = sparks.length = 0;
+  clearAutogunShells();
   updateHornDrillSounds({ crafts: [] });
   updateThrusterSounds({ crafts: [] });
   updateAutogunSounds({ crafts: [], dt: 0 });
