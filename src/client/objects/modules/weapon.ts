@@ -4,6 +4,7 @@ import { game } from '../../game';
 import { rotatePoint, shapeOutlineExtent } from '../../utilities/geometry';
 import * as Vec from '../../utilities/vector';
 import { addEffect } from '../../effects/effect';
+import { ejectAutogunShell } from '../../effects/autogun-shells';
 import { type Craft } from '../craft';
 import { radiusOf } from '../../utilities/polygon';
 import { type WeaponId } from '../../../specs/modules';
@@ -129,6 +130,19 @@ export class Weapon extends Module {
         this.definitionId === 'autogunTurret'
       ) {
         playSound('autogun-fire', { id: this.id });
+        const side = this.mount.localPosition.y < 0 ? -1 : 1;
+        const position = Vec.add(
+          this.mount.localPosition,
+          // The ejection port is alongside the front edge of the rear collar.
+          rotatePoint(Vec.create(4, side * 5), this.aimRotation),
+        );
+
+        ejectAutogunShell({
+          craft,
+          position,
+          rotation: this.aimRotation,
+          side,
+        });
       } else if (plasma) {
         playSound('plasma-accelerator-fire', { id: this.id });
       }

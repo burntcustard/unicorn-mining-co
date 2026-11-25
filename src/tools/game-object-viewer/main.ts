@@ -28,6 +28,10 @@ import {
   updateEffects,
 } from '../../client/effects/effect';
 import { plasmaExplosion } from '../../specs/effects/plasma-explosion';
+import {
+  clearAutogunShells,
+  renderAutogunShells,
+} from '../../client/effects/autogun-shells';
 import { autogunExplosion } from '../../specs/effects/autogun-explosion';
 
 type ViewerState = {
@@ -288,6 +292,7 @@ const createMountControls = ({
 const rebuild = () => {
   stopFiring();
   effects.length = 0;
+  clearAutogunShells();
   world.entities.clear();
   world.players.clear();
   const specs = catalog[state.type];
@@ -406,6 +411,19 @@ const render = (now: number) => {
 
   if (previewObject instanceof Craft || previewObject instanceof Portal) {
     for (const zIndex of Object.values(renderingLayers)) {
+      if (zIndex === renderingLayers.shipHull) {
+        renderAutogunShells({
+          ctx,
+          dt: dt * 1000,
+          objects: [previewObject],
+          view: {
+            position: Vec.create(-game.width / 2, -game.height / 2),
+            width: game.width,
+            height: game.height,
+          },
+        });
+      }
+
       previewObject.render({ zIndex });
     }
   } else {
@@ -594,6 +612,7 @@ import.meta.hot.accept();
 import.meta.hot.dispose((data) => {
   stopFiring();
   effects.length = 0;
+  clearAutogunShells();
   data.state = state;
   persist();
   cancelAnimationFrame(frame);
