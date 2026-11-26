@@ -32,54 +32,94 @@ import acquireTarget from '../../specs/sounds/acquire-target';
 import engineSettings from '../../specs/sounds/engine';
 import hornDrillSettings from '../../specs/sounds/horn-drill';
 import {
-  renderContinuousBuffer,
-  renderEffectBuffer,
-  renderLoopBuffer,
+  generateContinuousBuffer,
+  generateEffectBuffer,
+  generateLoopBuffer,
+  type SoundEffect,
 } from './synthesis';
 import { audio, unlockAudio } from './audio-context';
+import { prepareBuffer, type BufferPreparation } from './buffer-preparation';
 
 // Continuous sounds reuse looped buffers with smooth parameter ramps.
-const loopBuffers: (AudioBuffer | undefined)[] = [];
-const effectBuffers: (AudioBuffer | undefined)[] = [];
-const navigationBuffers: (AudioBuffer | undefined)[] = [];
-const navigationSounds = [
+const loopBuffers: BufferPreparation[] = [
+  {
+    render: (context) =>
+      generateContinuousBuffer({
+        context,
+        kind: 'hornDrill',
+        settings: hornDrillSettings,
+      }),
+  },
+  {
+    render: (context) =>
+      generateContinuousBuffer({
+        context,
+        kind: 'engine',
+        settings: engineSettings,
+      }),
+  },
+  {
+    render: (context) => generateLoopBuffer({ context, layers: autogunMotor }),
+  },
+];
+
+const loopSettings = [
+  hornDrillSettings,
+  engineSettings,
+  { basePitch: 1, ramp: 180 },
+];
+
+const effectBuffer = (layers: SoundEffect[]): BufferPreparation => ({
+  render: (context) => generateEffectBuffer({ context, layers }),
+});
+
+const navigationBuffers = [
   uiNavUp,
   uiNavNeutral,
   uiNavDown,
   uiNavUnselect,
   uiNavSelect,
-];
+].map(effectBuffer);
+
 const effectNextPlay = new Map<string, [number, number]>();
 // Numeric IDs belong to the protocol; keep their event mapping explicit.
-const events = [
-  hatchOpen,
-  hatchClose,
-  pickup,
-  crash,
-  asteroidBreak,
-  shieldBounce,
-  shieldOn,
-  shieldOff,
-  ui,
-  searchLight,
-  // Client-only cue, addressed by name rather than a protocol sound ID.
-  acquireTarget,
-  loseTarget,
-  wormholeIn,
-  wormholeOut,
-  jumpGateOpen,
-  mainMenuClose,
-  mainMenuOpen,
-  chatMessage,
-  autogunFire,
-  autogunAmmoExplode,
-  railgunReady,
-  plasmaAcceleratorFire,
-  plasmaAcceleratorAmmoExplode,
-  railgunCharge,
-  autogunClick,
-  autogunMotor,
-];
+const effects = [
+  [0, hatchOpen],
+  [1, hatchClose],
+  [2, pickup],
+  [3, crash],
+  [4, asteroidBreak],
+  [5, shieldBounce],
+  [6, shieldOn],
+  [7, shieldOff],
+  [8, ui],
+  [9, searchLight],
+  ['acquire-target', acquireTarget],
+  ['lose-target', loseTarget],
+  ['wormhole-in', wormholeIn],
+  ['wormhole-out', wormholeOut],
+  ['jump-gate-open', jumpGateOpen],
+  ['main-menu-close', mainMenuClose],
+  ['main-menu-open', mainMenuOpen],
+  ['chat-message', chatMessage],
+  ['autogun-fire', autogunFire],
+  ['autogun-ammo-explode', autogunAmmoExplode],
+  ['railgun-ready', railgunReady],
+  ['plasma-accelerator-fire', plasmaAcceleratorFire],
+  ['plasma-accelerator-ammo-explode', plasmaAcceleratorAmmoExplode],
+  ['railgun-charge', railgunCharge],
+  ['autogun-click', autogunClick],
+] as const;
+
+type Effect = number | (typeof effects)[number][0];
+
+const effectBuffers = new Map<Effect, BufferPreparation>();
+
+for (const [effect, layers] of effects) {
+  if (layers.length) effectBuffers.set(effect, effectBuffer(layers));
+}
+
+const autogunClickBuffer = effectBuffers.get('autogun-click');
 
 interface Sound extends AudioBufferSourceNode {
   gain: AudioParam;
@@ -87,52 +127,56 @@ interface Sound extends AudioBufferSourceNode {
   pitch?: number;
 }
 
-const navigationBuffer = (
-  index: number,
-  context: Pick<BaseAudioContext, 'createBuffer'>,
-) =>
-  (navigationBuffers[index] ||= renderEffectBuffer({
-    context,
-    layers: navigationSounds[index],
-  }));
-
-// Prepare the cues without opening an audio device before a user gesture.
-if (
-  typeof requestIdleCallback === 'function' &&
-  typeof AudioBuffer === 'function'
-) {
+// Start warmup with the sound chunk, before a gesture opens the audio device.
+if (typeof document !== 'undefined' && typeof AudioBuffer === 'function') {
   const buffers: Pick<BaseAudioContext, 'createBuffer'> = {
     createBuffer: (numberOfChannels, length, sampleRate) =>
       new AudioBuffer({ numberOfChannels, length, sampleRate }),
   };
 
-  const prepareNavigationSounds = (deadline: IdleDeadline) => {
-    // Select is the longest cue, so give it the first idle window.
-    for (let index = navigationSounds.length - 1; index >= 0; index--) {
-      if (navigationBuffers[index]) continue;
-
-      if (deadline.timeRemaining() < 5) {
-        requestIdleCallback(prepareNavigationSounds);
-        return;
-      }
-
-      navigationBuffer(index, buffers);
-    }
-  };
-
-  requestIdleCallback(prepareNavigationSounds);
+  for (const entry of [
+    ...navigationBuffers,
+    ...loopBuffers,
+    ...effectBuffers.values(),
+  ]) {
+    prepareBuffer(entry, buffers, false);
+  }
 }
+
+const playWhenReady = (
+  entry: BufferPreparation,
+  play: (buffer: AudioBuffer) => void,
+) => {
+  const deadline = performance.now() + 150;
+
+  // Keep only the latest cue for a cold buffer.
+  entry.ready = (buffer) => {
+    if (performance.now() <= deadline) play(buffer);
+  };
+};
 
 const playNavigationSound = (cue: -1 | 0 | 1 | 'select' | 'unselect') => {
   if (!audio || audio.state === 'closed') return;
-
+  const context = audio;
   const index = cue === 'select' ? 4 : cue === 'unselect' ? 3 : cue + 1;
-  const source = audio.createBufferSource();
+  const entry = navigationBuffers[index];
+  const prepared = prepareBuffer(entry, context);
 
-  source.buffer = navigationBuffer(index, audio);
-  source.connect(audio.destination);
-  // Queue the cue while the context resumes so it can start on the audio clock.
-  source.start();
+  const play = (buffer: AudioBuffer) => {
+    if (context.state === 'closed') return;
+    const source = context.createBufferSource();
+
+    source.buffer = buffer;
+    source.connect(context.destination);
+    // Queue the cue while the context resumes so it can start on the audio clock.
+    source.start();
+  };
+
+  if (prepared) {
+    play(prepared);
+  } else {
+    playWhenReady(entry, play);
+  }
 };
 
 /**
@@ -152,6 +196,29 @@ export const ramp = (
   return time + duration / 1000;
 };
 
+const startSound = (
+  context: AudioContext,
+  buffer: AudioBuffer,
+  { volume, time, pitch }: { volume: number; time?: number; pitch?: number },
+) => {
+  const source = context.createBufferSource();
+  const gain = context.createGain();
+
+  source.buffer = buffer;
+  gain.gain.value = volume;
+
+  if (pitch !== undefined) {
+    (source as Sound).gain = gain.gain;
+    source.loop = true;
+    source.playbackRate.value = pitch;
+  }
+
+  source.connect(gain);
+  gain.connect(context.destination);
+  source.start(time);
+  return source;
+};
+
 /**
  * Start a looped sound, silent: the caller ramps `gain` and `playbackRate`
  * to the levels it wants.
@@ -160,31 +227,14 @@ export const tone = (engine = 0) => {
   unlockAudio();
 
   const context = audio as AudioContext;
-  const source = context.createBufferSource() as Sound;
-  const gain = context.createGain();
+  const buffer = prepareBuffer(loopBuffers[engine], context);
 
-  const kind = engine === 1 ? 'engine' : 'hornDrill';
-  const settings = engine === 1 ? engineSettings : hornDrillSettings;
+  if (!buffer) return;
 
-  source.buffer = loopBuffers[engine] ||=
-    engine === 2
-      ? renderLoopBuffer({ context, layers: autogunMotor })
-      : renderContinuousBuffer({
-          context,
-          kind,
-          settings,
-        });
-
-  source.loop = true;
-  source.connect(gain);
-  gain.connect(context.destination);
-
-  source.gain = gain.gain;
-  source.gain.value = 0;
-  source.playbackRate.value = engine === 2 ? 1 : settings.basePitch;
-  source.start();
-
-  return source;
+  return startSound(context, buffer, {
+    volume: 0,
+    pitch: loopSettings[engine].basePitch,
+  }) as Sound;
 };
 
 // @ifdef DEBUG
@@ -193,6 +243,7 @@ export const tone = (engine = 0) => {
 export const testTone = () => {
   const sound = tone();
 
+  if (!sound) return;
   sound.playbackRate.value = 440 / 30;
   ramp(sound.gain, 0.5);
   setTimeout(() => sound.stop(ramp(sound.gain, 0)), 1000);
@@ -200,24 +251,7 @@ export const testTone = () => {
 // @endif
 
 export const playSound = (
-  effect:
-    | number
-    | 'acquire-target'
-    | 'lose-target'
-    | 'wormhole-in'
-    | 'wormhole-out'
-    | 'jump-gate-open'
-    | 'main-menu-close'
-    | 'main-menu-open'
-    | 'chat-message'
-    | 'autogun-fire'
-    | 'autogun-ammo-explode'
-    | 'railgun-ready'
-    | 'railgun-charge'
-    | 'plasma-accelerator-fire'
-    | 'plasma-accelerator-ammo-explode'
-    | 'autogun-click'
-    | 'autogun-motor',
+  effect: Effect,
   {
     volume = 1,
     id = 0,
@@ -225,66 +259,41 @@ export const playSound = (
     time = audio ? audio.currentTime : 0,
   }: { volume?: number; id?: number; by?: number; time?: number } = {},
 ) => {
-  if (typeof effect === 'string') {
-    effect =
-      [
-        'acquire-target',
-        'lose-target',
-        'wormhole-in',
-        'wormhole-out',
-        'jump-gate-open',
-        'main-menu-close',
-        'main-menu-open',
-        'chat-message',
-        'autogun-fire',
-        'autogun-ammo-explode',
-        'railgun-ready',
-        'plasma-accelerator-fire',
-        'plasma-accelerator-ammo-explode',
-        'railgun-charge',
-        'autogun-click',
-        'autogun-motor',
-      ].indexOf(effect) + 10;
-  }
-
   // A real key gesture unlocks audio. Drop effects before that first gesture.
-  if (
-    !audio ||
-    audio.state !== 'running' ||
-    volume <= 0 ||
-    !events[effect]?.length
-  ) {
-    return;
-  }
+  if (!audio || audio.state !== 'running' || volume <= 0) return;
 
+  const entry = effectBuffers.get(effect);
+
+  if (!entry) return;
+
+  const context = audio;
   const key = `${effect}:${id}:${by}`;
   const previous = effectNextPlay.get(key);
 
   if (previous && time < previous[0] - 1e-9 && volume <= previous[1]) return;
 
   effectNextPlay.forEach(([deadline], key) => {
-    if (deadline <= (audio as AudioContext).currentTime) {
+    if (deadline <= context.currentTime) {
       effectNextPlay.delete(key);
     }
   });
 
   effectNextPlay.set(key, [time + 0.1, volume]);
 
-  // All layers begin together; repeated events reuse the complete mix.
-  effectBuffers[effect] ||= renderEffectBuffer({
-    context: audio,
-    layers: events[effect],
+  const prepared = prepareBuffer(entry, context);
+
+  if (prepared) {
+    return startSound(context, prepared, { time, volume });
+  }
+
+  playWhenReady(entry, (buffer) => {
+    if (context.state === 'running') {
+      startSound(context, buffer, {
+        time: Math.max(context.currentTime, time),
+        volume,
+      });
+    }
   });
-
-  const source = (audio as AudioContext).createBufferSource();
-  const gain = (audio as AudioContext).createGain();
-
-  source.buffer = effectBuffers[effect];
-  gain.gain.value = volume;
-  source.connect(gain);
-  gain.connect((audio as AudioContext).destination);
-  source.start(time);
-  return source;
 };
 
 export const continuousSound = (
@@ -297,8 +306,9 @@ export const continuousSound = (
 
   if (!sound && !level) return;
   sound ||= tone(engine);
-  const duration =
-    engine === 2 ? 180 : (engine ? engineSettings : hornDrillSettings).ramp;
+
+  if (!sound) return sound;
+  const duration = loopSettings[engine].ramp;
 
   if (sound.pitch !== playbackRate) {
     ramp(sound.playbackRate, (sound.pitch = playbackRate), duration);
@@ -371,7 +381,11 @@ export const updateAutogunSound = (
   } else {
     const next = state.clickTime + Math.max(0.1, interval / speed);
 
-    if (next <= time + 0.04 + 1e-9) {
+    if (
+      next <= time + 0.04 + 1e-9 &&
+      autogunClickBuffer &&
+      prepareBuffer(autogunClickBuffer, audio)
+    ) {
       state.clickTime = Math.max(time, next);
 
       state.clickSource = playSound('autogun-click', {

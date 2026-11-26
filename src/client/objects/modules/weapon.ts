@@ -200,6 +200,9 @@ export class Weapon extends Module {
           );
 
           const distance = retractionDistance(segment) * (1 - progress);
+          const rotation = segment.module?.aimRotation ?? 0;
+          const sin = rotation && Math.sin(rotation);
+          const cos = rotation ? Math.cos(rotation) : 1;
 
           return (part.points as ShapeOutline).map(([x, y]) => {
             x = spec.telescoping
@@ -207,13 +210,7 @@ export class Weapon extends Module {
               : x - distance;
             y *= !spec.turret && segment.mount.localPosition.y < 0 ? -1 : 1;
 
-            if (!spec.turret) return [x, y];
-            const point = rotatePoint(
-              Vec.create(x, y),
-              segment.module?.aimRotation ?? 0,
-            );
-
-            return [point.x, point.y];
+            return rotation ? [x * cos - y * sin, x * sin + y * cos] : [x, y];
           });
         },
       };

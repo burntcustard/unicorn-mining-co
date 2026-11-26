@@ -20,8 +20,16 @@ fn ship(world: &mut World, id: i64) -> &mut Ship {
 fn main() -> Result<(), Box<dyn Error>> {
     let catalog = Arc::new(load_example_catalog()?);
     let mut world = World::new(25.0, Arc::clone(&catalog));
+    let target_position = Vector::new(430.0, 100.0);
     let observer = world
-        .spawn_player_ship(1, "mustang", ObjectProperties::default())
+        .spawn_player_ship(
+            1,
+            "mustang",
+            ObjectProperties {
+                position: target_position,
+                ..ObjectProperties::default()
+            },
+        )
         .expect("stock observer ship");
     let remote_id = world
         .spawn_player_ship(
@@ -54,14 +62,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut replica = FixtureReplication::new();
     let mut packets = vec![replica.packet(&mut world, observer, true)?];
     for firing in [true, false, true] {
-        ship(&mut world, remote_id).firing = firing;
+        let remote = ship(&mut world, remote_id);
+        remote.firing = firing;
+        remote.update_weapon_aim(1.0, firing.then_some(target_position));
         world.tick += 1;
         packets.push(replica.packet(&mut world, observer, false)?);
     }
     let join = FixtureReplication::new().packet(&mut world, observer, true)?;
-    ship(&mut world, remote_id)
-        .craft
-        .set_module_active("laser", false);
+    let remote = ship(&mut world, remote_id);
+    remote.craft.set_module_active("laser", false);
+    remote.update_weapon_aim(1.0, None);
     world.tick += 1;
     packets.push(replica.packet(&mut world, observer, false)?);
 

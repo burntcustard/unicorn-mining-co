@@ -10,7 +10,8 @@ import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import { createWorld, addEntity } from '${root}/src/client/simulation/world.ts';
 import { updateWorld } from '${root}/src/client/simulation/update-world.ts';
 import { controlShip } from '${root}/src/client/objects/control-ship.ts';
-import { Autogun, AutogunTurret, PlasmaAcceleratorTurret, Laser, LaserTurret, ShieldGenerator, moduleTypes } from '${root}/src/client/objects/modules/index.ts';
+import { Autogun, AutogunTurret, CannonSm, PlasmaAccelerator, PlasmaAcceleratorTurret, Laser, LaserTurret, ShieldGenerator, moduleTypes } from '${root}/src/client/objects/modules/index.ts';
+import { Ship } from '${root}/src/client/objects/ship.ts';
 import { Weapon } from '${root}/src/client/objects/modules/weapon.ts';
 import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
 import { GameObject } from '${root}/src/client/objects/game-object.ts';
@@ -58,6 +59,115 @@ const activate = (ship, gun) => {
   ship.updateModules(gun.activationDuration + (gun.chargeDuration ?? 0));
 };
 const projectiles = world => [...world.entities.values()].filter(entity => entity instanceof Projectile);
+const exampleAimLimit = Math.PI / 24;
+
+// Assisted weapons steer within their configured arc when their pilot changes targets.
+for (const Type of [Autogun, PlasmaAccelerator, Laser]) {
+  const limit = exampleAimLimit;
+  const { world, ship, gun, mount } = fixture(Type, { aimLimit: limit }, { position: Vec.create(40, -30), rotation: 0.75 });
+  const targetAt = (angle) => addEntity(world, new GameObject({ world,
+    position: Vec.add(ship.position, rotatePoint(Vec.add(mount.localPosition, rotatePoint(Vec.create(240, 0), angle)), ship.rotation)),
+  }));
+  const rightAngle = limit * 0.99;
+  const right = targetAt(rightAngle);
+  const left = targetAt(-limit / 2);
+  const outsideRight = targetAt(Math.PI / 2);
+  const outsideLeft = targetAt(-limit * 1.01);
+  const step = (targetId, active = true) => updateWorld({ world, inputs: new Map([[1, {
+    ...emptyPlayerInput(), autogunActive: active, plasmaActive: active, laserActive: active, targetId,
+  }]]) });
+  const settle = (targetId, active = true) => {
+    step(targetId, active);
+    ship.updateWeaponAim(1);
+  };
+
+  activate(ship, gun);
+  settle(left.id);
+  close(gun.aimRotation, -limit / 2, 'an assisted weapon tracks the target center from its own mount');
+  step(right.id);
+  assert(-limit / 2 < gun.aimRotation && gun.aimRotation < rightAngle, 'target swaps pass through an intermediate aim angle');
+  settle(right.id);
+  close(gun.aimRotation, rightAngle, 'an assisted weapon tracks a target just inside its arc');
+
+  for (const [inside, outside] of [[right, outsideRight], [left, outsideLeft]]) {
+    settle(inside.id);
+    const aimed = gun.aimRotation;
+    step(outside.id);
+    assert(
+      Math.sign(gun.aimRotation) === Math.sign(aimed) && Math.abs(gun.aimRotation) < Math.abs(aimed),
+      'a target outside the arc eases the mount toward forward',
+    );
+    settle(outside.id);
+    close(gun.aimRotation, 0, 'an assisted weapon points forward while the target stays outside its arc');
+  }
+
+  settle(left.id);
+  step();
+  assert(-limit < gun.aimRotation && gun.aimRotation < 0, 'clearing the target eases the mount toward forward');
+  settle();
+  close(gun.aimRotation, 0, 'clearing the target restores forward aim');
+  settle(right.id);
+  world.entities.delete(right.id);
+  settle(right.id);
+  close(gun.aimRotation, 0, 'a target ID that no longer exists cannot hold the last aim');
+  settle(left.id);
+  settle(left.id, false);
+  close(gun.aimRotation, 0, 'retracted weapons face forward');
+}
+
+// The Courser's stock cannon points straight even if the pilot targets off axis.
+{
+  const { world, ship, gun, mount } = fixture(CannonSm, {}, { shipType: 'courser' });
+  const target = addEntity(world, new GameObject({ world, position: Vec.add(mount.localPosition, Vec.create(240, 15)) }));
+  activate(ship, gun);
+  updateWorld({ world, inputs: new Map([[1, { ...emptyPlayerInput(), autogunActive: true, targetId: target.id }]]) });
+  close(gun.aimRotation, 0, 'the stock cannon remains aligned with the hull');
+}
+
+// Two wing mounts converge on the remaining core when the target has lost the hull at its origin.
+for (const Type of [Autogun, Laser]) {
+  const options = { aimLimit: exampleAimLimit, recoil: 0 };
+  const { world, ship, gun } = fixture(Type, options, { shipType: 'arrow' });
+  const other = new Type(options);
+  ship.fit(other, ship.mounts.find(mount => mount.fits.includes(Type) && mount.localPosition.y > 0));
+  const target = addEntity(world, new Ship({
+    world, position: Vec.create(250, 26), rotation: Math.PI / 2,
+    hullSegments: [
+      { health: 100, core: true, points: [[-30, -4], [-22, -4], [-22, 4], [-30, 4]] },
+      { health: 20, points: [[-22, -4], [8, -4], [8, 4], [-22, 4]] },
+    ],
+  }));
+  target.hullHealth = [100, 0];
+  const localCenter = Vec.create(-26, 0);
+  ship.cargoContents.push(new Item(autogunAmmo));
+  activate(ship, gun);
+  const input = { ...emptyPlayerInput(), autogunActive: true, laserActive: true, fire: true };
+  const step = (targetId) => updateWorld({ world, inputs: new Map([[1, { ...input, targetId }]]) });
+
+  if (Type === Laser) {
+    assert.equal(step().filter(event => event.type === 'laserDamage').length, 0, 'straight beams pass on either side of the surviving core');
+  }
+
+  ship.targetId = target.id;
+  ship.updateWeaponAim(1);
+
+  if (Type === Laser) {
+    const hits = step(target.id).filter(event => event.type === 'laserDamage');
+    assert.equal(hits.length, 2, 'both beams hit the surviving core when the damaged ship is targeted');
+    assert(hits.every(event => event.targetId === target.id));
+  } else {
+    step(target.id);
+    const shots = projectiles(world);
+    const center = Vec.add(target.position, rotatePoint(localCenter, target.rotation));
+    assert.equal(shots.length, 2, 'both mounted autoguns fire aimed shots');
+    for (const shot of shots) {
+      const offset = Vec.subtract(center, shot.position);
+      assert(Math.abs(Vec.cross(offset, Vec.normalize(shot.velocity))) < 1e-5, 'each projectile travels toward the surviving core center');
+    }
+  }
+
+  assert(gun.aimRotation * other.aimRotation < 0, 'weapons on opposite wings aim inward independently');
+}
 
 // Every turret is a purchasable choice on the Mustang's shield mount.
 for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
@@ -83,13 +193,13 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   controlShip(ship, { ...playerInput, targetId: asteroid.id, autogunActive: true, plasmaActive: true, laserActive: true }, []);
   ship.updateModules(gun.activationDuration + (gun.chargeDuration ?? 0));
   gun.turretTurnRate = 1;
-  ship.updateTurrets(0);
+  ship.updateWeaponAim(0);
   close(gun.aimRotation, 0, 'changing targets cannot rotate a turret without elapsed time');
-  ship.updateTurrets(0.25);
+  ship.updateWeaponAim(0.25);
   close(gun.aimRotation, 0.25, 'a turret turns at its configured maximum rate');
-  ship.updateTurrets(0.25);
+  ship.updateWeaponAim(0.25);
   close(gun.aimRotation, 0.5, 'successive updates continue turning toward the target');
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   close(gun.aimRotation, Math.PI / 2, 'an active turret aims from the mount toward an asteroid');
   const parts = ship.segmentsAtMount(mount);
   const base = parts.find(part => part.turretBase);
@@ -103,22 +213,22 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
     });
   });
   ship.targetId = enemy.id;
-  ship.updateTurrets(0.25);
+  ship.updateWeaponAim(0.25);
   const held = Math.PI / 2 + 0.25;
   close(gun.aimRotation, held, 'switching to a different target turns at the maximum rate');
   ship.setModuleActive({ module: Type, active: false });
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   close(gun.aimRotation, held, 'disabled turrets retain their angle when the target changes');
   ship.targetId = undefined;
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   close(gun.aimRotation, held, 'clearing the target cannot turn a disabled turret');
   activate(ship, gun);
-  ship.updateTurrets(0.25);
+  ship.updateWeaponAim(0.25);
   close(gun.aimRotation, held - 0.25, 'clearing the target returns forward at the maximum rate');
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   close(gun.aimRotation, 0, 'active turrets face forward without a target');
   ship.targetId = enemy.id;
-  ship.updateTurrets(4);
+  ship.updateWeaponAim(4);
   close(Math.abs(gun.aimRotation), Math.PI, 'active turrets track enemy ships behind the mount');
   assert.equal(base.radius(base), baseRadius, 'aiming never changes the support circle');
   world.players.clear();
@@ -138,17 +248,17 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   }));
   ship.targetId = target.id;
   gun.aimRotation = Math.PI - 0.1;
-  ship.updateTurrets(0.05);
+  ship.updateWeaponAim(0.05);
   close(gun.aimRotation, Math.PI - 0.05, 'angle wrapping takes the short turn across the boundary');
-  ship.updateTurrets(0.2);
+  ship.updateWeaponAim(0.2);
   close(gun.aimRotation, targetAngle, 'a turret stops on the target without overshooting');
   gun.aimRotation = 0;
   target.position = Vec.add(mount.localPosition, Vec.create(0, 150));
   ship.targetId = target.id;
-  ship.updateTurrets(0.3);
+  ship.updateWeaponAim(0.3);
   const singleStep = gun.aimRotation;
   gun.aimRotation = 0;
-  for (let step = 0; step < 3; step++) ship.updateTurrets(0.1);
+  for (let step = 0; step < 3; step++) ship.updateWeaponAim(0.1);
   close(gun.aimRotation, singleStep, 'turn speed is independent of simulation step size');
 }
 
@@ -291,7 +401,7 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   }));
   ship.targetId = target.id;
   activate(ship, gun);
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   ship.firing = true;
   const trace = gun.trace(ship);
   assert.equal(trace.first?.owner, target, 'the aimed beam hits a target off the ship forward axis');
@@ -310,7 +420,7 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   }));
   activate(ship, gun);
   ship.targetId = target.id;
-  ship.updateTurrets(10);
+  ship.updateWeaponAim(10);
   ship.spin = 1;
   ship.velocity = Vec.create(25, -15);
   const prediction = new FramePrediction();

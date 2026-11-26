@@ -169,20 +169,32 @@ export const resolveSoundEffect = ({
 
 const sampleRate = 44100;
 
+const interpolatePoints = (
+  points: number[],
+  index: number,
+  fraction: number,
+) => {
+  const from = points[index];
+
+  return from + ((points[index + 1] ?? from) - from) * fraction;
+};
+
+const samplePoints = (points: number[], progress: number) => {
+  const position = progress * (points.length - 1);
+  const index = Math.floor(position);
+
+  return interpolatePoints(points, index, position - index);
+};
+
 /**
  * Interpolate positive values geometrically, with finite exact zero endpoints.
  */
-const interpolate = ({
-  curve,
-  from,
-  to,
-  progress,
-}: {
-  curve: SoundCurve;
-  from: number;
-  to: number;
-  progress: number;
-}) => {
+const interpolate = (
+  curve: SoundCurve,
+  from: number,
+  to: number,
+  progress: number,
+) => {
   if (from === to || progress <= 0) return from;
 
   if (progress >= 1) return to;
@@ -208,13 +220,7 @@ const interpolate = ({
 /**
  * Smooth the discontinuities of square, pulse, and sawtooth oscillators.
  */
-const bandLimit = ({
-  phase,
-  increment,
-}: {
-  phase: number;
-  increment: number;
-}) => {
+const bandLimit = (phase: number, increment: number) => {
   if (!increment) return 0;
 
   if (phase < increment) {
@@ -232,19 +238,13 @@ const bandLimit = ({
   return 0;
 };
 
-const oscillator = ({
-  waveform,
-  phase,
-  increment,
-  pulseWidth,
-  random,
-}: {
-  waveform: SoundWaveform;
-  phase: number;
-  increment: number;
-  pulseWidth: number;
-  random: () => number;
-}) => {
+const oscillator = (
+  waveform: SoundWaveform,
+  phase: number,
+  increment: number,
+  pulseWidth: number,
+  random: () => number,
+) => {
   if (waveform === 'noise') return random() * 2 - 1;
 
   if (waveform === 'crackle') {
@@ -258,7 +258,7 @@ const oscillator = ({
   }
 
   const cycle = phase % 1;
-  const correction = bandLimit({ phase: cycle, increment });
+  const correction = bandLimit(cycle, increment);
 
   if (waveform === 'sawtooth') return cycle * 2 - 1 - correction;
   const width = waveform === 'square' ? 0.5 : pulseWidth;
@@ -267,7 +267,7 @@ const oscillator = ({
     (cycle < width ? 1 : -1) -
     (2 * width - 1) +
     correction -
-    bandLimit({ phase: (cycle + 1 - width) % 1, increment })
+    bandLimit((cycle + 1 - width) % 1, increment)
   );
 };
 
@@ -275,13 +275,13 @@ const oscillator = ({
  * Mix delayed layers into one reusable event buffer. All durations use milliseconds.
  * Finish every sample before playback.
  */
-export const renderEffectBuffer = ({
+export function* generateEffectBuffer({
   context,
   layers,
 }: {
   context: Pick<BaseAudioContext, 'createBuffer'>;
   layers: SoundEffect[];
-}) => {
+}): Generator<void, AudioBuffer> {
   const prepared = layers.map((layer) => {
     const settings = resolveSoundEffect(layer);
 
@@ -406,22 +406,11 @@ export const renderEffectBuffer = ({
         ? Math.min(1, fullPitchDuration ? i / length : elapsed / pitchDuration)
         : 1;
 
-      const pitchPosition = pitchProgress * Math.max(0, pitchPoints.length - 1);
-      const pitchIndex = Math.floor(pitchPosition);
-
       const pitch = pitchPoints.length
-        ? pitchPoints[pitchIndex] +
-          ((pitchPoints[pitchIndex + 1] ?? pitchPoints[pitchIndex]) -
-            pitchPoints[pitchIndex]) *
-            (pitchPosition - pitchIndex)
+        ? samplePoints(pitchPoints, pitchProgress)
         : pitchCurve === 'linear' && fullPitchDuration
           ? frequency + ((endFrequency - frequency) * i) / length
-          : interpolate({
-              curve: pitchCurve,
-              from: frequency,
-              to: endFrequency,
-              progress: pitchProgress,
-            });
+          : interpolate(pitchCurve, frequency, endFrequency, pitchProgress);
 
       const increment =
         Math.min(sampleRate / 2, pitch * modulation) / sampleRate;
@@ -438,7 +427,7 @@ export const renderEffectBuffer = ({
             phase * Math.PI * 2 +
               fmIndex * Math.sin(phase * Math.PI * 2 * fmRatio),
           )
-        : oscillator({ waveform, phase, increment, pulseWidth, random });
+        : oscillator(waveform, phase, increment, pulseWidth, random);
 
       if (waveform === 'sine' && partials.length) {
         wave = 0;
@@ -461,28 +450,23 @@ export const renderEffectBuffer = ({
 
       if (i) {
         if (elapsed < attack) {
-          envelope = interpolate({
-            curve: attackCurve,
-            from: 0,
-            to: 1,
-            progress: elapsed / attack,
-          });
+          envelope = interpolate(attackCurve, 0, 1, elapsed / attack);
         } else if (elapsed < decayEnd) {
-          envelope = interpolate({
-            curve: decayCurve,
-            from: 1,
-            to: sustain,
-            progress: (elapsed - attack) / decay,
-          });
+          envelope = interpolate(
+            decayCurve,
+            1,
+            sustain,
+            (elapsed - attack) / decay,
+          );
         } else if (elapsed < holdEnd) {
           envelope = sustain;
         } else if (release && i < length - 1) {
-          envelope = interpolate({
-            curve: releaseCurve,
-            from: sustain,
-            to: 0,
-            progress: (elapsed - holdEnd) / release,
-          });
+          envelope = interpolate(
+            releaseCurve,
+            sustain,
+            0,
+            (elapsed - holdEnd) / release,
+          );
         }
       }
 
@@ -496,22 +480,17 @@ export const renderEffectBuffer = ({
       const lowpassRate =
         lowpass === endLowpass
           ? lowpass
-          : interpolate({
-              curve: filterCurve,
-              from: lowpass,
-              to: endLowpass,
-              progress: filterProgress,
-            });
+          : interpolate(filterCurve, lowpass, endLowpass, filterProgress);
 
       const bassRate =
         highpassRate === endHighpassRate
           ? highpassRate
-          : interpolate({
-              curve: filterCurve,
-              from: highpassRate,
-              to: endHighpassRate,
-              progress: filterProgress,
-            });
+          : interpolate(
+              filterCurve,
+              highpassRate,
+              endHighpassRate,
+              filterProgress,
+            );
 
       const bassMix =
         highpassRate && endHighpassRate
@@ -519,37 +498,35 @@ export const renderEffectBuffer = ({
           : maxHighpassRate
             ? bassRate / maxHighpassRate
             : 0;
-      const gainPosition =
-        Math.min(1, i / Math.max(1, length - 1)) *
-        Math.max(0, gainPoints.length - 1);
-      let gainIndex = Math.floor(gainPosition);
-      let gainFraction = gainPosition - gainIndex;
+      let gain = 1;
 
-      if (
-        gainPositions.length === gainPoints.length &&
-        gainPositions.length > 1
-      ) {
+      if (gainPoints.length) {
         const progress = Math.min(1, i / Math.max(1, length - 1));
 
-        while (
-          timedGainIndex < gainPositions.length - 2 &&
-          progress > gainPositions[timedGainIndex + 1]
+        if (
+          gainPositions.length === gainPoints.length &&
+          gainPositions.length > 1
         ) {
-          timedGainIndex++;
-        }
+          while (
+            timedGainIndex < gainPositions.length - 2 &&
+            progress > gainPositions[timedGainIndex + 1]
+          ) {
+            timedGainIndex++;
+          }
 
-        gainIndex = timedGainIndex;
-        gainFraction =
-          (progress - gainPositions[gainIndex]) /
-          (gainPositions[gainIndex + 1] - gainPositions[gainIndex]);
+          const from = gainPositions[timedGainIndex];
+          const to = gainPositions[timedGainIndex + 1];
+
+          gain = interpolatePoints(
+            gainPoints,
+            timedGainIndex,
+            (progress - from) / (to - from),
+          );
+        } else {
+          gain = samplePoints(gainPoints, progress);
+        }
       }
 
-      const gain = gainPoints.length
-        ? gainPoints[gainIndex] +
-          ((gainPoints[gainIndex + 1] ?? gainPoints[gainIndex]) -
-            gainPoints[gainIndex]) *
-            gainFraction
-        : 1;
       const sample = i < length ? wave * envelope * volume * gain : 0;
 
       filtered += (sample - filtered) * lowpassRate;
@@ -565,21 +542,9 @@ export const renderEffectBuffer = ({
       let output = release && i === length - 1 ? 0 : lowpassed - bass * bassMix;
 
       if (pole) {
-        const position =
-          filterProgress * Math.max(0, resonancePoints.length - 1);
-        const index = Math.floor(position);
-
         const center = resonancePoints.length
-          ? resonancePoints[index] +
-            ((resonancePoints[index + 1] ?? resonancePoints[index]) -
-              resonancePoints[index]) *
-              (position - index)
-          : interpolate({
-              curve: filterCurve,
-              from: resonance,
-              to: endResonance,
-              progress: filterProgress,
-            });
+          ? samplePoints(resonancePoints, filterProgress)
+          : interpolate(filterCurve, resonance, endResonance, filterProgress);
 
         const ringing =
           resonanceGain * (output - input2) +
@@ -604,24 +569,38 @@ export const renderEffectBuffer = ({
       }
 
       samples[offset + i] += output;
+
+      if ((i + 1) % 256 === 0) yield;
     }
   }
 
   return buffer;
-};
+}
+
+export function finishBuffer(render: Generator<void, AudioBuffer>) {
+  let step = render.next();
+
+  while (!step.done) step = render.next();
+
+  return step.value;
+}
+
+export const renderEffectBuffer = (
+  options: Parameters<typeof generateEffectBuffer>[0],
+) => finishBuffer(generateEffectBuffer(options));
 
 /**
  * Sustain an effect's texture, discard filter startup, and blend the loop seam.
  * Its authored envelope remains the one-shot preview in the Sound Editor.
  */
-export const renderLoopBuffer = ({
+export function* generateLoopBuffer({
   context,
   layers,
 }: {
   context: Pick<BaseAudioContext, 'createBuffer'>;
   layers: SoundEffect[];
-}) => {
-  const samples = renderEffectBuffer({
+}): Generator<void, AudioBuffer> {
+  const samples = (yield* generateEffectBuffer({
     context,
     layers: layers.map((layer): SoundEffect => ({
       ...layer,
@@ -633,7 +612,7 @@ export const renderLoopBuffer = ({
       gainPoints: [],
       gainPositions: [],
     })),
-  }).getChannelData(0);
+  })).getChannelData(0);
 
   const overlap = Math.floor(sampleRate / 10);
   const length = sampleRate - overlap;
@@ -647,15 +626,21 @@ export const renderLoopBuffer = ({
 
     output[i] =
       samples[sampleRate + i] * Math.cos(angle) + output[i] * Math.sin(angle);
+
+    if ((i + 1) % 256 === 0) yield;
   }
 
   return buffer;
-};
+}
+
+export const renderLoopBuffer = (
+  options: Parameters<typeof generateLoopBuffer>[0],
+) => finishBuffer(generateLoopBuffer(options));
 
 /**
  * Render the same engine or horn drill loop used in gameplay and the editor.
  */
-export const renderContinuousBuffer = ({
+export function* generateContinuousBuffer({
   context,
   kind,
   settings,
@@ -663,7 +648,7 @@ export const renderContinuousBuffer = ({
   context: Pick<BaseAudioContext, 'createBuffer'>;
   kind: 'engine' | 'hornDrill';
   settings: EngineSoundSettings | HornDrillSoundSettings;
-}) => {
+}): Generator<void, AudioBuffer> {
   const length = Math.max(
     1,
     Math.floor((settings.duration / 1000) * sampleRate),
@@ -673,7 +658,7 @@ export const renderContinuousBuffer = ({
   let air = 0;
   let filtered = 0;
 
-  samples.forEach((_, i) => {
+  for (let i = 0; i < length; i++) {
     const phase = i / length;
     const p = (i / sampleRate) * settings.frequency;
 
@@ -698,7 +683,9 @@ export const renderContinuousBuffer = ({
 
       samples[i] = wave * envelope * settings.volume;
     }
-  });
+
+    if ((i + 1) % 256 === 0) yield;
+  }
 
   if (kind === 'hornDrill') {
     const rate = Math.min(
@@ -710,19 +697,27 @@ export const renderContinuousBuffer = ({
     if (rate) {
       let bass = 0;
 
-      samples.forEach((sample) => {
-        bass += (sample - bass) * rate;
-      });
+      for (let i = 0; i < length; i++) {
+        bass += (samples[i] - bass) * rate;
+
+        if ((i + 1) % 256 === 0) yield;
+      }
 
       // Start in the filter's steady state so the loop has no filter reset.
       bass /= 1 - (1 - rate) ** length;
 
-      samples.forEach((sample, i) => {
-        bass += (sample - bass) * rate;
-        samples[i] = sample - bass;
-      });
+      for (let i = 0; i < length; i++) {
+        bass += (samples[i] - bass) * rate;
+        samples[i] -= bass;
+
+        if ((i + 1) % 256 === 0) yield;
+      }
     }
   }
 
   return buffer;
-};
+}
+
+export const renderContinuousBuffer = (
+  options: Parameters<typeof generateContinuousBuffer>[0],
+) => finishBuffer(generateContinuousBuffer(options));

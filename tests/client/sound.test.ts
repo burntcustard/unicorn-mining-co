@@ -17,7 +17,7 @@ import { continuousSound, playSound, ramp, tone, updateAutogunSound, updateThrus
 import uiEffects from '${process.cwd()}/src/specs/sounds/ui.ts';
 import engineSettings from '${process.cwd()}/src/specs/sounds/engine.ts';
 import hornDrillSettings from '${process.cwd()}/src/specs/sounds/horn-drill.ts';
-import { renderEffectBuffer, renderContinuousBuffer, renderLoopBuffer, resolveSoundEffect } from '${process.cwd()}/src/client/audio/synthesis.ts';
+import { generateEffectBuffer, renderEffectBuffer, renderContinuousBuffer, renderLoopBuffer, resolveSoundEffect } from '${process.cwd()}/src/client/audio/synthesis.ts';
 import { HornDrill } from '${process.cwd()}/src/client/objects/modules/horn-drill.ts';
 import { updateHornDrillSounds } from '${process.cwd()}/src/client/audio/update-horn-drill-sounds.ts';
 import { createAutogunSoundUpdater, updateAutogunSounds } from '${process.cwd()}/src/client/audio/update-autogun-sounds.ts';
@@ -276,6 +276,22 @@ const resolvedNoiseSamples = renderEffectBuffer({context, layers: [resolveSoundE
 Math.random = previousRandom;
 assert.deepEqual(compactNoiseSamples, resolvedNoiseSamples, 'noise requires no frequency properties');
 assert(compactNoiseSamples.every(Number.isFinite) && compactNoiseSamples.some(sample => sample !== 0), 'compact noise stays audible and finite');
+
+const layeredEffect = {
+  context,
+  layers: [
+    {...compactNoise, noiseSeed: 12345, endCutoff: 2000, resonance: 1300},
+    {...compactTone, delay: 30, endFrequency: 220},
+  ],
+};
+const synthesis = generateEffectBuffer(layeredEffect);
+let synthesisStep = synthesis.next();
+assert.equal(synthesisStep.done, false, 'synthesis yields before the first layer finishes');
+synthesisStep = synthesis.next();
+assert.equal(synthesisStep.done, false, 'an individual layer can span several slices');
+while (!synthesisStep.done) synthesisStep = synthesis.next();
+assert.deepEqual(synthesisStep.value.getChannelData(0), renderEffectBuffer(layeredEffect).getChannelData(0),
+  'slices preserve the mixed PCM samples');
 
 for (const waveform of ['noise', 'crackle']) {
   const seeded = {...compactNoise, waveform, frequency: 4000, noiseSeed: 12345};
@@ -585,6 +601,50 @@ for (const effect of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
   assert.equal(context.sources[count + 1].buffer, voice.buffer, 'effect buffer is reused');
 }
 
+// A browser cold cue waits for preparation before starting its voice.
+export function checkDeferredPlayback() {
+  const previousDocument = Reflect.get(globalThis, 'document');
+  const previousIdleCallback = Reflect.get(globalThis, 'requestIdleCallback');
+  const idleCallbacks = [];
+  const createBuffer = context.createBuffer;
+  let buffersCreated = 0;
+  try {
+    Reflect.set(globalThis, 'document', {});
+    Reflect.set(globalThis, 'requestIdleCallback', callback => idleCallbacks.push(callback));
+    context.createBuffer = function (...options) {
+      buffersCreated++;
+      return createBuffer.apply(this, options);
+    };
+    const count = context.sources.length;
+    const playCharge = (id = 983, volume = 1) => playSound('railgun-charge', {id, volume});
+
+    playCharge();
+    playCharge(984, .5);
+    assert.equal(buffersCreated, 0, 'a cold effect never allocates or mixes in the playback call');
+    assert.equal(context.sources.length, count, 'the cold effect starts after preparation');
+    assert.equal(idleCallbacks.length, 1, 'cold playback schedules preparation');
+    idleCallbacks.shift()({didTimeout: false, timeRemaining: () => 0});
+    assert.equal(context.sources.length, count, 'a busy frame cannot mix the whole cold cue');
+
+    for (let slices = 0; idleCallbacks.length; slices++) {
+      assert(slices < 1000, 'preparation finishes after a bounded number of slices');
+      idleCallbacks.shift()({didTimeout: false, timeRemaining: () => 4});
+    }
+    assert.equal(buffersCreated, 1, 'preparation mixes the sound once');
+    assert.equal(context.sources.length, count + 1, 'repeated cold cues coalesce and play when ready');
+    assert.equal(lastVoice().destination.gain.value, .5, 'the latest cold cue sets playback volume');
+    const buffer = lastVoice().buffer;
+    context.currentTime += 1;
+    playCharge();
+    assert.equal(context.sources.length, count + 2, 'a cached cue starts immediately');
+    assert.equal(lastVoice().buffer, buffer, 'cached playback reuses the prepared mix');
+  } finally {
+    context.createBuffer = createBuffer;
+    Reflect.set(globalThis, 'requestIdleCallback', previousIdleCallback);
+    Reflect.set(globalThis, 'document', previousDocument);
+  }
+}
+
 assert.equal(TestAudioContext.instances.length, 1, 'all effects reuse the first audio context');`;
 
 for (const production of [false, true]) {
@@ -653,9 +713,11 @@ for (const production of [false, true]) {
   await bundle.close();
   const code = output[0].code;
 
-  await import(
+  const { checkDeferredPlayback } = await import(
     `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`
   );
+
+  checkDeferredPlayback();
 
   assert(
     code.includes('createBufferSource') && code.includes('setTargetAtTime'),

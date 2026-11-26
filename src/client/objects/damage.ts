@@ -1,6 +1,18 @@
 import { type Segment } from '../types';
 import { type GameObject } from './game-object';
 import { type AsteroidSegment } from '../protocol/entities';
+import { type Collider } from '../collision/types';
+
+const isWreckage = (object: GameObject | Segment) =>
+  object.kind === 'craft' && object.decay;
+
+// Wreckage shares one lifetime across all its colliders.
+export const colliderDamageTarget = ({
+  owner,
+  segment,
+  asteroidSegment,
+}: Collider) =>
+  isWreckage(owner) ? owner : segment || asteroidSegment || owner;
 
 export const damage = (
   object: GameObject | Segment | AsteroidSegment,
@@ -41,7 +53,12 @@ export const damage = (
       target.health = health - amount;
     }
 
-    if (target.health < 1 && target.item) target.remove();
+    if (
+      (target.health < 1 && target.item) ||
+      (target.health <= 0 && isWreckage(segment))
+    ) {
+      target.remove();
+    }
   }
 
   segment.mounts?.forEach((mount) => {

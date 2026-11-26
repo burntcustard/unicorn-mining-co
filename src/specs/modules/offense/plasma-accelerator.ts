@@ -2,12 +2,14 @@ import { renderingLayers } from '../../rendering-layers';
 import { colors } from '../../colors';
 import { plasmaExplosion } from '../../effects/plasma-explosion';
 import { plasmaMuzzleFlash } from '../../effects/plasma-muzzle-flash';
+import { weaponAimLimit } from '../../craft';
 import type { ModuleSpec } from '../types';
 
 export const plasmaAccelerator = {
   icon: './plasma-accelerator.svg',
   description: 'Launch a charged plasma projectile.',
   behavior: 'weapon',
+  aimLimit: weaponAimLimit,
   mass: 100,
   name: 'Plasma Accelerator',
   health: 0,

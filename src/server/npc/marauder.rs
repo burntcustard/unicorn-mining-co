@@ -10,8 +10,9 @@ use crate::specs::Catalog;
 use crate::utilities::vector::Vector;
 use crate::utilities::{TickTimerOptions, next_tick, tick_due};
 
-use super::flight::{AttackOptions, FlightContext, FlightTarget, Movement, Pilot};
+use super::flight::{AttackOptions, AttackWeapon, FlightContext, FlightTarget, Movement, Pilot};
 use super::navigation::Search;
+use super::world_host::attack_weapon;
 
 #[derive(Clone, Copy, Debug)]
 pub struct PlayerView<'a> {
@@ -294,6 +295,9 @@ impl Marauder {
             ..Input::default()
         };
         let target_id = self.target(environment, position);
+        let weapon = environment
+            .ship(self.ship_id)
+            .map_or(AttackWeapon::None, attack_weapon);
         let context = environment.flight_context(self.ship_id, target_id);
         if let Some(target) = context
             .target
@@ -322,15 +326,20 @@ impl Marauder {
                 input.laser_active = true;
                 input.plasma_active = true;
                 input.target_id = Some(target.entity_id);
+                let firing_distance = match weapon {
+                    AttackWeapon::Beam { range } => rules.firing_distance.min(range),
+                    AttackWeapon::Projectile { .. } => rules.firing_distance,
+                    AttackWeapon::None => 0.0,
+                };
                 (input.thrust, input.turn, input.fire) = self.pilot.attack(
                     context,
                     target,
                     AttackOptions {
                         pass_distance: rules.pass_distance,
                         aim_tolerance: rules.aim_tolerance,
-                        projectile_speed: 0.0,
-                        aim_prediction_time: 0.0,
-                        can_fire: distance <= rules.firing_distance,
+                        weapon,
+                        aim_prediction_time: 1.0,
+                        can_fire: distance < firing_distance,
                     },
                 );
                 return input;

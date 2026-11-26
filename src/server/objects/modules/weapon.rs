@@ -1,4 +1,4 @@
-//! Turret steering and mounted projectile weapons.
+//! Mounted weapon aim and projectile firing.
 
 use smallvec::SmallVec;
 
@@ -8,13 +8,44 @@ use crate::simulation::geometry::rotate_point;
 use crate::specs::Catalog;
 use crate::utilities::vector::Vector;
 
-use crate::objects::craft::CargoObject;
+use crate::objects::craft::{CargoObject, Hull, InstalledModule};
 use crate::objects::projectile::Projectile;
 use crate::objects::ship::Ship;
 
+impl InstalledModule {
+    pub(crate) fn bounded_aim_rotation(&self, rotation: f64) -> f64 {
+        if self.spec.turret {
+            rotation
+        } else if self.spec.aim_limit > 0.0 {
+            rotation.clamp(-self.spec.aim_limit, self.spec.aim_limit)
+        } else {
+            0.0
+        }
+    }
+}
+
 impl Ship {
+    pub(crate) fn weapon_target_position(&self) -> Vector {
+        let craft = &self.craft;
+        let object = &craft.object;
+        let present = |hull: &Hull| hull.present && (hull.health >= 1.0 || hull.health.is_nan());
+        if craft.hulls.iter().all(present) {
+            return object.position;
+        }
+
+        // Hull loss leaves the ship's movement origin at its authored position.
+        let center = craft.center_of_hulls(
+            craft
+                .hulls
+                .iter()
+                .enumerate()
+                .filter_map(|(index, hull)| present(hull).then_some(index)),
+        );
+        object.position + rotate_point(center, object.rotation)
+    }
+
     /// The world supplies a live, unburied target other than this ship.
-    pub fn update_turrets(&mut self, duration: f64, target: Option<Vector>) {
+    pub fn update_weapon_aim(&mut self, duration: f64, target: Option<Vector>) {
         let object = &self.craft.object;
         if object.dead {
             return;
@@ -27,22 +58,47 @@ impl Ship {
             let Some(module) = &mut mount.module else {
                 continue;
             };
-            if !module.spec.turret || !module.parts.iter().any(|part| part.active == 1.0) {
+            let spec = &module.spec;
+            if !matches!(spec.behavior.as_str(), "weapon" | "beam") {
+                continue;
+            }
+            let active = (spec.turret || spec.aim_limit > 0.0)
+                && module.parts.iter().any(|part| part.active == 1.0);
+            if spec.turret && !active {
                 continue;
             }
 
-            let angle = if let Some(target) = target {
+            let angle = if let Some(target) = target.filter(|_| active) {
                 let position = object.position + rotate_point(mount.position, object.rotation);
                 let direction = target - position;
-                direction.y.atan2(direction.x) - object.rotation
+                if direction == Vector::ZERO && !spec.turret {
+                    0.0
+                } else {
+                    direction.y.atan2(direction.x) - object.rotation
+                }
             } else {
                 0.0
             };
-            let difference = angle - module.aim_rotation;
-            let turn = normalize_angle(difference);
-            let limit = module.spec.turret_turn_rate * duration;
-            let rotation = module.aim_rotation + (-limit).max(limit.min(turn));
-            let rotation = normalize_angle(rotation);
+            let rotation = if spec.turret {
+                let turn = normalize_angle(angle - module.aim_rotation);
+                let limit = spec.turret_turn_rate * duration;
+                normalize_angle(module.aim_rotation + (-limit).max(limit.min(turn)))
+            } else if spec.aim_limit > 0.0 {
+                let angle = normalize_angle(angle);
+                let target = if angle.abs() <= spec.aim_limit {
+                    angle
+                } else {
+                    0.0
+                };
+                let offset = (module.aim_rotation - target) * (-15.0 * duration).exp();
+                if offset.abs() < 0.001 {
+                    target
+                } else {
+                    target + offset
+                }
+            } else {
+                0.0
+            };
             changed |= rotation.to_bits() != module.aim_rotation.to_bits();
             module.aim_rotation = rotation;
         }
@@ -200,8 +256,9 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
-    use crate::objects::craft::InstalledModule;
+    use crate::objects::craft::Craft;
     use crate::objects::item::Item;
+    use crate::specs::HullSegment;
 
     fn fitting_ship(weapon: &str, catalog: &Catalog) -> (Ship, usize) {
         let mut next_module = 0;
@@ -283,6 +340,91 @@ mod tests {
     }
 
     #[test]
+    fn mounted_weapons_aim_within_their_arc_and_recenter_outside_it()
+    -> Result<(), crate::specs::CatalogError> {
+        let catalog = Catalog::load()?;
+        for (weapon, aim_limit) in [("autogun", 0.15), ("laser", 0.19), ("cannonSm", 0.0)] {
+            let (mut ship, mount) = fitting_ship(weapon, &catalog);
+            ship.craft.object.position = Vector::new(17.0, -39.0);
+            let rotation = PI - 0.03;
+            ship.craft.object.rotation = rotation;
+            let pivot = ship.weapon_position(mount, 0.0).unwrap();
+            ship.craft.set_module_active(weapon, true);
+            let module = ship.craft.mounts[mount].module.as_mut().unwrap();
+            Arc::make_mut(&mut module.spec).aim_limit = aim_limit;
+            if aim_limit == 0.0 {
+                module.aim_rotation = 0.3;
+            }
+
+            for offset in [0.08_f64, FRAC_PI_2, -0.08, -FRAC_PI_2, 0.08] {
+                let target = pivot + rotate_point(Vector::new(300.0, 0.0), rotation + offset);
+                let expected_aim = if offset.abs() <= aim_limit {
+                    offset
+                } else {
+                    0.0
+                };
+                if expected_aim == 0.0 && aim_limit > 0.0 {
+                    ship.update_weapon_aim(0.01, Some(target));
+                    let aim = ship.craft.mounts[mount]
+                        .module
+                        .as_ref()
+                        .unwrap()
+                        .aim_rotation;
+                    assert!(aim.abs() > 0.0 && aim.abs() < 0.08);
+                    assert_eq!(aim.is_sign_positive(), offset.is_sign_positive());
+                }
+                ship.update_weapon_aim(1.0, Some(target));
+                let muzzle = ship.weapon_position(mount, 20.0).unwrap();
+                let expected =
+                    pivot + rotate_point(Vector::new(20.0, 0.0), rotation + expected_aim);
+                assert!(muzzle.distance(expected) < 1e-9);
+            }
+
+            let neutral = pivot + rotate_point(Vector::new(20.0, 0.0), rotation);
+            ship.update_weapon_aim(1.0, None);
+            assert!(ship.weapon_position(mount, 20.0).unwrap().distance(neutral) < 1e-9);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn damaged_ship_target_center_follows_its_surviving_hull()
+    -> Result<(), crate::specs::CatalogError> {
+        let catalog = Catalog::load()?;
+        let position = Vector::new(30.0, -10.0);
+        let mut ship = Ship::new(
+            1,
+            "mustang",
+            ObjectProperties {
+                position,
+                rotation: FRAC_PI_2,
+                ..Default::default()
+            },
+            &catalog,
+        )
+        .expect("stock ship available");
+        let core_center = Vector::new(-24.0, 3.0);
+        let core = HullSegment {
+            points: [[-5.0, -2.0], [5.0, -2.0], [5.0, 2.0], [-5.0, 2.0]]
+                .map(|[x, y]| [x + core_center.x, y + core_center.y])
+                .to_vec(),
+            core: true,
+            ..HullSegment::default()
+        };
+        ship.craft = Craft::new(ship.craft.object, &[core, HullSegment::default()]);
+        assert_eq!(ship.weapon_target_position(), position);
+
+        ship.craft.hulls[1].present = false;
+
+        assert!(
+            ship.weapon_target_position()
+                .distance(position + rotate_point(core_center, FRAC_PI_2))
+                < 1e-9
+        );
+        Ok(())
+    }
+
+    #[test]
     fn turret_takes_short_path_and_recenters_without_a_target()
     -> Result<(), crate::specs::CatalogError> {
         let catalog = Catalog::load()?;
@@ -297,7 +439,7 @@ mod tests {
         module.aim_rotation = start;
         let rate = module.spec.turret_turn_rate;
         let target = position + rotate_point(Vector::new(120.0, 0.0), -PI + 0.05);
-        ship.update_turrets(0.01 / rate, Some(target));
+        ship.update_weapon_aim(0.01 / rate, Some(target));
         let actual = ship.craft.mounts[mount]
             .module
             .as_ref()
@@ -305,7 +447,7 @@ mod tests {
             .aim_rotation;
         assert!((actual - (start + 0.01)).abs() <= 1e-12);
 
-        ship.update_turrets(4.0 / rate, None);
+        ship.update_weapon_aim(4.0 / rate, None);
         let actual = ship.craft.mounts[mount]
             .module
             .as_ref()

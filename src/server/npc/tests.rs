@@ -5,7 +5,9 @@ use crate::simulation::game_object::ObjectProperties;
 use crate::specs::Catalog;
 use crate::utilities::vector::Vector;
 
-use super::flight::{FlightContext, Movement, Pilot, direction_of};
+use super::flight::{
+    AttackOptions, AttackWeapon, FlightContext, FlightTarget, Movement, Pilot, direction_of,
+};
 use super::perception::{Obstacle, ObstacleGeometry, clear_segment};
 use super::prediction::{PredictionOptions, Predictor, ShipMotion};
 use super::route::{RouteOptions, RoutePlan};
@@ -19,6 +21,170 @@ fn ship_motion(catalog: &Catalog) -> ShipMotion {
     .unwrap();
     ship.craft.launching = 0.0;
     ShipMotion::from_ship(&ship, catalog, 55.0)
+}
+
+#[test]
+fn combat_pilot_tracks_beam_targets_and_leads_projectile_shots() {
+    let catalog = Catalog::load().unwrap();
+    let mut ship = ship_motion(&catalog);
+    ship.rotation = 0.23;
+    let target = FlightTarget {
+        entity_id: 2,
+        position: Vector::new(300.0, 0.0),
+        velocity: Vector::new(0.0, 180.0),
+        radius: 40.0,
+        is_ship: true,
+    };
+    let context = FlightContext {
+        ship,
+        rules: catalog.npc_movement,
+        tick: 0,
+        simulation_step: catalog.simulation.simulation_step,
+        launching: false,
+        obstacles: &[],
+        target: Some(target),
+    };
+    let options = AttackOptions {
+        pass_distance: 70.0,
+        aim_tolerance: 0.12,
+        weapon: AttackWeapon::Beam { range: 700.0 },
+        aim_prediction_time: 1.0,
+        can_fire: true,
+    };
+    let (_, beam_turn, beam_fire) = Pilot::default().attack(context, target, options);
+    assert!(beam_turn < 0.0 && beam_fire);
+    let (projectile_thrust, projectile_turn, projectile_fire) = Pilot::default().attack(
+        context,
+        target,
+        AttackOptions {
+            weapon: AttackWeapon::Projectile {
+                speed: 300.0,
+                cannon: false,
+            },
+            ..options
+        },
+    );
+    assert!(projectile_turn > 0.0 && !projectile_fire);
+    assert_eq!(
+        projectile_thrust, 1.0,
+        "a clear attack pass uses full thrust"
+    );
+
+    let nearby = FlightTarget {
+        position: Vector::new(210.0, 0.0),
+        velocity: Vector::ZERO,
+        ..target
+    };
+    let (nearby_thrust, _, nearby_fire) = Pilot::default().attack(context, nearby, options);
+    assert_eq!(nearby_thrust, 0.0, "a beam pilot coasts in effective range");
+    assert!(nearby_fire);
+
+    let after_pass = FlightContext {
+        ship: ShipMotion {
+            position: Vector::new(400.0, 0.0),
+            velocity: Vector::new(100.0, 0.0),
+            rotation: 0.0,
+            ..ship
+        },
+        ..context
+    };
+    for weapon in [
+        options.weapon,
+        AttackWeapon::Projectile {
+            speed: 1_000.0,
+            cannon: true,
+        },
+    ] {
+        let (thrust, _, fire) =
+            Pilot::default().attack(after_pass, nearby, AttackOptions { weapon, ..options });
+        assert!(!fire, "the target is now behind the ship");
+        assert_eq!(thrust, 1.0, "the ship accelerates away from the target");
+    }
+
+    // Keep the shot slightly off the predicted intercept for both weapon profiles.
+    let off_axis = FlightContext {
+        ship: ShipMotion {
+            rotation: (180.0_f64 / 1_000.0).atan() + 0.17,
+            ..ship
+        },
+        ..context
+    };
+    for (cannon, can_fire, expected) in [
+        (true, true, true),
+        (false, true, false),
+        (true, false, false),
+    ] {
+        let (_, _, fire) = Pilot::default().attack(
+            off_axis,
+            target,
+            AttackOptions {
+                weapon: AttackWeapon::Projectile {
+                    speed: 1_000.0,
+                    cannon,
+                },
+                can_fire,
+                ..options
+            },
+        );
+        assert_eq!(fire, expected);
+    }
+
+    // The farther intercept exceeds the fallback horizon, and faster shots need less lead.
+    let speed = 625.0;
+    let relative_velocity = Vector::new(145.0, 225.0);
+    let velocity = Vector::new(-50.0, 40.0);
+    let leading_context = FlightContext {
+        ship: ShipMotion {
+            velocity,
+            rotation: (relative_velocity.y / speed).asin() + 0.10,
+            ..ship
+        },
+        ..context
+    };
+    for (distance, projectile_speed, expected_fire) in [
+        (350.0, speed, true),
+        (900.0, speed, true),
+        (900.0, speed * 2.0, false),
+    ] {
+        let moving_target = FlightTarget {
+            position: ship.position + Vector::new(distance, 0.0),
+            velocity: velocity + relative_velocity,
+            ..target
+        };
+        let (_, _, fire) = Pilot::default().attack(
+            leading_context,
+            moving_target,
+            AttackOptions {
+                weapon: AttackWeapon::Projectile {
+                    speed: projectile_speed,
+                    cannon: false,
+                },
+                ..options
+            },
+        );
+        assert_eq!(
+            fire, expected_fire,
+            "firing alignment for a projectile at {projectile_speed} m/s and {distance} m"
+        );
+    }
+
+    let spinning = FlightContext {
+        ship: ShipMotion {
+            spin: ship.maximum_turn_rate * 0.8,
+            ..ship
+        },
+        ..context
+    };
+    let (_, braking_turn, _) = Pilot::default().attack(spinning, target, options);
+    assert!(braking_turn > 0.0 && braking_turn < 0.8);
+
+    let mut looping = Pilot::default();
+    let mut reversed = false;
+    for tick in (0..=240).step_by(6) {
+        let (thrust, turn, _) = looping.attack(FlightContext { tick, ..context }, target, options);
+        reversed |= turn > 0.0 && thrust == 1.0;
+    }
+    assert!(reversed, "a persistent turn triggers a powered reversal");
 }
 
 #[test]

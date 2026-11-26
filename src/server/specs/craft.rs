@@ -90,6 +90,7 @@ pub struct Module {
     pub projectile: Projectile,
     pub ammo: Option<i32>,
     pub barrel_length: f64,
+    pub aim_limit: f64,
     pub turret: bool,
     pub turret_turn_rate: f64,
     pub model: Vec<ModelPart>,

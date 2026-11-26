@@ -31,14 +31,19 @@ measures refresh cadence automatically; frame statistics use that measured perio
 | `large`  | Large asteroids, weapons and fractures                            |
 | `combat` | Turning and firing among asteroids                                |
 | `flight` | Flight and firing through an asteroid corridor                    |
-| `pirate` | Three different ships fighting around asteroids using server NPCs |
+| `pirate` | Courser, Mustang, Arrow, and Excel-8 fighting around asteroids |
 
 The default runs all five. Select one with `--scenario pirate`, or pass a
 comma-separated list. The suite shares one browser and reuses its page for
 isolated worlds; networked cases start a fresh page. Normal graphics, HUD,
 audio and the FPS display stay active. Measurement defaults to 30 seconds;
 `--seconds N` changes it.
-Armed fixtures use one ordinary 200-round ammo item per ship that needs it.
+Armed fixtures normally use one 200-round ammo item per ship that needs it.
+The pirate benchmark Mustang carries three items for its two Autoguns.
+
+Networked captures report WebSocket payload bytes and browser message gaps,
+reconciliation timings, same-tick local position errors, and timestamped full
+replays. The first-frame offset aligns replay timestamps with frame stalls.
 
 For a diagnostic comparison on a simulated slower main thread, Chrome accepts
 `--cpu-throttle N` (for example, `--cpu-throttle 4`). The rate is recorded in
@@ -56,6 +61,25 @@ SERVER_BENCHMARK_FIXTURES=1 PIRATE_BENCHMARK_FIXTURE="$PWD/benchmarking/_local/r
 
 Replace the existing server watcher for this configuration, keep Vite running, and
 restore ordinary `npm run dev:server` afterward.
+
+To measure the first ship destruction, prepare the fixture with stock durability
+and start the fixture watcher as above. The capture ends on the first destruction
+recorded by the Rust server. The report includes the destroyed ship ID and elapsed
+time from both the start of the encounter and the start of the capture.
+
+```sh
+npm run benchmark:pirate:prepare -- --until-ship-destroyed /tmp/unicorn-pirate-rendering
+npm run benchmark -- --scenario pirate --until-ship-destroyed
+```
+
+For the two-destruction format, the Courser starts with an XS bubble shield.
+The view follows a surviving ship if the Courser is destroyed first. The capture
+ends at the second destruction, and the report includes both ships and times.
+
+```sh
+npm run benchmark:pirate:prepare -- --until-two-ships-destroyed /tmp/unicorn-pirate-rendering
+npm run benchmark -- --scenario pirate --until-two-ships-destroyed
+```
 
 ## Mustang movement
 

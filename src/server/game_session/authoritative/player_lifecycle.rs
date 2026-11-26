@@ -276,6 +276,8 @@ impl AuthoritativeSession {
         for entity in destroyed {
             self.sectors[index].npcs.remember_destroyed_ship(&entity);
             let object = entity.model.object();
+            #[cfg(feature = "benchmark-fixtures")]
+            self.record_pirate_ship_destruction(index, object.id);
             let Some(id) = object.player_number else {
                 continue;
             };

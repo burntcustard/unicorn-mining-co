@@ -1830,6 +1830,16 @@ export const previewAutogunAudio = async () => {
     }
   };
 
+  const waitForSound = async (played: () => boolean) => {
+    const deadline = performance.now() + 4000;
+
+    // The preview uses simulated frames, but audio prepares buffers in real idle tasks.
+    while (!played() && performance.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 16));
+      draw(1);
+    }
+  };
+
   const source = new Ship();
   const gunMount = source.mounts.findIndex(({ fits }) =>
     fits.includes(Autogun),
@@ -1843,6 +1853,7 @@ export const previewAutogunAudio = async () => {
     source.fit(new Autogun(), source.mounts[gunMount]);
     preview.update(source, { mount: gunMount });
     draw(110);
+    await waitForSound(() => started.some((node) => node.loop));
     const fittedMotor = started.find((node) => node.loop);
 
     // Headless browsers can report a running audio context without advancing
@@ -1858,6 +1869,7 @@ export const previewAutogunAudio = async () => {
     });
 
     draw(1);
+    await waitForSound(() => started.some((node) => !node.loop));
     const fittedClick = started.some((node) => !node.loop);
 
     delete (context as unknown as { currentTime?: number }).currentTime;
@@ -1891,6 +1903,9 @@ export const previewAutogunAudio = async () => {
     preview = shipPreview.createShipPreview(target);
     preview.update(source, { mount: gunMount, candidate: PlasmaAccelerator });
     draw(220);
+    await waitForSound(
+      () => started.filter((node) => !node.loop).length > beforePlasma,
+    );
     const plasmaBeeps = started.filter((node) => !node.loop).length;
 
     return [

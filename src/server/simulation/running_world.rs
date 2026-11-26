@@ -299,14 +299,16 @@ impl MovementWorld for RunningWorld {
                     craft.transit_gate.and_then(reference_position),
                 )
             });
-        let turret_target = match &entity.model {
+        let weapon_target = match &entity.model {
             EntityKind::Ship(ship) => ship
                 .target_id
                 .filter(|&target| target != id)
                 .and_then(|target| self.world.entity(target))
-                .map(|target| target.model.object())
-                .filter(|target| !target.dead && !target.buried)
-                .map(|target| target.position),
+                .filter(|target| !target.model.object().dead && !target.model.object().buried)
+                .map(|target| match &target.model {
+                    EntityKind::Ship(ship) => ship.weapon_target_position(),
+                    model => model.object().position,
+                }),
             _ => None,
         };
         let entity_epoch = self.world.entity_epoch();
@@ -357,7 +359,7 @@ impl MovementWorld for RunningWorld {
                 );
                 if !transiting {
                     aftermath = ship.resolve_damage(catalog, &mut random, || ids.entity());
-                    ship.update_turrets(duration, turret_target);
+                    ship.update_weapon_aim(duration, weapon_target);
                     projectiles = ship.fire_projectiles(duration, catalog, || ids.entity());
                 }
             }

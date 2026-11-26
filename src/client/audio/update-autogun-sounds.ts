@@ -34,19 +34,18 @@ export const createAutogunSoundUpdater = () => {
           return;
         }
 
-        const segments = craft.segmentsAtMount(mount);
-        const progress = Math.max(
-          0,
-          ...segments.map((segment) => segment.activationProgress),
-        );
+        let progress = 0;
+        let active = false;
 
-        if (!progress && !segments.some((segment) => segment.active === 1)) {
-          return;
+        for (const segment of craft.segmentsAtMount(mount)) {
+          progress = Math.max(progress, segment.activationProgress);
+          active ||= segment.active === 1;
         }
+
+        if (!progress && !active) return;
 
         const key = `${craft.id}:${index}`;
         const previous = voices.get(key);
-        const active = segments.some((segment) => segment.active === 1);
         const speed = active
           ? progress === 1
             ? Math.max(

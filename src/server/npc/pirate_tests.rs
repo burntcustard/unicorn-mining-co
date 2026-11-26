@@ -177,7 +177,11 @@ fn ship(id: i64, observer: i64, position: Vector, mined_cargo_value: f64) -> Shi
         in_transit: false,
         stranded: false,
         has_hatch: true,
-        has_cannon: true,
+        has_weapon: true,
+        weapon: AttackWeapon::Projectile {
+            speed: 1_000.0,
+            cannon: true,
+        },
         releasing_cargo: false,
         mined_cargo_value,
         cargo_space: 4,

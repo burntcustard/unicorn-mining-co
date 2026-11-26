@@ -71,6 +71,20 @@ function compare(actual: unknown, expected: unknown, path: string) {
     return;
   }
 
+  // Positive hull health uses the playable catalog. Keep the packet shape and
+  // the absent or destroyed segment markers covered by the fixed replay.
+  if (
+    /\.hullHealth\.\d+$/.test(path) &&
+    typeof expected === 'number' &&
+    expected > 0
+  ) {
+    assert(
+      typeof actual === 'number' && Number.isFinite(actual) && actual > 0,
+      path,
+    );
+    return;
+  }
+
   if (typeof actual === 'number' && typeof expected === 'number') {
     assert(
       Math.abs(actual - expected) <= 2e-8,

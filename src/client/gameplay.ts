@@ -438,7 +438,8 @@ const gameLoop = GameLoop({
 
     const remotePoses = network.presentedPoses({ now, predicted });
 
-    const viewShip = game.viewShip || player.ship;
+    const observedShip = game.viewShip;
+    const viewShip = observedShip || player.ship;
     const predictedViewShip = predicted.entities.get(viewShip.id);
     const renderedShip =
       predictedViewShip instanceof Ship ? predictedViewShip : viewShip;
@@ -473,7 +474,7 @@ const gameLoop = GameLoop({
       ? predicted.entities.get(renderedShip.transitGate)
       : undefined;
 
-    if (!network.shipDestroyed) {
+    if (!network.shipDestroyed || observedShip) {
       followTarget(
         game,
         {
@@ -736,7 +737,7 @@ const gameLoop = GameLoop({
       });
 
       renderUI(view, stationMarkers, {
-        shipDestroyed: network.shipDestroyed,
+        shipDestroyed: network.shipDestroyed && !observedShip,
         shipStranded: network.shipStranded,
       });
 

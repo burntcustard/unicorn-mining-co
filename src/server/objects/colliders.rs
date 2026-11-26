@@ -163,11 +163,7 @@ impl ModelColliderPlan {
             } else {
                 1.0
             };
-            let (sin, cos) = if module.turret {
-                key.aim_rotation.sin_cos()
-            } else {
-                (0.0, 1.0)
-            };
+            let (sin, cos) = key.aim_rotation.sin_cos();
             self.outline.extend(part.points.iter().map(|&[mut x, y]| {
                 if module.telescoping {
                     x *= (1.0 - distance / module.barrel_length).max(0.0);
@@ -175,7 +171,7 @@ impl ModelColliderPlan {
                     x -= distance;
                 }
                 let y = y * side;
-                if module.turret {
+                if key.aim_rotation != 0.0 {
                     [x * cos - y * sin, x * sin + y * cos]
                 } else {
                     [x, y]
@@ -419,7 +415,7 @@ impl Craft {
                         pose: hull_pose,
                         radius: plan.radius,
                         collision_margin: None,
-                        outline: Some(outline),
+                        outline: (!outline.is_empty()).then_some(outline.as_slice()),
                         collides: physical || dock_segment,
                         physical,
                         pickup_point: false,
@@ -586,6 +582,13 @@ fn collider_material(friction: f64, bounciness: f64, speed: f64) -> ColliderMate
 
 impl Craft {
     pub fn damage_part(&mut self, part: ColliderPart, amount: f64) -> f64 {
+        if !self.wreckage.is_empty() {
+            // Wreckage keeps its collision geometry for its entire lifetime.
+            let applied = damage_health(&mut self.object.health, amount);
+            self.object.dead |= self.object.health <= 0.0;
+            return applied;
+        }
+
         self.invalidate_collision_geometry();
         match part {
             ColliderPart::Hull(hull) => self.damage_hull(hull, amount),

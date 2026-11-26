@@ -1,6 +1,7 @@
 // Browser expressions used by the gameplay performance runner.
 // The production fixture compiles these with the same property/tag transforms as the game.
 import { summarizeFrameIntervals } from './frame-metrics.ts';
+import { createNetworkObservations } from './network-observations.ts';
 
 /*
  * Keep each combatant's evidence separate. Initial projectiles and a cooldown
@@ -342,9 +343,17 @@ export const createGameplayWorkload = ({
   };
 })()`;
 
-const measurement = `new Promise((resolve) => {
-  const captureStartedEpochMs = performance.timeOrigin + performance.now();
+export const measureGameplay = ({
+  milliseconds,
+  trace,
+}: {
+  milliseconds?: number;
+  trace: boolean;
+}) => `new Promise((resolve, reject) => {
+  const captureStartedAt = performance.now();
+  const captureStartedEpochMs = performance.timeOrigin + captureStartedAt;
   const combat = (${createCombatObservations.toString()})();
+  const networkObservations = (${createNetworkObservations.toString()})(captureStartedAt);
   const refreshRate = Reflect.get(window, 'perf-refresh-rate');
   const framePeriod = 1000 / refreshRate;
   let hidden = document.hidden;
@@ -365,10 +374,37 @@ const measurement = `new Promise((resolve) => {
   const piratePositions = new Map();
   const pirateAmmunition = new Map();
   const predictionDiagnostics = {replays:0,steps:0,mismatchedInputSamples:0,motion:[]};
-  const originalReplay = network.prediction.replayTo;
-  const originalSimulate = network.prediction.simulate;
-  network.prediction.replayTo = function(options){predictionDiagnostics.replays++;return originalReplay.call(this,options)};
-  network.prediction.simulate = function(options){predictionDiagnostics.steps++;return originalSimulate.call(this,options)};
+  const prediction = network.prediction;
+  const originalReconcile = prediction.reconcile;
+  const originalReplay = prediction.replayTo;
+  const originalSimulate = prediction.simulate;
+  prediction.reconcile = function(options) {
+    const id = network.shipId;
+    const authority = options.entities?.find(entity => entity.id === id);
+    let localPositionError;
+    if (authority) {
+      const tick = options.entityTicks?.get(id) ?? options.tick;
+      const checkpoint = this.history.get(tick)?.entities.get(id)
+        ?? (tick === this.world.tick ? this.world.entities.get(id) : undefined);
+      if (checkpoint) localPositionError = Math.hypot(
+        checkpoint.position.x - authority.position.x,
+        checkpoint.position.y - authority.position.y,
+      );
+    }
+    const startedAt = performance.now();
+    const result = originalReconcile.call(this,options);
+    networkObservations.recordReconcile({duration:performance.now() - startedAt,localPositionError});
+    return result;
+  };
+  prediction.replayTo = function(options) {
+    predictionDiagnostics.replays++;
+    const fromTick = this.world.tick;
+    const startedAt = performance.now();
+    const result = originalReplay.call(this,options);
+    networkObservations.recordReplay({startedAt,duration:performance.now() - startedAt,fromTick,targetTick:options.targetTick});
+    return result;
+  };
+  prediction.simulate = function(options){predictionDiagnostics.steps++;return originalSimulate.call(this,options)};
   let lastMotionSample = 0;
   let pirateSamples = 0, fightingSamples = 0, pirateFiringSamples = 0, projectileSamples = 0, pirateMovement = 0, pirateProjectileSamples = 0, pirateRoundsUsed = 0, livingPirateSamples = 0;
   const inspectPirates = () => {
@@ -389,7 +425,7 @@ const measurement = `new Promise((resolve) => {
           id: ship.id,
           playerNumber: ship.playerNumber,
           role: ship.id === player.ship.id ? 'player' : 'pirate',
-          definition: ship.definitionId === 'courser' ? 'Courser' : ship.definitionId === 'arrow' ? 'Arrow' : !ship.definitionId || ship.definitionId === 'mustang' ? 'Mustang' : ship.name,
+          definition: ship.definitionId === 'courser' ? 'Courser' : ship.definitionId === 'arrow' ? 'Arrow' : ship.definitionId === 'excel8' ? 'Excel-8' : !ship.definitionId || ship.definitionId === 'mustang' ? 'Mustang' : ship.name,
           position,
           visible: ship.position.x + ship.radius >= camera.x && ship.position.x - ship.radius <= camera.x + game.width && ship.position.y + ship.radius >= camera.y && ship.position.y - ship.radius <= camera.y + game.height,
           alive: !ship.dead,
@@ -424,6 +460,7 @@ const measurement = `new Promise((resolve) => {
     const start = performance.now();
     originalMessage.call(this, event);
     messages.push(performance.now() - start);
+    networkObservations.recordMessage({data:event.data,startedAt:start});
     inspectPirates();
   };
   let frameStart;
@@ -463,6 +500,7 @@ const measurement = `new Promise((resolve) => {
       gaps.push(now - before);
       if(now-before>=framePeriod*1.5) stalls.push([now-start,now-before,work.at(-2),work.at(-1),updates.at(-1),predictions.at(-1)]);
     }
+    ${trace ? "if (start === undefined) performance.mark('benchmark-first-frame', { startTime: now });" : ''}
     start ??= now;
     windowStart ??= now;
     if (before !== undefined) windowFrames++;
@@ -472,15 +510,21 @@ const measurement = `new Promise((resolve) => {
       windowFrames = 0;
     }
     before = now;
-    if (now - start < 10000) requestAnimationFrame(frame);
+    const connectionLost = ${milliseconds === undefined ? 'network.socket.readyState !== WebSocket.OPEN' : 'false'};
+    if (!connectionLost && ${milliseconds === undefined ? "!Reflect.get(window, 'perf-combat-complete')" : `now - start < ${milliseconds}`}) requestAnimationFrame(frame);
     else {
       document.removeEventListener('visibilitychange', visibility);
       network.remoteMotion.sample = original;
       network.updateFrame = originalUpdate;
       network.predictFrame = originalPredict;
       network.socket.onmessage = originalMessage;
-      network.prediction.replayTo = originalReplay;
-      network.prediction.simulate = originalSimulate;
+      prediction.reconcile = originalReconcile;
+      prediction.replayTo = originalReplay;
+      prediction.simulate = originalSimulate;
+      if (connectionLost) {
+        reject(new Error('The combat benchmark lost its game server connection'));
+        return;
+      }
       const stats = (values) => {
         const sorted = values.toSorted((a, b) => a - b);
         return {
@@ -501,6 +545,7 @@ const measurement = `new Promise((resolve) => {
         prediction: stats(predictions),
         messages: stats(messages),
         messageCount: messages.length,
+        networkObservations: networkObservations.summary(start),
       visibleRocks: [Math.min(...visibleRocks), visibleRocks.reduce((a,b)=>a+b,0)/visibleRocks.length, visibleRocks.at(-1)],
       viewport: [innerWidth, innerHeight],
         canvas: [game.canvas.width, game.canvas.height],
@@ -537,6 +582,3 @@ const measurement = `new Promise((resolve) => {
   };
   requestAnimationFrame(frame);
 })`;
-
-export const measureGameplay = (milliseconds: number) =>
-  measurement.replace('10000', String(milliseconds));

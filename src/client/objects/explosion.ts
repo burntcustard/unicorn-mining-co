@@ -1,6 +1,6 @@
 import { type GameObject } from './game-object';
 import { Asteroid } from './asteroid';
-import { damage as applyDamage } from './damage';
+import { colliderDamageTarget, damage as applyDamage } from './damage';
 import { contactBetween } from '../collision/contact-between';
 import { type Collider, outlineColorOf } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
@@ -41,10 +41,11 @@ export const explode = ({
     });
   }
 
-  const targetOf = (collider: Collider) =>
-    collider.asteroidSegment || collider.segment || collider.owner;
   const healthOf = (collider: Collider) =>
-    collider.segment?.mount || targetOf(collider);
+    collider.segment?.mount ||
+    collider.asteroidSegment ||
+    collider.segment ||
+    collider.owner;
 
   // Snapshot the targets: fragments and resources from this blast are pushed,
   // but must not receive the damage a second time.
@@ -74,7 +75,7 @@ export const explode = ({
         const target = healthOf(collider);
 
         if (!contact || damaged.has(target)) continue;
-        const applied = applyDamage(targetOf(collider), damage);
+        const applied = applyDamage(colliderDamageTarget(collider), damage);
 
         if (!applied) continue;
         damaged.add(target);

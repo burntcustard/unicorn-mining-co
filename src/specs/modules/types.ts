@@ -102,6 +102,8 @@ type ModuleValues = {
 
   ammo?: ItemSpec;
   barrelLength?: number;
+  // Maximum offset from forward for an assisted mount, in radians.
+  aimLimit?: number;
   turret?: boolean;
   // Maximum aiming speed relative to the craft, in radians per second.
   turretTurnRate?: number;

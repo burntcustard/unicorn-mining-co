@@ -2,6 +2,7 @@
 
 use crate::protocol::Input;
 use crate::specs::NpcMovement;
+use crate::utilities::seeded_random::SeededRandom;
 use crate::utilities::vector::Vector;
 
 use super::collection::{COLLECTION_APPROACH_TIME, CollectionProgress, collect_controls};
@@ -49,15 +50,45 @@ pub struct FlightContext<'a> {
 pub struct AttackOptions {
     pub pass_distance: f64,
     pub aim_tolerance: f64,
-    pub projectile_speed: f64,
+    pub weapon: AttackWeapon,
     pub aim_prediction_time: f64,
     pub can_fire: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub enum AttackWeapon {
+    Beam {
+        range: f64,
+    },
+    Projectile {
+        speed: f64,
+        cannon: bool,
+    },
+    #[default]
+    None,
+}
+
+#[derive(Clone, Copy)]
+struct AttackAim {
+    offset: Vector,
+    bearing_rate: f64,
+    armed: bool,
+    firing: bool,
 }
 
 #[derive(Clone, Copy)]
 struct Pass {
     offset: Vector,
     direction: Vector,
+    ends_at: u64,
+}
+
+#[derive(Clone, Copy)]
+struct CombatTurn {
+    direction: f64,
+    change_at: u64,
+    last_tick: u64,
+    reversing: bool,
 }
 
 #[derive(Default)]
@@ -66,6 +97,7 @@ pub struct Pilot {
     avoidance: Avoidance,
     navigation: RoutePlan,
     passing: Option<Pass>,
+    combat_turn: Option<CombatTurn>,
     chase_until: u64,
     target_id: i64,
     target_motion: MotionObservation,
@@ -82,6 +114,16 @@ impl Pilot {
         context: FlightContext<'_>,
         destination: &Movement,
         forecast: Option<&ContactForecast<'_>>,
+    ) -> (f64, f64) {
+        self.steer_with_aim(context, destination, forecast, None)
+    }
+
+    fn steer_with_aim(
+        &mut self,
+        context: FlightContext<'_>,
+        destination: &Movement,
+        forecast: Option<&ContactForecast<'_>>,
+        aim: Option<AttackAim>,
     ) -> (f64, f64) {
         let ship = context.ship;
         if let Some(controls) = destination.controls {
@@ -119,7 +161,7 @@ impl Pilot {
                 .filter(|obstacle| ignore_id == 0 || obstacle.entity_id != ignore_id)
                 .cloned(),
         );
-        let result = self.steer_scene(context, destination, &mut scene, target, forecast);
+        let result = self.steer_scene(context, destination, &mut scene, target, forecast, aim);
         self.scene = scene;
         result
     }
@@ -131,6 +173,7 @@ impl Pilot {
         obstacles: &mut Vec<Obstacle>,
         target_entity: Option<FlightTarget>,
         forecast: Option<&ContactForecast<'_>>,
+        aim: Option<AttackAim>,
     ) -> (f64, f64) {
         self.collection.update(context, destination);
         if let Some(turn) = self.collection.wiggle(context, obstacles, forecast) {
@@ -140,7 +183,11 @@ impl Pilot {
         let (follow, pass, chasing) = self.combat_movement(context, destination);
         let target_acceleration = self.observe_target(context, destination);
         let target = if pass > 0.0 {
-            self.attack_run(context, destination)
+            self.attack_run(
+                context,
+                destination,
+                target_entity.map_or(0.0, |target| target.radius),
+            )
         } else {
             self.passing = None;
             destination.position
@@ -190,6 +237,7 @@ impl Pilot {
             velocity = Vector::ZERO;
         }
         if !destination.collect
+            && aim.is_none()
             && pass == 0.0
             && !detour
             && distance <= follow + 5.0
@@ -216,53 +264,84 @@ impl Pilot {
                 forecast,
             );
         }
-        let relative = ship.velocity - velocity;
-        let lateral = relative - direction * relative.dot(direction);
-        let mut heading = velocity + (direction * 80.0_f64.max(speed) - lateral * 1.2);
-        let mut desired = velocity + direction * speed;
-        if chasing && !detour {
-            let wanted = velocity.dot(direction) + (distance - follow) * ship.drag;
-            desired = direction * wanted.min(ship.maximum_speed).max(0.0);
-        }
-        let mut acceleration =
-            desired * ship.drag + (desired - ship.velocity) * (1.0 / rules.response_time);
-        if chasing && !detour {
-            acceleration += target_acceleration;
-        }
-        if detour || follow > 0.0 && acceleration.dot(direction) > 0.0 {
-            heading = acceleration;
-        }
-        let mut angle = heading_error(heading.y.atan2(heading.x) - ship.rotation);
-        let mut thrust = 0.0;
-        if ship.acceleration > 0.0 && angle.abs() < 1.65 {
-            thrust = 1.0;
-            if !detour && pass == 0.0 || detour && follow > 0.0 {
-                thrust = arrival_thrust(
+        let tracking = aim
+            .filter(|aim| !detour && self.passing.is_none() && aim.offset.length_squared() > 0.0);
+        let repositioning =
+            !detour && aim.is_some_and(|aim| aim.armed && (!aim.firing || tracking.is_none()));
+        let (mut heading, mut thrust, mut turn) = if let Some(aim) = tracking {
+            let angle = heading_error(aim.offset.y.atan2(aim.offset.x) - ship.rotation);
+            let thrust = if ship.acceleration <= 0.0
+                || !repositioning && (angle.abs() >= 1.3 || distance <= follow)
+            {
+                0.0
+            } else if repositioning || pass > 0.0 {
+                1.0
+            } else {
+                arrival_thrust(
                     ship,
                     rules,
                     target_direction,
                     destination.velocity,
                     target_acceleration,
                     distance - follow,
-                );
+                )
+            };
+            (aim.offset, thrust, aim_turn(ship, angle, aim.bearing_rate))
+        } else {
+            let relative = ship.velocity - velocity;
+            let lateral = relative - direction * relative.dot(direction);
+            let mut heading = velocity + (direction * 80.0_f64.max(speed) - lateral * 1.2);
+            let mut desired = velocity + direction * speed;
+            if chasing && !detour {
+                let wanted = velocity.dot(direction) + (distance - follow) * ship.drag;
+                desired = direction * wanted.min(ship.maximum_speed).max(0.0);
             }
-        }
-        if detour {
-            thrust *= 0.0_f64.max(angle.cos());
-        }
-        if follow > 0.0
-            && let Some((braking_heading, braking_thrust)) = braking_controls(
-                ship,
-                rules,
-                acceleration,
-                target_direction,
-                destination.velocity,
+            let mut acceleration =
+                desired * ship.drag + (desired - ship.velocity) * (1.0 / rules.response_time);
+            if chasing && !detour {
+                acceleration += target_acceleration;
+            }
+            if detour || follow > 0.0 && acceleration.dot(direction) > 0.0 {
+                heading = acceleration;
+            }
+            let mut angle = heading_error(heading.y.atan2(heading.x) - ship.rotation);
+            let mut thrust = 0.0;
+            if ship.acceleration > 0.0 && (repositioning || angle.abs() < 1.65) {
+                thrust = 1.0;
+                if !repositioning && (!detour && pass == 0.0 || detour && follow > 0.0) {
+                    thrust = arrival_thrust(
+                        ship,
+                        rules,
+                        target_direction,
+                        destination.velocity,
+                        target_acceleration,
+                        distance - follow,
+                    );
+                }
+            }
+            if detour {
+                thrust *= 0.0_f64.max(angle.cos());
+            }
+            if !repositioning
+                && follow > 0.0
+                && let Some((braking_heading, braking_thrust)) = braking_controls(
+                    ship,
+                    rules,
+                    acceleration,
+                    target_direction,
+                    destination.velocity,
+                )
+            {
+                heading = braking_heading;
+                thrust = braking_thrust;
+                angle = heading_error(heading.y.atan2(heading.x) - ship.rotation);
+            }
+            (
+                heading,
+                thrust,
+                turn_command(angle, ship.maximum_turn_rate, 1.8),
             )
-        {
-            heading = braking_heading;
-            thrust = braking_thrust;
-            angle = heading_error(heading.y.atan2(heading.x) - ship.rotation);
-        }
+        };
         if let Some(target) = target_entity
             && target.is_ship
             && (destination.pass_distance > 0.0 || follow > 0.0)
@@ -274,7 +353,20 @@ impl Pilot {
                 ..Obstacle::circle(target.position, target.radius)
             });
         }
-        let turn = turn_command(angle, ship.maximum_turn_rate, 1.8);
+        if aim.is_some()
+            && let Some(direction) = self.reverse_combat_turn(context, destination.target_id, turn)
+        {
+            heading = direction_of(ship.rotation + direction * 1.4);
+            turn = direction;
+            thrust = 1.0;
+        } else if tracking.is_some() && ship.maximum_turn_rate > 0.0 {
+            // Brake toward sharp changes in the target bearing before countersteering.
+            let current = (ship.spin / ship.maximum_turn_rate).clamp(-1.0, 1.0);
+            turn = turn.clamp(current - 0.35, current + 0.35);
+            if turn.abs() < 0.02 {
+                turn = 0.0;
+            }
+        }
         self.avoidance
             .avoid(ship, rules, heading, thrust, turn, obstacles)
     }
@@ -335,30 +427,116 @@ impl Pilot {
         options: AttackOptions,
     ) -> (f64, f64, bool) {
         let ship = context.ship;
-        let mut aim = target.position;
-        if options.projectile_speed > 0.0 {
-            let flight = (ship.position.distance(target.position) / options.projectile_speed)
-                .min(options.aim_prediction_time);
-            aim = aim.add_scaled(target.velocity - ship.velocity, flight);
+        let target_offset = target.position - ship.position;
+        let distance_squared = target_offset.length_squared();
+        let distance = distance_squared.sqrt();
+        let relative_velocity = target.velocity - ship.velocity;
+        let mut offset = target_offset;
+        let mut pass_distance = options.pass_distance;
+        let mut follow_distance = 0.0;
+        let mut tolerance = options.aim_tolerance;
+        match options.weapon {
+            AttackWeapon::Beam { range } => {
+                pass_distance = 0.0;
+                let clearance = ship.radius + target.radius + context.rules.clearance_distance;
+                follow_distance = (range * 0.32).max(clearance);
+                let angular_width = target.radius.atan2(distance);
+                tolerance = tolerance.max((angular_width + 0.12).clamp(0.20, 0.40));
+            }
+            AttackWeapon::Projectile { speed, cannon } if speed > 0.0 => {
+                // Solve |target_offset + relative_velocity * flight| = speed * flight.
+                let along = target_offset.dot(relative_velocity);
+                let across = target_offset.cross(relative_velocity);
+                let denominator =
+                    (speed * speed * distance_squared - across * across).sqrt() - along;
+                let flight = if denominator > 0.0 {
+                    distance_squared / denominator
+                } else {
+                    (distance / speed).min(options.aim_prediction_time)
+                };
+                offset = offset.add_scaled(relative_velocity, flight);
+                if cannon {
+                    tolerance = tolerance.max(0.20);
+                }
+            }
+            _ => {}
         }
-        let offset = aim - ship.position;
+        if self.target_id != target.entity_id {
+            self.combat_turn = None;
+        }
         let angle = heading_error(offset.y.atan2(offset.x) - ship.rotation);
+        let bearing_rate = offset.cross(relative_velocity) / offset.length_squared().max(1.0);
+        let fire = options.can_fire && angle.abs() <= tolerance;
         context.target = Some(target);
-        let (thrust, turn) = self.steer(
+        let (thrust, turn) = self.steer_with_aim(
             context,
             &Movement {
                 position: target.position,
                 velocity: target.velocity,
-                pass_distance: options.pass_distance,
+                pass_distance,
+                follow_distance,
                 target_id: target.entity_id,
                 ..Movement::default()
             },
+            None,
+            Some(AttackAim {
+                offset,
+                bearing_rate,
+                armed: !matches!(options.weapon, AttackWeapon::None),
+                firing: fire,
+            }),
         );
-        (
-            thrust,
-            turn,
-            options.can_fire && angle.abs() < options.aim_tolerance,
-        )
+        (thrust, turn, fire)
+    }
+
+    fn reverse_combat_turn(
+        &mut self,
+        context: FlightContext<'_>,
+        target_id: i64,
+        turn: f64,
+    ) -> Option<f64> {
+        let tick = context.tick;
+        let ticks = |seconds: f64| (seconds / context.simulation_step).ceil() as u64;
+        let recent = self.combat_turn.filter(|previous| {
+            tick.saturating_sub(previous.last_tick) <= ticks(context.rules.decision_interval * 2.0)
+        });
+        if let Some(mut previous) =
+            recent.filter(|previous| previous.reversing && tick < previous.change_at)
+        {
+            previous.last_tick = tick;
+            self.combat_turn = Some(previous);
+            return Some(previous.direction);
+        }
+        if turn.abs() < 0.06 {
+            self.combat_turn = None;
+            return None;
+        }
+        let direction = turn.signum();
+        if let Some(mut previous) =
+            recent.filter(|previous| !previous.reversing && previous.direction == direction)
+        {
+            previous.last_tick = tick;
+            if tick >= previous.change_at {
+                previous.reversing = true;
+                previous.direction = -direction;
+                previous.change_at = tick + ticks(1.0);
+                self.passing = None;
+            }
+            self.combat_turn = Some(previous);
+            return previous.reversing.then_some(previous.direction);
+        }
+        let seed = context.ship.position.x.to_bits()
+            ^ context.ship.position.y.to_bits().rotate_left(21)
+            ^ (target_id as u64).rotate_left(43)
+            ^ tick.rotate_left(11);
+        let mut random = SeededRandom::new(f64::from((seed ^ (seed >> 32)) as u32));
+        self.combat_turn = Some(CombatTurn {
+            direction,
+            change_at: tick + ticks(3.5 + 2.5 * random.next_float()),
+            last_tick: tick,
+            reversing: false,
+        });
+        None
     }
 
     fn observe_target(&mut self, context: FlightContext<'_>, destination: &Movement) -> Vector {
@@ -426,14 +604,20 @@ impl Pilot {
         }
     }
 
-    fn attack_run(&mut self, context: FlightContext<'_>, destination: &Movement) -> Vector {
+    fn attack_run(
+        &mut self,
+        context: FlightContext<'_>,
+        destination: &Movement,
+        target_radius: f64,
+    ) -> Vector {
         let ship = context.ship;
         if let Some(passing) = self.passing {
             let end = destination.position + passing.offset;
             let remaining = end - ship.position;
-            if remaining.length() < 80.0
+            if context.tick >= passing.ends_at
+                || remaining.length() < 60.0
                 || remaining.dot(passing.direction) < 0.0
-                || ship.position.distance(destination.position) > 600.0
+                || ship.position.distance(destination.position) > 450.0
             {
                 self.passing = None;
             } else {
@@ -444,7 +628,8 @@ impl Pilot {
         let mut direction = offset.normalized();
         let drift = ship.velocity - destination.velocity;
         let closing = drift.dot(direction);
-        if closing >= 0.0 && offset.length() < 320.0_f64.max(closing * 1.6 + 140.0) {
+        let clearance = ship.radius + target_radius + context.rules.clearance_distance;
+        if closing >= 0.0 && offset.length() < clearance + closing * 0.40 {
             if direction.length_squared() == 0.0 {
                 direction = direction_of(ship.rotation);
             }
@@ -457,19 +642,26 @@ impl Pilot {
             } else {
                 0.0
             };
-            let lateral = destination.pass_distance * 3.0
-                + turn_radius
-                + 0.0_f64.max(closing) * context.rules.decision_interval;
-            let offset = direction * 250.0 + side * lateral;
+            let lateral = destination.pass_distance.max(clearance) + turn_radius * 0.5;
+            let offset = direction * (140.0_f64.max(turn_radius * 0.75)) + side * lateral;
             let end = destination.position + offset;
             self.passing = Some(Pass {
                 offset,
                 direction: (end - ship.position).normalized(),
+                ends_at: context.tick + (1.8 / context.simulation_step).ceil() as u64,
             });
             return end;
         }
         destination.position
     }
+}
+
+fn aim_turn(ship: ShipMotion, angle: f64, bearing_rate: f64) -> f64 {
+    if ship.maximum_turn_rate <= 0.0 {
+        return 0.0;
+    }
+    let desired_rate = bearing_rate + angle * 3.5;
+    (desired_rate / ship.maximum_turn_rate).clamp(-1.0, 1.0)
 }
 
 pub fn intercept_position(
