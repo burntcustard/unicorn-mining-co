@@ -1,29 +1,19 @@
 import assert from 'node:assert/strict';
-import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { Station } from '../../src/client/objects/station';
 import { createWorld, addEntity } from '../../src/client/simulation/world';
 import { EntityState } from '../../src/client/simulation/entity-state';
-import { moduleTypesById } from '../../src/client/objects/modules';
-import { shipSpecsById } from '../../src/specs/ships';
-import {
-  encodeClientMessage,
-  decodeClientMessage,
-} from '../../src/client/protocol/binary-control';
-import { installExampleModules } from '../support/example-modules';
-
-installExampleModules();
+import { flight } from '../../src/specs/control-ship';
+import { createBoosterShip } from '../support/booster-ship';
 
 const world = createWorld();
-const ship = createPlayerShip(world);
+const ship = createBoosterShip({ world });
+const usage = 4;
+
+ship.engine.fuelUsage = usage;
+assert.equal(ship.fuel, ship.fuelCapacity);
+
 const near = (actual: number, expected: number) =>
   assert(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
-const usage = ship.engine.fuelUsage;
-
-for (const shipType of shipSpecsById.keys()) {
-  const fresh = createPlayerShip(world, { shipType });
-
-  assert.equal(fresh.fuel, fresh.fuelCapacity);
-}
 
 for (const [forward, turn, factor] of [
   [1, 0, 1],
@@ -42,20 +32,28 @@ ship.fuel = ship.fuelCapacity;
 const normalSpeed = ship.maxSpeed;
 const normalTurn = ship.rotationalThrust;
 
-ship.fuel = ship.fuelCapacity * 0.05;
-assert(!ship.lowFuel, 'exactly 5% still has normal speed');
-ship.fuel = 3;
+ship.fuel = ship.fuelCapacity * flight.lowFuelThreshold;
+assert(!ship.lowFuel, 'the reserve boundary still has normal speed');
+const lowFuel = ship.fuel / 2;
+
+ship.fuel = lowFuel;
 ship.fly(1, 1);
 assert(ship.lowFuel);
-near(ship.maxSpeed, normalSpeed / 2);
-near(ship.rotationalThrust, normalTurn / 2);
+near(ship.maxSpeed, normalSpeed * flight.lowFuelSpeed);
+near(ship.rotationalThrust, normalTurn * flight.lowFuelSpeed);
 ship.update(1);
-near(ship.fuel, 3 - usage * 0.25);
+near(ship.fuel, lowFuel - usage * flight.lowFuelUsage);
 const state = new EntityState(ship);
 
 ship.update(1);
 state.restore();
-near(ship.fuel, 3 - usage * 0.25);
+near(ship.fuel, lowFuel - usage * flight.lowFuelUsage);
+
+const reserve = ship.fuelCapacity * flight.lowFuelThreshold;
+
+ship.fuel = reserve + usage / 2;
+ship.consumeFuel(1);
+near(ship.fuel, reserve - (usage / 2) * flight.lowFuelUsage);
 
 ship.fuel = 1e-10;
 ship.update(1);
@@ -70,10 +68,6 @@ assert(
 
 const action = { action: 'refuel' as const };
 
-assert.deepEqual(
-  decodeClientMessage(encodeClientMessage({ type: 'dock', ...action })),
-  { type: 'dock', ...action },
-);
 const account = { credits: 100 };
 
 assert.equal(
@@ -85,10 +79,15 @@ const station = new Station({ world, id: 999 });
 
 addEntity(world, station);
 ship.dockedTo = station.id;
-assert.equal(ship.refuelCost, 24);
-assert.equal(ship.applyDockAction(action, { credits: 23 }), undefined);
+const refillCost = Math.ceil(ship.fuelCapacity * flight.fuelPrice);
+
+assert.equal(ship.refuelCost, refillCost);
+assert.equal(
+  ship.applyDockAction(action, { credits: refillCost - 1 }),
+  undefined,
+);
 assert(ship.applyDockAction(action, account));
-assert.equal(account.credits, 76);
+assert.equal(account.credits, 100 - refillCost);
 assert.equal(ship.fuel, ship.fuelCapacity);
 assert.equal(
   ship.applyDockAction(action, account),
@@ -101,31 +100,6 @@ ship.fuel = ship.fuelCapacity - 0.5;
 assert.equal(ship.refuelCost, 0, 'fuel that displays as full has no cost');
 assert.equal(ship.applyDockAction(action, account), undefined);
 ship.fuel = ship.fuelCapacity - 0.51;
-assert.equal(ship.refuelCost, 1);
+assert.equal(ship.refuelCost, Math.ceil(0.51 * flight.fuelPrice));
 assert(ship.applyDockAction(action, account));
 assert.equal(ship.fuel, ship.fuelCapacity);
-ship.fuel = 60;
-assert.equal(ship.refuelCost, 12);
-
-ship.dockedTo = undefined;
-
-// Full thrust uses the normal rate down to the reserve, then one quarter.
-for (const id of ['thrusterSingleSm', 'thrusterTriple'] as const) {
-  const ship = createPlayerShip(world, {
-    shipType: id === 'thrusterSingleSm' ? 'arrow' : 'mustang',
-  });
-
-  const Type = moduleTypesById.get(id)!;
-
-  ship.fit(new Type(), ship.engine.mount);
-  ship.fuel = ship.fuelCapacity;
-  ship.fly(1, 0);
-  const usage = ship.engine.fuelUsage;
-
-  ship.consumeFuel((ship.fuelCapacity * 0.95) / usage);
-  near(ship.fuel, ship.fuelCapacity * 0.05);
-  ship.consumeFuel((ship.fuel - usage * 0.25) / (usage * 0.25));
-  assert(ship.fuel > 0);
-  ship.consumeFuel(1);
-  near(ship.fuel, 0);
-}

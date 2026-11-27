@@ -8,6 +8,7 @@ import {
   addEntity,
   addPlayer,
   createWorld,
+  entityId,
 } from '../../src/client/simulation/world';
 import { createPlayerShip } from '../../src/client/objects/create-ship';
 import { Item } from '../../src/client/objects/item';
@@ -24,9 +25,11 @@ import { updateWorld } from '../../src/client/simulation/update-world';
 import { PredictionManager } from '../../src/client/prediction/prediction';
 import { RemoteMotion } from '../../src/client/prediction/remote-motion';
 import { Station } from '../../src/client/objects/station';
-import { createStockedStation } from '../support/stocked-station';
 import { FramePrediction } from '../../src/client/prediction/frame-prediction';
 import { GameObject } from '../../src/client/objects/game-object';
+import { Projectile } from '../../src/client/objects/projectile';
+import { Autogun } from '../../src/client/objects/modules/weapon';
+import { effects } from '../../src/client/effects/effect';
 import { CargoHatch } from '../../src/client/objects/modules/cargo-hatch';
 import { HornDrill } from '../../src/client/objects/modules/horn-drill';
 import { maxPredictionTicks } from '../../src/specs/prediction';
@@ -38,6 +41,19 @@ import { type ShapeOutline } from '../../src/client/types';
 import { installExampleModules } from '../support/example-modules';
 
 installExampleModules();
+
+function createStockedStation(
+  world: ReturnType<typeof createWorld>,
+  position = Vec.create(),
+) {
+  const station = new Station({ world, position, id: entityId(world) });
+
+  station.cargoContents = Array.from(
+    { length: 3 },
+    () => new Item(autogunAmmo, { world, id: entityId(world) }),
+  );
+  return station;
+}
 
 {
   const world = createWorld();
@@ -94,7 +110,7 @@ installExampleModules();
   addPlayer(world, { playerNumber: 1, shipId: ship.id });
   const station = addEntity(
     world,
-    createStockedStation(world, { position: Vec.create(2000) }),
+    createStockedStation(world, Vec.create(2000)),
   );
   const stock = station.cargoContents.length;
 
@@ -1454,5 +1470,57 @@ console.log(
   assert(
     !world.entities.get(ship.id)!.dockedTo,
     'the fixed tick adopts the same predicted launch',
+  );
+}
+
+// A fire edge can produce a display shot before its tick commits.
+{
+  const world = createWorld();
+  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
+  const gun = new Autogun();
+  const magazine = new Item(autogunAmmo, { rounds: 2 });
+
+  addPlayer(world, { playerNumber: 1, shipId: ship.id });
+  ship.fit(
+    gun,
+    ship.mounts.find((mount) => mount.fits.includes(Autogun)),
+  );
+  ship.cargoContents.push(magazine);
+  ship.setModuleActive({ module: Autogun, active: true });
+  ship.updateModules(gun.activationDuration + gun.chargeDuration + 0.1);
+  const frame = new FramePrediction();
+  const edge = simulationStep * 0.75;
+  const initial = { ...emptyPlayerInput(), autogunActive: true };
+
+  const input = {
+    input: initial,
+    changes: [{ offset: edge, input: { ...initial, fire: true } }],
+  };
+
+  const render = (elapsed: number) =>
+    frame.sample({ world, playerNumber: 1, input, elapsed });
+  const countShots = (scene: typeof world) =>
+    [...scene.entities.values()].filter(
+      (entity) => entity instanceof Projectile,
+    ).length;
+
+  assert.equal(countShots(render(edge - 0.001)), 0);
+  assert.equal(countShots(render(edge + 0.001)), 1);
+  assert.equal(frame.shots.length, 1);
+  assert.equal(countShots(world), 0);
+  assert.equal(magazine.rounds, 2);
+
+  const [shot] = frame.shots;
+  const before = effects.length;
+
+  shot.weapon.presentShot({ craft: ship, deadline: shot.deadline });
+  updateWorld({ world, inputs: new Map([[1, input]]) });
+  ship.updateVisual(0);
+  assert.equal(countShots(world), 1);
+  assert.equal(magazine.rounds, 1);
+  assert.equal(
+    effects.length,
+    before + 1,
+    'committing does not repeat the flash',
   );
 }

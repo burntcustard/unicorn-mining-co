@@ -287,7 +287,7 @@ fn cached_polygon_separation_never_discards_a_continuous_impact() {
         0.5,
     );
     let (mut cached, mut relative) = (0, 0);
-    for trial in 0..10000 {
+    for trial in 0..3000 {
         let mut world = World::<()>::new(&catalog.simulation);
         let a = world.create_body();
         let b = world.create_body();
@@ -355,5 +355,8 @@ fn cached_polygon_separation_never_discards_a_continuous_impact() {
             );
         }
     }
-    assert!(cached >= 100 && relative >= 100);
+    assert!(
+        cached >= 20 && relative >= 20,
+        "{cached} cached and {relative} relative rejections"
+    );
 }

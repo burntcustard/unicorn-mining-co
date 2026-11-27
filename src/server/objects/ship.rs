@@ -574,14 +574,51 @@ pub(super) fn update_ship_mass(craft: &mut Craft, hull_mass: f64, drag_coefficie
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::specs::{Booster, HullSegment, ModelPart, Module, MountPoint};
+    use crate::test_fixtures::load_example_catalog;
 
-    fn player(definition: &str, catalog: &Catalog) -> Ship {
-        let mut next_module = 0;
-        Ship::new_player(1, definition, ObjectProperties::default(), catalog, || {
-            next_module -= 1;
-            next_module
-        })
-        .expect("stock ship has a valid loadout")
+    fn example_ship() -> (Ship, Catalog) {
+        let mut catalog = load_example_catalog().unwrap();
+        Arc::make_mut(catalog.module_specs.get_mut("thrusterDualMd").unwrap()).power_generated =
+            100.0;
+        let hull_segments = [true, false].map(|core| HullSegment {
+            core,
+            flight_offset: (!core).then_some([3.0, -4.0]),
+            health: Some(100.0),
+            mounts: vec![
+                vec![MountPoint {
+                    fits: vec!["thrusterDualLg".into(), "thrusterDualMd".into()],
+                    ..MountPoint::default()
+                }],
+                vec![MountPoint::default()],
+            ],
+            ..HullSegment::default()
+        });
+        catalog.ship_specs.insert(
+            "example".into(),
+            crate::specs::Ship {
+                hull_mass: 100.0,
+                fuel_capacity: 100.0,
+                hull_segments: hull_segments.to_vec(),
+                ..Default::default()
+            },
+        );
+        catalog.simulation.flight.low_fuel_threshold = 0.1;
+        catalog.simulation.flight.low_fuel_speed = 0.5;
+        catalog.simulation.flight.low_fuel_usage = 0.25;
+        let ship = Ship::new(1, "example", ObjectProperties::default(), &catalog).unwrap();
+        (ship, catalog)
+    }
+
+    fn install(ship: &mut Ship, mount: usize, id: &str, spec: &Arc<Module>) {
+        ship.fit(
+            mount,
+            Some(InstalledModule::new(
+                mount as i64,
+                id.into(),
+                Arc::clone(spec),
+            )),
+        );
     }
 
     fn near(actual: f64, expected: f64) {
@@ -589,147 +626,118 @@ mod tests {
     }
 
     #[test]
-    fn original_thruster_mounts_determine_thrust_and_fuel() -> Result<(), crate::specs::CatalogError>
-    {
-        let catalog = Catalog::load()?;
-        let mut ship = player("moth", &catalog);
-        let medium = Arc::clone(
-            &ship.craft.mounts[3]
-                .module
-                .as_ref()
-                .expect("stock medium engine")
-                .spec,
-        );
-        let large = Arc::clone(&catalog.module_specs["thrusterDualLg"]);
-        ship.fit(
-            8,
-            Some(InstalledModule::new(
-                -20,
-                "thrusterDualLg".into(),
-                Arc::clone(&large),
-            )),
-        );
-        let check = |ship: &mut Ship, forward, rotational, fuel| {
-            near(ship.forward_thrust(), forward);
-            near(ship.rotational_thrust(), rotational);
-            ship.fuel = ship.fuel_capacity;
-            ship.fly(1.0, 0.0);
-            ship.consume_fuel(1.0);
-            near(ship.fuel_capacity - ship.fuel, fuel);
-        };
-
-        check(
-            &mut ship,
+    fn thrusters_follow_deployment_fuel_and_flight_mode() {
+        let (mut ship, catalog) = example_ship();
+        let medium = &catalog.module_specs["thrusterDualMd"];
+        let large = &catalog.module_specs["thrusterDualLg"];
+        install(&mut ship, 0, "thrusterDualMd", medium);
+        install(&mut ship, 2, "thrusterDualLg", large);
+        near(
+            ship.forward_thrust(),
             (medium.forward_thrust + large.forward_thrust) / 2.0,
-            (medium.rotational_thrust + large.rotational_thrust) / 2.0,
-            medium.fuel_usage + large.fuel_usage,
         );
-        let spare = ship.fit(8, None);
-        check(
-            &mut ship,
-            medium.forward_thrust / 2.0,
-            medium.rotational_thrust / 2.0,
-            medium.fuel_usage,
-        );
-        ship.fit(8, spare);
-        ship.craft.hulls[ship.craft.mounts[3].hull].health = 0.0;
-        check(
-            &mut ship,
-            large.forward_thrust / 2.0,
-            large.rotational_thrust / 2.0,
-            large.fuel_usage,
-        );
-        assert_eq!(
-            ship.engine().expect("operating engine").definition_id,
-            "thrusterDualLg"
-        );
-        Ok(())
-    }
 
-    #[test]
-    fn reserve_fuel_scales_movement_usage_and_flare() -> Result<(), crate::specs::CatalogError> {
-        let catalog = Catalog::load()?;
-        let mut ship = player("mustang", &catalog);
-        let usage = ship.engine().expect("stock engine").spec.fuel_usage;
-        for (thrust, turn, factor) in [
-            (1.0, 0.0, 1.0),
-            (0.0, 1.0, 0.5),
-            (0.0, -1.0, 0.5),
-            (1.0, 1.0, 1.0),
-            (0.0, 0.0, 0.0),
-        ] {
-            ship.fuel = ship.fuel_capacity;
-            ship.fly(thrust, turn);
-            ship.advance_flight(1.0, ShipStep::default());
-            near(ship.fuel_capacity - ship.fuel, usage * factor);
-        }
+        ship.fit(2, None);
+        near(ship.forward_thrust(), medium.forward_thrust / 2.0);
+        install(&mut ship, 2, "thrusterDualLg", large);
+        ship.craft.hulls[1].health = 0.0;
+        near(ship.forward_thrust(), medium.forward_thrust / 2.0);
+        near(ship.rotational_thrust(), medium.rotational_thrust / 2.0);
+
+        let controller = Arc::new(Module {
+            behavior: "flightMode".into(),
+            health: 10.0,
+            flight_boost: 2.0,
+            activation_duration: 1.0,
+            model: vec![ModelPart::default()],
+            ..Module::default()
+        });
+        install(&mut ship, 1, "flightMode", &controller);
+        let unfolded = ship.craft.hulls[1].position;
+        let thrust = ship.forward_thrust();
+        ship.craft.set_module_active("flightMode", true);
+        ship.craft.update_modules(0.5, 1.0, None);
+        near(ship.forward_thrust(), thrust * 1.5);
+        assert_eq!(
+            ship.craft.hulls[1].position,
+            unfolded + Vector::new(1.5, -2.0)
+        );
+        ship.craft.mounts[1].health = 0.0;
+        ship.craft.update_flight_mode();
+        near(ship.forward_thrust(), thrust);
+        assert_eq!(ship.craft.hulls[1].position, unfolded);
 
         let full_speed = ship.max_speed();
-        ship.fuel = ship.fuel_capacity * catalog.simulation.flight.low_fuel_threshold;
+        ship.fly(0.0, -1.0);
+        ship.advance_flight(1.0, ShipStep::default());
+        near(ship.fuel, ship.fuel_capacity - medium.fuel_usage / 2.0);
+
+        ship.fuel = ship.fuel_capacity * 0.1;
         assert!(!ship.low_fuel());
         ship.fuel = 3.0;
         ship.fly(1.0, 1.0);
         near(ship.max_speed(), full_speed / 2.0);
         ship.advance_flight(1.0, ShipStep::default());
-        near(ship.fuel, 3.0 - usage * 0.25);
+        near(ship.fuel, 3.0 - medium.fuel_usage * 0.25);
+
         ship.fuel = 1e-10;
         ship.advance_flight(1.0, ShipStep::default());
         assert_eq!(ship.fuel, 0.0);
         assert_eq!(ship.forward_thrust(), 0.0);
         assert!(
             ship.engine()
-                .expect("stock engine")
+                .unwrap()
                 .parts
                 .iter()
                 .all(|part| part.active == 0.0)
         );
-
         ship.fuel = 60.0;
         ship.craft.docked_to = Some(999);
         ship.advance_flight(1.0, ShipStep::default());
-        near(ship.fuel, 60.0);
-        Ok(())
+        assert_eq!(ship.fuel, 60.0);
     }
 
     #[test]
-    fn boosters_share_lockout_and_taper_cruising_speed() -> Result<(), crate::specs::CatalogError> {
-        let catalog = Catalog::load()?;
-        let mut ship = player("excel8", &catalog);
+    fn boosters_share_lockout_and_taper_cruising_speed() {
+        let (mut ship, catalog) = example_ship();
+        install(
+            &mut ship,
+            0,
+            "thrusterDualMd",
+            &catalog.module_specs["thrusterDualMd"],
+        );
+        let booster = Booster {
+            multiplier: 2.0,
+            duration: 8.0,
+            ramp_duration: 2.0,
+            cooldown: 4.0,
+            recharge: 12.0,
+            charges: 2,
+        };
+        let spec = Arc::new(Module {
+            booster: Some(booster),
+            health: 10.0,
+            model: vec![ModelPart::default()],
+            ..Module::default()
+        });
+        for mount in [1, 3] {
+            install(&mut ship, mount, "booster", &spec);
+        }
         let original_speed = ship.max_speed();
-        let booster = catalog.module_specs["thrustBooster"]
-            .booster
-            .expect("booster tuning");
         ship.trigger_thrust_boost(true);
         near(ship.booster_multiplier(false), 1.0);
-        ship.update_boosters(booster.ramp_duration);
-        near(ship.booster_multiplier(false), booster.multiplier.powi(2));
-        near(
-            ship.max_speed(),
-            original_speed * booster.multiplier.powi(2),
-        );
+        ship.update_boosters(2.0);
+        near(ship.booster_multiplier(false), 4.0);
+        near(ship.max_speed(), original_speed * 4.0);
 
-        ship.update_boosters(booster.duration - booster.ramp_duration + booster.cooldown / 2.0);
+        ship.update_boosters(8.0);
         near(ship.booster_multiplier(false), 1.0);
-        near(
-            ship.booster_multiplier(true),
-            (1.0 + (booster.multiplier - 1.0) / 2.0).powi(2),
-        );
-
-        let remaining = ship.craft.mounts[1]
-            .module
-            .as_ref()
-            .expect("left booster")
-            .fire_cooldown;
+        near(ship.max_speed(), original_speed * 2.25);
         ship.trigger_thrust_boost(false);
         ship.trigger_thrust_boost(true);
         near(
-            ship.craft.mounts[1]
-                .module
-                .as_ref()
-                .expect("left booster")
-                .fire_cooldown,
-            remaining,
+            ship.craft.mounts[1].module.as_ref().unwrap().fire_cooldown,
+            2.0,
         );
-        Ok(())
     }
 }

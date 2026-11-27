@@ -10,15 +10,11 @@ async function run(executable: string, args: string[]) {
   }
 }
 
-const cargo = [
-  '--locked',
-  '--manifest-path',
-  'src/server/Cargo.toml',
-  '--target-dir',
-  'src/server/target',
-];
+const requested = process.argv.slice(2);
+const rustOnly = requested[0] === '--rust-only';
 
-await run('npm', ['run', 'build']);
+if (!rustOnly) await run('npm', ['run', 'build']);
+
 await run(process.execPath, [
   '--import',
   './scripts/register-typescript.ts',
@@ -31,20 +27,32 @@ await run(process.execPath, [
   './tests/support/local-storage.ts',
   'tests/parity/generate-fixtures.ts',
 ]);
-await run('cargo', ['test', ...cargo]);
-await run('cargo', ['test', ...cargo, '--', '--ignored']);
-
-await run(process.execPath, [
-  'scripts/test.ts',
-  '--skip-build',
-  ...(process.argv.slice(2).length
-    ? process.argv.slice(2)
-    : [
-        'tests/parity',
-        'tests/integration',
-        'beam-visibility',
-        'muzzle-flash',
-        'projectile-prediction',
-        'ship-destruction',
-      ]),
+await run('cargo', [
+  'test',
+  '--locked',
+  '--manifest-path',
+  'src/server/Cargo.toml',
+  '--target-dir',
+  'src/server/target',
+  ...(rustOnly
+    ? ['--no-default-features', '--features', 'test-fixtures', '--lib']
+    : []),
+  '--',
+  '--include-ignored',
 ]);
+
+if (!rustOnly) {
+  await run(process.execPath, [
+    'scripts/test.ts',
+    '--skip-build',
+    ...(requested.length
+      ? requested
+      : [
+          'tests/parity',
+          'tests/integration',
+          'beam-visibility',
+          'projectile-prediction',
+          'ship-destruction',
+        ]),
+  ]);
+}

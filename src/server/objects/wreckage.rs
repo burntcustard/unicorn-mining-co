@@ -29,6 +29,10 @@ pub(super) struct WreckageLaunch {
 }
 
 impl Craft {
+    pub(crate) fn is_wreckage(&self) -> bool {
+        !self.wreckage.is_empty()
+    }
+
     pub(super) fn spawn_wreckage(
         &self,
         launch: WreckageLaunch,

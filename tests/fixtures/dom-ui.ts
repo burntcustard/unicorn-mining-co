@@ -35,6 +35,10 @@ import {
   PlasmaAccelerator,
   SearchLight,
 } from '../../src/client/objects/modules/index.ts';
+import {
+  moduleMaximumHealth,
+  type Module,
+} from '../../src/client/objects/modules/module.ts';
 import { paintColors } from '../../src/specs/colors.ts';
 import { type ShipPreview } from '../../src/client/ui/dom/identity.ts';
 import {
@@ -1188,12 +1192,25 @@ export const previewState = () =>
 export const damageHull = () => {
   const health = player.ship.hullHealth;
 
-  health[0] = 2;
+  health[0] = Math.min(2, player.ship.hullSegments[0].health / 2);
   player.ship.hullHealth = health;
   ui.current.update();
 };
 
-export const hullHealth = () => player.ship.hullHealth;
+export const hullState = () => [
+  player.ship.hullHealth[0],
+  player.ship.hullSegments[0].health,
+];
+
+export const weaponDetailData = () => {
+  const plasma: typeof Module = PlasmaAccelerator;
+
+  return [
+    moduleMaximumHealth(Laser),
+    moduleMaximumHealth(plasma),
+    plasma.projectile?.explosion?.radius || 0,
+  ];
+};
 
 export const showroomActivation = async () => {
   const { Ship } = await import('../../src/client/objects/ship');
@@ -1721,13 +1738,18 @@ export const previewInsideHull = async () => {
   }
 };
 
-export const setFuel = (fuel: number, credits: number) => {
-  player.ship.fuel = fuel;
+export const setFuel = (fuel: number | 'full', credits: number) => {
+  player.ship.fuel = fuel === 'full' ? player.ship.fuelCapacity : fuel;
   player.credits = credits;
   ui.current.update();
 };
 
-export const fuelState = () => [player.ship.fuel, player.credits];
+export const fuelState = () => [
+  player.ship.fuel,
+  player.credits,
+  player.ship.fuelCapacity,
+  player.ship.refuelCost,
+];
 
 export const notification = (message: string) => updateNotification(message);
 

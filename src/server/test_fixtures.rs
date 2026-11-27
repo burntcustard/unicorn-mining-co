@@ -15,51 +15,6 @@ use crate::simulation::world::World;
 use crate::specs::{Catalog, Item, Module};
 use crate::utilities::vector::Vector;
 
-#[cfg(test)]
-pub(crate) fn assert_json(
-    actual: &serde_json::Value,
-    expected: &serde_json::Value,
-    tolerance: f64,
-    path: &str,
-) {
-    use serde_json::Value;
-
-    match expected {
-        Value::Number(expected) => {
-            let wanted = expected.as_f64().expect("JSON number");
-            let actual = actual
-                .as_f64()
-                .unwrap_or_else(|| panic!("{path}: expected a number, found {actual}"));
-            assert!(
-                (actual - wanted).abs() <= tolerance,
-                "{path}: {actual} != {wanted}"
-            );
-        }
-        Value::Array(expected) => {
-            let actual = actual
-                .as_array()
-                .unwrap_or_else(|| panic!("{path}: expected an array, found {actual}"));
-            assert_eq!(actual.len(), expected.len(), "{path}: array length");
-            for (index, (actual, expected)) in actual.iter().zip(expected).enumerate() {
-                assert_json(actual, expected, tolerance, &format!("{path}[{index}]"));
-            }
-        }
-        Value::Object(expected) => {
-            let actual = actual
-                .as_object()
-                .unwrap_or_else(|| panic!("{path}: expected an object, found {actual}"));
-            assert_eq!(actual.len(), expected.len(), "{path}: number of fields");
-            for (name, expected) in expected {
-                let actual = actual
-                    .get(name)
-                    .unwrap_or_else(|| panic!("{path}.{name}: missing field"));
-                assert_json(actual, expected, tolerance, &format!("{path}.{name}"));
-            }
-        }
-        _ => assert_eq!(actual, expected, "{path}"),
-    }
-}
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ExampleSpecs {

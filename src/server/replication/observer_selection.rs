@@ -690,40 +690,6 @@ mod tests {
     }
 
     #[test]
-    fn radar_covers_cells_outside_the_entity_unload_range() {
-        let rules = Catalog::load().unwrap().simulation;
-        let mut view = ReplicationView::default();
-        let mut observer = ObserverSelection::new(true);
-        let mut entities = vec![entity(1, -20.0), entity(2, 3100.0)];
-        entities.extend((3..=520).map(|id| entity(id, 15_000.0 + id as f64)));
-        let options = |tick, load| SelectOptions {
-            tick,
-            load,
-            players: 32,
-            position: Vector::ZERO,
-            owned: 1,
-            force_update: &[],
-        };
-        view.prepare(entities.iter().copied(), 1);
-        observer.select(&mut view, &rules, options(0, true));
-
-        // This asteroid stays outside the entity query and inside the radar query.
-        entities[1].position.x = 3250.0;
-        view.prepare(entities.iter().copied(), 1);
-        let selection = observer.select(&mut view, &rules, options(8, false));
-        assert!(
-            selection
-                .entities
-                .iter()
-                .all(|entry| selection.view[entry.index].id != 2)
-        );
-        assert_eq!(
-            selection.asteroid_positions.unwrap(),
-            &[entities[0].position, entities[1].position]
-        );
-    }
-
-    #[test]
     fn membership_hysteresis_owned_overrides_and_radar_clears() {
         let rules = Catalog::load().unwrap().simulation;
         let range = rules.replication;

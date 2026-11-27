@@ -17,27 +17,12 @@ fn recorded_packets() -> Result<HashMap<String, String>, serde_json::Error> {
 }
 
 #[test]
-fn full_snapshot_matches_go_recording() -> TestResult {
-    assert_eq!(
-        full_snapshot(&Catalog::load()?)?,
-        recorded_packets()?["snapshot"]
-    );
-    Ok(())
-}
-
-#[test]
-fn exceptional_motion_and_module_values_match_go_recording() -> TestResult {
-    assert_eq!(
-        edge_snapshot(&Catalog::load()?)?,
-        recorded_packets()?["edge"]
-    );
-    Ok(())
-}
-
-#[test]
-fn module_replication_matches_go_recording() -> TestResult {
+fn snapshots_match_wire_recordings() -> TestResult {
+    let catalog = Catalog::load()?;
     let expected = recorded_packets()?;
-    for (key, packet) in module_snapshots(&Catalog::load()?)? {
+    assert_eq!(full_snapshot(&catalog)?, expected["snapshot"]);
+    assert_eq!(edge_snapshot(&catalog)?, expected["edge"]);
+    for (key, packet) in module_snapshots(&catalog)? {
         assert_eq!(packet, expected[key], "{key}");
     }
     Ok(())

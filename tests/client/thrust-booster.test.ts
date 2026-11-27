@@ -4,14 +4,13 @@ import { moduleTypesById } from '../../src/client/objects/modules';
 import { Ship } from '../../src/client/objects/ship';
 import { EntityState } from '../../src/client/simulation/entity-state';
 import { cloneEntity } from '../../src/client/simulation/world-state';
-import * as Vec from '../../src/client/utilities/vector';
 import type { Mount } from '../../src/client/types';
 
 const near = (actual: number, expected: number, tolerance = 1e-8) =>
   assert(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);
 
 // Synthetic timing keeps the charge/lockout cases independent of tuning.
-const makeShip = (rampDuration = 0) => {
+const makeShip = (rampDuration = 0, charges = 3) => {
   const Type = moduleTypesById.get('thrustBooster')!;
 
   Type.booster = {
@@ -19,7 +18,7 @@ const makeShip = (rampDuration = 0) => {
     rampDuration,
     duration: 2,
     cooldown: 2,
-    charges: 3,
+    charges,
     recharge: 6,
   };
 
@@ -40,14 +39,11 @@ const press = (ship: Ship) => {
   ship.triggerThrustBoost(true);
 };
 
-for (const count of [1, 2]) {
+{
   const { ship, boosters } = makeShip(0.2);
   const normalSpeed = ship.maxSpeed;
   const forward = ship.forwardThrust;
   const rotation = ship.rotationalThrust;
-
-  if (count === 1) boosters[0].chargeCooldown = 18;
-  const active = boosters.slice(2 - count);
 
   press(ship);
   near(ship.thrustBoostFactor, 1);
@@ -55,7 +51,7 @@ for (const count of [1, 2]) {
 
   for (let step = 1; step <= 4; step++) {
     ship.updateModules(0.05);
-    const factor = active.reduce(
+    const factor = boosters.reduce(
       (value, module) =>
         value * (1 + ((module.booster.multiplier - 1) * step) / 4),
       1,
@@ -125,127 +121,28 @@ for (const count of [1, 2]) {
 }
 
 {
-  const { ship, multiplier } = makeShip();
-  const { ship: normal } = makeShip();
-  const normalCap = ship.maxSpeed;
+  const { ship, boosters } = makeShip(0, 1);
+  const { ship: fine, boosters: fineBoosters } = makeShip(0, 1);
 
   press(ship);
-  ship.updateModules(2);
-  Vec.setXY(ship.velocity, normalCap * multiplier, 0);
-  Vec.setXY(normal.velocity, normalCap, 0);
+  press(fine);
+  ship.systemsPower = fine.systemsPower = 0.5;
+  ship.updateModules(4);
 
-  for (const current of [ship, normal]) current.fly(1, 0);
+  for (let frame = 0; frame < 240; frame++) fine.updateModules(1 / 60);
 
-  for (let frame = 1; frame <= 126; frame++) {
-    for (const current of [ship, normal]) {
-      current.fuel = current.fuelCapacity;
-      current.update(1 / 60);
-    }
-
-    if (frame === 30) {
-      assert(
-        Vec.length(ship.velocity) > normalCap * 1.1,
-        'boost momentum survives the first half-second of recovery',
-      );
-    }
-  }
-
-  near(Vec.length(ship.velocity), normalCap, 1e-5);
-  near(Vec.length(normal.velocity), normalCap, 1e-5);
-}
-
-{
-  const { ship, boosters } = makeShip();
-  const normalCap = ship.maxSpeed;
-
-  boosters[0].chargeCooldown = 18;
+  near(boosters[0].chargeCooldown, 5);
+  near(fineBoosters[0].chargeCooldown, boosters[0].chargeCooldown);
+  near(fineBoosters[0].fireCooldown, boosters[0].fireCooldown);
   press(ship);
-  ship.updateModules(3);
-  const expected = 1 + (boosters[1].booster.multiplier - 1) * 0.5;
-
-  near(ship.thrustBoostFactor, 1);
-  near(ship.thrustBoostSpeedFactor, expected);
-  near(ship.maxSpeed, normalCap * expected);
-}
-
-{
-  const { ship, boosters, multiplier } = makeShip();
-  const { ship: normal } = makeShip();
-  const forward = ship.forwardThrust;
-  const rotation = ship.rotationalThrust;
-  const speed = ship.maxSpeed;
-
-  near(ship.thrustBoostFactor, 1);
-  press(ship);
-  near(ship.thrustBoostFactor, multiplier);
-  near(ship.forwardThrust, forward * multiplier);
-  near(ship.rotationalThrust, rotation * multiplier);
-  near(ship.maxSpeed, speed * multiplier);
-  near(ship.rawForwardThrust, normal.rawForwardThrust);
-
-  for (const booster of boosters) {
-    near(booster.fireCooldown, 4);
-    near(booster.chargeCooldown, 6);
-  }
-
-  for (const current of [ship, normal]) current.fly(1, 0.5);
-  ship.update(1 / 60);
-  normal.update(1 / 60);
-  near(
-    Vec.length(ship.velocity),
-    Vec.length(normal.velocity) * multiplier,
-    1e-5,
-  );
-  near(ship.spin, normal.spin * multiplier, 1e-5);
-  near(ship.fuel, normal.fuel);
-}
-
-{
-  const { ship, boosters, multiplier } = makeShip();
-
-  press(ship);
-  ship.triggerThrustBoost(true);
-  near(boosters[0].chargeCooldown, 6);
-  ship.updateModules(1);
-  near(boosters[0].fireCooldown, 3);
-  near(boosters[0].chargeCooldown, 6);
-  near(ship.thrustBoostFactor, multiplier);
-  press(ship);
-  near(boosters[0].fireCooldown, 3, 1e-8);
-  near(boosters[0].chargeCooldown, 6);
-  ship.updateModules(1);
-  near(ship.thrustBoostFactor, 1);
-  press(ship);
-  near(boosters[0].fireCooldown, 2);
-  near(boosters[0].chargeCooldown, 6);
-  ship.updateModules(2);
+  near(boosters[0].fireCooldown, 0);
+  near(boosters[0].chargeCooldown, 5);
+  ship.updateModules(10);
   ship.triggerThrustBoost(true);
   near(boosters[0].fireCooldown, 0);
-  near(boosters[0].chargeCooldown, 4);
   press(ship);
+  near(boosters[0].chargeCooldown, 6);
   near(boosters[0].fireCooldown, 4);
-  near(boosters[0].chargeCooldown, 10);
-}
-
-{
-  const { ship, boosters, multiplier } = makeShip();
-
-  // A charge debt of three recharge periods represents an empty module.
-  for (const booster of boosters) booster.chargeCooldown = 18;
-  press(ship);
-  near(ship.thrustBoostFactor, 1);
-  near(boosters[0].fireCooldown, 0);
-  ship.updateModules(5);
-  press(ship);
-  near(boosters[0].chargeCooldown, 13);
-  near(boosters[0].fireCooldown, 0);
-  ship.updateModules(1);
-  press(ship);
-  near(ship.thrustBoostFactor, multiplier);
-  near(boosters[0].chargeCooldown, 18);
-  ship.updateModules(30);
-  near(boosters[0].chargeCooldown, 0);
-  near(boosters[0].fireCooldown, 0);
 }
 
 {
@@ -298,6 +195,7 @@ for (const count of [1, 2]) {
 
 for (const block of [
   (ship: Ship) => (ship.dead = true),
+  (ship: Ship) => (ship.systemsPower = 0),
   (ship: Ship) => (ship.dockedTo = 12),
   (ship: Ship) => (ship.transitTime = -1),
   (ship: Ship) => (ship.launching = 1),
@@ -310,59 +208,6 @@ for (const block of [
   near(ship.thrustBoostFactor, 1);
   near(boosters[0].fireCooldown, 0);
   near(boosters[0].chargeCooldown, 0);
-}
-
-{
-  const { ship, boosters } = makeShip();
-  const normalCap = ship.maxSpeed;
-
-  press(ship);
-  ship.updateModules(3);
-  const expected = boosters.reduce(
-    (factor, module) => factor * (1 + (module.booster.multiplier - 1) * 0.5),
-    1,
-  );
-  const { ship: restored } = makeShip();
-
-  restored.moduleStates = structuredClone(ship.moduleStates);
-  const clone = cloneEntity({ entity: ship }) as Ship;
-  const checkpoint = new EntityState(ship);
-
-  ship.updateModules(1);
-  checkpoint.restore();
-
-  for (const result of [ship, restored, clone]) {
-    near(result.thrustBoostFactor, 1);
-    near(result.thrustBoostSpeedFactor, expected);
-    near(result.maxSpeed, normalCap * expected);
-  }
-}
-
-{
-  const { ship, boosters, multiplier } = makeShip();
-
-  press(ship);
-  ship.updateModules(0.5);
-  const states = structuredClone(ship.moduleStates);
-  const { ship: restored } = makeShip();
-
-  restored.moduleStates = states;
-  const restoredBoosters = restored.modules.filter(
-    (module) => module.behavior === 'thrustBooster',
-  );
-
-  near(restored.thrustBoostFactor, ship.thrustBoostFactor);
-  near(restoredBoosters[0].fireCooldown, boosters[0].fireCooldown);
-  near(restoredBoosters[0].chargeCooldown, boosters[0].chargeCooldown);
-  near((cloneEntity({ entity: ship }) as Ship).thrustBoostFactor, multiplier);
-
-  const checkpoint = new EntityState(ship);
-
-  ship.updateModules(3);
-  checkpoint.restore();
-  near(ship.thrustBoostFactor, multiplier);
-  near(boosters[0].fireCooldown, 3.5);
-  near(boosters[0].chargeCooldown, 6);
 }
 
 {

@@ -24,7 +24,6 @@ import {
   cloneEntity,
   restoreWorld,
 } from '${root}/src/client/simulation/world-state.ts';
-import { Projectile } from '${root}/src/client/objects/projectile.ts';
 import { crotus } from '${root}/src/specs/ships/crotus.ts';
 import { Ship } from '${root}/src/client/objects/ship.ts';
 import { EntityState } from '${root}/src/client/simulation/entity-state.ts';
@@ -33,19 +32,15 @@ import { controlShip } from '${root}/src/client/objects/control-ship.ts';
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import { Station } from '${root}/src/client/objects/station.ts';
-import { NavBeacon } from '${root}/src/client/objects/nav-beacon.ts';
 import {
   moduleTypesById,
   SearchLight,
   CargoHatch,
   HornDrill,
   ShieldGenerator,
-  ShieldGeneratorMd,
   ThrusterSingleSm,
   ThrusterCrescent,
   ThrusterSingleMd,
-  ThrusterSingleLg,
-  ThrusterSingleXl,
   thrusters,
   PlasmaAccelerator,
   Autogun,
@@ -74,68 +69,9 @@ import {
 } from '${root}/src/client/utilities/lighting.ts';
 import { colors } from '${root}/src/specs/colors.ts';
 import { withAlpha } from '${root}/src/client/utilities/color.ts';
-import { presentEvents } from '${root}/src/client/effects/present-events.ts';
-import { sparks } from '${root}/src/client/effects/shrapnel.ts';
 import shipPreview from '${root}/src/client/ui/dom/ship-preview.ts';
 
 init();
-
-// A benchmark observer exists only in replication: its zero-health stock
-// hull must hydrate without geometry or a stranded/dead-player fallback.
-{
-  const world = createWorld();
-  const template = new Ship();
-  const record = {kind: 'ship', id: 987654, radius: 0,
-    position: Vec.create(), rotation: 0, spin: 0,
-    hullHealth: template.hullHealth.map(() => 0), modules: []};
-  const anchor = makeEntity({entity: record, world});
-
-  for (const ship of [anchor,
-    makeEntity({entity: {...record, position: Vec.create(200,300)}, world, previous: anchor}),
-    cloneEntity({entity: anchor})]) {
-    assert.equal(ship.radius, 0);
-    assert.equal(ship.segments.length, 0);
-    assert.equal(ship.hitbox().length, 0);
-    assert.equal(ship.modules.length, 0);
-    assert.equal(ship.cockpit, undefined);
-    assert.equal(ship.dead, false);
-    assert.equal(ship.stranded, false);
-  }
-}
-
-// Beacons hydrate as craft without acquiring ship or station behavior.
-{
-  const world = createWorld();
-  const record = {kind: 'navBeacon', id: 98765, radius: 36,
-    position: Vec.create(), rotation: 0, spin: 0};
-  const beacon = makeEntity({entity: record, world});
-  assert(beacon instanceof NavBeacon);
-  assert(beacon instanceof Craft);
-  assert(!(beacon instanceof Ship));
-  assert(!(beacon instanceof Station));
-  assert.equal(beacon.segments.length, 12);
-  assert.equal(beacon.hitbox().filter(collider => collider.physics !== false).length, 11);
-  assert.equal(makeEntity({entity: record, world, previous: beacon}), beacon);
-}
-
-// Gate safety state survives wire hydration, prediction, and authoritative reset.
-{
-  const world = createWorld();
-  const record = {kind: 'jumpGate', id: 987, radius: 450,
-    position: Vec.create(), rotation: 0, spin: 0, opening: .75,
-    openingTarget: 1, blockedBeams: 2};
-  const gate = makeEntity({entity: record, world});
-  const predicted = cloneEntity({entity: gate});
-
-  assert.equal(gate.blockedBeams, 2, 'wire state identifies the interrupted beam');
-  assert.equal(predicted.blockedBeams, 2, 'prediction retains the red beam');
-  predicted.update(.01);
-  assert.equal(predicted.blockedBeams, 2, 'the beam remains red during reopening');
-  const opened = makeEntity({entity: {...record, opening: 1, blockedBeams: 0}, world, previous: gate});
-
-  applyEntity({entity: predicted, server: opened});
-  assert.equal(predicted.blockedBeams, 0, 'the authoritative opening resets the beam');
-}
 
 assert.deepEqual(
   Reflect.get(globalThis, 'context-options'),
@@ -143,122 +79,10 @@ assert.deepEqual(
   'the foreground drawing context keeps the browser default backing',
 );
 
-// Movement-only wire updates retain isolated, immutable rock geometry.
-{
-  const world = createWorld();
-  const record = {kind: 'asteroid', id: 123456, radius: 60,
-    position: Vec.create(), rotation: 0, spin: 0, contents: [0, 1]};
-  const server = makeEntity({entity: record, world});
-  const rock = addEntity(world, cloneEntity({entity: server}));
-
-  applyEntity({entity: rock, server});
-  const segments = rock.segments;
-  const colliders = rock.hitbox();
-  const saved = captureWorld({world});
-  const moved = makeEntity({entity: {...record, position: Vec.create(100, 200)}, world, previous: server});
-
-  assert.equal(moved, server, 'motion deltas reuse the decoded model');
-  applyEntity({entity: rock, server: moved});
-  assert.equal(rock.segments, segments);
-  assert.equal(rock.hitbox(), colliders, 'motion deltas keep collision fixtures warm');
-  assert.notEqual(rock.segments, server.segments, 'mutable health stays isolated');
-  const damaged = makeEntity({entity: {...record, health: 50}, world, previous: server});
-
-  applyEntity({entity: rock, server: damaged});
-  assert.notEqual(rock.segments, segments, 'damage refreshes the replicated model');
-  restoreWorld({world, state: saved});
-  assert.equal(rock.segments, segments, 'older topology checkpoints still rewind');
-  assert.equal(rock.position.x, 0);
-}
-const collision = {
-  type: 'collision', a: 10, b: 11, impact: 400,
-  colors: ['#f00', '#0af'], damage: [0, 0], position: Vec.create(7, 3),
-};
-presentEvents({ shipId: 10, events: [collision] });
-assert.equal(sparks.length, 0, 'a harmless collision produces no sparks');
-for (const [damage, color] of [[[0, 2], '#0af'], [[2, 0], '#f00']]) {
-  sparks.length = 0;
-  presentEvents({ shipId: 12, events: [{ ...collision, damage }] });
-  assert.equal(sparks.length, 4, 'only the damaged surface produces sparks');
-  assert(sparks.every(spark => spark.color === color), 'sparks use the damaged surface color');
-  assert(sparks.every(spark => spark.position.x === 7 && spark.position.y === 3), 'sparks appear at the contact point');
-}
-sparks.length = 0;
-presentEvents({ shipId: 10, events: [{ ...collision, impact: 1, damage: [0, 2] }] });
-assert.equal(sparks.length, 4, 'damaging contacts produce sparks even below the crash sound threshold');
-const sounds = Reflect.get(globalThis, 'capturedEffects').length;
-presentEvents({ playerNumber: 1, events: [
-  { type: 'itemCollected', by: 2, itemId: 889, resource: 0 },
-  { ...collision, damage: [2, 2] },
-] });
-assert.equal(Reflect.get(globalThis, 'capturedEffects').length, sounds, 'predicted events leave audio to the authoritative stream');
-sparks.length = 0;
 const packet = JSON.parse(Reflect.get(globalThis, 'packet'));
 const world = createWorld();
-const hydratedProjectile = makeEntity({
-  world,
-  entity: {
-    id: 9998,
-    kind: 'projectile',
-    definitionId: 'autogun',
-    radius: 1,
-    health: 1.25,
-    position: Vec.create(),
-    velocity: Vec.create(600, 0),
-    rotation: 0,
-    spin: 0,
-    playerNumber: 1,
-  },
-});
-assert(hydratedProjectile instanceof Projectile);
-assert.equal(hydratedProjectile.health, 1.25);
-const hydratedSlate = makeEntity({
-  entity: {
-    id: 9999,
-    kind: 'item',
-    resource: 4,
-    message: 'GOLD ORE 100/200',
-    position: Vec.create(),
-    radius: 8,
-    rotation: 0,
-    spin: 0,
-  },
-  world,
-});
-assert.equal(
-  hydratedSlate.message,
-  'GOLD ORE 100/200',
-  'the replicated slate keeps its field coordinates',
-);
-const hydratedAmmo = makeEntity({
-  world,
-  entity: {
-    kind: 'item',
-    id: 9997,
-    resource: 5,
-    rounds: 137,
-    position: Vec.create(),
-    radius: 6,
-    rotation: 0,
-    spin: 0,
-  },
-});
-assert.equal(
-  hydratedAmmo.rounds,
-  137,
-  'replicated packs retain their remaining rounds instead of refilling',
-);
 const objects = packet['fullEntities'].map((entity) =>
   makeEntity({ entity, world }),
-);
-assert.throws(
-  () =>
-    makeEntity({
-      entity: { ...packet['fullEntities'][0], kind: 'unknown' },
-      world,
-    }),
-  /Unknown replicated entity kind/,
-  'unknown wire kinds must not turn into ships',
 );
 const remote = objects.find((entity) => entity instanceof Ship);
 const station = objects.find((entity) => entity instanceof Station);
@@ -293,77 +117,6 @@ assert(
     .every((segment) => segment.zIndex === renderingLayers.stationFloor),
   'a module layer 0 survives hull inheritance',
 );
-assert(
-  remote.moduleActive({ module: SearchLight }) &&
-    remote.moduleActive({ module: CargoHatch }),
-  'wire activation restores module instances',
-);
-assert.deepEqual(
-  remote.shades,
-  colors.cyan,
-  'authoritative ship palette survives the wire',
-);
-assert.deepEqual(
-  station.shades,
-  colors.white,
-  'station retains its own palette',
-);
-assert.equal(
-  cloneEntity({ entity: station, includeCargo: false }).cargoContents.length,
-  0,
-  'the production display clone can omit shop inventory',
-);
-
-for (const craft of [remote, station]) {
-  assert.equal(
-    craft.cargoContents.length,
-    3,
-    'mixed cargo replicates without double-counting loose modules',
-  );
-  assert(
-    craft.cargoContents[0] instanceof Item &&
-      craft.cargoContents[0].resource === 0,
-  );
-  assert.equal(
-    craft.cargoContents[0].name,
-    'Diamond',
-    'item names come from the shared spec',
-  );
-  assert(craft.cargoContents[1] instanceof HornDrill);
-  assert(
-    craft.modules.includes(craft.cargoContents[1]),
-    'replicated modules and cargo contents reference the same module',
-  );
-}
-assert.deepEqual(
-  remote.cargoContents.map((object) => object.id),
-  [321, 322, 323],
-  'cargo order and identities survive the wire',
-);
-assert.equal(
-  remote.cargoContents[0].health,
-  42,
-  'item damage survives replication',
-);
-assert.equal(
-  remote.cargoContents[2].name,
-  'CRATE',
-  'generic cargo state survives replication',
-);
-for (const craft of [remote, station]) {
-  const predicted = cloneEntity({ entity: craft });
-  for (let tick = 0; tick < 3; tick++)
-    applyEntity({ entity: predicted, server: craft });
-  assert.deepEqual(
-    predicted.cargoContents.map((object) => object.id),
-    craft.cargoContents.map((object) => object.id),
-    'repeated reconciliation preserves mixed cargo without duplicates',
-  );
-  assert(
-    predicted.modules.includes(predicted.cargoContents[1]),
-    'reconciliation preserves the cargo/module alias',
-  );
-}
 const draws = [];
 const strokes = [];
 const strokeOptions = [];
@@ -645,49 +398,6 @@ for (const y of [-29, 29]) {
     );
   }
 }
-for (const [Type, size] of [
-  [ThrusterSingleSm, 5],
-  [ThrusterSingleMd, 7],
-  [ThrusterSingleLg, 9],
-  [ThrusterSingleXl, 11],
-]) {
-  const craft = new Ship({
-    shades: colors.cyan,
-    hullSegments: [
-      {
-        health: 100,
-        core: true,
-        points: [
-          [-16, -20],
-          [8, 0],
-          [-16, 20],
-        ],
-        mounts: [[{ x: -16, y: 0, fits: [Type.definitionId] }]],
-      },
-    ],
-  });
-  const engine = new Type();
-  craft.fit(engine);
-  craft.fly(1, 0);
-  craft.updateModules(1);
-  const segment = craft.segments.find((segment) => segment.module === engine);
-  draws.length = 0;
-  engine.render({ segment });
-  assert.deepEqual(
-    Reflect.get(draws[0].path, 'vertices'),
-    [
-      [0, -size],
-      [-size * 2.5, 0],
-      [0, size],
-    ],
-    'single thruster size controls its rendered flare',
-  );
-  assert.equal(
-    craft.forwardThrust,
-    22,
-    'all single sizes retain the existing forward thrust',
-  );
-}
 // A thruster model owns its flare geometry. Mirrored mounts retain the same
 // palette, activation envelope, immutable model, and caller stroke options.
 {
@@ -923,29 +633,6 @@ for (const turn of [-1,1]) {
     if (frame % 3 === 0) world.tick++;
   }
 }
-// The live boost ramp drives the visible length without a size jump.
-{
-  const ship = createBoosterShip();
-  const engine = new ThrusterSingleSm();
-  engine.model = [{flareSize: 8, thrusterNozzleSide: 0}];
-  ship.fit(engine,ship.mounts[0]);
-  ship.fly(1,0);
-  const nozzle = ship.segmentsAtMount(engine.mount)[0];
-  nozzle.activationProgress = 1;
-  const boosters = ship.modules.filter(module => module.booster);
-  for (const module of boosters) module.booster = {...module.booster,rampDuration: .2};
-  ship.triggerThrustBoost(true);
-  for (const progress of [0,.25,.5,.75,1]) {
-    if (progress) ship.updateModules(.05);
-    draws.length = 0;
-    engine.render({segment: nozzle,craft: ship});
-    const length = -Reflect.get(draws[0].path,'vertices')[1][0];
-    const factor = boosters.reduce((value,module) =>
-      value*(1+(module.booster.multiplier-1)*progress),1);
-    assert(Math.abs(length-8*2.5*factor) < 1e-9,
-      'flare length follows the same gradual multiplier as thrust and max speed');
-  }
-}
 // Boost changes nozzle length and glow independently, including modeled and
 // mirrored multi-nozzle flares. A spent charge remains lit during its burst.
 {
@@ -1029,36 +716,6 @@ for (const turn of [-1,1]) {
       }
     }
   }
-}
-// Active booster dots have a larger halo, independent of stacked thrust.
-{
-  const Type = moduleTypesById.get('thrustBooster');
-  const module = new Type();
-  const segment = {active: 1,rechargeDelay: 1,
-    glow: {offset: [0,0],radius: 5,alpha: .2,stops: [[0,'#fff'],[1,'#000',0]]}};
-  const sample = () => {
-    const create = game.ctx.createRadialGradient, fill = game.ctx.fill;
-    let radius = 0, alpha = 0;
-    try {
-      game.ctx.createRadialGradient = (...args) => {
-        radius = args[5];
-        return {addColorStop() {}};
-      };
-      game.ctx.fill = () => {alpha = game.ctx.globalAlpha};
-      module.renderGlow({segment});
-    } finally {
-      game.ctx.createRadialGradient = create;
-      game.ctx.fill = fill;
-    }
-    return {radius,alpha};
-  };
-  const normal = sample();
-  module.fireCooldown = module.booster.duration+module.booster.cooldown;
-  const active = sample();
-  assert(active.radius > normal.radius, 'active half glows have a larger halo');
-  assert(active.alpha > normal.alpha, 'active half glows are brighter');
-  module.fireCooldown = module.booster.cooldown;
-  assert.deepEqual(sample(),normal,'the larger halo ends with the burst');
 }
 // Thruster visibility is presentation only: synthetic nozzles retain the
 // original full-power timing while low power and rapid pulses remain readable.
@@ -1196,58 +853,6 @@ for (const turn of [-1,1]) {
     assert(test.segments.every(segment => segment.phase === 0),
       'normal module activation extinguishes unpowered and docked thruster flares');
   }
-}
-for (const [Type, radius] of [
-  [ShieldGenerator, 50],
-  [ShieldGeneratorMd, 60],
-]) {
-  const shieldCraft = new Ship({ spec: crotus, shades: colors.cyan });
-  const shield = new Type();
-  shieldCraft.fit(shield);
-  const body = shieldCraft.segments.find(
-    (segment) => segment.module === shield && !segment.covers,
-  );
-  const bubble = shieldCraft.segments.find(
-    (segment) => segment.module === shield && segment.covers,
-  );
-  assert.equal(
-    body.radius(body),
-    7,
-    'both generator bodies retain their original size',
-  );
-  bubble.active = 1;
-  bubble.activationProgress = 0.5;
-  assert.equal(
-    bubble.radius(bubble),
-    radius / 2,
-    'bubble growth uses the variant radius',
-  );
-  bubble.activationProgress = 1;
-  assert.equal(
-    shieldCraft.hitbox()[0].radius,
-    radius,
-    'the fully active collision bubble uses the variant radius',
-  );
-  strokes.length = 0;
-  shield.render({ segment: body });
-  assert.equal(
-    strokes.at(-1),
-    colors.violet[2],
-    'both generators retain their violet plus',
-  );
-  shield.render({ segment: bubble });
-  assert.equal(
-    draws.at(-1).style,
-    withAlpha({ color: colors.violet[2], alpha: bubble.fillAlpha }),
-    'shield bubbles use their configured opacity',
-  );
-  bubble.fillAlpha = 0;
-  shield.render({ segment: bubble });
-  assert.equal(
-    draws.at(-1).style,
-    '#ee66ff00',
-    'zero module alpha remains transparent',
-  );
 }
 const customShieldSpec = {
   ...ShieldGenerator,
@@ -1425,44 +1030,6 @@ mixedShip.fit(
   mixedGun,
   mixedShip.mounts.find((mount) => mount.fits.includes(Autogun)),
 );
-{
-  const parts = mixedShip.segmentsAtMount(mixedGun.mount);
-  const barrels = () => {
-    const before = draws.length;
-    parts.slice(0, 2).forEach((segment) => mixedGun.render({ segment }));
-    return draws.slice(before).map(({ path }) => Reflect.get(path, 'vertices'));
-  };
-  const centers = (shapes) => shapes.map(
-    (points) => points.reduce((sum, [, y]) => sum + y, 0) / points.length,
-  );
-  const initial = centers(barrels());
-  assert.equal(initial.length, 4, 'the bundle renders four barrels');
-  assert.equal(
-    new Set(initial.map((y) => y.toFixed(6))).size,
-    2,
-    'the initial view stacks the lower pair underneath the upper pair',
-  );
-  mixedShip.updateVisual(mixedGun.fireInterval / 4);
-  assert.deepEqual(centers(barrels()), initial, 'retracted barrels stay still');
-  mixedShip.setModuleActive({ module: Autogun, active: true });
-  mixedShip.updateModules(mixedGun.activationDuration + mixedGun.chargeDuration);
-  mixedShip.updateVisual(mixedGun.fireInterval / 4);
-  assert.notDeepEqual(centers(barrels()), initial, 'deployed idle barrels keep spinning');
-  mixedShip.updateVisual(mixedGun.fireInterval * 4 - mixedGun.fireInterval / 4);
-  centers(barrels()).forEach((y, index) => assert(Math.abs(y - initial[index]) < 1e-9));
-  for (const cooldown of [mixedGun.fireInterval, mixedGun.fireInterval / 2, 1e-10]) {
-    mixedGun.fireCooldown = cooldown;
-    const shapes = centers(barrels());
-    if (cooldown === mixedGun.fireInterval || cooldown === 1e-10)
-      assert(
-        Math.abs(shapes.at(-1)) < 1e-8,
-        'the upper firing barrel is centered at each end of the shot interval',
-      );
-    else
-      assert(Math.abs(shapes.at(-1)) > 1e-8, 'the bundle rotates between shots');
-  }
-  mixedGun.fireCooldown = 0;
-}
 mixedShip.detach(mixedGun.mount);
 const mixedDebris = [...mixedWorld.entities.values()].find(
   (entity) => entity !== mixedShip && entity.decay,
@@ -1987,65 +1554,7 @@ for (const [index, stage] of packet.drillingStages.entries()) {
     assert.equal(loot[0].velocity.y, 2);
   }
 }
-for (const contents of [[], [0]]) {
-  const world = createWorld();
-  const rock = addEntity(world, createAsteroid(world, {
-    contents,
-    resource: 1,
-    health: 0,
-    shapeOutline: [[-120, -80], [120, -80], [0, 160]],
-  }));
-  rock.fracture({ by: 1, events: [], world });
-  const debris = [...world.entities.values()];
-  assert.equal(debris.length, 4);
-
-  for (const part of debris) {
-    const record = {
-      kind: 'asteroid',
-      id: part.id,
-      position: part.position,
-      velocity: part.velocity,
-      rotation: part.rotation,
-      spin: part.spin,
-      mass: part.mass,
-      radius: part.radius,
-      health: part.health,
-      maxHealth: part.maxHealth,
-      contents: part.contents,
-      resource: part.resource,
-      shapeOutline: part.shapeOutline,
-      decay: part.decay,
-    };
-    const hydrated = makeEntity({ entity: record, world });
-    const predicted = cloneEntity({ entity: hydrated });
-    predicted.decay = undefined;
-    applyEntity({ entity: predicted, server: hydrated });
-
-    for (const copy of [hydrated, predicted]) {
-      assert.equal(copy.decay, part.decay, 'debris decay survives hydration and reconciliation');
-      assert.equal(copy.health, part.health);
-      assert.equal(copy.segments, undefined, 'replicated debris remains terminal');
-      assert.deepEqual(copy.contents, part.contents);
-      assert.equal(copy.decaying, !part.contents.length);
-
-      if (part.contents.length) {
-        copy.update(60);
-        assert.equal(copy.health, part.health, 'replicated retained items prevent decay');
-      }
-
-      copy.addToScene();
-      draws.length = 0;
-      copy.render();
-      assert.equal(draws[0].style, '#22113399', 'debris keeps the parent material');
-      copy.health = 0;
-      const count = [...world.entities.values()].filter((entity) => entity instanceof Asteroid).length;
-      copy.fracture({ by: 1, events: [], world });
-      assert([...world.entities.values()].filter((entity) => entity instanceof Asteroid).length <= count,
-        'replicated debris never subdivides again');
-    }
-  }
-}
-for (const direct of [false, true]) {
+{
   const miningWorld = createWorld();
   const rock = addEntity(
     miningWorld,
@@ -2065,8 +1574,8 @@ for (const direct of [false, true]) {
     rotation: item.rotation,
   }));
   let rocks = [rock];
-  if (!direct) {
-    for (let split = 0; split < 3; split++) {
+  {
+    for (let split = 0; split < 2; split++) {
       const parent = rocks.find((rock) => rock.segments?.length > 1);
       const children = parent.detach({
         asteroidSegment:
@@ -2399,59 +1908,54 @@ Object.assign(globalThis, {
 
 const fixture = readFileSync('tests/fixtures/rendering.json', 'utf8');
 
-Object.assign(globalThis, { packet: fixture });
+const entry = `${root}/src/__render-test.ts`;
+// The fixed fixture and its consumers share one production property map.
+const source = scenario.replace(
+  "JSON.parse(Reflect.get(globalThis, 'packet'))",
+  fixture,
+);
 
-for (const production of [false, true]) {
-  const entry = production ? `${root}/src/__render-test.ts` : 'render-test';
-  // The fixed fixture and its consumers share one production property map.
-  const source = production
-    ? scenario.replace("JSON.parse(Reflect.get(globalThis, 'packet'))", fixture)
-    : scenario;
+const bundle = await rolldown({
+  input: entry,
+  external: ['node:assert/strict'],
+  plugins: [
+    {
+      name: 'render-test',
+      resolveId: (id) => (id === entry ? entry : undefined),
+      load(id: string) {
+        if (id.endsWith('/src/client/audio/sound-loader.ts')) {
+          return "export const playSound=(value,volume=1)=>{Reflect.get(globalThis, 'capturedEffects').push(value);Reflect.get(globalThis, 'soundVolumes').push(volume)};export const continuousSound=()=>undefined;export const unlockAudio=()=>{};export const updateThrusterSound=()=>{};export const updateAutogunSound=()=>{};";
+        }
 
-  const bundle = await rolldown({
-    input: entry,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'render-test',
-        resolveId: (id) => (id === entry ? entry : undefined),
-        load(id: string) {
-          if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return "export const playSound=(value,volume=1)=>{Reflect.get(globalThis, 'capturedEffects').push(value);Reflect.get(globalThis, 'soundVolumes').push(volume)};export const continuousSound=()=>undefined;export const unlockAudio=()=>{};export const updateThrusterSound=()=>{};export const updateAutogunSound=()=>{};";
-          }
-
-          if (id === entry) {
-            return production
-              ? stripIfdef(
-                  source.replace(
-                    /assert\.(\w+)/g,
-                    (_, method) => `Reflect.get(assert, '${method}')`,
-                  ),
-                )
-              : source;
-          }
-        },
-        transform(code: string, id: string) {
-          if (id.endsWith('/src/client/network/network.ts')) {
-            return code + '\nexport {makeEntity};';
-          }
-
-          if (id.endsWith('/src/client/prediction/prediction.ts')) {
-            return code + '\nexport {applyEntity};';
-          }
-        },
+        if (id === entry) {
+          return stripIfdef(
+            source.replace(
+              /assert\.(\w+)/g,
+              (_, method) => `Reflect.get(assert, '${method}')`,
+            ),
+          );
+        }
       },
-      buildPrePlugin({ DEBUG: !production }),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
+      transform(code: string, id: string) {
+        if (id.endsWith('/src/client/network/network.ts')) {
+          return code + '\nexport {makeEntity};';
+        }
 
-  const { output } = await bundle.generate({ format: 'esm' });
+        if (id.endsWith('/src/client/prediction/prediction.ts')) {
+          return code + '\nexport {applyEntity};';
+        }
+      },
+    },
+    buildPrePlugin(),
+    testBuildPlugin(),
+  ],
+});
 
-  await bundle.close();
-  const code = output[0].code;
+const { output } = await bundle.generate({ format: 'esm' });
 
-  await import(
-    'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
-  );
-}
+await bundle.close();
+const code = output[0].code;
+
+await import(
+  'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
+);

@@ -19,120 +19,36 @@ use crate::specs::Catalog;
 use crate::test_fixtures::{FixtureReplication, load_example_catalog};
 use crate::utilities::vector::Vector;
 
-pub fn cases(group: &str) -> Result<Vec<Value>, Box<dyn std::error::Error>> {
-    if !matches!(
-        group,
-        "all" | "autogun" | "plasma" | "repeated" | "triangles"
-    ) {
-        return Err(format!("unknown projectile fixture group: {group}").into());
-    }
+pub fn cases() -> Result<Vec<Value>, Box<dyn std::error::Error>> {
     let catalog = Arc::new(load_example_catalog()?);
-    SCENARIOS
+    [Scenario::Impact, Scenario::Drifting, Scenario::Reload]
         .into_iter()
-        .filter(|case| case.selected(group))
-        .map(|case| run(group, case, Arc::clone(&catalog)))
+        .map(|case| run(case, Arc::clone(&catalog)))
         .collect()
 }
 
-#[derive(Clone, Copy)]
-struct Scenario {
-    weapon: &'static str,
-    moving: bool,
-    reserves_ids: bool,
-    repeated: bool,
-    triangle: bool,
-    drifting: bool,
+#[derive(Clone, Copy, PartialEq)]
+enum Scenario {
+    Impact,
+    Drifting,
+    Reload,
 }
 
-impl Scenario {
-    fn selected(self, group: &str) -> bool {
-        match group {
-            "all" => true,
-            "autogun" => self.weapon == AUTOGUN.weapon && !self.repeated,
-            "plasma" => self.weapon == PLASMA.weapon && !self.repeated,
-            "triangles" => self.weapon == AUTOGUN.weapon && self.triangle,
-            "repeated" => self.repeated,
-            _ => false,
-        }
-    }
-}
-
-const AUTOGUN: Scenario = Scenario {
-    weapon: "autogun",
-    moving: false,
-    triangle: false,
-    drifting: false,
-    reserves_ids: false,
-    repeated: false,
-};
-const PLASMA: Scenario = Scenario {
-    weapon: "plasmaAccelerator",
-    ..AUTOGUN
-};
-const SCENARIOS: [Scenario; 12] = [
-    AUTOGUN,
-    Scenario {
-        moving: true,
-        ..AUTOGUN
-    },
-    PLASMA,
-    Scenario {
-        reserves_ids: true,
-        ..PLASMA
-    },
-    Scenario {
-        moving: true,
-        ..PLASMA
-    },
-    Scenario {
-        moving: true,
-        reserves_ids: true,
-        repeated: true,
-        ..PLASMA
-    },
-    Scenario {
-        triangle: true,
-        ..AUTOGUN
-    },
-    Scenario {
-        moving: true,
-        triangle: true,
-        ..AUTOGUN
-    },
-    Scenario {
-        drifting: true,
-        triangle: true,
-        ..AUTOGUN
-    },
-    Scenario {
-        drifting: true,
-        triangle: true,
-        reserves_ids: true,
-        ..AUTOGUN
-    },
-    Scenario {
-        triangle: true,
-        ..PLASMA
-    },
-    Scenario {
-        moving: true,
-        triangle: true,
-        ..PLASMA
-    },
-];
-
-fn run(
-    group: &str,
-    case: Scenario,
-    catalog: Arc<Catalog>,
-) -> Result<Value, Box<dyn std::error::Error>> {
+fn run(case: Scenario, catalog: Arc<Catalog>) -> Result<Value, Box<dyn std::error::Error>> {
+    let weapon = if case == Scenario::Drifting {
+        "autogun"
+    } else {
+        "plasmaAccelerator"
+    };
+    let repeated = case == Scenario::Reload;
+    let reserves_ids = case != Scenario::Impact;
     let mut runtime = RunningWorld::new(25.0, Arc::clone(&catalog));
     let world = &mut runtime.world;
     let ship_id = world
         .spawn_player_ship(1, "mustang", ObjectProperties::default())
         .unwrap();
-    let spec = &catalog.module_specs[case.weapon];
-    let gun = InstalledModule::new(world.ids.object(), case.weapon.into(), Arc::clone(spec));
+    let spec = &catalog.module_specs[weapon];
+    let gun = InstalledModule::new(world.ids.object(), weapon.into(), Arc::clone(spec));
     let ammo_id = world.ids.entity();
     let EntityKind::Ship(ship) = &mut world.entity_mut(ship_id).unwrap().model else {
         unreachable!()
@@ -141,7 +57,7 @@ fn run(
         .craft
         .mounts
         .iter()
-        .position(|mount| mount.accepts(case.weapon))
+        .position(|mount| mount.accepts(weapon))
         .unwrap();
     ship.fit(mount, Some(gun));
     ship.craft.set_module_active("weapon", true);
@@ -159,54 +75,23 @@ fn run(
         .cargo_contents
         .push(CargoObject::Item(Box::new(ammo)));
 
-    let (id, radius, position, spin, rotation, contents, ticks) = if case.repeated {
-        (
-            3_324_057_349,
-            70.0,
-            Vector::new(160.0, -25.0),
-            0.1,
-            0.0,
-            vec![1, 1, 1],
-            640,
-        )
-    } else {
-        let radius = if case.triangle { 51.25 } else { 50.0 };
-        let x = if case.drifting { 650.0 } else { 150.0 };
-        let (spin, rotation) = if case.drifting {
-            (0.04132459, 2.87398488)
-        } else {
-            (
-                if case.moving { 0.01 } else { 0.0 },
-                if case.triangle { 0.71 } else { 0.0 },
-            )
-        };
-        let ticks = match group {
-            "autogun" => 272,
-            "triangles" => 160,
-            _ => 320,
-        };
-        (
-            100,
-            radius,
-            Vector::new(x, -25.0),
-            spin,
-            rotation,
-            Vec::new(),
-            ticks,
-        )
+    let (id, radius, x, velocity, spin, rotation, ticks) = match case {
+        Scenario::Impact => (100, 50.0, 150.0, 1.0, 0.01, 0.0, 320),
+        Scenario::Drifting => (100, 51.25, 650.0, 0.0, 0.04132459, 2.87398488, 160),
+        Scenario::Reload => (3_324_057_349, 70.0, 160.0, 1.0, 0.1, 0.0, 640),
     };
     let mut rock = Asteroid::new(
         id,
         AsteroidProperties {
             object: ObjectProperties {
-                position,
+                position: Vector::new(x, -25.0),
                 radius: Some(radius),
                 rotation,
                 spin,
-                velocity: Vector::new(0.0, if case.moving { 1.0 } else { 0.0 }),
+                velocity: Vector::new(0.0, velocity),
                 ..Default::default()
             },
-            contents,
+            contents: if repeated { vec![1, 1, 1] } else { Vec::new() },
             ..Default::default()
         },
         &catalog,
@@ -221,14 +106,14 @@ fn run(
     let mut inputs = HashMap::new();
     let mut events = Vec::new();
     for tick in 0..ticks {
-        if case.reserves_ids && tick % 5 == 0 {
+        if reserves_ids && tick % 5 == 0 {
             runtime.world.ids.entity();
         }
         let input = Input {
             plasma_active: true,
             autogun_active: true,
-            fire: case.repeated || tick < 304,
-            turn: if case.repeated {
+            fire: repeated || tick < 304,
+            turn: if repeated {
                 steer_to_asteroid(&runtime.world, ship_id, id)
             } else {
                 0.0
@@ -251,12 +136,12 @@ fn run(
         );
 
         let world = &mut runtime.world;
-        let packet = if case.reserves_ids || world.tick.is_multiple_of(4) {
+        let packet = if reserves_ids || world.tick.is_multiple_of(4) {
             replication.packet(world, ship_id, false)?
         } else {
             String::new()
         };
-        let reload = if case.repeated && tick == 240 {
+        let reload = if repeated && tick == 240 {
             FixtureReplication::new().packet(world, ship_id, true)?
         } else {
             String::new()
@@ -297,8 +182,6 @@ fn run(
         }));
     }
     Ok(json!({
-        "weapon": case.weapon, "drifting": case.drifting, "triangle": case.triangle,
-        "reservesIDs": case.reserves_ids, "repeated": case.repeated, "moving": case.moving,
         "initial": initial, "frames": frames
     }))
 }

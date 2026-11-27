@@ -41,8 +41,6 @@ mod sectors;
 use sectors::{NpcPhase, SectorRuntime, Sectors, reset_location};
 mod hangar;
 #[cfg(feature = "test-fixtures")]
-pub mod session_fixture;
-#[cfg(feature = "test-fixtures")]
 pub mod trade_fixture;
 use accounts::{AccountStorage, unix_seconds};
 use hangar::Hangar;

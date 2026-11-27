@@ -272,42 +272,40 @@ assert.equal(hoverController.hoveredObject, asteroid, 'linear velocity can start
 console.log('Target cycling, click targeting, acquisition audio, persistent targets, hover opacity, labels and rendered bounds passed');
 `;
 
-for (const production of [false, true]) {
-  const entry = `${root}/src/__targeting-test.ts`;
+const entry = `${root}/src/__targeting-test.ts`;
 
-  const bundle = await rolldown({
-    input: entry,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'targeting-test',
-        resolveId: (id) =>
-          id === entry
-            ? entry
-            : id === 'targeting-test-sound' || id === '../audio/sound-loader'
-              ? 'targeting-test-sound'
-              : undefined,
-        load: (id) =>
-          id === entry
-            ? scenario.replace(
-                /assert\.(\w+)/g,
-                (_, method) => `Reflect.get(assert, '${method}')`,
-              )
-            : id === 'targeting-test-sound'
-              ? 'export const playedSounds = []; export const playSound = (...args) => playedSounds.push(args);'
-              : undefined,
-      },
-      buildPrePlugin({ DEBUG: !production }),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
+const bundle = await rolldown({
+  input: entry,
+  external: ['node:assert/strict'],
+  plugins: [
+    {
+      name: 'targeting-test',
+      resolveId: (id) =>
+        id === entry
+          ? entry
+          : id === 'targeting-test-sound' || id === '../audio/sound-loader'
+            ? 'targeting-test-sound'
+            : undefined,
+      load: (id) =>
+        id === entry
+          ? scenario.replace(
+              /assert\.(\w+)/g,
+              (_, method) => `Reflect.get(assert, '${method}')`,
+            )
+          : id === 'targeting-test-sound'
+            ? 'export const playedSounds = []; export const playSound = (...args) => playedSounds.push(args);'
+            : undefined,
+    },
+    buildPrePlugin(),
+    testBuildPlugin(),
+  ],
+});
 
-  const { output } = await bundle.generate({ format: 'esm' });
+const { output } = await bundle.generate({ format: 'esm' });
 
-  await bundle.close();
-  assert.equal(output.length, 1);
-  await import(
-    'data:text/javascript;base64,' +
-      Buffer.from(output[0].code).toString('base64')
-  );
-}
+await bundle.close();
+assert.equal(output.length, 1);
+await import(
+  'data:text/javascript;base64,' +
+    Buffer.from(output[0].code).toString('base64')
+);

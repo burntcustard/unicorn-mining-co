@@ -1,11 +1,7 @@
+import { runProductionScenario } from '../support/build-plugin';
 import '../support/ignore-handshake-timeout.ts';
 
-/* global Buffer, process */
 import { execFileSync } from 'node:child_process';
-import { rolldown } from 'rolldown';
-import { buildPrePlugin } from '../../plugins/build-plugins';
-import { stripIfdef } from '../../plugins/replace-pre-terser';
-import { testBuildPlugin } from '../support/build-plugin';
 import { fixtureSource } from '../support/fixture-source.ts';
 
 const root = process.cwd();
@@ -102,49 +98,12 @@ assert(render(joining.world.entities.get(fixture.remoteId)) > 0,
   'joining observers see an already firing beam from the initial snapshot');
 console.log('Remote beams follow real ${server} snapshots, release, retraction, and joining');
 `;
-const entryId = `${root}/src/__beam_visibility_test.ts`;
 
-for (const production of [false, true]) {
-  const bundle = await rolldown({
-    input: entryId,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'beam-visibility-fixture',
-        resolveId: (id) => (id === entryId ? id : undefined),
-        load(id) {
-          if (id === entryId) {
-            return production
-              ? stripIfdef(
-                  scenario.replace(
-                    /assert\.(\w+)/g,
-                    (_, method) => `Reflect.get(assert, '${method}')`,
-                  ),
-                )
-              : scenario;
-          }
-
-          if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return 'export const unlockAudio=()=>{};export const playSound=()=>{};export const updateThrusterSound=()=>{};';
-          }
-        },
-      },
-      buildPrePlugin(),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
-
-  try {
-    const { output } = await bundle.generate({
-      format: 'esm',
-      minify: production,
-    });
-
-    await import(
-      'data:text/javascript;base64,' +
-        Buffer.from(output[0].code).toString('base64')
-    );
-  } finally {
-    await bundle.close();
-  }
-}
+await runProductionScenario({
+  name: 'beam-visibility',
+  source: scenario,
+  modules: {
+    '/src/client/audio/sound-loader.ts':
+      'export const unlockAudio=()=>{};export const playSound=()=>{};export const updateThrusterSound=()=>{};',
+  },
+});

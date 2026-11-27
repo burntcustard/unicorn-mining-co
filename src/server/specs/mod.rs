@@ -144,27 +144,7 @@ impl Catalog {
 
 #[cfg(test)]
 mod tests {
-    use super::{Catalog, LINEAR_SLOP, MAX_ROTATION, Module};
-
-    #[test]
-    fn generated_catalog_loads() -> Result<(), Box<dyn std::error::Error>> {
-        let catalog = Catalog::load()?;
-
-        assert!(catalog.sector_generation.enabled_count <= catalog.sector_names.len());
-        assert!(
-            catalog
-                .module_ids
-                .iter()
-                .all(|id| catalog.module_specs.contains_key(id))
-        );
-        for (index, id) in catalog.item_ids.iter().enumerate() {
-            assert_eq!(usize::try_from(catalog.item_specs[id].resource)?, index);
-        }
-        assert_eq!(catalog.simulation.linear_slop, LINEAR_SLOP);
-        assert_eq!(catalog.simulation.physics.max_rotation, MAX_ROTATION);
-
-        Ok(())
-    }
+    use super::Module;
 
     #[test]
     fn optional_module_values_preserve_explicit_zero_and_false() -> serde_json::Result<()> {

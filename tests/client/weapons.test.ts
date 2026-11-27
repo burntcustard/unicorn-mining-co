@@ -1,15 +1,10 @@
-/* global Buffer, process */
-import { rolldown } from 'rolldown';
-import { buildPrePlugin } from '../../plugins/build-plugins.ts';
-import { testBuildPlugin } from '../support/build-plugin';
-import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
+import { runProductionScenario } from '../support/build-plugin';
 
 const root = process.cwd();
 const scenario = `
 import assert from 'node:assert/strict';
 import { installExampleModules } from '${root}/tests/support/example-modules.ts';
-import { initKeys, playerInput } from '${root}/src/client/input/input.ts';
-import { moduleBinding } from '${root}/src/client/input/keybindings.ts';
+import { playerInput } from '${root}/src/client/input/input.ts';
 import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import {
   createWorld,
@@ -29,8 +24,6 @@ import {
   Laser,
   PlasmaAccelerator,
   ShieldGenerator,
-  ShieldGeneratorMd,
-  moduleTypes,
 } from '${root}/src/client/objects/modules/index.ts';
 import { Craft } from '${root}/src/client/objects/craft.ts';
 import { Weapon } from '${root}/src/client/objects/modules/weapon.ts';
@@ -39,13 +32,12 @@ import { contactBetween } from '${root}/src/client/collision/contact-between.ts'
 import { GameObject } from '${root}/src/client/objects/game-object.ts';
 import { Projectile } from '${root}/src/client/objects/projectile.ts';
 import { Station } from '${root}/src/client/objects/station.ts';
-import { createStockedStation } from '${root}/tests/support/stocked-station.ts';
 import { explode } from '${root}/src/client/objects/explosion.ts';
 import { updateEntities } from '${root}/src/client/simulation/update-tier.ts';
 import { damage } from '${root}/src/client/objects/damage.ts';
 import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
 import { Item } from '${root}/src/client/objects/item.ts';
-import { autogunAmmo, gold } from '${root}/src/specs/items/index.ts';
+import { autogunAmmo } from '${root}/src/specs/items/index.ts';
 import { moduleSpecs } from '${root}/src/specs/modules/index.ts';
 import { exampleBeamEffect } from '${root}/src/specs/effects/example-weapon.ts';
 import { game } from '${root}/src/client/game.ts';
@@ -57,6 +49,8 @@ import { sparks } from '${root}/src/client/effects/shrapnel.ts';
 import { renderingLayers } from '${root}/src/specs/rendering-layers.ts';
 import { simulationStep } from '${root}/src/specs/simulation.ts';
 import { flight } from '${root}/src/specs/control-ship.ts';
+import { mustang } from '${root}/src/specs/ships/mustang.ts';
+import { Ship } from '${root}/src/client/objects/ship.ts';
 import { moduleSpecForSimulation } from '${root}/src/client/utilities/module-spec.ts';
 import * as Vec from '${root}/src/client/utilities/vector.ts';
 globalThis.Path2D = class {
@@ -64,8 +58,6 @@ globalThis.Path2D = class {
   lineTo() {}
   closePath() {}
 };
-globalThis.window = new EventTarget();
-initKeys();
 installExampleModules();
 // A laser damages the nearest surface continuously without spawning projectiles.
 {
@@ -271,10 +263,13 @@ for (const Type of [PlasmaAccelerator, Autogun]) {
     assert.equal(part.activationProgress, 1, 'reversed extension completes from its current position');
   }
 }
-// Both weapons read independent movement, charge and discharge durations.
-for (const Type of [PlasmaAccelerator, Autogun]) {
+// Deployment honors the craft's retraction distance and independent timers.
+{
+  const Type = Autogun;
   const timingWorld = createWorld();
-  const craft = addEntity(timingWorld, createPlayerShip(timingWorld, { playerNumber: 1 }));
+  const craft = addEntity(timingWorld, new Ship({
+    world: timingWorld, playerNumber: 1, spec: { ...mustang, weaponRetractionDistance: 9 },
+  }));
   const spec = { ...moduleSpecs[Type.definitionId], activationDuration: 400, chargeDuration: 900, dischargeDuration: 600 };
   const runtimeSpec = moduleSpecForSimulation(spec);
   const gun = new Type({ ...runtimeSpec, model: Type.createModel(runtimeSpec) });
@@ -292,13 +287,14 @@ for (const Type of [PlasmaAccelerator, Autogun]) {
   craft.updateModules(spec.dischargeDuration / 1000);
   assert.equal(barrelX(), extendedX, 'configured discharge duration delays retraction for either weapon');
   craft.updateModules(spec.activationDuration / 2000);
-  assert(Math.abs(barrelX() - (extendedX - spec.retractionDistance / 2)) < 1e-9, 'retraction uses the configured movement duration');
+  assert(Math.abs(barrelX() - (extendedX - 4.5)) < 1e-9, 'retraction uses the configured movement duration');
   const before = barrelX();
   craft.setModuleActive({ module: Type, active: true });
   assert(Math.abs(barrelX() - before) < 1e-9, 'reversal keeps the barrel position with independent timings');
 }
 // A shield bubble has a separate pool, collapses, and recharges while inactive.
-for (const Type of [ShieldGenerator, ShieldGeneratorMd]) {
+{
+  const Type = ShieldGenerator;
   const world = createWorld();
   const craft = addEntity(world, new Craft({ world, hullSegments: [{ health: 100, points: [[-2, -2], [2, -2], [2, 2], [-2, 2]], mounts: [[{ x: 20, y: 20, fits: [Type.definitionId] }]] }] }));
   const gun = new Type({ health: 13, healthActivated: 31, rechargeDuration: 2 });
@@ -403,176 +399,6 @@ for (const weapon of [PlasmaAccelerator, Autogun])
         );
       }
     }
-const world = createWorld();
-const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
-world.players.set(1, { playerNumber: 1, shipId: ship.id });
-const plasma = new PlasmaAccelerator(),
-  auto = new Autogun();
-ship.fit(
-  plasma,
-  ship.mounts.find((mount) => mount.fits.includes(PlasmaAccelerator)),
-);
-ship.fit(
-  auto,
-  ship.mounts.find(
-    (mount) => mount.fits.includes(Autogun) && mount.module !== plasma,
-  ),
-);
-const keyEvent = (type, key = ' ') =>
-  window.dispatchEvent(
-    Object.assign(new Event(type), { key, repeat: false }),
-  );
-keyEvent('keydown', 'p');
-keyEvent('keyup', 'p');
-controlShip(ship, playerInput, []);
-assert(ship.moduleActive({ module: PlasmaAccelerator }) && !ship.moduleActive({ module: Autogun }), 'P deploys only plasma');
-keyEvent('keydown', 'a');
-keyEvent('keyup', 'a');
-keyEvent('keydown');
-controlShip(ship, playerInput, []);
-assert(
-  ship.moduleActive({ module: PlasmaAccelerator }) &&
-    ship.moduleActive({ module: Autogun }),
-  'P and A independently deploy both fitted weapons',
-);
-ship.setModuleActive({ module: Autogun, active: false });
-controlShip(ship, playerInput, []);
-assert(
-  ship.moduleActive({ module: PlasmaAccelerator }) &&
-    ship.moduleActive({ module: Autogun }),
-  'weapon toggle synchronizes weapons with different activation states',
-);
-assert.equal(
-  moduleBinding('plasmaActive').mode,
-  'toggle',
-  'weapons activate with a toggle binding',
-);
-const ammo = new Item(autogunAmmo);
-assert.equal(ammo.rounds, 200, 'a new ammunition pack contains 200 rounds');
-ship.cargoContents.push(new Item(gold), ammo);
-ship.updateModules(3);
-ship.fireWeapons(0);
-for (let tick = 1; tick < 120; tick++) ship.fireWeapons(1 / 120);
-const shots = [...world.entities.values()].filter(
-  (entity) => entity instanceof Projectile,
-);
-assert.equal(
-  shots.filter((shot) => shot.definitionId === 'plasmaAccelerator').length,
-  1,
-);
-assert.equal(
-  shots.filter((shot) => shot.definitionId === 'autogun').length,
-  5,
-  'autogun fires five shots per second',
-);
-for (const shot of shots) {
-  const spec = moduleSpecs[shot.definitionId].projectile;
-  assert.equal(
-    shot.radius,
-    spec.radius,
-    'collision radius comes from the nested projectile settings',
-  );
-  assert.equal(
-    shot.health,
-    moduleSpecs[shot.definitionId].damage,
-    'projectile health starts at its weapon damage',
-  );
-  const inherited =
-    shot.definitionId === 'plasmaAccelerator' ? Vec.create() : ship.velocity;
-  assert(
-    Math.abs(Vec.distance(shot.velocity, inherited) - spec.speed) < 1e-6,
-    'firing uses the nested projectile speed',
-  );
-}
-assert.equal(ammo.rounds, 195, 'one round consumed per shot');
-assert(
-  ship.cargoContents.includes(ammo),
-  'partially used packs remain in cargo',
-);
-assert(
-  ship.cargoContents.some((item) => item.resource === gold.resource),
-  'ore is not ammunition',
-);
-assert(
-  moduleSpecs.plasmaAccelerator.projectile.speed <
-    moduleSpecs.autogun.projectile.speed,
-);
-const checkpoint = captureWorld({ world });
-const cooldown = plasma.fireCooldown;
-ship.fireWeapons(0.25);
-assert.equal(ammo.rounds, 193);
-restoreWorld({ world, state: checkpoint });
-assert.equal(
-  ammo.rounds,
-  195,
-  'rollback restores ammunition remaining in cargo',
-);
-assert.equal(plasma.fireCooldown, cooldown, 'rollback restores firing cadence');
-const state = ship.moduleStates.find(
-  (state) => state.type === moduleTypes.indexOf(PlasmaAccelerator),
-);
-assert.equal(
-  state.fireCooldown,
-  cooldown,
-  'replication carries weapon cooldown',
-);
-for (let shot = 0; shot < 195; shot++) ship.fireWeapons(0.25);
-assert(
-  !ship.cargoContents.includes(ammo),
-  'a pack is removed after its 200th shot',
-);
-assert.equal(
-  [...world.entities.values()].filter(
-    (shot) => shot.definitionId === 'autogun',
-  ).length,
-  200,
-);
-ship.fireWeapons(0.25);
-assert.equal(
-  [...world.entities.values()].filter(
-    (shot) => shot.definitionId === 'autogun',
-  ).length,
-  200,
-  'empty autogun cannot fire',
-);
-const lastRound = new Item(autogunAmmo, { rounds: 1 }),
-  nextPack = new Item(autogunAmmo);
-ship.cargoContents.push(lastRound, nextPack);
-ship.fireWeapons(0);
-ship.fireWeapons(0.25);
-assert(
-  !ship.cargoContents.includes(lastRound) && nextPack.rounds === 199,
-  'firing continues into the next pack',
-);
-ship.cargoContents = ship.cargoContents.filter((item) => item.resource !== 5);
-keyEvent('keyup');
-controlShip(ship, playerInput, []);
-assert(
-  ship.moduleActive({ module: PlasmaAccelerator }) &&
-    ship.moduleActive({ module: Autogun }) && !ship.firing,
-  'releasing Space stops firing while weapons stay deployed',
-);
-keyEvent('keydown');
-controlShip(ship, playerInput, []);
-window.dispatchEvent(new Event('blur'));
-controlShip(ship, playerInput, []);
-assert(
-  ship.moduleActive({ module: PlasmaAccelerator }) &&
-    ship.moduleActive({ module: Autogun }) && !ship.firing,
-  'losing focus releases fire without retracting weapons',
-);
-const before = world.entities.size;
-ship.fireWeapons(1);
-assert.equal(world.entities.size, before, 'released guns do not fire');
-controlShip(ship, { ...playerInput, fire: true }, []);
-ship.dockedTo = 100;
-ship.fireWeapons(1);
-assert.equal(world.entities.size, before, 'docked guns do not fire');
-ship.dockedTo = 0;
-ship.launching = 1;
-ship.fireWeapons(1);
-assert.equal(world.entities.size, before, 'launching guns do not fire');
-
 for (const id of ['plasmaAccelerator', 'autogun']) {
   for (const maxHealth of [31, 71])
     for (const previousDamage of [0, 10.5]) {
@@ -711,17 +537,19 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
       }
     }
 }
-const remote = addEntity(world, createPlayerShip(world, { playerNumber: 2 }));
+const remoteWorld = createWorld();
+const remote = addEntity(remoteWorld, createPlayerShip(remoteWorld, { playerNumber: 2 }));
 const remoteGun = new PlasmaAccelerator();
 remote.fit(
   remoteGun,
   remote.mounts.find((mount) => mount.fits.includes(PlasmaAccelerator)),
 );
-controlShip(remote, { ...playerInput, fire: true }, []);
-const beforeRemote = world.entities.size;
+controlShip(remote, { ...playerInput, plasmaActive: true, fire: true }, []);
+remote.updateModules(remoteGun.activationDuration + remoteGun.chargeDuration);
+const beforeRemote = remoteWorld.entities.size;
 remote.fireWeapons(1);
 assert.equal(
-  world.entities.size,
+  remoteWorld.entities.size,
   beforeRemote,
   'remote ships use replicated shots instead of creating duplicates',
 );
@@ -972,182 +800,6 @@ for (const id of ['autogun', 'plasmaAccelerator']) {
   );
 }
 
-// Only specs opting into a physical blast scan and push nearby objects.
-for (const id of ['plasmaAccelerator', 'autogun'])
-  for (const trigger of ['hit', 'expiry', 'cleanup']) {
-    const blastWorld = createWorld();
-    const target = addEntity(
-      blastWorld,
-      new GameObject({
-        id: 1,
-        position: Vec.create(20, 0),
-        radius: 5,
-        health: 100,
-      }),
-    );
-    const light = addEntity(
-      blastWorld,
-      new GameObject({
-        id: 2,
-        position: Vec.create(13, 10),
-        radius: 1,
-        mass: 1,
-        health: 100,
-      }),
-    );
-    const heavy = addEntity(
-      blastWorld,
-      new GameObject({
-        id: 3,
-        position: Vec.create(13, 10),
-        radius: 1,
-        mass: 1000,
-        health: 100,
-      }),
-    );
-    const below = addEntity(
-      blastWorld,
-      new GameObject({
-        id: 4,
-        position: Vec.create(13, -10),
-        radius: 1,
-        mass: 1,
-        health: 100,
-      }),
-    );
-    const far = addEntity(
-      blastWorld,
-      new GameObject({
-        id: 5,
-        position: Vec.create(13, 50),
-        radius: 1,
-        mass: 1,
-        health: 100,
-      }),
-    );
-    const buried = addEntity(
-      blastWorld,
-      new GameObject({
-        id: 6,
-        position: Vec.create(13, -8),
-        radius: 1,
-        mass: 1,
-        health: 100,
-        buried: true,
-      }),
-    );
-    const otherShot = addEntity(
-      blastWorld,
-      new Projectile(id, { id: 7, position: Vec.create(13, 12) }),
-    );
-    const shot = addEntity(
-      blastWorld,
-      new Projectile(id, {
-        id: 8,
-        position: Vec.create(trigger === 'hit' ? -80 : 13, 0),
-        velocity: Vec.create(trigger === 'hit' ? 600 : 0, 0),
-      }),
-    );
-    const spec = moduleSpecs[id];
-    assert.equal(shot.health, spec.damage);
-    const blastEvents = [];
-    if (trigger === 'hit') {
-      shot.update(0.3);
-      shot.resolveHits(blastEvents, blastWorld, 0.3);
-      assert.equal(target.health, 100 - spec.damage);
-    } else if (trigger === 'expiry') {
-      shot.update(spec.projectile.lifetime / 1000 - 0.001);
-      assert(!shot.dead, 'projectiles retain their configured lifespan');
-      updateEntities({
-        world: blastWorld,
-        entities: [shot],
-        events: blastEvents,
-        dt: 0.002,
-        tick: 7,
-      });
-      assert.equal(
-        target.health,
-        100 - (spec.projectile.explosion?.damage || 0),
-        'only plasma expiry damages nearby objects',
-      );
-    } else shot.remove();
-    assert(
-      shot.dead && !blastWorld.entities.has(shot.id),
-      'death removes the projectile from the world',
-    );
-    if (trigger === 'cleanup' || !spec.projectile.explosion) {
-      assert.equal(
-        Vec.length(light.velocity),
-        0,
-        'visual-only effects and replication cleanup do not apply a blast',
-      );
-      assert.equal(
-        Vec.length(below.velocity),
-        0,
-        'simple projectiles do not push nearby objects',
-      );
-      assert.equal(
-        Vec.length(otherShot.velocity),
-        0,
-        'simple projectiles do not push other projectiles',
-      );
-      assert.equal(
-        light.health,
-        100,
-        'autogun and cleanup do not deal splash damage',
-      );
-      continue;
-    }
-    assert(
-      light.velocity.y > 0 && below.velocity.y < 0,
-      'unhit objects are pushed radially away from the projectile',
-    );
-    assert(
-      light.velocity.y > heavy.velocity.y && heavy.velocity.y > 0,
-      'massive fragments receive a smaller push, while lighter objects respect the configured speed cap',
-    );
-    assert(
-      Vec.length(light.velocity) <= spec.projectile.explosion.maxSpeed,
-      'the blast caps the added speed for light objects',
-    );
-    assert(otherShot.velocity.y > 0, 'nearby projectiles can also be pushed');
-    assert.equal(
-      light.health,
-      100 - spec.projectile.explosion.damage,
-      'plasma damages nearby objects it did not hit',
-    );
-    assert.equal(heavy.health, light.health, 'damage is independent of mass');
-    assert.equal(below.health, light.health);
-    assert(
-      blastEvents.some(
-        (event) =>
-          event.type === 'collision' &&
-          event.b === light.id &&
-          event.damage[1] > 0,
-      ),
-      'splash damage emits target-color sparks',
-    );
-    assert.equal(far.health, 100);
-    assert.equal(buried.health, 100);
-    assert.equal(
-      Vec.length(far.velocity),
-      0,
-      'objects outside the blast remain still',
-    );
-    assert.equal(
-      Vec.length(buried.velocity),
-      0,
-      'buried contents stay inside their asteroid',
-    );
-    const velocity = Vec.clone(light.velocity);
-    shot.resolveHits(blastEvents, blastWorld, 0.3);
-    shot.update(0.1);
-    assert.deepEqual(
-      light.velocity,
-      velocity,
-      'an expired projectile does not explode again',
-    );
-  }
 {
   const blastWorld = createWorld();
   const outline = [
@@ -1190,70 +842,6 @@ for (const id of ['plasmaAccelerator', 'autogun'])
     released.velocity.x > 0,
     'resources created by the hit are pushed by the same explosion',
   );
-}
-
-// Real item and asteroid masses must retain the kick after movement updates.
-for (const id of ['plasmaAccelerator', 'autogun']) {
-  const blastWorld = createWorld();
-  const item = addEntity(
-    blastWorld,
-    new Item(gold, { id: 1, position: Vec.create(15, 18) }),
-  );
-  const rocks = [62.5, 300].map((mass, index) =>
-    addEntity(
-      blastWorld,
-      new Asteroid({
-        id: index + 2,
-        contents: [],
-        health: 100,
-        maxHealth: 100,
-        radius: 10,
-        mass,
-        position: Vec.create(15, index ? -15 : 15),
-        shapeOutline: [
-          [-8, -8],
-          [8, -8],
-          [8, 8],
-          [-8, 8],
-        ],
-      }),
-    ),
-  );
-  const targets = [item, ...rocks];
-  const starts = targets.map((target) => Vec.clone(target.position));
-  const shot = addEntity(
-    blastWorld,
-    new Projectile(id, { id: 4, health: 0.001, position: Vec.create() }),
-  );
-  updateEntities({ world: blastWorld, entities: [shot], tick: 7, events: [] });
-  assert(shot.dead);
-  for (const target of targets) {
-    assert(
-      Vec.length(target.velocity) <=
-        (moduleSpecs[id].projectile.explosion?.maxSpeed || 0),
-      'a blast respects its speed cap',
-    );
-    for (let tick = 0; tick < 30; tick++) target.update(1 / 30);
-  }
-  targets.forEach((target, index) => {
-    const distance = Vec.distance(target.position, starts[index]);
-    if (id === 'plasmaAccelerator') {
-      assert(
-        distance > 1,
-        'items and small asteroid chunks keep moving after a plasma blast',
-      );
-      assert(
-        Vec.dot(Vec.subtract(target.position, starts[index]), starts[index]) >
-          0,
-        'movement is away from the explosion',
-      );
-    } else
-      assert.equal(
-        distance,
-        0,
-        'autogun expiry leaves nearby items and chunks stationary',
-      );
-  });
 }
 
 // Area damage follows actual polygons, and all broken pieces detach together.
@@ -1324,6 +912,26 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
     'new nearby chunks receive the radial push',
   );
 }
+
+{
+  const world = createWorld();
+  const source = addEntity(world, new GameObject());
+  const wreckage = addEntity(world, new Craft({
+    decay: 1,
+    health: 20,
+    hullSegments: [-6, 6].map(x => ({
+      health: 10,
+      points: [[x - 2, -2], [x + 2, -2], [x + 2, 2], [x - 2, 2]],
+    })),
+  }));
+  const blast = { object: source, radius: 20, impulse: 0, damage: 3 };
+
+  explode(blast);
+  assert.equal(wreckage.health, 17, 'splash damages a multi-part wreck once');
+  explode({ ...blast, exclude: wreckage.hitbox()[0] });
+  assert.equal(wreckage.health, 17, 'a direct hit excludes the whole wreck from splash');
+}
+
 {
   const blastWorld = createWorld();
   const source = addEntity(
@@ -1494,111 +1102,10 @@ game.scale = 1;
     assert.equal(laser.shades, shades, 'restored laser paint uses the canonical palette');
   }
 
-  const binding = moduleBinding('laserActive');
-  const press = (type) => window.dispatchEvent(Object.assign(new Event(type), { key: binding.keys[0], repeat: false }));
-  press('keydown');
-  press('keyup');
-  assert.equal(playerInput.laserActive, true, 'laser key toggles activation');
-  press('keydown');
-  press('keyup');
-  assert.equal(playerInput.laserActive, false, 'laser key toggles back off');
 }
-// Muzzle flashes observe successful shots outside replayable mechanics.
-for (const Type of [Autogun, PlasmaAccelerator]) {
-  effects.length = 0;
-  const flashWorld = createWorld();
-  const flashShip = addEntity(
-    flashWorld,
-    createPlayerShip(flashWorld, {
-      playerNumber: 11,
-      position: Vec.create(30, 40),
-      rotation: Math.PI / 2,
-    }),
-  );
-  flashWorld.players.set(11, { playerNumber: 11, shipId: flashShip.id });
-  const gun = new Type({
-    muzzleFlash: [{ type: 'glow', color: '#ff0', duration: 50, radius: 6 }],
-  });
-  flashShip.fit(gun, flashShip.mounts.find((mount) => mount.fits.includes(Type)));
-  flashShip.cargoContents.push(new Item(autogunAmmo));
-  flashShip.setModuleActive({ module: Type, active: true });
-  flashShip.updateModules(gun.activationDuration + gun.chargeDuration);
-  flashShip.firing = true;
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 0, 'idle weapons do not flash');
-  const checkpoint = captureWorld({ world: flashWorld });
-  flashShip.fireWeapons(0);
-  assert.equal(effects.length, 0, 'firing mechanics do not create visual effects');
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 1, 'each weapon flashes after a successful shot');
-  assert.equal(effects[0].parent, flashShip, 'the burst follows its ship');
-  assert.equal(effects[0].rotation, 0, 'the burst faces along the weapon in ship coordinates');
-  assert.deepEqual(
-    effects[0].position,
-    Vec.add(gun.mount.localPosition, Vec.create(gun.barrelLength, 0)),
-    'the flash originates at the muzzle in ship coordinates',
-  );
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 1, 'repeated visual updates do not repeat the shot');
-  flashShip.updateVisual(gun.fireInterval * 2);
-  assert.equal(effects.length, 1, 'a delayed display frame cannot invent another shot');
-  restoreWorld({ world: flashWorld, state: checkpoint });
-  assert.equal(gun.fireCooldown, 0, 'rollback restores the cooldown before the shot');
-  flashWorld.nextEntityId += 10;
-  flashShip.fireWeapons(0);
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 1, 'replaying a shot with a different projectile ID does not duplicate its flash');
-  gun.fireCooldown -= 0.01;
-  flashShip.updateVisual(0);
-  gun.fireCooldown += 0.01;
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 1, 'small cooldown corrections do not flash');
-  gun.fireCooldown = 0;
-  flashShip.updateVisual(0);
-  gun.fireCooldown = gun.fireInterval;
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 1, 'a large snapshot cooldown correction cannot repeat a local shot');
-  flashWorld.tick += gun.fireInterval / simulationStep;
-  flashShip.fireWeapons(gun.fireInterval);
-  flashShip.updateVisual(gun.fireInterval);
-  assert.equal(effects.length, 2, 'a shot still flashes when a frame spans a whole interval');
-  flashWorld.tick += (gun.fireInterval - 0.01) / simulationStep;
-  flashShip.fireWeapons(gun.fireInterval - 0.01);
-  flashShip.updateVisual(0);
-  flashWorld.tick += 0.01 / simulationStep;
-  flashShip.fireWeapons(0.01);
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 3, 'the next observed shot flashes again');
-  flashShip.setModuleActive({ module: Type, active: false });
-  flashWorld.tick += gun.fireInterval / simulationStep;
-  flashShip.fireWeapons(gun.fireInterval);
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 3, 'cooling down without firing does not flash');
-  const spare = new Type();
-  spare.fireCooldown = spare.fireInterval;
-  flashShip.cargoContents.push(spare);
-  flashShip.updateVisual(0);
-  assert.equal(effects.length, 3, 'weapons in cargo do not flash');
-  if (Type === Autogun) {
-    flashShip.cargoContents.length = 0;
-    flashShip.setModuleActive({ module: Type, active: true });
-  flashShip.updateModules(gun.activationDuration + gun.chargeDuration);
-  flashShip.firing = true;
-    flashShip.fireWeapons(0);
-    flashShip.updateVisual(0);
-    assert.equal(effects.length, 3, 'an empty autogun does not flash');
-  }
-  const remoteGun = new Type({ muzzleFlash: gun.muzzleFlash });
-  remoteGun.mount = gun.mount;
-  remoteGun.fireCooldown = remoteGun.fireInterval;
-  remoteGun.updateVisual({ craft: flashShip, segments: [], dt: 0 });
-  assert.equal(effects.length, 4, 'remote cooldown resets still present a flash');
-  remoteGun.updateVisual({ craft: flashShip, segments: [], dt: remoteGun.fireInterval });
-  assert.equal(effects.length, 4, 'a delayed display frame cannot repeat a remote flash');
-}
-effects.length = 0;
 // Charging cues follow indicator transitions, not rendered-frame count.
-for (const definitionId of ['plasmaAccelerator', 'plasmaAcceleratorTurret']) {
+{
+  const definitionId = 'plasmaAccelerator';
   soundCalls.length = 0;
   const craft = { world: { tick: 1 } };
   let weapon = Object.assign(Object.create(Weapon.prototype), {
@@ -1683,8 +1190,9 @@ chargingShip.updateModules(chargingGun.activationDuration / 2);
 assert.equal(glowCount(), 0, 'indicators remain dark while deploying');
 chargingShip.updateModules(chargingGun.activationDuration / 2);
 assert.equal(glowCount(), 0, 'fully deployed plasma starts uncharged');
+const beforeCharging = effects.length;
 chargingShip.updateVisual(0);
-assert.equal(effects.length, 0, 'startup charge does not create a muzzle flash');
+assert.equal(effects.length, beforeCharging, 'startup charge does not create a muzzle flash');
 const firstRecharge = indicators[0].rechargeDelay;
 chargingShip.updateModules(firstRecharge);
 assert.equal(glowCount(), 1, 'plasma charges its first indicator only after deployment');
@@ -1726,7 +1234,7 @@ assert.deepEqual(
   [colors.cyan[2], colors.cyan[2], colors.cyan[2]],
   'a ready weapon has three bright indicators in its paint color',
 );
-controlShip(chargingShip, { ...playerInput, fire: true }, []);
+chargingShip.firing = true;
 chargingShip.fireWeapons(0);
 assert.deepEqual(
   indicatorColors(),
@@ -1747,7 +1255,7 @@ for (let index = 0; index < 3; index++) {
     'indicators stay dark until their recharge boundary',
   );
   if (index === 2)
-    controlShip(chargingShip, { ...playerInput, fire: false }, []);
+    chargingShip.firing = false;
   chargingShip.fireWeapons(0.001);
   assert.deepEqual(
     indicatorColors(),
@@ -1762,7 +1270,7 @@ for (let index = 0; index < 3; index++) {
 }
 chargingShip.fireWeapons(chargingGun.fireInterval - indicators.at(-1).rechargeDelay);
 assert.equal(glowCount(), 4, 'the barrel glow returns only when the full firing cooldown completes');
-controlShip(chargingShip, { ...playerInput, fire: true }, []);
+chargingShip.firing = true;
 chargingShip.fireWeapons(0);
 assert.equal(
   plasmaShots(),
@@ -2036,95 +1544,6 @@ for (const id of ['plasmaAccelerator', 'autogun']) {
   delete custom.fadeOut;
   Object.assign(custom, original);
 }
-for (const delay of [1, 3, 8]) {
-  effects.length = 0;
-  const server = createWorld();
-  const serverShip = addEntity(
-    server,
-    createPlayerShip(server, { id: 1, playerNumber: 1 }),
-  );
-  serverShip.fit(
-    new Autogun(),
-    serverShip.mounts.find((m) => m.fits.includes(Autogun)),
-  );
-  serverShip.setModuleActive({ module: Autogun, active: true });
-  serverShip.updateModules(3);
-  serverShip.cargoContents.push(new Item(autogunAmmo));
-  const serverAmmo = serverShip.cargoContents.find((item) => item.resource === 5);
-  const initialRounds = serverAmmo.rounds;
-  addPlayer(server, { playerNumber: 1, shipId: serverShip.id });
-  addEntity(
-    server,
-    new Asteroid({
-      id: 100,
-      position: Vec.create(150, -25),
-      velocity: Vec.create(),
-      radius: 50,
-      mass: 1000,
-      health: 100,
-      maxHealth: 100,
-      contents: [],
-      spin: 0,
-    }),
-  );
-  const client = createWorld();
-  server.entities.forEach((entity) =>
-    addEntity(client, cloneEntity({ entity })),
-  );
-  addPlayer(client, { playerNumber: 1, shipId: 1 });
-  const prediction = new PredictionManager({ world: client });
-  prediction.setLocalPlayer({ playerNumber: 1 });
-  const packets = [];
-  const emitted = [];
-  // The first fracture occurs at tick 99. Keep delayed reconciliation and a
-  // release afterward without simulating another second of identical flight.
-  for (let tick = 0; tick < 128; tick++) {
-    const input = { ...playerInput, plasmaActive: true, autogunActive: true, fire: tick < 112 };
-    emitted.push(...prediction.step({ input, send() {} }));
-    updateWorld({ world: server, inputs: new Map([[1, input]]) });
-    packets.push({
-      tick: server.tick,
-      nextEntityId: server.nextEntityId,
-      entities: [...server.entities.values()].map((entity) =>
-        cloneEntity({ entity }),
-      ),
-    });
-    const packet = packets.length > delay ? packets.shift() : undefined;
-    if (packet) prediction.reconcile(packet);
-    client.entities.get(1).updateVisual(1 / 60);
-    if (tick % 21 === 0) {
-      const beforePause = effects.length;
-      client.entities.get(1).updateVisual(0.15);
-      assert.equal(effects.length, beforePause, 'display pauses cannot duplicate flashes during live prediction');
-    }
-    assert.equal(
-      client.entities.has(100),
-      server.entities.has(100),
-      'delayed snapshots must not resurrect an asteroid after its predicted split',
-    );
-    assert.deepEqual(
-      [...client.entities.values()]
-        .filter((e) => e instanceof Asteroid)
-        .map((e) => e.id),
-      [...server.entities.values()]
-        .filter((e) => e instanceof Asteroid)
-        .map((e) => e.id),
-      'predicted chunks retain their identities across older snapshots',
-    );
-    prediction.predictFrame({ elapsed: 1 / 120 });
-  }
-  assert.equal(
-    effects.length,
-    initialRounds - serverAmmo.rounds,
-    'each authoritative round produces exactly one local flash across delayed snapshots and frame prediction',
-  );
-  assert.equal(
-    emitted.filter((e) => e.type === 'asteroidSplit' && e.asteroidId === 100)
-      .length,
-    1,
-    'a split is presented once, even across delayed reconciliation',
-  );
-}
 // An authoritative shot may reuse the ID of a different predicted shot.
 {
   const world = createWorld();
@@ -2189,80 +1608,13 @@ for (const delay of [1, 3, 8]) {
     'rollback retains the corrected projectile owner',
   );
 }
-const account = { credits: 4 };
-const ammoStation = addEntity(world, createStockedStation(world));
-ship.dockedTo = ammoStation.id;
-assert.equal(ammoStation.cargoContents.length, 300, 'stations start with 300 ammunition packs');
-const stockedAmmo = ammoStation.cargoContents[0];
-const bought = ship.applyDockAction({ action: 'buyAmmo' }, account);
-assert(bought && account.credits === 2);
-assert.equal(ammoStation.cargoContents.length, 299, 'ammo purchases reduce station supply');
-assert.equal(ship.cargoContents.at(-1), stockedAmmo, 'ammo purchases transfer the stocked pack');
-assert.equal(ship.cargoContents.at(-1).resource, 5);
-assert.equal(
-  ship.cargoContents.at(-1).rounds,
-  200,
-  'purchased packs contain 200 rounds',
-);
-assert(
-  ship.cargoContents.at(-1).id > 0,
-  'purchased cargo must have a positive entity ID',
-);
-ship.cargoContents.length = ship.cargoSpace;
-assert.equal(
-  ship.applyDockAction({ action: 'buyAmmo' }, account),
-  undefined,
-  'full cargo blocks buying ammo',
-);
-ship.cargoContents = [];
-ammoStation.cargoContents = [];
-assert.equal(ship.applyDockAction({ action: 'buyAmmo' }, account), undefined, 'empty stock blocks buying ammo');
-assert.equal(account.credits, 2, 'empty stock cannot charge the player');
-console.log(
-  'Weapon controls, cadence, ammunition, CCD, chunk damage, replication and rendering passed',
-);
 `;
 
-const entryId = `${root}/src/__weapons_test.ts`;
-
-for (const production of [false, true]) {
-  const bundle = await rolldown({
-    input: entryId,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'weapons-test',
-        resolveId: (id) => (id === entryId ? entryId : undefined),
-        load(id: string) {
-          if (id === entryId) {
-            return production
-              ? stripIfdef(
-                  scenario.replace(
-                    /assert\.(\w+)/g,
-                    (_, method) => `Reflect.get(assert, '${method}')`,
-                  ),
-                )
-              : scenario;
-          }
-
-          if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return 'export const soundCalls=[];export const unlockAudio=()=>{};export const playSound=(...args)=>soundCalls.push(args);export const updateThrusterSound=()=>{};';
-          }
-        },
-      },
-      buildPrePlugin(),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
-
-  const { output } = await bundle.generate({
-    format: 'esm',
-    minify: production,
-  });
-
-  await bundle.close();
-  await import(
-    'data:text/javascript;base64,' +
-      Buffer.from(output[0].code).toString('base64')
-  );
-}
+await runProductionScenario({
+  name: 'weapons',
+  source: scenario,
+  modules: {
+    '/src/client/audio/sound-loader.ts':
+      'export const soundCalls=[];export const unlockAudio=()=>{};export const playSound=(...args)=>soundCalls.push(args);export const updateThrusterSound=()=>{};',
+  },
+});

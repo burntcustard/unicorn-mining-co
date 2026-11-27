@@ -17,14 +17,10 @@ import testReporter from './test-reporter.ts';
 // Start the heavier simulations and integration checks first.
 const testOrder = new Map(
   [
-    'tests/client/projectile-prediction-repeated.test.ts',
     'tests/client/projectile-prediction.test.ts',
-    'tests/client/muzzle-flash.test.ts',
-    'tests/client/projectile-prediction-plasma.test.ts',
     'tests/parity/gate-collisions.test.ts',
     'tests/integration/server-integration.test.ts',
     'tests/integration/trade-integration.test.ts',
-    'tests/client/projectile-prediction-triangles.test.ts',
     'tests/client/weapons.test.ts',
     'tests/linting/oxlint-formatting.test.ts',
     'tests/client/ship-destruction.test.ts',
@@ -38,16 +34,12 @@ const testFiles = readdirSync('tests', { recursive: true, encoding: 'utf8' })
   .map((file) => join('tests', file))
   .sort();
 
-const testGroups = new Map([
-  [
-    'tests/client/projectile-prediction.test.ts',
-    [
-      'tests/client/projectile-prediction.test.ts',
-      'tests/client/projectile-prediction-plasma.test.ts',
-      'tests/client/projectile-prediction-repeated.test.ts',
-      'tests/client/projectile-prediction-triangles.test.ts',
-    ],
-  ],
+const rustFixtures = new Map([
+  ['tests/client/beam-visibility.test.ts', 'beam_visibility_fixture'],
+  ['tests/client/projectile-prediction.test.ts', 'projectile_prediction'],
+  ['tests/client/ship-destruction.test.ts', 'ship_destruction_fixture'],
+  ['tests/integration/trade-integration.test.ts', 'trade_fixture'],
+  ['tests/parity/gate-collisions.test.ts', 'gate_collisions_fixture'],
 ]);
 
 const {
@@ -95,19 +87,12 @@ function testName(name: string) {
 }
 
 function testSuite(file: string) {
-  if (
-    /tests\/parity\/|(?:beam-visibility|muzzle-flash|projectile-prediction(?:-[a-z]+)?|ship-destruction|trade-integration)\.test\.ts$/.test(
-      file,
-    )
-  ) {
-    return 'fixtures';
-  }
-
+  if (rustFixtures.has(file)) return 'fixtures';
   return file.startsWith('tests/integration/') ? 'production' : 'standalone';
 }
 
 function selectFiles(name: string) {
-  const normalized = testName(name);
+  const normalized = name === 'snapshot' ? 'binary-snapshot' : testName(name);
   const exact = testFiles.filter(
     (file) =>
       basename(file) === name ||
@@ -138,7 +123,7 @@ function selectFiles(name: string) {
     );
   }
 
-  return testGroups.get(matches[0]) ?? matches;
+  return matches;
 }
 
 async function run(command: string, args: string[], env = process.env) {
@@ -151,7 +136,15 @@ async function run(command: string, args: string[], env = process.env) {
 }
 
 const needsServer = nodeFiles.some((file) => testSuite(file) === 'production');
-const needsFixtures = nodeFiles.some((file) => testSuite(file) === 'fixtures');
+
+const examples = new Set(
+  nodeFiles.flatMap((file) => {
+    const example = rustFixtures.get(file);
+
+    return example ? [example] : [];
+  }),
+);
+
 const fullBuild =
   suite === 'production' || (suite === undefined && !requested.length);
 
@@ -178,18 +171,11 @@ if (skipBuild) {
   }
 }
 
-if (needsFixtures) {
+if (examples.size) {
   await run(process.execPath, [
     '--import',
     './scripts/register-typescript.ts',
     'scripts/generate-example-modules.ts',
-  ]);
-  await run(process.execPath, [
-    '--import',
-    './scripts/register-typescript.ts',
-    '--import',
-    './tests/support/local-storage.ts',
-    'tests/parity/generate-fixtures.ts',
   ]);
   await run('cargo', [
     'build',
@@ -201,7 +187,7 @@ if (needsFixtures) {
     '--no-default-features',
     '--features',
     'test-fixtures',
-    '--examples',
+    ...[...examples].flatMap((example) => ['--example', example]),
   ]);
 }
 
@@ -209,7 +195,7 @@ if (nodeFiles.length) {
   const directory = mkdtempSync(join(tmpdir(), 'unicorn-tests-'));
   const cachePath = join(directory, 'build-cache.json');
   const needsProduction = nodeFiles.some((file) =>
-    /\b(?:testBuildPlugin|buildPlugin|runProjectilePrediction)\b/.test(
+    /\b(?:testBuildPlugin|buildPlugin|runProductionScenario)\b/.test(
       readFileSync(file, 'utf8'),
     ),
   );

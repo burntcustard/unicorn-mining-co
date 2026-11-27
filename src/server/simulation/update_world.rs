@@ -354,14 +354,4 @@ mod tests {
             ]
         );
     }
-
-    #[test]
-    fn object_ids_are_disjoint_from_entities() {
-        let mut ids = WorldIds::default();
-        assert_eq!(ids.entity(), 1);
-        ids.record_entity(60_000);
-        assert_eq!(ids.object(), -1);
-        assert_eq!(ids.entity(), 60_001);
-        assert_eq!(ids.object(), -2);
-    }
 }

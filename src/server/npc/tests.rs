@@ -6,7 +6,7 @@ use crate::specs::Catalog;
 use crate::utilities::vector::Vector;
 
 use super::flight::{
-    AttackOptions, AttackWeapon, FlightContext, FlightTarget, Movement, Pilot, direction_of,
+    AttackOptions, AttackWeapon, FlightContext, FlightTarget, Pilot, direction_of,
 };
 use super::perception::{Obstacle, ObstacleGeometry, clear_segment};
 use super::prediction::{PredictionOptions, Predictor, ShipMotion};
@@ -322,35 +322,6 @@ fn obstacle_motion_matches_integrated_turning_braking_and_stop() {
     }
 }
 
-#[test]
-fn waiting_pilot_faces_the_destination_without_thrusting() {
-    let catalog = Catalog::load().unwrap();
-    let ship = ShipMotion {
-        rotation: -0.5,
-        ..ship_motion(&catalog)
-    };
-    let mut pilot = Pilot::default();
-    let context = FlightContext {
-        ship,
-        rules: catalog.npc_movement,
-        tick: 0,
-        simulation_step: catalog.simulation.simulation_step,
-        launching: false,
-        obstacles: &[],
-        target: None,
-    };
-    let (thrust, turn) = pilot.steer(
-        context,
-        &Movement {
-            position: Vector::new(300.0, 0.0),
-            waiting: true,
-            ..Movement::default()
-        },
-    );
-    assert_eq!(thrust, 0.0);
-    assert!(turn > 0.0);
-}
-
 use super::contact_forecast::{ContactForecast, ForecastKind, ForecastOptions, ForecastSource};
 use super::perception::physical_bounds;
 use crate::gameplay::collision_world::{CollisionEntity, GameCollisions, ObjectCollider};
@@ -394,78 +365,7 @@ impl CollisionEntity for ForecastEntity<'_> {
 }
 
 #[test]
-fn detached_contact_forecast_rejects_station_wall_as_in_go() {
-    let catalog = Catalog::load().unwrap();
-    let rules = &catalog.simulation;
-    let mut id = -1;
-    let mut ship = Ship::new_player(
-        1,
-        "courser",
-        ObjectProperties {
-            position: Vector::new(500.0, 0.0),
-            ..ObjectProperties::default()
-        },
-        &catalog,
-        || {
-            id -= 1;
-            id
-        },
-    )
-    .unwrap();
-    let mut station = Station::new(
-        100,
-        "corral-5",
-        ObjectProperties {
-            radius: Some(400.0),
-            ..ObjectProperties::default()
-        },
-        Some(Vec::new()),
-        &catalog,
-        || unreachable!(),
-    )
-    .unwrap();
-    let mut collisions = GameCollisions::new(&catalog, true);
-    let mut entities = [
-        ForecastEntity::Ship(&mut ship),
-        ForecastEntity::Station(&mut station),
-    ];
-    collisions.capture_poses(&mut entities);
-    collisions.step(&mut entities, 0.0, &catalog, &mut Vec::new());
-    ship.craft.object.position = Vector::new(260.0, 150.0);
-    let (radius, _) = physical_bounds(&ship, false, rules.linear_slop);
-    let motion = ShipMotion::from_ship(&ship, &catalog, radius);
-    let forecast = ContactForecast::new(
-        ForecastOptions {
-            catalog: &catalog,
-            ship_motion: motion,
-            tick: 0,
-            docking: true,
-            can_dock: true,
-            can_collect: false,
-            centers: &[],
-        },
-        ForecastSource {
-            object: &ship.craft.object,
-            kind: ForecastKind::Ship,
-            prepared: collisions.prepared_body(1),
-        },
-        ForecastSource {
-            object: &station.craft.object,
-            kind: ForecastKind::Station {
-                local_movement_radius: station.local_movement_radius,
-            },
-            prepared: collisions.prepared_body(100),
-        },
-        [],
-    );
-    let prediction = forecast
-        .predict(0.0, 0.0, rules.simulation_step, 0.0)
-        .unwrap();
-    assert!(!prediction.safe && !prediction.arrived);
-}
-
-#[test]
-fn detached_pickup_forecast_leaves_live_cargo_and_parent_unchanged() {
+fn contact_forecast_leaves_live_cargo_unchanged_and_rejects_station_wall() {
     let catalog = Catalog::load().unwrap();
     let rules = &catalog.simulation;
     let mut id = -1;
@@ -567,4 +467,36 @@ fn detached_pickup_forecast_leaves_live_cargo_and_parent_unchanged() {
         assert_eq!(current.local_movement.rate, before.local_movement.rate);
     }
     assert!(ship.craft.cargo_contents.is_empty());
+
+    ship.craft.object.position = Vector::new(260.0, 150.0);
+    let (radius, _) = physical_bounds(&ship, false, rules.linear_slop);
+    let motion = ShipMotion::from_ship(&ship, &catalog, radius);
+    let forecast = ContactForecast::new(
+        ForecastOptions {
+            catalog: &catalog,
+            ship_motion: motion,
+            tick: 0,
+            docking: true,
+            can_dock: true,
+            can_collect: false,
+            centers: &[],
+        },
+        ForecastSource {
+            object: &ship.craft.object,
+            kind: ForecastKind::Ship,
+            prepared: collisions.prepared_body(1),
+        },
+        ForecastSource {
+            object: &station.craft.object,
+            kind: ForecastKind::Station {
+                local_movement_radius: station.local_movement_radius,
+            },
+            prepared: collisions.prepared_body(100),
+        },
+        [],
+    );
+    let prediction = forecast
+        .predict(0.0, 0.0, rules.simulation_step, 0.0)
+        .unwrap();
+    assert!(!prediction.safe && !prediction.arrived);
 }

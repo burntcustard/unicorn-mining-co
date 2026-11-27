@@ -1,50 +1,36 @@
 import assert from 'node:assert/strict';
-import {
-  Autogun,
-  CannonSm,
-  Laser,
-  PlasmaAccelerator,
-  PowerPlant2V,
-} from '../../src/client/objects/modules';
+import { Autogun, Laser } from '../../src/client/objects/modules';
 import {
   moduleWeaponDps,
   moduleWeaponMarkup,
 } from '../../src/client/ui/dom/module-details';
+import { exampleWeapon } from '../../src/specs/modules/offense/example-weapon';
 
-const value = (markup: string, label: string) =>
+const displayed = (markup: string, label: string) =>
   markup.match(
     new RegExp(`${label}</span><span class="text-color text-lg">([^<]+)`),
   )?.[1];
 
-for (const weapon of [Autogun, new Autogun()]) {
-  const details = moduleWeaponMarkup(weapon);
+const blast = { radius: 18, impulse: 0 };
 
-  assert.equal(value(details, 'Damage'), '3');
-  assert.equal(value(details, 'DPS'), undefined);
-  assert.equal(moduleWeaponDps(weapon), '18.75');
-  assert.equal(value(details, 'ROF'), '6.25/s');
-  assert.equal(value(details, 'AOE'), undefined);
-}
+const weapon = new Autogun({
+  damage: 7.123,
+  fireInterval: 3,
+  projectile: { ...exampleWeapon.projectile, explosion: blast },
+});
 
-const cannon = moduleWeaponMarkup(CannonSm);
+const details = moduleWeaponMarkup(weapon);
 
-assert.equal(value(cannon, 'Damage'), '3');
-assert.equal(moduleWeaponDps(CannonSm), '3');
-assert.equal(value(cannon, 'ROF'), '1/s');
-assert.equal(value(cannon, 'AOE'), undefined);
+assert.equal(displayed(details, 'Damage'), '7.12');
+assert.equal(displayed(details, 'DPS'), undefined);
+assert.equal(moduleWeaponDps(weapon), '2.37');
+assert.equal(displayed(details, 'ROF'), '0.33/s');
+assert.equal(displayed(details, 'AOE'), '18 m');
 
-const plasma = moduleWeaponMarkup(PlasmaAccelerator);
+const beam = new Laser({ damage: 0.15 });
+const beamDetails = moduleWeaponMarkup(beam);
 
-assert.equal(value(plasma, 'Damage'), '15');
-assert.equal(moduleWeaponDps(PlasmaAccelerator), '5');
-assert.equal(value(plasma, 'ROF'), '0.33/s');
-assert.equal(value(plasma, 'AOE'), '24 m');
-
-const laser = moduleWeaponMarkup(Laser);
-
-assert.equal(value(laser, 'Damage'), '0.2');
-assert.equal(moduleWeaponDps(Laser), '6');
-assert.equal(value(laser, 'ROF'), '∞');
-assert.equal(value(laser, 'AOE'), undefined);
-assert.equal(moduleWeaponMarkup(PowerPlant2V), '');
-assert.equal(moduleWeaponDps(PowerPlant2V), '');
+assert.equal(displayed(beamDetails, 'Damage'), '0.15');
+assert.equal(displayed(beamDetails, 'ROF'), '∞');
+assert.equal(displayed(beamDetails, 'AOE'), undefined);
+assert.equal(moduleWeaponDps(beam), '4.5');

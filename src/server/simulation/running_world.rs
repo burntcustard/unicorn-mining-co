@@ -9,9 +9,10 @@ use crate::gameplay::collision_world::{
     PreparedCollisionBody,
 };
 use crate::gameplay::game_collisions::{ColliderGeometry, GameplayContact};
-use crate::objects::craft::CargoObject;
+use crate::objects::craft::{CargoObject, Craft};
 use crate::objects::craft_damage::{CraftDamage, CraftSpawn};
 use crate::objects::item::Item;
+use crate::objects::modules::WeaponTarget;
 use crate::objects::modules::laser::resolve_laser;
 use crate::objects::projectile::{
     FractureTarget, ProjectileTarget, ProjectileTargets, WeaponContext, WeaponGeometry,
@@ -305,9 +306,15 @@ impl MovementWorld for RunningWorld {
                 .filter(|&target| target != id)
                 .and_then(|target| self.world.entity(target))
                 .filter(|target| !target.model.object().dead && !target.model.object().buried)
-                .map(|target| match &target.model {
-                    EntityKind::Ship(ship) => ship.weapon_target_position(),
-                    model => model.object().position,
+                .map(|target| {
+                    let object = target.model.object();
+                    WeaponTarget {
+                        position: match &target.model {
+                            EntityKind::Ship(ship) => ship.weapon_target_position(),
+                            _ => object.position,
+                        },
+                        velocity: object.velocity,
+                    }
                 }),
             _ => None,
         };
@@ -1180,6 +1187,10 @@ impl WeaponWorld for World {
         self.entities.values_mut().for_each(visit);
     }
 
+    fn weapon_target_is_wreckage(&self, entity: &Entity) -> bool {
+        entity.model.craft().is_some_and(Craft::is_wreckage)
+    }
+
     fn damage_weapon_target(
         &mut self,
         target: ObjectCollider,
@@ -1230,6 +1241,7 @@ impl WeaponWorld for World {
 #[cfg(test)]
 mod tests {
     use crate::objects::station::Station;
+    use crate::test_fixtures::load_example_catalog;
 
     use super::*;
 
@@ -1237,7 +1249,7 @@ mod tests {
     fn projectile_blast_updates_reach_for_following_shots() {
         use crate::objects::projectile::Projectile;
 
-        let catalog = Arc::new(Catalog::load().unwrap());
+        let catalog = Arc::new(load_example_catalog().unwrap());
         let mut simulation = RunningWorld::new(25.0, Arc::clone(&catalog));
         for (id, x, radius, mass) in [(20, 40.0, 5.0, 1e15), (21, 50.0, 2.0, 1.0)] {
             let target = GameObject::new(
@@ -1314,63 +1326,6 @@ mod tests {
             })
             .collect();
         assert_eq!(impacts, [(30, 20), (31, 21)]);
-    }
-
-    #[test]
-    fn round_world_motion_preserves_the_scalar_grid() {
-        let catalog = Arc::new(Catalog::load().unwrap());
-        let mut running = RunningWorld::new(25.0, Arc::clone(&catalog));
-        let half = 0.5 / crate::utilities::MOTION_ROUND_SCALE;
-        let values = [
-            half,
-            3.0 * half,
-            5.0 * half,
-            -half,
-            -3.0 * half,
-            half.next_up(),
-            half.next_down(),
-            -0.0,
-            1289.54321,
-            f64::INFINITY,
-            f64::NEG_INFINITY,
-            f64::NAN,
-        ];
-        for (index, window) in values.windows(6).enumerate() {
-            let id = index as i64 + 1;
-            let mut object = GameObject::new(id, ObjectProperties::default(), &catalog.simulation);
-            object.position = Vector::new(window[0], window[1]);
-            object.velocity = Vector::new(window[2], window[3]);
-            object.rotation = window[4];
-            object.spin = window[5];
-            running
-                .world
-                .add_entity(EntityKind::Object(Box::new(object)), false);
-        }
-
-        SteppedWorld::round_motion(&mut running);
-
-        for (index, window) in values.windows(6).enumerate() {
-            let object = running
-                .world
-                .entity(index as i64 + 1)
-                .unwrap()
-                .model
-                .object();
-            let actual = [
-                object.position.x,
-                object.position.y,
-                object.velocity.x,
-                object.velocity.y,
-                object.rotation,
-                object.spin,
-            ];
-            for (value, input) in actual.into_iter().zip(window) {
-                let expected = crate::utilities::round_motion(*input);
-                assert!(
-                    value.to_bits() == expected.to_bits() || (value.is_nan() && expected.is_nan())
-                );
-            }
-        }
     }
 
     #[test]

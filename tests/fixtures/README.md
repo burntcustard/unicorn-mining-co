@@ -1,26 +1,25 @@
 # Regression fixtures
 
 `node --import ./scripts/register-typescript.ts --import ./tests/support/local-storage.ts tests/parity/generate-fixtures.ts`
-regenerates eight JSON
-fixtures from the client implementations. Each module in
+regenerates six JSON fixtures from the client implementations. Each module in
 `tests/parity/scenarios` exports its computed results; the runner handles file
 writing in one process. Rust tests compare those results with the server.
 
-| Scenario        | Comparison                                                                    |
-| --------------- | ----------------------------------------------------------------------------- |
-| `asteroids`     | Seeded geometry, contacts, damage, and fracture sequences                     |
-| `broad-phase`   | Proxy lifecycle, pair/query ordering, and nested queries                      |
-| `controls`      | Exact binary client controls and server welcome/respawn bytes                 |
-| `gameplay`      | Flight, streaming power, module activation, collisions, drilling, and docking |
-| `movement`      | Update tiers, local movement, and timed input edges                           |
-| `physics-world` | Solver motion, contact manifolds, and fixture/body removal                    |
-| `regions`       | Seeded asteroids, wrecks, stations, and field messages                        |
-| `rotation`      | Exact wrapped-polynomial results, from subnormal to maximum finite angles     |
+| Scenario        | Comparison                                                                |
+| --------------- | ------------------------------------------------------------------------- |
+| `asteroids`     | Seeded geometry, contacts, damage, and fracture sequences                 |
+| `broad-phase`   | Proxy lifecycle, pair/query ordering, and nested queries                  |
+| `controls`      | Exact binary client controls and server welcome/respawn bytes             |
+| `movement`      | Update tiers, local movement, and timed input edges                       |
+| `physics-world` | Solver motion, contact manifolds, and fixture/body removal                |
+| `rotation`      | Exact wrapped-polynomial results, from subnormal to maximum finite angles |
 
-These are computed parity cases, not gameplay specs. Fixed numbers select
-test conditions. Items and HTTP handling use direct tests rather than generated
-snapshots. Gameplay instrumentation restores the collision method before the
-runner loads another scenario.
+The parity cases use fixed inputs to exercise the client and server implementations.
+Item construction and HTTP handling have direct tests.
+
+`npm test -- projectile-prediction` runs one production-transformed replay
+against three Rust scenarios: a delayed plasma impact, an autogun fracture
+with fragment ID reuse, and a reload partway through mining.
 
 Rotation calculations wrap their local input modulo float64 `2*pi` before using
 the matching client/server polynomials. The fixture covers both signs, turn and
@@ -28,69 +27,9 @@ quadrant boundaries, and large exponents. Direct polynomial tests check accuracy
 against native trig at the wrapped angle, unit length, signed zero and nonfinite
 inputs. Huge angles intentionally use the float64 remainder as their direction.
 
-`session.json.gz` stores 983 session actions and the expected decoded messages, including sector generation and globally allocated runtime IDs.
-The sector update retains the same packet types, counts, and account balances;
-spawn positions, nearby generated entities, and runtime IDs now reflect Patroclus.
-Entity interests use a 2,500-unit load range and 3,000-unit unload range.
-The range update includes additional nearby objects and the resulting runtime
-allocation IDs; packet counts, timing, acknowledgments, and account data stay fixed.
-The replay uses the example module and ammunition catalog, with the normal
-ship, station, and fuel specs. Full ship records include the replicated
-fuel values calculated with the rounded module fuel rates; updating those
-rates changed only fuel values in the fixed replay, preserving all other fields.
-Thrust boosters add an unset extra control byte to the 48 recorded input
-packets and the Excel-8 offer to the station ship listing. The remaining
-recorded messages and action timing are unchanged.
-The Excel-15 adds a 6,810$ offer to that same station ship listing.
-Full ship records also include the replicated
-`firing` boolean, initially false in these actions. The test decodes newly emitted packets through the
-client codec and checks every message against those fixed records, including
-account metadata, rejected actions, interest sets, reconnects, and respawns.
-The test normalizes random welcome player IDs and entity record ordering.
-Numeric values use a tolerance of 2e-8. The test runner reads fixed expected records.
-The fixed records include welcome profile names, the current sector name
-(Patroclus for these actions), and entity display names;
-the legacy hello actions use an empty profile name and the default ship name.
-Streaming power adds `storedPower` to 35 full ship records, each at 64 MJ in this
-replay. All existing decoded values, packet counts, timing, and balances remain
-unchanged. The computed gameplay fixture separately exercises storage depletion,
-partial thruster supply, surplus recharge, and an undersupplied systems budget.
-
-The radar position stream includes 40 replacement lists containing 497 asteroid
-positions across the replay. Contacts extend 300 units beyond the visible map
-range so partially visible dots remain available at its edge.
-
-Rounded ship drag updates movement positions and velocities, one respawn
-position, and the resulting radar boundary memberships and refresh timing.
-The previous drag values were verified against the original fixed records before
-updating these affected fields. All 983 actions, 757 packet types and counts,
-runtime IDs, server ticks, acknowledgments, and account data remain unchanged;
-the numeric comparison still uses its original tolerance.
-
-Hangar synchronization adds eight `hangar` messages after docking actions and
-respawn. The update retains all 983 actions and all 757 original messages
-unchanged; the fixed replay now checks 765 messages, including the added ship
-inventories, active ship IDs, and account balances.
-
-Removing the Kestrel’s fitted autogun turret lowers its sale price in one
-hangar message from 10,175 to 9,425; all other recorded values remain unchanged.
-The revised power-plant loadouts subsequently change the Courser, Moth, Finch,
-and Kestrel offers to 4,725, 10,650, 3,125, and 10,175 respectively. The
-remaining replay values are unchanged.
-
-The kilogram mass migration changes 43 ship mass fields from 9 to 4,175 kg,
-except the ship with its dual thruster removed, which is 3,705 kg. That removal
-also adds a mass field to the following snapshot. The synthetic starting
-modules use the same masses as their playable counterparts; all other recorded
-session values remain unchanged.
-
 `rendering.json` captures representative replicated ship, station, mixed cargo,
-and drilling stages. Browser tests hydrate it under source and production
-transforms and check rendering, reconciliation and object identity.
-
-Changing game rules or protocol contracts may require deliberate reviewed
-updates to fixed fixtures. Do not regenerate expected session messages
-merely to make a failed comparison pass.
+and drilling stages. The rendering test hydrates it with the production transforms and checks
+rendering, reconciliation, and object identity.
 
 `dom-ui.ts` is the isolated docking scene used by `npm run test:ui`. It loads
 through the real DOM docking facade and production property transforms. Purchases,
@@ -98,4 +37,5 @@ fitting, repairs and paint use the normal ship actions; the fixture settles sale
 locally instead of sending commands for its synthetic ship to the game server.
 
 `snapshots.json` contains fixed wire packets for byte-for-byte Rust comparisons.
-`mined-gold.json` retains the recorded mining geometry and pickup inputs.
+The release server integration test runs the production client decoder against
+real load and delta packets.

@@ -1,10 +1,11 @@
 import { exampleAmmo } from '../src/specs/items/example-ammo';
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { moduleSpecForSimulation } from '../src/client/utilities/module-spec';
 import { exampleModuleEntries } from '../tests/support/example-module-specs';
 
-writeFileSync(
-  new URL('../tests/support/example-modules.json', import.meta.url),
+const path = new URL('../tests/support/example-modules.json', import.meta.url);
+
+const contents =
   JSON.stringify({
     itemSpecs: { autogunAmmo: exampleAmmo },
     moduleSpecs: Object.fromEntries(
@@ -16,5 +17,8 @@ writeFileSync(
         },
       ]),
     ),
-  }) + '\n',
-);
+  }) + '\n';
+
+if (!existsSync(path) || readFileSync(path, 'utf8') !== contents) {
+  writeFileSync(path, contents);
+}

@@ -2156,72 +2156,6 @@ for (let tick = 0; tick < 240; tick++) {
   closeTo(flying.rotation, reference.rotation, 1e-9);
 }
 
-// Recorded against commit 6adcc82, holding left/right for five seconds
-// then releasing. The 60 Hz integrator keeps the acceleration/braking curve;
-// allow half of the old/new step difference in integrated angle, not slower steering.
-for (const direction of [-1, 1]) {
-  const world = createWorld();
-  const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
-
-  addPlayer(world, { playerNumber: 1, shipId: ship.id });
-  let angle = 0;
-  let referenceAngle = 0;
-  let referenceSpin = 0;
-  let fullTurnTime;
-
-  for (let tick = 1; tick <= 6 / simulationStep; tick++) {
-    const turn = tick <= 5 / simulationStep ? direction : 0;
-
-    for (let part = 0; part < Math.round(simulationStep * 120); part++) {
-      const change = Math.max(
-        -16 / 120,
-        Math.min(16 / 120, turn * 3 - referenceSpin),
-      );
-
-      referenceSpin += change;
-      referenceAngle += referenceSpin / 120;
-    }
-
-    const previous = ship.rotation;
-    const before = angle;
-
-    updateWorld({
-      world: world,
-      inputs: new Map([
-        [
-          1,
-          {
-            thrust: 0,
-            turn,
-            hornDrill: false,
-            cargoHatch: false,
-            searchLight: false,
-            shieldGenerator: false,
-            launch: false,
-          },
-        ],
-      ]),
-    });
-
-    angle += Math.atan2(
-      Math.sin(ship.rotation - previous),
-      Math.cos(ship.rotation - previous),
-    );
-    closeTo(angle, referenceAngle, 0.013);
-    closeTo(ship.spin, referenceSpin, 2e-6);
-
-    if (fullTurnTime === undefined && angle * direction >= 4 * Math.PI) {
-      fullTurnTime =
-        (tick - 1) * simulationStep +
-        ((4 * Math.PI - before * direction) / ((angle - before) * direction)) *
-          simulationStep;
-    }
-  }
-
-  closeTo(fullTurnTime, 4.278419834415983, 1 / 120);
-  closeTo(ship.spin, 0);
-}
-
 const offCenterStrike = ({
   angularInertiaScale,
 }: {
@@ -2258,7 +2192,7 @@ const offCenterStrike = ({
 };
 
 const originalImpactSpin = offCenterStrike({ angularInertiaScale: 1 });
-const resistedImpactSpin = offCenterStrike({});
+const resistedImpactSpin = offCenterStrike({ angularInertiaScale: 2 });
 
 assert(
   originalImpactSpin > 1 && resistedImpactSpin > 0,

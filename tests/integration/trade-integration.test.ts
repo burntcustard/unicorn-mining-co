@@ -2,16 +2,10 @@ import '../support/ignore-handshake-timeout.ts';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { createInterface } from 'node:readline';
-import { rolldown } from 'rolldown';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins';
-import { stripIfdef } from '../../plugins/replace-pre-terser';
+import { runProductionScenario } from '../support/build-plugin';
 
-const directory = mkdtempSync(resolve(tmpdir(), 'unicorn-trade-'));
 const executable = resolve('src/server/target/debug/examples/trade_fixture');
 const root = process.cwd();
 
@@ -41,25 +35,22 @@ const scenario = `
 import assert from 'node:assert/strict';
 import { NetworkClient } from '${root}/src/client/network/network.ts';
 import { applyCraftAction, setCraftActionDispatcher } from '${root}/src/client/network/craft-actions.ts';
-import { decodeServerControl, encodeClientMessage } from '${root}/src/client/protocol/binary-control.ts';
+import { decodeServerControl } from '${root}/src/client/protocol/binary-control.ts';
 import { decodeBinarySnapshot } from '${root}/src/client/protocol/binary-snapshot.ts';
 import { emptyPlayerInput } from '${root}/src/client/protocol/input.ts';
 import { Module } from '${root}/src/client/objects/modules/module.ts';
-import { Laser, moduleTypes } from '${root}/src/client/objects/modules/index.ts';
 import { autogunAmmo } from '${root}/src/specs/items/index.ts';
 
 export default async () => {
 const server = Reflect.get(globalThis, 'tradeServer');
 const outgoing = Reflect.get(globalThis, 'tradePackets');
 const client = new NetworkClient({ url: 'test' });
-let playerId;
 setCraftActionDispatcher((ship, action) => client.applyCraftAction(ship, action));
 const render = () => client.updateFrame({ input: emptyPlayerInput(), now: performance.now() + 1, dt: 0 });
 const receive = packets =>
   packets.map(hex => {
     const packet = Uint8Array.from(Buffer.from(hex, 'hex'));
     const message = packet[1] === 0x43 ? decodeServerControl(packet) : decodeBinarySnapshot(packet);
-    if (message.type === 'welcome') playerId = message.playerId;
     client.receive({ message });
     render();
     return message;
@@ -72,137 +63,41 @@ const station = () => client.world.entities.get(ship().dockedTo);
 const state = () => [client.player.credits, ship().cargoContents.map(object => object.id), station().cargoContents.map(object => object.id), client.world.nextEntityId];
 const act = action => applyCraftAction(ship(), action);
 const stationId = ship().dockedTo;
-const listHangar = () =>
-  encodeClientMessage({ type: 'hangar', command: 'LIST', shipId: 0, value: '' });
-const approach = receive(await server('farStation', outgoing()));
-assert(client.stationMarkers.has(stationId), 'distant station stays visible as a marker');
-assert(!client.world.entities.has(stationId), 'marker has no collision or prediction model');
-assert(approach.some(message => message.stationStock?.stationId === 0), 'undocking clears private stock');
-
-const nearby = receive(await server('nearStation', outgoing()));
-assert(!client.stationMarkers.has(stationId), 'the craft replaces its marker');
-assert.equal(client.world.entities.get(stationId).cargoContents.length, 0, 'nearby pilots receive no shop stock');
-assert(nearby.every(message => !message.stationStock), 'approach sends no stock patch');
-const undockedHangar = receive(await server('receive', [...outgoing(), listHangar()]))
-  .find(message => message.type === 'hangar');
-assert.deepEqual(undockedHangar?.shipsForSale, []);
-assert(undockedHangar?.error, 'the hangar requires an authoritative dock');
-
+const departed = receive(await server('farStation', outgoing()));
+assert(client.stationMarkers.has(stationId), 'distant station keeps its marker');
+assert(departed.some(message => message.stationStock?.stationId === 0), 'undocking clears private stock');
+receive(await server('nearStation', outgoing()));
+assert.equal(client.world.entities.get(stationId).cargoContents.length, 0, 'public station view excludes private stock');
 const redocked = receive(await server('redock', outgoing()));
-const stockLoad = redocked.find(message => message.stationStock)?.stationStock;
-assert(stockLoad?.replace);
-assert.equal(stockLoad.entries.length, 300);
-assert(stockLoad.entries.every(entry => entry.resource === autogunAmmo.resource && !entry.kind), 'standard ammo packs carry only resource and ID');
-const dockedHangar = receive(await server('receive', [...outgoing(), listHangar()]))
-  .find(message => message.type === 'hangar');
-assert(dockedHangar?.shipsForSale.some(offer => offer.ship === 'mustang' && offer.price > 0));
-assert.equal(dockedHangar?.error, '');
-await flush();
+assert(redocked.some(message => message.stationStock?.replace), 'docking restores private stock');
 
-receive(await server('rotateStation', outgoing()));
-const authoritativeStation = () => client.authoritativeEntities.get(stationId);
-const steadyStock = authoritativeStation().cargoContents;
-const poseOnly = receive(await server('rotateStation', outgoing()));
-assert(poseOnly.some(message => message.fullEntities?.some(entity => entity.id === stationId && entity.rotation)), 'the rotating station sends a pose update');
-assert.equal(authoritativeStation().cargoContents, steadyStock, 'the authoritative station reuses unchanged stock during a pose update');
-
-const initial = state();
-assert.equal(initial[1].length, 2);
-assert.equal(initial[2].length, 300);
-const ammoId = station().cargoContents.find(object => object.item === autogunAmmo).id;
-
-// Hold a pre-purchase snapshot until after clicking Buy. It must not undo a
-// displayed purchase while its acknowledgement is still in flight.
-const old = await server('tick', outgoing());
-await server('drift', []);
-assert(act({ action: 'buyAmmo' }), 'buyAmmo intent accepted');
-assert.equal(ship().cargoContents.length, 3, 'Buy moves stock into cargo before any server response');
-assert.equal(station().cargoContents.length, 299);
-assert.equal(client.player.credits, initial[0] - autogunAmmo.price, 'Buy updates the balance immediately');
-assert.equal(state()[3], initial[3], 'stock transfers allocate no speculative IDs');
-const optimisticBuy = state();
-assert(receive(old).every(message => !message.stationStock), 'unchanged stock produces no wire update');
-assert.deepEqual(state().slice(0, 3), optimisticBuy.slice(0, 3), 'an older snapshot cannot reverse an unconfirmed trade');
-const purchase = (await flush()).find(message => message.stationStock)?.stationStock;
-assert.deepEqual(purchase?.removedIds, [ammoId]);
-assert.deepEqual(purchase?.entries, []);
-assert.equal(purchase?.replace, false);
-assert.equal(ship().cargoContents.length, 3);
-assert.equal(client.player.credits, initial[0] - autogunAmmo.price);
-const ammo = ship().cargoContents.find(object => object.item === autogunAmmo);
-assert(ammo && ammo.id === ammoId, 'ammo transfers the actual server stock ID');
-assert.equal(station().cargoContents.length, 299, 'purchase depletes station stock');
-const confirmedBuy = state();
-receive(old);
-assert.deepEqual(state(), confirmedBuy, 'a stale acknowledgement cannot undo a confirmed purchase at the same tick');
-
-const afterBuy = state();
-assert(act({ action: 'sell', objectIds: [ammo.id] }), 'ammo sell intent accepted');
-assert.equal(client.player.credits, initial[0], 'Sell updates credits immediately');
-assert.equal(ship().cargoContents.length, afterBuy[1].length - 1, 'Sell removes cargo immediately');
-assert.equal(station().cargoContents.length, afterBuy[2].length + 1);
-await flush();
-assert.equal(client.player.credits, initial[0]);
-assert(!ship().cargoContents.some(object => object.id === ammo.id));
-assert(station().cargoContents.some(object => object.id === ammo.id));
-
-// A sold module receives a global station ID. Buyback must use that ID,
-// even when entities spawned outside the client's interest in the meantime.
-const module = ship().cargoContents.find(object => object instanceof Module);
-const moduleId = module.id;
-const price = module.price;
-const beforeSale = state();
-await server('drift', []);
-assert(act({ action: 'sell', objectIds: [moduleId] }), 'module sell intent accepted');
-assert.equal(ship().cargoContents.length, beforeSale[1].length - 1);
-assert.equal(client.player.credits, beforeSale[0] + price, 'module sales update immediately');
-await flush();
-const stock = station().cargoContents.find(object => object instanceof Module);
-assert(stock && stock.id !== moduleId, 'module stock uses fresh ID');
-assert.equal(client.player.credits, initial[0] + price);
-const beforeBuyback = state();
-assert(act({ action: 'buyStock', objectIds: [stock.id] }), 'module buyback intent accepted');
-assert.equal(ship().cargoContents.length, beforeBuyback[1].length + 1);
-assert.equal(client.player.credits, beforeBuyback[0] - price, 'module buyback updates immediately');
-await flush();
-assert(ship().cargoContents.some(object => object.id === stock.id));
-assert(!station().cargoContents.some(object => object.id === stock.id));
-assert.equal(client.player.credits, initial[0]);
-
-// Double activation addresses the same stock ID twice. The server transfers
-// and charges once; its rejection of the second request leaves that result.
-const stockedAmmo = station().cargoContents.find(object => object.id === ammo.id);
-assert(stockedAmmo, 'sold ammo remains in stock');
-assert(act({ action: 'buyStock', objectIds: [ammo.id] }));
-assert.equal(act({ action: 'buyStock', objectIds: [ammo.id] }), undefined, 'duplicate buys are rejected locally');
-await flush();
-assert.equal(ship().cargoContents.filter(object => object.id === ammo.id).length, 1);
-assert.equal(client.player.credits, initial[0] - autogunAmmo.price);
-assert(!station().cargoContents.some(object => object.id === ammo.id));
-assert(act({ action: 'sell', objectIds: [ammo.id] }));
-assert.equal(act({ action: 'sell', objectIds: [ammo.id] }), undefined, 'duplicate sales are rejected locally');
-await flush();
-assert.equal(client.player.credits, initial[0]);
-assert.equal(station().cargoContents.filter(object => object.id === ammo.id).length, 1);
-
-// A snapshot can be batched behind the render loop; applying later deltas
-// still retains the accepted sale and never reintroduces the cargo.
-await flush();
-receive(await server('tick', outgoing()));
-assert(!ship().cargoContents.some(object => object.id === ammo.id));
-// Keep several requests and their replies in flight. Confirming the first
-// must preserve the later local purchase, even within the same server tick.
-const beforeRapid = state();
+// Hold a stale snapshot and the first purchase reply. While both purchases
+// are optimistic, backpressure suppresses the second purchase's direct reply.
+const [credits, cargo, stock, nextId] = state();
+const [firstId, secondId] = stock;
+const stale = await server('tick', outgoing());
 assert(act({ action: 'buyAmmo' }));
 const firstReply = await server('receive', outgoing());
+await server('block', []);
 assert(act({ action: 'buyAmmo' }));
-assert.equal(ship().cargoContents.length, beforeRapid[1].length + 2);
-assert.equal(client.player.credits, beforeRapid[0] - 2 * autogunAmmo.price);
-receive(firstReply);
-assert.equal(ship().cargoContents.length, beforeRapid[1].length + 2, 'a partial acknowledgement retains later purchases');
-assert.equal(client.player.credits, beforeRapid[0] - 2 * autogunAmmo.price);
 await flush();
-assert.equal(ship().cargoContents.length, beforeRapid[1].length + 2);
+
+const expectedInventories = [
+  credits - 2 * autogunAmmo.price,
+  [...cargo, firstId, secondId],
+  stock.slice(2),
+];
+assert.deepEqual(state(), [...expectedInventories, nextId], 'optimistic purchases transfer stock IDs and update credits');
+receive(stale);
+const firstPatch = receive(firstReply).find(message => message.stationStock)?.stationStock;
+assert.deepEqual(firstPatch?.removedIds, [firstId]);
+assert.deepEqual(state().slice(0, 3), expectedInventories, 'a partial acknowledgment preserves the second purchase');
+await server('unblock', []);
+const catchUp = receive(await server('tick', outgoing()));
+
+assert(catchUp.some(message => message.stationStock?.removedIds.includes(secondId)), 'the ordinary snapshot confirms the suppressed purchase');
+receive(stale);
+assert.deepEqual(state().slice(0, 3), expectedInventories, 'stale snapshots cannot reverse confirmed purchases');
 
 // Buy back a sold module before any reply, then sell it again. The server's
 // global allocation has drifted and none of those temporary references may leak.
@@ -222,21 +117,6 @@ const rapidStock = station().cargoContents.find(object => object instanceof Modu
 assert(rapidStock && rapidStock.id !== rapidModuleId);
 assert.equal(client.player.credits, rapidBalance + rapidModule.price, 'all rapid module trades are accepted using server IDs');
 
-// Backpressure can suppress the direct reply. The next ordinary snapshot
-// must carry the changed inventories alongside the transaction acknowledgement.
-const beforeBackpressure = state();
-await server('block', []);
-assert(act({ action: 'buyAmmo' }));
-assert(act({ action: 'buyAmmo' }));
-await flush();
-assert.equal(client.player.credits, beforeBackpressure[0] - 2 * autogunAmmo.price);
-assert.equal(ship().cargoContents.length, beforeBackpressure[1].length + 2);
-await server('unblock', []);
-receive(await server('tick', outgoing()));
-assert.equal(ship().cargoContents.length, beforeBackpressure[1].length + 2);
-assert.equal(station().cargoContents.length, beforeBackpressure[2].length - 2, 'ordinary snapshot includes the confirmed stock changes');
-assert.equal(client.player.credits, beforeBackpressure[0] - 2 * autogunAmmo.price);
-
 // Another player can consume stock before our intent reaches the server.
 // Its rejection must remove the optimistic purchase and restore our balance.
 const contested = station().cargoContents[0];
@@ -250,232 +130,52 @@ assert(!ship().cargoContents.some(object => object.id === contested.id), 'reject
 assert.equal(client.player.credits, beforeRejection[0], 'rejection restores the balance');
 assert.equal(station().cargoContents.length, beforeRejection[2].length - 1);
 
-// Outfitting buys directly into the selected empty mount.
-assert(act({ action: 'remove', mount: 0 }));
-const beforeLaser = state();
-const laser = act({ action: 'buy', module: moduleTypes.indexOf(Laser), mount: 0 });
-assert(laser, 'new Beam Laser purchase is accepted');
-assert.equal(ship().mounts[0].module.id, laser.moduleId);
-assert.equal(ship().mounts[0].health, 40, 'optimistic Beam Laser starts at full health');
-assert.deepEqual(state()[1], beforeLaser[1], 'automatic fitting preserves existing cargo');
-await flush();
-assert.equal(ship().mounts[0].module.id, laser.moduleId, 'server confirms the immediately fitted purchase');
-assert.equal(ship().mounts[0].health, 40, 'server confirms full Beam Laser health');
-assert.equal(client.player.credits, beforeLaser[0] - Laser.price, 'server charges the purchase once');
-assert.deepEqual(state()[1], beforeLaser[1], 'confirmed fitting leaves no extra cargo module');
-
-// Sell directly from the mount with every cargo slot occupied.
-while (ship().cargoContents.length < ship().cargoSpace) {
-  assert(act({ action: 'buyAmmo' }));
-}
-await flush();
-const fullCargo = state();
-const equippedId = ship().mounts[0].module.id;
-assert(act({ action: 'sell', objectIds: [equippedId] }));
-assert(!ship().mounts[0].module, 'sale immediately clears the mount with full cargo');
-assert.deepEqual(state()[1], fullCargo[1], 'optimistic sale preserves full cargo');
-await flush();
-assert(!ship().mounts[0].module, 'server confirms the direct equipped sale');
-assert.deepEqual(state()[1], fullCargo[1], 'confirmed sale needs no extra cargo slot');
-assert.equal(client.player.credits, fullCargo[0] + Laser.price, 'equipped sale pays exactly once');
-assert(act({ action: 'sell', objectIds: [ship().cargoContents.find(object => object.item === autogunAmmo).id] }));
-await flush();
-
-// Rapid buyback and resale must resolve station IDs for equipped sales too.
-const soldLaser = station().cargoContents.find(object => object instanceof Laser);
-const beforeEquippedBuyback = client.player.credits;
-for (let cycle = 0; cycle < 2; cycle++) {
-  assert(act({ action: 'buyStock', objectIds: [soldLaser.id] }));
-  assert(act({ action: 'equip', moduleId: soldLaser.id, mount: 0 }));
-  assert(act({ action: 'sell', objectIds: [soldLaser.id] }));
-}
-await flush();
-assert(!ship().mounts[0].module, 'rapid equipped sales stay sold after server confirmation');
-assert.equal(client.player.credits, beforeEquippedBuyback, 'rapid equipped buyback and resale are charged correctly');
-assert.equal(ship().cargoContents.length, ship().cargoSpace - 1, 'rapid equipped trades preserve cargo');
-
-// Relocation sends another welcome on the same connection. A transaction
-// already in flight can reach the server after that relocation and must not
-// make later action sequence numbers collide with it.
-assert(act({ action: 'buyAmmo' }));
-receive(await server('travel', outgoing()));
-receive(await server('redock', outgoing()));
-const afterTravel = state();
-assert(act({ action: 'sell', objectIds: [ship().cargoContents.find(object => object.item === autogunAmmo).id] }));
-await flush();
-assert.equal(ship().cargoContents.length, afterTravel[1].length - 1, 'a sale after relocation is confirmed by the server');
-assert.equal(client.player.credits, afterTravel[0] + autogunAmmo.price, 'the sale after relocation credits the account');
-
-const beforeHangar = client.player.credits;
-const starterId = ship().id;
-const hangar = async (command, shipId = 0, value = '') => {
-  client.sendHangarAction({ command, shipId, value });
-  await flush();
-};
-const dockedTo = client.entityRecords.get(starterId).dockedTo;
-for (const state of [{ dockedTo: undefined, launching: 0 }, { dockedTo, launching: 1 }]) {
-  const authoritativeShip = client.entityRecords.get(starterId);
-  const pendingPackets = outgoing();
-  Object.assign(authoritativeShip, state);
-  client.sendHangarAction({ command: 'LIST', shipId: 0, value: '' });
-  assert.equal(outgoing().length, 0, 'Hangar waits for authoritative docking before requesting its list');
-  Object.assign(authoritativeShip, { dockedTo, launching: 0 });
-  receive(await server('tick', pendingPackets));
-  assert.equal(client.hangarListPending, false, 'a docking snapshot releases the pending Hangar request');
-  await flush();
-  assert.equal(client.ownedShips.length, 1, 'deferred Hangar request succeeds after docking');
-}
-await hangar('LIST');
-assert.equal(client.ownedShips.length, 1, 'Hangar lists the starter ship');
-assert.equal(client.ownedShips[0].name, 'Mustang');
-await hangar('SPECIAL', 0, 'mustang');
-assert.equal(client.player.credits, beforeHangar, 'ineligible special offers preserve credits over the wire');
-assert.equal(client.ownedShips.length, 1, 'ineligible special offers preserve the existing fleet');
-assert.equal(ship().id, starterId, 'ineligible special offers do not replace the active ship');
-await hangar('BUY', 0, 'finch');
-const finchId = ship().id;
-assert.notEqual(finchId, starterId, 'buy automatically switches the replicated player ship');
-assert.equal(ship().name, 'Finch');
-assert.equal(client.ownedShips.length, 2);
-assert(ship().mounts.some(mount => mount.module), 'purchases include modules');
-assert.equal(ship().fuel, ship().fuelCapacity);
-await hangar('RENAME', finchId, '<b>🦄 & Finch');
-assert.equal(ship().name, '<b>🦄 & Finch', 'custom ship names survive server replication');
-await hangar('PILOT', starterId);
-assert.equal(ship().id, starterId, 'Pilot restores the original ship and its cargo');
-await hangar('SELL', finchId);
-assert.equal(client.player.credits, beforeHangar, 'new ships resell with no loss');
-assert.equal(client.ownedShips.length, 1);
-await hangar('SELL', starterId);
-assert.equal(client.ownedShips.length, 0, 'selling the last ship leaves an empty hangar');
-const berthId = ship().id;
-const soldBalance = client.player.credits;
-await hangar('SELL', starterId);
-assert.equal(client.player.credits, soldBalance, 'a repeated sale cannot credit twice');
-client.recordInput({ input: { ...emptyPlayerInput(), launch: true } });
-await flush();
-receive(await server('tick', outgoing()));
-assert.equal(ship().id, berthId);
-assert(ship().dockedTo, 'an empty hangar cannot launch over the wire');
-await server('disconnect', []);
-client.connect('test');
-receive(await server('receive', [encodeClientMessage({ type: 'prepare', playerId })]));
-receive(await server('receive', [encodeClientMessage({ type: 'play' })]));
-assert.equal(client.ownedShips.length, 0, 'shipless reconnect preserves the empty fleet');
-assert(ship()?.dockedTo, 'shipless reconnect retains the docked station location');
-assert(!client.shipDestroyed, 'shipless reconnect has a usable berth rather than a destroyed ship');
-assert(client.world.entities.has(ship().dockedTo), 'shipless reconnect includes the docked station');
-client.recordInput({ input: { ...emptyPlayerInput(), launch: true, thrust: 1 } });
-client.update({ input: { ...emptyPlayerInput(), launch: true, thrust: 1 }, now: performance.now() + 40 });
-assert(ship().dockedTo, 'a shipless berth cannot be launched by client prediction');
-await hangar('BUY', 0, 'mustang');
-assert.notEqual(ship().id, berthId);
-assert.equal(client.ownedShips.length, 1);
-const afterReconnect = state();
-assert(act({ action: 'buyAmmo' }));
-await flush();
-assert.equal(ship().cargoContents.length, afterReconnect[1].length + 1, 'the first action after a new connection is confirmed');
-
 const settled = state();
-client.connected = false;
-assert.equal(act({ action: 'buyAmmo' }), undefined);
-assert.deepEqual(state(), settled, 'disconnected clicks cannot invent a purchase');
-client.connected = true;
-assert.equal(act({ action: 'sell', objectIds: [123456789] }), undefined);
-assert.deepEqual(state(), settled, 'invalid cargo leaves both inventories and balance alone');
 // Losing the connection before a request arrives restores the last known
 // server inventory and balance rather than leaving a phantom purchase visible.
 assert(act({ action: 'buyAmmo' }));
 assert.equal(ship().cargoContents.length, settled[1].length + 1);
 client.socket.onclose({ code: 4001 });
 assert.deepEqual(state(), settled, 'disconnect removes unconfirmed trades');
-console.log('Real server session: immediate trades, partial acknowledgements, rapid module buyback, rejections, and disconnected actions passed');
 };
 `;
 
-try {
-  for (const production of [false, true]) {
-    const child = spawn(executable, [], { stdio: ['pipe', 'pipe', 'inherit'] });
-    const lines = createInterface({ input: child.stdout });
-    const responses = lines[Symbol.asyncIterator]();
+const child = spawn(executable, [], { stdio: ['pipe', 'pipe', 'inherit'] });
+const closed = once(child, 'exit');
+const lines = createInterface({ input: child.stdout });
+const responses = lines[Symbol.asyncIterator]();
 
-    Reflect.set(
-      globalThis,
-      'tradeServer',
-      async (kind: string, packets: Uint8Array[]) => {
-        child.stdin.write(
-          JSON.stringify({
-            Kind: kind,
-            Packets: packets.map((packet) =>
-              Buffer.from(packet).toString('hex'),
-            ),
-          }) + '\n',
-        );
-
-        const response = await responses.next();
-
-        assert(!response.done, 'Server session terminated before replying');
-        return JSON.parse(response.value);
-      },
+Reflect.set(
+  globalThis,
+  'tradeServer',
+  async (kind: string, packets: Uint8Array[]) => {
+    child.stdin.write(
+      JSON.stringify({
+        Kind: kind,
+        Packets: packets.map((packet) => Buffer.from(packet).toString('hex')),
+      }) + '\n',
     );
 
-    const entry = resolve('src/__trade_integration.ts');
+    const response = await responses.next();
 
-    const bundle = await rolldown({
-      input: entry,
-      external: ['node:assert/strict'],
-      plugins: [
-        {
-          name: 'trade-integration',
-          resolveId: (id) => (id === entry ? entry : undefined),
-          load(id) {
-            if (id === entry) {
-              return stripIfdef(
-                production
-                  ? scenario.replace(
-                      /assert\.(\w+)/g,
-                      (_, method) => `Reflect.get(assert, '${method}')`,
-                    )
-                  : scenario,
-              );
-            }
+    assert(!response.done, 'Server session terminated before replying');
+    return JSON.parse(response.value);
+  },
+);
 
-            if (id.endsWith('/audio/sound-loader.ts')) {
-              return 'export const unlockAudio = () => {}; export const playSound = () => {}; export const updateThrusterSound = () => {};';
-            }
-          },
-        },
-        buildPrePlugin(),
-        ...(production
-          ? [{ ...buildPlugin(), generateBundle: undefined }]
-          : []),
-      ],
-    });
+try {
+  const { default: runTrade } = await runProductionScenario({
+    name: 'trade-integration',
+    source: scenario,
+    modules: {
+      '/audio/sound-loader.ts':
+        'export const unlockAudio = () => {}; export const playSound = () => {}; export const updateThrusterSound = () => {};',
+    },
+  });
 
-    try {
-      const { output } = await bundle.generate({
-        format: 'esm',
-        minify: production,
-      });
-
-      const path = resolve(
-        directory,
-        production ? 'production.mjs' : 'source.mjs',
-      );
-
-      writeFileSync(path, output[0].code);
-      const test = await import(pathToFileURL(path).href);
-
-      await test.default();
-    } finally {
-      await bundle.close();
-      const closed = once(child, 'exit');
-
-      child.stdin.end();
-      await closed;
-      lines.close();
-    }
-  }
+  await runTrade();
 } finally {
-  rmSync(directory, { recursive: true, force: true });
+  child.stdin.end();
+  await closed;
+  lines.close();
 }

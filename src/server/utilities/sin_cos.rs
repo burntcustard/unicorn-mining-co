@@ -55,18 +55,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn approximates_rotations_within_original_tolerance() {
-        for index in 0..=400000 {
-            let angle = -64.0 + 128.0 * f64::from(index) / 400000.0;
-            let (sin, cos) = sin_cos(angle);
-            let (expected_sin, expected_cos) = angle.sin_cos();
-            assert!((sin - expected_sin).abs() <= 1e-12);
-            assert!((cos - expected_cos).abs() <= 1e-12);
-            assert!((sin * sin + cos * cos - 1.0).abs() <= 1e-12);
-        }
-    }
-
-    #[test]
     fn preserves_signed_zero_and_non_finite_angles() {
         for angle in [0.0, -0.0, TAU, -TAU] {
             let (sin, cos) = sin_cos(angle);

@@ -1,26 +1,20 @@
-/* global process */
+import { runProductionScenario } from '../support/build-plugin';
 import '../support/audio-context.ts';
-import { buildPrePlugin } from '../../plugins/build-plugins.ts';
-import { testBuildPlugin } from '../support/build-plugin';
-import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
-import { rolldown } from 'rolldown';
 
 // Exercise the mechanics and assertions together under production transforms.
 // The browser UI suite checks the HTML docking loader across production chunks.
 const scenario = `
+import assert from 'node:assert/strict';
 import { installExampleModules } from '${process.cwd()}/tests/support/example-modules.ts';
 installExampleModules();
 import * as Vec from '${process.cwd()}/src/client/utilities/vector.ts';
-import { roundMotion } from '${process.cwd()}/src/client/utilities/round.ts';
-import assert from 'node:assert/strict';
-import { renderingLayers } from '${process.cwd()}/src/specs/rendering-layers.ts';
 import { damage } from '${process.cwd()}/src/client/objects/damage.ts';
 import { Ship } from '${process.cwd()}/src/client/objects/ship.ts';
 import { PredictionManager } from '${process.cwd()}/src/client/prediction/prediction.ts';
 import { cloneEntity } from '${process.cwd()}/src/client/simulation/world-state.ts';
 import { createWorld, addEntity } from '${process.cwd()}/src/client/simulation/world.ts';
 import { diamond as diamondSpec, itemTypes, message as messageSpec } from '${process.cwd()}/src/specs/items/index.ts';
-import { Autogun, CargoHatch, HornDrill, PowerPlant, PowerPlant2V, ShieldGenerator, ShieldGeneratorMd, ThrusterDualMd, ThrusterDualXl, ThrusterSingleSm, ThrusterSingleMd, ThrusterTriple, thrusters, moduleTypes } from '${process.cwd()}/src/client/objects/modules/index.ts';
+import { Autogun, CargoHatch, HornDrill, PowerPlant, PowerPlant2V, ShieldGenerator, ShieldGeneratorMd, ThrusterSingleMd, thrusters, moduleTypes } from '${process.cwd()}/src/client/objects/modules/index.ts';
 import { Item } from '${process.cwd()}/src/client/objects/item.ts';
 
 import { setCraftActionDispatcher } from '${process.cwd()}/src/client/network/craft-actions.ts';
@@ -91,7 +85,6 @@ const thrusterHull=[
     mounts:[[{x:-16,y:0,fits:thrusters.map(type=>type.definitionId)}], [{x:0,y:0,fits:['powerPlant2V']}]]},
   {health:100,core:true,points:[[8,0],[20,0],[-16,20]]}
 ];
-assert.equal(ship.name,'Mustang','ship instances keep their display names under production transforms');
 const sentActions = [];
 setCraftActionDispatcher((ship, action) => {
   const applied = ship.applyDockAction(action, player);
@@ -271,6 +264,21 @@ unlockPaint('CYAN', 'DIAMOND SOLD');
 syncPaintUnlocks(502);
 assert(paintUnlocked(colors.cyan), 'updated authoritative mask preserves an accepted unlock');
 
+// Repair one synthetic hull without changing an adjacent damaged piece.
+const repairing = new Ship({
+  hullSegments: [
+    { health: 100, core: true, points: [[-4, -4], [4, -4], [0, 0]] },
+    { health: 60, points: [[-4, -4], [0, 0], [-4, 4]] },
+  ],
+});
+const repairAccount = { credits: 100 };
+repairing.hullHealth = [92.5, 10];
+const repairOne = { action: 'repairHull', hullIndex: 0 };
+assert(repairing.applyDockAction(repairOne, repairAccount));
+assert.equal(repairAccount.credits, 92);
+assert.deepEqual(repairing.hullHealth, [100, 10]);
+assert.equal(repairing.applyDockAction(repairOne, repairAccount), undefined);
+
 // Rebuild hulls without duplicating mounts or resurrecting destroyed cargo.
 lowerMount.hull.health=1.11111;
 const hullRepairCost=ship.repairCost();
@@ -340,129 +348,30 @@ assert.equal(hatchShip.hitbox().find(box => box.segment === hatchDoor).collides,
 assert(player.ship.modules.length === mustang.initialLoadout.length && !player.ship.cargoContents.length, 'starter cargo contents');
 assert(new Set(player.ship.modules).size === mustang.initialLoadout.length, 'starter modules are distinct instances');
 assert(player.ship.modules.every(module => module.mount.module === module), 'starter mount links');
-assert(new CargoHatch().shades === colors.violet && new ShieldGenerator().shades === colors.violet &&
-  thrusters.every((thruster) => new thruster().shades === colors.violet), 'purchased modules are pink');
-assert(new HornDrill().shades === colors.yellow, 'purchased horns are yellow');
-assert(ThrusterSingleMd.name === 'Example Thruster' && ThrusterSingleMd.forwardThrust === 22, 'example single thruster');
-const flyer = new Ship({shades: colors.white}).addToScene();
-const engine = new ThrusterDualMd();
-flyer.cargoContents.push(engine); flyer.fit(engine);
-for (const forward of [0, 1]) {
-  for (const turn of [-1, 0, 1]) {
-    flyer.fly(forward, turn);
-    flyer.segmentsAtMount(engine.mount).forEach(segment => {
-      const side = segment.thrusterNozzleSide;
-      const expected = !turn || !side ? forward : turn === -side ? 1 : forward * 0.5;
-      assert(segment.active === expected, 'nozzle steering behavior');
-    });
-  }
+// Exercise launch power transitions on one synthetic engine.
+const departing = new Ship({
+  hullSegments: thrusterHull,
+  position: Vec.create(100000, 100000),
+}).addToScene();
+const engine = new ThrusterSingleMd();
+departing.fit(engine);
+departing.fit(new PowerPlant2V());
+departing.storedPower = departing.powerCapacity;
+departing.launch();
+const dt = 1 / 60;
+for (let frame = 0; frame < Math.ceil(flight.launchDuration / dt); frame++) {
+  const launching = departing.launching > 0;
+  const timer = Math.max(0, departing.launching - dt);
+  const fraction = timer > flight.launchHalfThreshold && timer <= flight.launchHalfEnd
+    ? flight.launchThrottle ** 2 : 1;
+  departing.fly(launching ? 1 : 0, 0);
+  departing.update(dt);
+  assert.equal(departing.maxSpeed, flight.speedPerThrust * engine.forwardThrust * fraction);
+  assert(departing.segmentsAtMount(engine.mount).every(part =>
+    part.active === (launching ? Math.sqrt(fraction) : 0)));
 }
-flyer.fly(1, 1); flyer.update(0.1);
-assert(Number.isFinite(flyer.position.x) && Number.isFinite(flyer.spin), 'flight remains finite');
-flyer.fit(0, engine.mount);
-assert(flyer.forwardThrust === 0 && flyer.cargoContents[0] === engine, 'removing engine removes thrust');
-// Check actual launch motion, including the final 0.05-second full-power pulse:
-// coast uses quarter thrust and speed cap, with half-size flames.
-for (const type of thrusters) {
-  const departing = new Ship({hullSegments:thrusterHull,shades: colors.white, position: Vec.create(100000, 100000)}).addToScene();
-  const engine = new type();
-  departing.cargoContents.push(engine); departing.fit(engine);
-  departing.fit(new PowerPlant2V());
-  departing.storedPower = departing.powerCapacity;
-  departing.launch();
-  let timer = 3;
-  let expectedSpeed = 0;
-  let expectedX = departing.position.x;
-  const dt = 1 / 60;
-  for (let frame = 0; frame < 240; frame++) {
-    const launching = timer > 0;
-    timer = Math.max(0, timer - dt);
-    const fraction = timer > 0.05 && timer <= 2 ? 0.25 : 1;
-    const forward = launching ? 1 : 0;
-    const cap = 17 * type.forwardThrust * fraction;
-    expectedSpeed += flight.thrustScale * type.forwardThrust * fraction / departing.mass * forward * dt;
-    if (expectedSpeed < 1) expectedSpeed = 0;
-    // Normal drag still slows a ship when the launch speed cap changes.
-    const draggedSpeed = expectedSpeed * Math.exp(-departing.movementDrag() * dt);
-    expectedSpeed = expectedSpeed > cap ? Math.min(draggedSpeed, Math.max(cap, expectedSpeed * 0.9)) :
-      draggedSpeed;
-    expectedX = roundMotion(expectedX + expectedSpeed * dt);
-    expectedSpeed = roundMotion(expectedSpeed);
-    departing.fly(departing.launching ? 1 : 0, 0);
-    departing.update(dt);
-    assert(Math.abs(Vec.length(departing.velocity) - expectedSpeed) < 1e-8,
-      type.name + ': launch speed matches expected each frame');
-    assert(Math.abs(departing.position.x - expectedX) < 1e-7,
-      type.name + ': launch distance matches expected each frame');
-    assert.equal(departing.maxSpeed, cap, type.name + ': coast lowers actual speed cap at frame ' + frame);
-    assert(departing.segmentsAtMount(engine.mount).every(segment => segment.active === forward * Math.sqrt(fraction)),
-      type.name + ': launch nozzle activation');
-  }
-  departing.launch();
-  timer = 3;
-  let expectedSpin = departing.spin;
-  for (let frame = 0; frame < 180; frame++) {
-    timer = Math.max(0, timer - dt);
-    const fraction = timer > 0.05 && timer <= 2 ? 0.25 : 1;
-    const thrust = type.rotationalThrust * fraction * departing.angularThrust / departing.mass;
-    const target = departing.turnRate * thrust * fraction / 16;
-    expectedSpin = roundMotion(expectedSpin + Math.max(-thrust * dt, Math.min(thrust * dt, target - expectedSpin)));
-    departing.fly(departing.launching ? 1 : 0, 1);
-    departing.update(dt);
-    assert(Math.abs(departing.spin - expectedSpin) < 1e-8,
-      type.name + ': launch steering matches expected each frame');
-  }
-  engine.mount.health = 0;
-  assert(departing.forwardThrust === 0 && departing.rotationalThrust === 0,
-    'broken engine supplies no thrust');
-  departing.remove();
-}
-// All nozzles on all craft draw their flares before any glow, then hulls.
-// Exercise the real renderer for each engine layout and both craft orders.
-for (const type of thrusters) {
-  const draws = [];
-  let saves = 0;
-  const ctx = {
-    save() { saves++; }, restore() { saves--; },
-    translate() {}, rotate() {}, scale() {}, beginPath() {}, arc() {}, stroke() {},
-    createLinearGradient: () => ({ addColorStop() {} }),
-    createRadialGradient: () => ({ addColorStop() {} }),
-    fill(path) { draws.push(path ? path.kind : 'glow'); },
-  };
-  const crafts = [0, 1].map(() => {
-    const craft = new Ship({ hullSegments:thrusterHull, shades: colors.white }).addToScene();
-    const engine = new type();
-    craft.cargoContents.push(engine);
-    craft.fit(engine);
-    game.ctx = ctx;
-    craft.segments.forEach(segment => {
-      segment.activationProgress = 1;
-      segment.path = () => ({ kind: segment.module.forwardThrust ? 'flare' : 'hull' });
-    });
-    return craft;
-  });
-  const render = () => {
-    draws.length = 0;
-    for (const layer of Object.values(renderingLayers)) crafts.forEach(craft => craft.render({zIndex:layer}));
-    assert(saves === 0, 'renderer balances canvas state');
-  };
-  for (let order = 0; order < 2; order++) {
-    render();
-    const count = type.model.length * 2;
-    assert(draws.slice(0, count).length === count && draws.slice(0, count).every(kind => kind !== 'glow'),
-      type.name + ': every flare precedes all glows');
-    assert(draws.slice(count, count * 2).length === count && draws.slice(count, count * 2).every(kind => kind === 'glow'),
-      type.name + ': glows share one layer across craft');
-    assert(draws.slice(count * 2).every(kind => kind !== 'glow'),
-      'hulls remain above the glow layer');
-    crafts.reverse();
-  }
-  crafts[0].segments.forEach(segment => segment.activationProgress = 0);
-  crafts[1].engine.mount.health = 0;
-  render();
-  assert(!draws.includes('glow'), 'inactive and broken thrusters emit no glow');
-  crafts.forEach(craft => craft.remove());
-}
+assert(departing.position.x > 100000, 'a launched ship moves under its own thrust');
+departing.remove();
 
 // Check paint rewards under production minification too.
 assert(paintUnlocked(colors.yellow), 'YELLOW starts unlocked');
@@ -515,59 +424,22 @@ assert.equal(player.berth,undefined, 'owning a ship clears the empty berth');
 console.log('Cargo contents, dock actions, damage, repairs, cargo hatch physics and flight tests passed');
 `;
 
-for (const production of [false, true]) {
-  const entryId = `${process.cwd()}/src/__docked_test.ts`;
+Object.assign(globalThis, { canvas: { getContext: () => ({}) } });
+Object.assign(globalThis, { location: { search: '' } });
 
-  const bundle = await rolldown({
-    input: entryId,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'docked-test-entry',
-        resolveId: (id) => {
-          if (id === entryId) return entryId;
-        },
-        load: (id) => {
-          if (id === entryId) {
-            return stripIfdef(
-              production
-                ? scenario.replace(
-                    /assert\.(\w+)/g,
-                    (_, method) => `Reflect.get(assert, '${method}')`,
-                  )
-                : scenario,
-            );
-          }
-        },
-      },
-      buildPrePlugin(),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
+Object.assign(globalThis, {
+  Path2D: class {
+    arc() {}
 
-  const { output } = await bundle.generate({
-    format: 'esm',
-    minify: production,
-  });
+    closePath() {}
 
-  await bundle.close();
+    lineTo() {}
 
-  Object.assign(globalThis, { canvas: { getContext: () => ({}) } });
-  Object.assign(globalThis, { location: { search: '' } });
+    moveTo() {}
+  },
+});
 
-  Object.assign(globalThis, {
-    Path2D: class {
-      arc() {}
-
-      closePath() {}
-
-      lineTo() {}
-
-      moveTo() {}
-    },
-  });
-
-  const code = output[0].code;
-
-  await import(`data:text/javascript,${encodeURIComponent(code)}`);
-}
+await runProductionScenario({
+  name: 'docked',
+  source: scenario,
+});

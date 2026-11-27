@@ -45,6 +45,9 @@ export type ShotObserver = (shot: PredictedShot) => void;
 
 const thrusterMountCounts = new WeakMap<object, number>();
 
+const projectileMuzzleDistance = (weapon: Weapon) =>
+  weapon.barrelLength + weapon.projectile.radius + 1;
+
 type DockActionRequest =
   | Exclude<CraftAction, { action: 'buy' }>
   | { action: 'buy'; module: number; moduleId?: number; mount?: number };
@@ -928,6 +931,7 @@ export class Ship extends Craft {
     if (!this.world || this.dead) return;
     const target = this.world.entities.get(this.targetId);
     let targetPosition: Vec.Value | undefined;
+    let relativeVelocity: Vec.Value | undefined;
 
     if (target && target !== this && !target.dead && !target.buried) {
       targetPosition =
@@ -963,6 +967,35 @@ export class Ship extends Craft {
           rotatePoint(module.mount.localPosition, this.rotation),
         );
         const direction = Vec.subtract(targetPosition, position);
+
+        if (module instanceof Weapon && !module.turret) {
+          const speed = module.projectile.speed;
+          const muzzleDistance = projectileMuzzleDistance(module);
+          const distanceSquared =
+            Vec.lengthSquared(direction) - muzzleDistance * muzzleDistance;
+
+          if (speed > 0 && distanceSquared > 0) {
+            relativeVelocity ??= Vec.subtract(target.velocity, this.velocity);
+
+            // Include the launch offset along the projectile's eventual heading.
+            const velocitySquared =
+              speed * speed - Vec.lengthSquared(relativeVelocity);
+            const along =
+              Vec.dot(direction, relativeVelocity) - muzzleDistance * speed;
+            const denominator =
+              Math.sqrt(along * along + velocitySquared * distanceSquared) -
+              along;
+
+            if (denominator > 0) {
+              Vec.addScaled(
+                direction,
+                relativeVelocity,
+                distanceSquared / denominator,
+                direction,
+              );
+            }
+          }
+        }
 
         if (module.turret || direction.x || direction.y) {
           angle = Math.atan2(direction.y, direction.x) - this.rotation;
@@ -1057,7 +1090,7 @@ export class Ship extends Craft {
           this.position,
           rotatePoint(
             module.muzzlePosition({
-              distance: module.barrelLength + module.projectile.radius + 1,
+              distance: projectileMuzzleDistance(module),
             }),
             this.rotation,
           ),

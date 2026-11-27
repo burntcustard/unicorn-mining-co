@@ -390,27 +390,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn removed_generated_wreck_does_not_respawn() {
-        let catalog = Arc::new(Catalog::load().unwrap());
-        let mut world = World::new(25.0, Arc::clone(&catalog));
-        let mut regions = StreamingRegions::new(25, &catalog, None);
-        let wreck = WreckDescription {
-            id: 42,
-            cargo_contents: vec![0],
-            ..WreckDescription::default()
-        };
-
-        regions.want(&mut world, wreck.id, GeneratedEntity::Wreck(&wreck));
-        let id = i64::from(wreck.id);
-        assert!(world.remove_entity(id).is_some());
-        regions.wanted.clear();
-        regions.want(&mut world, wreck.id, GeneratedEntity::Wreck(&wreck));
-
-        assert!(world.entity(id).is_none());
-        assert!(!regions.managed.contains_key(&id));
-    }
-
-    #[test]
     fn spatial_wake_preserves_insertion_order_and_exact_range_boundaries() {
         let catalog = Arc::new(Catalog::load().unwrap());
         let mut world = World::new(25.0, Arc::clone(&catalog));

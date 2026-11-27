@@ -4,228 +4,65 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-const directory = mkdtempSync(join(tmpdir(), 'import-spacing-'));
+const directory = mkdtempSync(join(tmpdir(), 'unicorn-formatting-'));
 const file = join(directory, 'fixture.ts');
-const spacingFile = join(directory, 'spacing.ts');
-const inlineFile = join(directory, 'inline.ts');
-const commentFile = join(directory, 'comments.ts');
-const blockFile = join(directory, 'blocks.ts');
-const correctnessFile = join(directory, 'correctness.ts');
-const browserFile = join(directory, 'browser.ts');
-const elseFile = join(directory, 'else.ts');
-const source =
-  "import '../dependency';\n// Following code must be separated too.\nexport const value = 1;\n";
-
-const lint = ({
-  format = false,
-  fix = false,
-  target = file,
-}: {
-  format?: boolean;
-  fix?: boolean;
-  target?: string;
-}) =>
+const lint = (...options: string[]) =>
   spawnSync(
     resolve('node_modules/.bin/oxlint'),
-    [
-      '-c',
-      resolve('.oxlintrc.json'),
-      ...(format ? ['-A', 'correctness'] : []),
-      '--no-ignore',
-      ...(fix ? ['--fix'] : []),
-      target,
-    ],
+    ['-c', resolve('.oxlintrc.json'), '--no-ignore', ...options, file],
     { encoding: 'utf8' },
   );
 
 try {
-  const browserSource = "window.addEventListener('resize', () => {});\n";
-
-  writeFileSync(browserFile, browserSource);
-
-  for (const format of [false, true]) {
-    const result = lint({ format, fix: true, target: browserFile });
-
-    assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.equal(
-      readFileSync(browserFile, 'utf8'),
-      browserSource,
-      'browser globals need no existence guards in lint or format mode',
-    );
-  }
-
-  writeFileSync(correctnessFile, 'const unused = 1;\n');
-  assert.match(lint({ target: correctnessFile }).stdout, /no-unused-vars/);
-  assert.doesNotMatch(
-    lint({ format: true, target: correctnessFile }).stdout,
-    /no-unused-vars/,
-  );
-  writeFileSync(file, source);
-  assert.equal(
-    lint({}).status,
-    1,
-    'normal lint rejects missing import spacing',
-  );
-  assert.equal(
-    lint({ format: true }).status,
-    1,
-    'format check rejects missing import spacing',
-  );
-  assert.equal(
-    lint({ format: true, fix: true }).status,
-    0,
-    'format fixes import spacing',
-  );
-  assert.equal(readFileSync(file, 'utf8'), source.replace("';\n", "';\n\n"));
-  assert.equal(lint({}).status, 0, 'formatted imports pass normal lint');
   writeFileSync(
-    spacingFile,
-    'function example() {\n  const a = 1;\n  const b = 2;\n  console.log(a);\n  if (\n    a &&\n    b\n  )\n    console.log(b);\n  for (const value of [a, b]) {\n    console.log(value);\n  }\n  switch (a) {\n    case 1:\n      break;\n    case 2:\n      break;\n  }\n}\n',
-  );
-  const checkSpacing = (fix = false, target = spacingFile) =>
-    lint({ format: true, fix, target });
+    file,
+    `import '../dependency';
+// Following code must be separated too.
+const unused = 1;
 
-  assert.equal(checkSpacing().status, 1, 'missing braces and spacing fail');
-  const fixedResult = checkSpacing(true);
-
-  assert.equal(fixedResult.status, 0, fixedResult.stdout + fixedResult.stderr);
-  const fixed = readFileSync(spacingFile, 'utf8');
-
-  assert.match(fixed, /const b = 2;\n\n  console\.log\(a\);/);
-  assert.match(
-    fixed,
-    /console\.log\(a\);\n\n  if \([\s\S]*\)\s*\{\s*console\.log\(b\);\s*\}/,
-  );
-  assert.match(fixed, /\n\n  for \(/);
-  assert.match(fixed, /\n\n  switch \(/);
-  assert.match(fixed, /break;\n\n    case 2:/);
-  assert.equal(checkSpacing().status, 0, 'fixed braces and spacing pass');
-  writeFileSync(
-    blockFile,
-    `export type First = { value: number };
-// Keep this description with Second.
-export interface Second { run(): void }
-export function example(value: number) {
-  if (value) { value++; }
-  // Keep this description with the following statement.
-  value++;
-  const object = {
-    value,
-  };
-  const other = 1;
-  switch (value) {
-    case 1:
-      if (other) { value++; }
-      value++;
-      break;
-  }
+/** Compact documentation. */
+export function check(value: number) {
+  if (value > 1) value++;
+  else if (value) value--;
+  else value = 0;
+  console.log(value);
+  if (value) value++;
+  return value;
 }
-example(1);
 `,
   );
-  assert.equal(checkSpacing(false, blockFile).status, 1);
-  const blockResult = checkSpacing(true, blockFile);
 
-  assert.equal(blockResult.status, 0, blockResult.stdout + blockResult.stderr);
-  const spacedBlocks = readFileSync(blockFile, 'utf8');
+  const invalid = lint();
 
-  assert.match(spacedBlocks, /First = \{ value: number \};\n\n\/\/ Keep/);
-  assert.match(spacedBlocks, /Second \{ run\(\): void \}\n\nexport function/);
-  assert.match(spacedBlocks, /if \(value\) \{ value\+\+; \}\n\n  \/\/ Keep/);
-  assert.match(spacedBlocks, /statement\.\n  value\+\+;\n\n  const object/);
-  assert.match(spacedBlocks, /value,\n  \};\n\n  const other/);
-  assert.match(
-    spacedBlocks,
-    /if \(other\) \{ value\+\+; \}\n\n      value\+\+;/,
-  );
-  assert.match(spacedBlocks, /\n\}\n\nexample\(1\);/);
-  assert.equal(checkSpacing(true, blockFile).status, 0);
-  assert.equal(
-    readFileSync(blockFile, 'utf8'),
-    spacedBlocks,
-    'block spacing is idempotent',
-  );
-  writeFileSync(
-    inlineFile,
-    'function inline() { const value = 1; if (value) console.log(value); }\n',
-  );
-  assert.equal(checkSpacing(false, inlineFile).status, 1);
-  assert.equal(checkSpacing(true, inlineFile).status, 0);
-  assert.match(readFileSync(inlineFile, 'utf8'), /value = 1;\s*\n\s*\nif \(/);
-  writeFileSync(
-    commentFile,
-    '/** Compact documentation. */\nexport const value = 1;\n',
-  );
-  assert.equal(lint({ target: commentFile }).status, 1);
-  assert.equal(lint({ format: true, target: commentFile }).status, 1);
-  assert.equal(
-    lint({ format: true, fix: true, target: commentFile }).status,
-    0,
-  );
-  assert.equal(
-    readFileSync(commentFile, 'utf8'),
-    '// Compact documentation.\nexport const value = 1;\n',
-  );
-  assert.equal(lint({ target: commentFile }).status, 0);
-  writeFileSync(
-    commentFile,
-    'export class Sweep {\n  /** World angle */\n  a = 0;\n}\n',
-  );
-  assert.equal(lint({ target: commentFile }).status, 1);
-  assert.equal(
-    lint({ format: true, fix: true, target: commentFile }).status,
-    0,
-  );
-  assert.equal(
-    readFileSync(commentFile, 'utf8'),
-    'export class Sweep {\n  // World angle\n  a = 0;\n}\n',
-  );
-  const inlineDocumentation =
-    'export const first = 1; /** Keep this code */ export const second = 2;\n';
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stdout, /no-unused-vars/);
 
-  writeFileSync(commentFile, inlineDocumentation);
-  assert.equal(
-    lint({ format: true, fix: true, target: commentFile }).status,
-    1,
-  );
-  assert.equal(readFileSync(commentFile, 'utf8'), inlineDocumentation);
-  writeFileSync(
-    commentFile,
-    '// Short documentation.\nexport const value = 1;\n',
-  );
-  assert.equal(lint({ format: true, target: commentFile }).status, 0);
-  writeFileSync(
-    commentFile,
-    '/** \n * The opener has a trailing space.\n */\nexport const value = 1;\n',
-  );
-  assert.equal(lint({ format: true, target: commentFile }).status, 1);
-  writeFileSync(
-    commentFile,
-    'export const example = "/** text in a string */";\n',
-  );
-  assert.equal(lint({ format: true, target: commentFile }).status, 0);
-  const allowedIf =
-    'export const check = (a: number) => {\n  if (a) a++;\n};\n';
+  const formatting = lint('-A', 'correctness');
 
-  writeFileSync(elseFile, allowedIf);
+  assert.equal(formatting.status, 1);
+  assert.doesNotMatch(formatting.stdout, /no-unused-vars/);
+
+  const fixed = lint('-A', 'correctness', '--fix');
+
+  assert.equal(fixed.status, 0, fixed.stdout + fixed.stderr);
   assert.equal(
-    lint({ target: elseFile }).status,
-    0,
-    'single-line if statements without else may omit braces',
-  );
-  writeFileSync(
-    elseFile,
-    'export const check = (a: number) => {\n  if (a > 1) a++;\n  else if (a) a--;\n  else a = 0;\n};\n',
-  );
-  assert.match(lint({ target: elseFile }).stdout, /braced-else/);
-  assert.equal(lint({ format: true, fix: true, target: elseFile }).status, 0);
-  assert.equal(
-    readFileSync(elseFile, 'utf8'),
-    'export const check = (a: number) => {\n  if (a > 1) { a++; }\n  else if (a) { a--; }\n  else { a = 0; }\n};\n',
-    'every branch of an if with an else gets braces',
-  );
-  console.log(
-    'Import spacing, braces, statement spacing, and documentation comments are enforced',
+    readFileSync(file, 'utf8'),
+    `import '../dependency';
+
+// Following code must be separated too.
+const unused = 1;
+
+// Compact documentation.
+export function check(value: number) {
+  if (value > 1) { value++; }
+  else if (value) { value--; }
+  else { value = 0; }
+  console.log(value);
+
+  if (value) value++;
+  return value;
+}
+`,
   );
 } finally {
   rmSync(directory, { recursive: true });

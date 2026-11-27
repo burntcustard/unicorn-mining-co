@@ -2,6 +2,7 @@ use std::{error::Error, io, sync::Arc};
 
 use serde_json::json;
 use unicorn_mining_server::objects::craft::{CargoObject, InstalledModule};
+use unicorn_mining_server::objects::modules::WeaponTarget;
 use unicorn_mining_server::objects::ship::Ship;
 use unicorn_mining_server::simulation::game_object::ObjectProperties;
 use unicorn_mining_server::simulation::world::{EntityKind, World};
@@ -64,7 +65,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     for firing in [true, false, true] {
         let remote = ship(&mut world, remote_id);
         remote.firing = firing;
-        remote.update_weapon_aim(1.0, firing.then_some(target_position));
+        remote.update_weapon_aim(
+            1.0,
+            firing.then_some(WeaponTarget {
+                position: target_position,
+                velocity: Vector::ZERO,
+            }),
+        );
         world.tick += 1;
         packets.push(replica.packet(&mut world, observer, false)?);
     }

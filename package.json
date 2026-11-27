@@ -45,6 +45,7 @@
     "reset-world:local": "node scripts/reset-world-local.ts",
     "start:server": "./bin/server",
     "test": "node scripts/test.ts",
+    "test:rust": "node scripts/test-server.ts --rust-only",
     "test:server": "node scripts/test-server.ts",
     "test:ui": "node --import ./scripts/register-typescript.ts scripts/check-ui.ts",
     "tool:font-viewer": "vite --config src/tools/font-viewer/vite.config.ts",

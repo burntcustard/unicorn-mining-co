@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::simulation::game_object::ObjectProperties;
 use crate::simulation::geometry::rotate_point;
 use crate::simulation::running_world::RunningWorld;
-use crate::simulation::sector_generation::generate_sector_map;
 use crate::simulation::update_world::WorldStepOptions;
 
 use super::*;
@@ -72,224 +71,80 @@ fn use_opening(gate: &mut Portal) {
 }
 
 #[test]
-fn beam_interruption_announces_once_and_retains_later_beams() {
-    let catalog = Arc::new(Catalog::load().unwrap());
-    let step = catalog.simulation.simulation_step;
-    for linked in [false, true] {
-        for rotation in [0.0, 0.71] {
-            let mut source = world(&catalog, 5, "other", false);
-            let mut destination = world(&catalog, 9, "start", false);
-            let gate = portal_mut(&mut source.world, 5).unwrap();
-            if linked {
-                gate.connect(portal_mut(&mut destination.world, 9).unwrap());
-            }
-            gate.object.rotation = rotation;
-            use_opening(gate);
-            let location = gate.object.position;
-            let ship_id = spawn(&mut source.world, location + Vector::new(5000.0, 0.0));
-            let players = [player(ship_id)];
-            let mut effects = PortalEffects::default();
-            let mut traffic = PortalTraffic::default();
-            traffic.update_gates(&mut source.world, players, step, &mut effects);
-            assert_eq!(
-                effects.notices,
-                vec![GateNotice {
-                    gate_id: 5,
-                    kind: GateNoticeKind::Closing
-                }]
-            );
-            let gate = portal_mut(&mut source.world, 5).unwrap();
-            gate.advance(catalog.jump_gate_spec.closing_duration / 4000.0);
-            let gate_before = gate.opening;
-            let interrupt = |source: &mut World,
-                             traffic: &mut PortalTraffic,
-                             effects: &mut PortalEffects,
-                             beam| {
-                let y = catalog.jump_gate_spec.beam_offsets[beam];
-                let start = location + rotate_point(Vector::new(0.0, y - 10.0), rotation);
-                let end = location + rotate_point(Vector::new(0.0, y + 10.0), rotation);
-                let ship = ship_mut(source, ship_id).unwrap();
-                ship.craft.object.position = start;
-                ship.craft.object.radius = 1.0;
-                traffic.prepare(source, players, effects);
-                ship_mut(source, ship_id).unwrap().craft.object.position = end;
-                traffic.finish(source, player_names(&players), effects);
-            };
-            interrupt(&mut source.world, &mut traffic, &mut effects, 0);
-            let gate = portal(&source.world, 5).unwrap();
-            assert_eq!(gate.opening, gate_before);
-            assert_eq!(gate.opening_target, 1.0);
-            assert_eq!(gate.blocked_beams, 1);
-            assert_eq!(effects.notices[1].kind, GateNoticeKind::ClosingInterrupted);
-            for index in 1..catalog.jump_gate_spec.beam_offsets.len() {
-                interrupt(&mut source.world, &mut traffic, &mut effects, index);
-                let gate = portal(&source.world, 5).unwrap();
-                assert_eq!(gate.blocked_beams, (1 << (index + 1)) - 1);
-                assert_eq!(gate.opening, gate_before);
-            }
-            assert_eq!(effects.notices.len(), 2);
-            let gate = portal_mut(&mut source.world, 5).unwrap();
-            gate.advance(catalog.jump_gate_spec.opening_duration / 1000.0);
-            let gate = portal(&source.world, 5).unwrap();
-            assert_eq!(gate.opening, 1.0);
-            assert_eq!(gate.blocked_beams, 0);
-        }
-    }
-}
-
-#[test]
-fn recovery_opens_only_local_gate_for_rotated_octagon_interiors() {
-    let catalog = Arc::new(Catalog::load().unwrap());
-    for (offset, inside) in [
-        (Vector::new(0.0, 180.0), true),
-        (Vector::new(120.0, 140.0), true),
-        (Vector::new(210.0, 0.0), false),
-        (Vector::new(0.0, 230.0), false),
-        (Vector::new(180.0, 180.0), false),
-        (Vector::new(1000.0, 0.0), false),
-    ] {
-        for rotation in [0.0, 0.71] {
-            let mut source = world(&catalog, 5, "other", false);
-            let mut destination = world(&catalog, 9, "start", false);
-            let gate = portal_mut(&mut source.world, 5).unwrap();
-            gate.connect(portal_mut(&mut destination.world, 9).unwrap());
-            gate.object.rotation = rotation;
-            let position = gate.object.position + rotate_point(offset, rotation);
-            let ship_id = spawn(&mut source.world, position);
-            let players = [player(ship_id)];
-            let mut traffic = PortalTraffic::default();
-            let mut effects = PortalEffects::default();
-            traffic.prepare(&mut source.world, players, &mut effects);
-            traffic.prepare(&mut source.world, players, &mut effects);
-            assert_eq!(effects.notices.len(), usize::from(inside));
-            if inside {
-                assert_eq!(
-                    effects.notices[0].kind,
-                    GateNoticeKind::Recovery {
-                        player_name: "Custard".into()
-                    }
-                );
-            }
-            assert!(effects.travel.is_empty());
-            let gate = portal(&source.world, 5).unwrap();
-            assert_eq!(gate.opening, 0.0);
-            assert_eq!(gate.opening_target, f64::from(inside));
-            assert_eq!(portal(&destination.world, 9).unwrap().opening_target, 0.0);
-        }
-    }
-}
-
-#[test]
-fn expired_unoccupied_gate_cancels_a_queued_opening_during_its_hold() {
-    let catalog = Arc::new(Catalog::load().unwrap());
-    let mut source = world(&catalog, 5, "other", false);
-    let gate = portal_mut(&mut source.world, 5).unwrap();
-    gate.connected = Some(9);
-    gate.close_after = 0.0;
-    gate.request_opening(1.0);
-    assert_eq!(gate.opening_target, 0.0);
-
-    let mut traffic = PortalTraffic::default();
-    traffic.update_gates(
-        &mut source.world,
-        [],
-        (catalog.jump_gate_spec.state_hold_duration + 1000.0) / 1000.0,
-        &mut PortalEffects::default(),
-    );
-    let gate = portal(&source.world, 5).unwrap();
-    assert_eq!(gate.opening_target, 0.0);
-    assert_eq!(gate.opening, 0.0);
-}
-
-#[test]
-fn initial_opening_ignores_beam_crossings() {
-    let catalog = Arc::new(Catalog::load().unwrap());
-    let mut source = world(&catalog, 5, "other", false);
-    let gate = portal_mut(&mut source.world, 5).unwrap();
-    gate.request_exit_opening();
-    gate.advance(catalog.jump_gate_spec.opening_duration / 2000.0);
-    let position = gate.object.position;
-    let ship_id = spawn(&mut source.world, position);
-    let players = [player(ship_id)];
-    let mut traffic = PortalTraffic::default();
-    let mut effects = PortalEffects::default();
-    for &y in &catalog.jump_gate_spec.beam_offsets {
-        let ship = ship_mut(&mut source.world, ship_id).unwrap();
-        ship.craft.object.position = position + Vector::new(0.0, y - 10.0);
-        ship.craft.object.radius = 1.0;
-        traffic.prepare(&mut source.world, players, &mut effects);
-        ship_mut(&mut source.world, ship_id)
-            .unwrap()
-            .craft
-            .object
-            .position = position + Vector::new(0.0, y + 10.0);
-        traffic.finish(&mut source.world, player_names(&players), &mut effects);
-    }
-    let gate = portal(&source.world, 5).unwrap();
-    assert_eq!(gate.opening, 0.5);
-    assert_eq!(gate.opening_target, 1.0);
-    assert_eq!(gate.blocked_beams, 0);
-    assert!(effects.notices.is_empty());
-}
-
-#[test]
-fn normal_world_ticks_reopen_a_closing_gate() {
+fn gate_ignores_beams_when_opening_and_reopens_after_a_closing_interruption() {
     let catalog = Arc::new(Catalog::load().unwrap());
     let step = catalog.simulation.simulation_step;
     let mut source = world(&catalog, 5, "other", false);
     let mut destination = world(&catalog, 9, "start", false);
     let gate = portal_mut(&mut source.world, 5).unwrap();
     gate.connect(portal_mut(&mut destination.world, 9).unwrap());
-    gate.object.rotation = 0.71;
+    let rotation = 0.71;
+    gate.object.rotation = rotation;
+    let location = gate.object.position;
+    let far = location + Vector::new(5000.0, 0.0);
+    let ship_id = spawn(&mut source.world, far);
+    let players = [player(ship_id)];
+    let mut effects = PortalEffects::default();
+    let mut traffic = PortalTraffic::default();
+    let interrupt =
+        |source: &mut World, traffic: &mut PortalTraffic, effects: &mut PortalEffects, beam| {
+            let y = catalog.jump_gate_spec.beam_offsets[beam];
+            let start = location + rotate_point(Vector::new(0.0, y - 10.0), rotation);
+            let end = location + rotate_point(Vector::new(0.0, y + 10.0), rotation);
+            let ship = ship_mut(source, ship_id).unwrap();
+            ship.craft.object.position = start;
+            ship.craft.object.radius = 1.0;
+            traffic.prepare(source, players, effects);
+            ship_mut(source, ship_id).unwrap().craft.object.position = end;
+            traffic.finish(source, player_names(&players), effects);
+        };
+    let gate = portal_mut(&mut source.world, 5).unwrap();
+    gate.request_exit_opening();
+    gate.advance(catalog.jump_gate_spec.opening_duration / 2000.0);
+    interrupt(&mut source.world, &mut traffic, &mut effects, 0);
+    let gate = portal_mut(&mut source.world, 5).unwrap();
+    assert_eq!(gate.blocked_beams, 0);
+    assert!(effects.notices.is_empty());
     use_opening(gate);
-    gate.request_opening(0.0);
-    gate.advance(catalog.jump_gate_spec.closing_duration / 10000.0);
-    let position = gate.object.position
-        + rotate_point(
-            Vector::new(0.0, catalog.jump_gate_spec.beam_offsets[0]),
-            gate.object.rotation,
-        );
-    let velocity = rotate_point(Vector::new(0.0, 100.0), gate.object.rotation);
-    let ship_id = spawn(&mut source.world, position);
     ship_mut(&mut source.world, ship_id)
         .unwrap()
         .craft
         .object
-        .velocity = velocity;
-    let players = [player(ship_id)];
-    let mut traffic = PortalTraffic::default();
-    let mut effects = PortalEffects::default();
-    let tick =
-        |source: &mut RunningWorld, traffic: &mut PortalTraffic, effects: &mut PortalEffects| {
-            traffic.update_gates(&mut source.world, players, step, effects);
-            traffic.prepare(&mut source.world, players, effects);
-            source.update(WorldStepOptions::default(), &mut Vec::new());
-            traffic.finish(&mut source.world, player_names(&players), effects);
-        };
-    tick(&mut source, &mut traffic, &mut effects);
-    let gate = portal(&source.world, 5).unwrap();
-    assert_eq!(gate.opening_target, 1.0);
-    assert_ne!(gate.blocked_beams, 0);
-    let previous = gate.opening;
-    tick(&mut source, &mut traffic, &mut effects);
-    let gate = portal(&source.world, 5).unwrap();
-    assert!(gate.opening > previous);
-    assert_ne!(gate.blocked_beams, 0);
+        .position = far;
+
+    traffic.update_gates(&mut source.world, players, step, &mut effects);
     assert_eq!(
-        effects
-            .notices
-            .iter()
-            .map(|notice| &notice.kind)
-            .collect::<Vec<_>>(),
-        [
-            &GateNoticeKind::Closing,
-            &GateNoticeKind::ClosingInterrupted
-        ]
+        effects.notices,
+        [GateNotice {
+            gate_id: 5,
+            kind: GateNoticeKind::Closing
+        }]
     );
+    let gate = portal_mut(&mut source.world, 5).unwrap();
+    gate.advance(catalog.jump_gate_spec.closing_duration / 4000.0);
+    let gate_before = gate.opening;
+    interrupt(&mut source.world, &mut traffic, &mut effects, 0);
+    let gate = portal(&source.world, 5).unwrap();
+    assert_eq!(gate.opening, gate_before);
+    assert_eq!(gate.opening_target, 1.0);
+    assert_eq!(gate.blocked_beams, 1);
+    assert_eq!(effects.notices[1].kind, GateNoticeKind::ClosingInterrupted);
+    for index in 1..catalog.jump_gate_spec.beam_offsets.len() {
+        interrupt(&mut source.world, &mut traffic, &mut effects, index);
+        let gate = portal(&source.world, 5).unwrap();
+        assert_eq!(gate.blocked_beams, (1 << (index + 1)) - 1);
+        assert_eq!(gate.opening, gate_before);
+    }
+    assert_eq!(effects.notices.len(), 2);
+    let gate = portal_mut(&mut source.world, 5).unwrap();
+    gate.advance(catalog.jump_gate_spec.opening_duration / 1000.0);
+    let gate = portal(&source.world, 5).unwrap();
+    assert_eq!(gate.opening, 1.0);
+    assert_eq!(gate.blocked_beams, 0);
 }
 
 #[test]
-fn gate_access_opens_only_the_requested_gate_after_its_hold() {
+fn gate_access_respects_the_hold_and_expires_pending_requests() {
     let catalog = Arc::new(Catalog::load().unwrap());
     let mut source = world(&catalog, 5, "other", false);
     let mut destination = world(&catalog, 9, "start", false);
@@ -340,10 +195,24 @@ fn gate_access_opens_only_the_requested_gate_after_its_hold() {
     );
     assert_eq!(portal(&source.world, 5).unwrap().opening, 1.0);
     assert_eq!(portal(&destination.world, 9).unwrap().opening, 0.0);
+
+    let gate = portal_mut(&mut destination.world, 9).unwrap();
+    gate.close_after = 0.0;
+    gate.request_opening(1.0);
+    assert_eq!(gate.opening_target, 0.0);
+    traffic.update_gates(
+        &mut destination.world,
+        [],
+        (catalog.jump_gate_spec.state_hold_duration + 1000.0) / 1000.0,
+        &mut effects,
+    );
+    let gate = portal(&destination.world, 9).unwrap();
+    assert_eq!(gate.opening_target, 0.0);
+    assert_eq!(gate.opening, 0.0);
 }
 
 #[test]
-fn closed_gate_and_wormhole_transfer_hold_at_exit_and_keep_rotation() {
+fn gate_requests_opening_and_wormhole_transfer_holds_at_the_exit() {
     let catalog = Arc::new(Catalog::load().unwrap());
     let step = catalog.simulation.simulation_step;
     for wormhole in [false, true] {
@@ -396,6 +265,7 @@ fn closed_gate_and_wormhole_transfer_hold_at_exit_and_keep_rotation() {
             destination_traffic.update_gates(&mut destination.world, [], step, &mut effects);
             let opening = portal(&destination.world, 9).unwrap().opening;
             assert!(opening > 0.0 && opening < 1.0);
+            continue;
         }
         effects.travel.clear();
         let mut arrival = None;
@@ -478,26 +348,5 @@ fn closed_gate_and_wormhole_transfer_hold_at_exit_and_keep_rotation() {
                 .is_none()
         );
         assert!(effects.travel.is_empty());
-    }
-}
-
-#[test]
-fn generated_gate_pairs_share_rotation_and_keep_sector_offsets() {
-    let catalog = Catalog::load().unwrap();
-    let sectors = generate_sector_map(25, &catalog).unwrap();
-    let start = &catalog.starting_sector_id;
-    let portals = build_sector_portals(&sectors, start, &catalog).unwrap();
-    assert_eq!(portals.id_offset, 0);
-    for (index, portal) in portals.portals.iter().enumerate() {
-        assert_eq!(portal.object.id, (1 << 32) + index as i64);
-        let next = build_sector_portals(&sectors, &portal.destination_sector, &catalog).unwrap();
-        let destination = next
-            .portals
-            .iter()
-            .find(|exit| exit.connection_id == portal.connection_id)
-            .unwrap();
-        assert!(destination.object.id >= next.id_offset + (1 << 32));
-        assert_eq!(portal.object.rotation, destination.object.rotation);
-        assert_eq!(destination.destination_sector, *start);
     }
 }

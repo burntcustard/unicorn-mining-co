@@ -582,7 +582,7 @@ fn collider_material(friction: f64, bounciness: f64, speed: f64) -> ColliderMate
 
 impl Craft {
     pub fn damage_part(&mut self, part: ColliderPart, amount: f64) -> f64 {
-        if !self.wreckage.is_empty() {
+        if self.is_wreckage() {
             // Wreckage keeps its collision geometry for its entire lifetime.
             let applied = damage_health(&mut self.object.health, amount);
             self.object.dead |= self.object.health <= 0.0;
@@ -929,7 +929,7 @@ mod tests {
     }
 
     #[test]
-    fn throttle_changes_reuse_collision_geometry_and_hatch_changes_invalidate_it() {
+    fn collision_cache_tracks_hatches_and_shield_expansion() {
         let catalog = Catalog::load().unwrap();
         let mut next = 0;
         let mut ship =
@@ -959,18 +959,7 @@ mod tests {
             .expect("stock hatch");
         hatch.parts[0].activation_progress = 1.0;
         assert_ne!(ship.craft.collision_source(), Some(source));
-    }
 
-    #[test]
-    fn tracked_collision_source_expires_shield_expansion() {
-        let catalog = Catalog::load().unwrap();
-        let mut next = 0;
-        let mut ship =
-            Ship::new_player(1, "mustang", ObjectProperties::default(), &catalog, || {
-                next -= 1;
-                next
-            })
-            .expect("stock ship");
         let index = ship
             .craft
             .mounts

@@ -12,7 +12,7 @@ import {
   startNPCProcess,
   stopNPCProcess,
 } from '../../benchmarking/npc/collection-run.ts';
-import { parseNPCOptions } from '../../benchmarking/npc/options.ts';
+import { npcLanes, parseNPCOptions } from '../../benchmarking/npc/options.ts';
 
 const defaults = parseNPCOptions({ args: collectionArguments([]) });
 
@@ -26,6 +26,29 @@ assert.equal(defaults.repetitions, 9);
 assert.equal(defaults.seed, 1);
 assert.equal(defaults.concurrency, 6);
 assert.equal(defaults.output, 'benchmarking/_local/npc-collection.json');
+
+const lanes = npcLanes(defaults);
+
+assert.deepEqual(
+  lanes.map(({ queue }) => queue[0].scenario),
+  [
+    ...Array(3).fill('collection-courser'),
+    ...Array(3).fill('collection-finch'),
+  ],
+);
+assert.equal(lanes[0].queue, lanes[2].queue);
+assert.notEqual(lanes[0].queue, lanes[3].queue);
+assert.equal(lanes[0].queue.shift().seed, 1);
+assert.equal(lanes[2].queue.shift().seed, 2);
+assert.equal(
+  lanes[3].queue[0].seed,
+  1,
+  'Both ships retain the same seed series',
+);
+assert.throws(
+  () => parseNPCOptions({ args: ['--concurrency=6'] }),
+  /require collection scenarios/,
+);
 
 const override = parseNPCOptions({
   args: collectionArguments([
@@ -59,10 +82,6 @@ try {
 
 const help = helpLines.join('\n');
 
-assert.match(help, /--repetitions 9/);
-assert.match(help, /--seed 1/);
-assert.match(help, /--seconds 120/);
-assert.match(help, /--watch/);
 assert.match(help, /Both ships use the same layout for each repetition/);
 
 const watcher = {

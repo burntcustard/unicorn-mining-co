@@ -29,6 +29,10 @@ pub trait WeaponWorld {
     fn weapon_target_mut(&mut self, id: i64) -> Option<&mut Self::Entity>;
     fn for_each_weapon_target_mut(&mut self, visit: impl FnMut(&mut Self::Entity));
 
+    fn weapon_target_is_wreckage(&self, _entity: &Self::Entity) -> bool {
+        false
+    }
+
     fn damage_weapon_target(
         &mut self,
         target: ObjectCollider,
