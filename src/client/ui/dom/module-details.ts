@@ -64,7 +64,7 @@ export const moduleThrusterMarkup = (
   const turnValue =
     turnRate === undefined
       ? `${module.rotationalThrust}`
-      : `${((((turnRate * module.rotationalThrust) / flight.spinDivisor) * 180) / Math.PI).toFixed(0)}°/s`;
+      : `${((((turnRate * module.rotationalThrust) / flight.spinDivisor) * 180) / Math.PI).toFixed(0)} °/s`;
   const turnTitle =
     turnRate === undefined
       ? 'Turning strength; actual turn rate depends on the ship'

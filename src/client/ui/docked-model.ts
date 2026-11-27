@@ -1,8 +1,31 @@
 import { Module } from '../objects/modules/module';
 import { type Ship } from '../objects/ship';
 import { type Mount } from '../types';
-import { stationModuleIds } from '../../specs/modules';
+import { stationModuleIds, type ModuleId } from '../../specs/modules';
 import { moduleTypesById } from '../objects/modules';
+
+const powerPlantDisplayOrder: readonly ModuleId[] = [
+  'powerPlant4A',
+  'powerPlant4L',
+  'powerPlant4H',
+  'powerPlant4E',
+  'powerPlant3A',
+  'powerPlant3L',
+  'powerPlant3H',
+  'powerPlant3E',
+  'powerPlant2A',
+  'powerPlant2L',
+  'powerPlant2H',
+  'powerPlant2E',
+  'powerPlant1A',
+  'powerPlant1L',
+  'powerPlant1H',
+  'powerPlant1E',
+];
+
+const outfittingModuleTypes = [
+  ...new Set([...powerPlantDisplayOrder, ...moduleTypesById.keys()]),
+].map((id) => moduleTypesById.get(id)!);
 
 export const cargoMenuEntriesOf = (ship: any) =>
   [
@@ -30,7 +53,7 @@ export const fitsOf = (ship: Ship, mount: Mount) => {
   moduleRows.set(ship, ids);
   const rows = ids.map((id) => modulesById.get(id)!);
 
-  return [...moduleTypesById.values()]
+  return outfittingModuleTypes
     .filter((type) => mount.fits.includes(type))
     .flatMap<Module | typeof Module>((type) => {
       const owned = rows.filter(

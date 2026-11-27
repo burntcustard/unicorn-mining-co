@@ -79,6 +79,18 @@ const ship = new Ship({ shades: colors.white }).addToScene();
 const engineMount=ship.mounts.find(mount=>mount.fits.includes(ThrusterSingleMd));
 assert.deepEqual(fitsOf(ship,engineMount),thrusters.filter(type=>engineMount.fits.includes(type)),
   'the dock list preserves thruster display order and only offers compatible types');
+const excel = new Ship({ shipType: 'excel15' });
+const powerMount = excel.mounts.find(mount => mount.fits.includes(PowerPlant2E));
+const ownedPlant = new PowerPlant2E();
+excel.cargoContents.push(ownedPlant);
+const powerRows = fitsOf(excel, powerMount);
+assert.deepEqual(
+  powerRows.map(type => type.definitionId),
+  ['powerPlant3A', 'powerPlant3L', 'powerPlant3H', 'powerPlant3E',
+    'powerPlant2A', 'powerPlant2L', 'powerPlant2H', 'powerPlant2E'],
+  'the dock lists larger compatible power plants first in the fixed model order',
+);
+assert(powerRows.includes(ownedPlant), 'the dock offers the owned power plant');
 // Exercise every thruster independently of the production ships' loadouts.
 const thrusterHull=[
   {health:100,core:true,points:[[-16,-20],[8,0],[-16,20]],
