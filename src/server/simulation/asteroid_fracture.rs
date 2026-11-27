@@ -312,8 +312,10 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::*;
+    use crate::simulation::asteroid::Asteroid;
     use crate::simulation::asteroid_geometry::{
-        AsteroidOutlineOptions, AsteroidSegmentOptions, generate_outline, subdivide_outline,
+        AsteroidOutlineOptions, AsteroidOutlines, AsteroidSegmentOptions, generate_outline,
+        subdivide_outline,
     };
 
     fn assert_record(actual: &Value, expected: &Value, path: &str) {
@@ -404,6 +406,7 @@ mod tests {
     fn split_and_destroy_match_recorded_asteroid_fragments()
     -> Result<(), Box<dyn std::error::Error>> {
         let catalog = Catalog::load()?;
+        let mut outlines = AsteroidOutlines::default();
         let samples: Vec<Value> = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../tests/fixtures/asteroids.json"
@@ -540,7 +543,19 @@ mod tests {
                     next_id += 1;
                 }
                 for fragment in debris {
-                    debris_records.push(fragment_record(next_id, &fragment));
+                    let mut record = fragment_record(next_id, &fragment);
+                    let debris =
+                        Asteroid::from_fragment(next_id, fragment, &catalog, &mut outlines);
+                    let index = debris_records.len();
+                    let expected_drag = sample["debris"][index]["angularDrag"]
+                        .as_f64()
+                        .unwrap_or(0.0);
+                    assert_eq!(
+                        debris.object.angular_drag, expected_drag,
+                        "sample {sample_index} debris {index} angular drag"
+                    );
+                    record["mass"] = json!(debris.object.mass);
+                    debris_records.push(record);
                     next_id += 1;
                 }
             }

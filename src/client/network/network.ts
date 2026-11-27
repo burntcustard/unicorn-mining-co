@@ -115,6 +115,7 @@ const makeEntity = ({
       before.pointCount === entity.pointCount &&
       before.health === entity.health &&
       before.maxHealth === entity.maxHealth &&
+      before.decay === entity.decay &&
       before.mass === entity.mass &&
       before.resource === entity.resource &&
       before.contents === entity.contents &&
@@ -124,7 +125,7 @@ const makeEntity = ({
     // Motion deltas retain the wire model arrays. Keep their cut geometry and
     // collision caches; a model or damage update constructs another model.
     const asteroid = unchanged
-      ? Object.assign(previous as Asteroid, common, { decay: entity.decay })
+      ? Object.assign(previous as Asteroid, common)
       : Object.assign(
           createAsteroid(world, {
             ...entity,

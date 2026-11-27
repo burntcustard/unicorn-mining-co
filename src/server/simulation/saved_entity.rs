@@ -40,6 +40,8 @@ enum SavedKind {
         contents: Vec<i32>,
         max_health: f64,
         segments: Option<Vec<AsteroidSegment>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rock_angular_drag: Option<f64>,
     },
     Ship {
         ship: SavedShip,
@@ -116,7 +118,7 @@ impl EntityState for SavedModel {
 
 impl SavedModel {
     pub fn capture(model: &EntityKind, catalog: &Catalog) -> Self {
-        let object = capture_object(model.object());
+        let mut object = capture_object(model.object());
         let model = match model {
             EntityKind::Object(_) => SavedKind::Object,
             EntityKind::Module { module, .. } => SavedKind::Module(SavedModule::capture(module)),
@@ -126,6 +128,8 @@ impl SavedModel {
             EntityKind::Projectile(_) => SavedKind::Projectile,
             EntityKind::Portal(portal) => SavedKind::Portal(portal.capture_state()),
             EntityKind::Asteroid(asteroid) => {
+                // Save the rock mass so loading can derive the same combined mass.
+                object.mass = asteroid.rock_mass;
                 // A pristine procedural asteroid regenerates its outline and
                 // subdivisions from its ID. Checkpoints avoid materializing them.
                 let segments = if object.shape_outline.is_some() || asteroid.damaged() {
@@ -137,6 +141,8 @@ impl SavedModel {
                     contents: asteroid.contents.clone(),
                     max_health: asteroid.max_health,
                     segments,
+                    rock_angular_drag: (object.decay > 0.0 && !asteroid.contents.is_empty())
+                        .then_some(asteroid.rock_angular_drag),
                 }
             }
             EntityKind::Ship(ship) => SavedKind::Ship {
@@ -199,7 +205,15 @@ impl SavedModel {
                 contents,
                 max_health,
                 segments,
+                rock_angular_drag,
             } => {
+                let angular_drag =
+                    rock_angular_drag.unwrap_or(if object.decay > 0.0 && !contents.is_empty() {
+                        // Earlier saves used zero rock drag and may already include item drag.
+                        0.0
+                    } else {
+                        object.angular_drag
+                    });
                 let mut asteroid = Asteroid::new(
                     id,
                     AsteroidProperties {
@@ -207,6 +221,8 @@ impl SavedModel {
                             shape_outline: object.shape_outline.clone(),
                             radius: Some(object.radius),
                             mass: Some(object.mass),
+                            angular_drag: Some(angular_drag),
+                            decay: Some(object.decay),
                             health: Some(object.health),
                             resource: object.resource,
                             ..ObjectProperties::default()
@@ -220,6 +236,8 @@ impl SavedModel {
                     catalog,
                     outlines,
                 );
+                object.mass = asteroid.object.mass;
+                object.angular_drag = asteroid.object.angular_drag;
                 asteroid.object = object;
                 asteroid.lock_geometry();
                 EntityKind::Asteroid(Box::new(asteroid))
@@ -463,6 +481,7 @@ fn capture_object(object: &GameObject) -> GameObject {
 #[cfg(test)]
 mod tests {
     use crate::objects::wreckage::WreckagePart;
+    use crate::simulation::polygon::ShapeOutline;
 
     use super::*;
 
@@ -470,7 +489,13 @@ mod tests {
         model: EntityKind,
         catalog: &Catalog,
     ) -> Result<EntityKind, Box<dyn std::error::Error>> {
-        let state = SavedModel::capture(&model, catalog);
+        restore_record(SavedModel::capture(&model, catalog), catalog)
+    }
+
+    fn restore_record(
+        state: SavedModel,
+        catalog: &Catalog,
+    ) -> Result<EntityKind, Box<dyn std::error::Error>> {
         let mut bytes = Vec::new();
         ciborium::into_writer(&state, &mut bytes)?;
         let state: SavedModel = ciborium::from_reader(bytes.as_slice())?;
@@ -558,6 +583,66 @@ mod tests {
             health / 2.0
         );
         assert_eq!(restored.contents, [1, 2]);
+        Ok(())
+    }
+
+    #[test]
+    fn saved_item_bearing_debris_restores_its_item_physics_once()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let catalog = Catalog::load()?;
+        let rock_mass = 4.0;
+        let health = 3.0;
+        let total_mass = rock_mass + 2.0 * catalog.item_defaults["mass"];
+        let item_angular_drag = catalog.item_defaults["angularDrag"];
+        for (saved_drag, rock_angular_drag) in [
+            (0.0, None),
+            (item_angular_drag, None),
+            (3.0 * item_angular_drag, Some(item_angular_drag)),
+        ] {
+            let mut object = GameObject::new(
+                21,
+                ObjectProperties {
+                    radius: Some(16.0),
+                    mass: Some(rock_mass),
+                    angular_drag: Some(saved_drag),
+                    decay: Some(1.0),
+                    health: Some(health),
+                    spin: 0.25,
+                    shape_outline: Some(ShapeOutline {
+                        points: vec![[-12.0, -8.0], [12.0, -8.0], [0.0, 16.0]],
+                        edges: None,
+                    }),
+                    ..ObjectProperties::default()
+                },
+                &catalog.simulation,
+            );
+            object.kind = "asteroid".into();
+            let saved = SavedModel {
+                object,
+                model: SavedKind::Asteroid {
+                    contents: vec![1, 2],
+                    max_health: health,
+                    segments: None,
+                    rock_angular_drag,
+                },
+            };
+            let restored = restore_record(saved, &catalog)?;
+            let total_angular_drag =
+                rock_angular_drag.unwrap_or_default() + 2.0 * item_angular_drag;
+            assert_eq!(restored.object().mass, total_mass);
+            assert_eq!(restored.object().angular_drag, total_angular_drag);
+
+            let saved_again = SavedModel::capture(&restored, &catalog);
+            assert_eq!(saved_again.object.mass, rock_mass);
+            let EntityKind::Asteroid(restored) = restore_record(saved_again, &catalog)? else {
+                panic!("restored asteroid debris")
+            };
+            assert_eq!(restored.object.mass, total_mass);
+            assert_eq!(restored.object.angular_drag, total_angular_drag);
+            assert_eq!(restored.object.spin, 0.25);
+            assert_eq!(restored.contents, [1, 2]);
+            assert!(!restored.decaying());
+        }
         Ok(())
     }
 

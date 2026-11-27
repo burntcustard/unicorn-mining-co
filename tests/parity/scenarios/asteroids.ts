@@ -143,7 +143,10 @@ const samples = properties.map((properties) => {
 
   const debris = [...world.entities.values()]
     .filter((entity): entity is Asteroid => entity instanceof Asteroid)
-    .map(record);
+    .map((entity) => ({
+      ...record(entity),
+      ...(entity.angularDrag !== 0 && { angularDrag: entity.angularDrag }),
+    }));
 
   const drops = [...world.entities.values()]
     .filter((entity): entity is Item => entity instanceof Item)

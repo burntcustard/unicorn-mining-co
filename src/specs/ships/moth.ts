@@ -16,7 +16,7 @@ export const moth = {
   initialLoadout: [
     {
       mount: 0,
-      module: 'powerPlant4V',
+      module: 'powerPlant4E',
     },
     {
       mount: 2,

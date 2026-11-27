@@ -41,6 +41,8 @@ pub struct Asteroid {
     pub object: GameObject,
     pub contents: Vec<i32>,
     pub max_health: f64,
+    pub(super) rock_mass: f64,
+    pub(super) rock_angular_drag: f64,
     outline: Option<Arc<ShapeOutline>>,
     segments: OnceLock<Vec<AsteroidSegment>>,
     uncut: Option<Uncut>,
@@ -63,17 +65,32 @@ impl Asteroid {
             .or(properties.object.health)
             .unwrap_or(radius * 2.0);
         properties.object.health.get_or_insert(max_health);
-        properties
+        let rock_mass = *properties
             .object
             .mass
             .get_or_insert(0.4 * (radius * radius));
         properties.object.friction.get_or_insert(0.2);
-        properties.object.angular_drag.get_or_insert(0.0);
+        let rock_angular_drag = *properties.object.angular_drag.get_or_insert(0.0);
         properties
             .object
             .name
             .get_or_insert_with(|| "Asteroid".to_owned());
         let mut object = GameObject::new(id, properties.object, &catalog.simulation);
+        if object.decay > 0.0 && !properties.contents.is_empty() {
+            let item_count = properties.contents.len() as f64;
+            let item_mass = catalog
+                .item_defaults
+                .get("mass")
+                .copied()
+                .unwrap_or_default();
+            let item_angular_drag = catalog
+                .item_defaults
+                .get("angularDrag")
+                .copied()
+                .unwrap_or_default();
+            object.mass += item_mass * item_count;
+            object.angular_drag += item_angular_drag * item_count;
+        }
         object.kind = "asteroid".to_owned();
         object.point_count = properties.point_count;
         object.radius_even = properties.radius_even;
@@ -116,6 +133,8 @@ impl Asteroid {
             object,
             contents: properties.contents,
             max_health,
+            rock_mass,
+            rock_angular_drag,
             outline,
             segments,
             uncut,
@@ -429,7 +448,104 @@ fn lock_outline(outline: &mut ShapeOutline) {
 
 #[cfg(test)]
 mod tests {
+    use crate::objects::item::Item;
+    use crate::simulation::game_object::MotionContext;
+
     use super::*;
+
+    #[test]
+    fn debris_retained_by_items_has_their_mass_and_settles_like_loose_cargo() {
+        let catalog = Catalog::load().unwrap();
+        let mut outlines = AsteroidOutlines::default();
+        let duration = catalog.simulation.simulation_step / 2.0;
+        let rock_mass = 4.0;
+        let health = 3.0;
+        let spin = -0.25;
+        let mut item = Item::new(
+            1,
+            "amethyst",
+            ObjectProperties {
+                spin,
+                ..ObjectProperties::default()
+            },
+            &catalog,
+        )
+        .expect("amethyst item");
+        let resource = item.object.resource.expect("amethyst resource");
+        let mut new_fragment = |id, decay, angular_drag, contents| {
+            Asteroid::new(
+                id,
+                AsteroidProperties {
+                    object: ObjectProperties {
+                        radius: Some(16.0),
+                        mass: Some(rock_mass),
+                        health: Some(health),
+                        decay: Some(decay),
+                        angular_drag: Some(angular_drag),
+                        shape_outline: Some(ShapeOutline {
+                            points: vec![[-12.0, -8.0], [12.0, -8.0], [0.0, 16.0]],
+                            edges: None,
+                        }),
+                        spin,
+                        ..ObjectProperties::default()
+                    },
+                    contents,
+                    ..AsteroidProperties::default()
+                },
+                &catalog,
+                &mut outlines,
+            )
+        };
+        let rock_angular_drag = 0.1;
+        let mut retained = new_fragment(2, 1.0, 0.0, vec![resource]);
+        let mut empty = new_fragment(3, 1.0, 0.0, Vec::new());
+        let mut chunk = new_fragment(4, 0.0, 0.0, vec![resource]);
+        let mut two_items = new_fragment(5, 1.0, rock_angular_drag, vec![resource; 2]);
+        assert_eq!(retained.object.mass, rock_mass + item.object.mass);
+        assert_eq!(retained.object.angular_drag, item.object.angular_drag);
+        assert_eq!(empty.object.mass, rock_mass);
+        assert_eq!(empty.object.angular_drag, 0.0);
+        assert_eq!(chunk.object.mass, rock_mass);
+        assert_eq!(chunk.object.angular_drag, 0.0);
+        assert_eq!(two_items.object.mass, rock_mass + 2.0 * item.object.mass);
+        assert_eq!(
+            two_items.object.angular_drag,
+            rock_angular_drag + 2.0 * item.object.angular_drag
+        );
+
+        let update = |asteroid: &mut Asteroid| {
+            let movement = MotionContext {
+                decaying: Some(asteroid.decaying()),
+                ..MotionContext::default()
+            };
+            asteroid.object.update(duration, movement);
+        };
+        update(&mut retained);
+        update(&mut two_items);
+        item.object.update(duration, MotionContext::default());
+        assert!(retained.object.spin.abs() < spin.abs());
+        assert_eq!(retained.object.spin, item.object.spin);
+        assert!(two_items.object.spin.abs() < retained.object.spin.abs());
+
+        for _ in 0..(100.0 / duration).ceil() as usize {
+            update(&mut retained);
+            update(&mut two_items);
+            update(&mut empty);
+            update(&mut chunk);
+            item.object.update(duration, MotionContext::default());
+        }
+        assert_eq!(retained.object.health, health);
+        assert!(!retained.object.dead);
+        assert_eq!(retained.object.spin, 0.0);
+        assert_eq!(two_items.object.spin, 0.0);
+        assert_eq!(item.object.spin, 0.0);
+        assert!(empty.object.dead);
+        assert_eq!(chunk.object.spin, spin);
+
+        let rotation = retained.object.rotation;
+        update(&mut retained);
+        assert_eq!(retained.object.rotation, rotation);
+    }
 
     #[test]
     fn whole_asteroid_geometry_stays_lazy_until_a_contact() {

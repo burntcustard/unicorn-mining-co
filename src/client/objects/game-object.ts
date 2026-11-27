@@ -193,7 +193,14 @@ export class GameObject {
       return;
     }
 
-    if (this.angularDrag) this.spin *= Math.exp(-this.angularDrag * dt);
+    if (this.angularDrag) {
+      this.spin *= Math.exp(-this.angularDrag * dt);
+
+      if (this.angularDrag > 0 && Math.abs(this.spin) < motion.minimumSpin) {
+        this.spin = 0;
+      }
+    }
+
     this.rotation += this.spin * dt;
 
     const { position, velocity, maxSpeed = motion.defaultMaxSpeed } = this;

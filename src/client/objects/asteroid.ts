@@ -600,6 +600,11 @@ export class Asteroid extends GameObject {
     segments?: AsteroidSegment[];
   }) {
     super({ name: 'Asteroid', ...properties });
+
+    if ((decay ?? 0) > 0 && contents.length) {
+      this.angularDrag += itemDefaults.angularDrag * contents.length;
+    }
+
     this.contents = [...contents];
     this.decay = decay;
     this.health = health;
@@ -757,6 +762,7 @@ export class Asteroid extends GameObject {
 
     splitTriangle(shapeOutlineOf(this)).forEach((triangle, index) => {
       if (index === 2 && this.contents.length && !contents.length) return;
+      const debrisContents = index === 2 ? contents : [];
       const center = centerOf(triangle);
       const offset = rotatePoint(center, this.rotation);
       const shapeOutline = triangle.map(([x, y]) =>
@@ -774,11 +780,11 @@ export class Asteroid extends GameObject {
       addEntity(
         world,
         createAsteroid(world, {
-          contents: index === 2 ? contents : [],
+          contents: debrisContents,
           decay,
           health,
           maxHealth: health,
-          mass: this.mass / 8,
+          mass: this.mass / 8 + debrisContents.length * itemDefaults.mass,
           position: Vec.add(this.position, offset),
           radius,
           resource: this.resource,

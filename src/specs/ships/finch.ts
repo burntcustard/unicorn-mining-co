@@ -15,7 +15,7 @@ export const finch = {
   initialLoadout: [
     {
       mount: 0,
-      module: 'powerPlant1V',
+      module: 'powerPlant1E',
     },
     {
       mount: 2,

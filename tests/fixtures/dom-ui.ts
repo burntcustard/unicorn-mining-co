@@ -1617,7 +1617,7 @@ export const previewInsideHull = async () => {
   const { moduleTypesById } = await import('../../src/client/objects/modules');
   const source = createPlayerShip(createWorld());
   const mount = source.mounts.findIndex(
-    ({ module }) => module && module.definitionId === 'powerPlant2V',
+    ({ module }) => module && module.definitionId === 'powerPlant2E',
   );
   const hull = source.hullSegments.indexOf(source.mounts[mount].hull.module);
   const target = document.createElement('canvas');
@@ -1639,7 +1639,7 @@ export const previewInsideHull = async () => {
       (segment) =>
         segment.mount &&
         segment.mount.hull.module === this.hullSegments[hull] &&
-        segment.module.definitionId !== 'powerPlant2V',
+        segment.module.definitionId !== 'powerPlant2E',
     );
     const otherHullModule = this.segments.some(
       (segment) =>
@@ -1652,7 +1652,7 @@ export const previewInsideHull = async () => {
       zIndex === renderingLayers.modulesInsideShipHull &&
       this.segments.some(
         (segment) =>
-          segment.mount && segment.module.definitionId === 'powerPlant2V',
+          segment.mount && segment.module.definitionId === 'powerPlant2E',
       )
     ) {
       ctx.fillStyle = '#f00';
@@ -1721,7 +1721,7 @@ export const previewInsideHull = async () => {
     preview.update(source, {
       hull,
       mount,
-      candidate: moduleTypesById.get('powerPlant2V'),
+      candidate: moduleTypesById.get('powerPlant2E'),
     });
 
     draw(32);

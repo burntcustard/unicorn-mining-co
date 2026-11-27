@@ -46,7 +46,7 @@ export const excel15 = {
   turnRate: 2,
   initialLoadout: [
     { mount: 0, module: 'thrusterDualMd' },
-    { mount: 1, module: 'powerPlant2V' },
+    { mount: 1, module: 'powerPlant2E' },
     { mount: 3, module: 'cargoHatch' },
     { mount: 6, module: 'cargoHatch' },
   ],

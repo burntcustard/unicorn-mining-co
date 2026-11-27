@@ -279,6 +279,9 @@ impl GameObject {
 
         if self.angular_drag != 0.0 {
             self.spin *= (-self.angular_drag * duration).exp();
+            if self.angular_drag > 0.0 && self.spin.abs() < self.motion.minimum_spin {
+                self.spin = 0.0;
+            }
         }
         self.rotation += self.spin * duration;
 

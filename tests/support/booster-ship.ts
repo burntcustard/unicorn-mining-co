@@ -8,7 +8,7 @@ const modules = [
   'thrusterSingleSm',
   'thrustBooster',
   'thrustBooster',
-  'powerPlant1V',
+  'powerPlant1E',
 ] as const;
 const shipType = 'boosterFixture' as ShipId;
 
@@ -42,7 +42,7 @@ export const boosterShipSpec: ShipSpec = {
               ? [...moduleTypesById]
                   .filter(([, Type]) => Type.forwardThrust)
                   .map(([id]) => id)
-              : module === 'powerPlant1V'
+              : module === 'powerPlant1E'
                 ? [...moduleTypesById]
                     .filter(([, Type]) => Type.behavior === 'powerPlant')
                     .map(([id]) => id)

@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { emptyPlayerInput } from '../../src/client/protocol/input';
+import { simulationStep } from '../../src/specs/simulation';
 import { rolldown } from 'rolldown';
 
 const bundle = await rolldown({
@@ -15,7 +16,7 @@ const bundle = await rolldown({
 import { installExampleModules } from '${process.cwd()}/tests/support/example-modules.ts';
 installExampleModules();
       export { addEntity, addPlayer, createWorld, entityId } from '${process.cwd()}/src/client/simulation/world.ts';
-      export { createAsteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
+      export { Asteroid, createAsteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
       export { diamond as diamondSpec } from '${process.cwd()}/src/specs/items/index.ts';
 export { Item } from '${process.cwd()}/src/client/objects/item.ts';
       export { message as messageSpec } from '${process.cwd()}/src/specs/items/index.ts';
@@ -40,6 +41,7 @@ const simulation: {
   addPlayer: typeof import('../../src/client/simulation/world.ts').addPlayer;
   createWorld: typeof import('../../src/client/simulation/world.ts').createWorld;
   entityId: typeof import('../../src/client/simulation/world.ts').entityId;
+  Asteroid: typeof import('../../src/client/objects/asteroid.ts').Asteroid;
   createAsteroid: typeof import('../../src/client/objects/asteroid.ts').createAsteroid;
   diamondSpec: typeof import('../../src/specs/items/index.ts').diamond;
   Item: typeof import('../../src/client/objects/item.ts').Item;
@@ -58,6 +60,7 @@ const simulation: {
 const {
   addEntity,
   addPlayer,
+  Asteroid,
   createAsteroid,
   diamondSpec,
   Item,
@@ -98,6 +101,65 @@ const spinningAsteroid = addEntity(
 spinningAsteroid.update(60);
 assert.equal(spinningAsteroid.spin, 671089 / 16777216);
 assert.equal(spinningAsteroid.rotation, 40265318 / 16777216);
+
+{
+  const world = createWorld();
+
+  const asteroid = addEntity(
+    world,
+    createAsteroid(world, {
+      contents: [diamondSpec.resource],
+      health: 0,
+      mass: 80,
+      radius: 80,
+      shapeOutline: [
+        [-80, -80],
+        [80, -80],
+        [0, 160],
+      ],
+      spin: 0.125,
+    }),
+  );
+
+  asteroid.fracture({ by: 1, events: [], world });
+
+  const debris = [...world.entities.values()].find(
+    (entity) => entity.kind === 'asteroid' && entity.contents.length,
+  );
+
+  assert(debris, 'the debris retains its buried item');
+
+  const item = new Item(diamondSpec, { spin: asteroid.spin });
+  const health = debris.health;
+  const substep = simulationStep / 2;
+  const rockAngularDrag = 0.1;
+
+  const twoItems = new Asteroid({
+    angularDrag: rockAngularDrag,
+    contents: [diamondSpec.resource, diamondSpec.resource],
+    decay: debris.decay,
+    health,
+    maxHealth: health,
+  });
+
+  assert.equal(debris.mass, asteroid.mass / 8 + item.mass);
+  assert.equal(twoItems.angularDrag, rockAngularDrag + 2 * item.angularDrag);
+
+  debris.update(substep);
+  item.update(substep);
+  assert(debris.spin > 0 && debris.spin < asteroid.spin);
+  assert.equal(debris.spin, item.spin);
+
+  for (let elapsed = 0; elapsed < 60; elapsed += substep) {
+    debris.update(substep);
+    item.update(substep);
+  }
+
+  assert.equal(debris.spin, 0);
+  assert.equal(item.spin, 0);
+  assert.equal(debris.health, health);
+  assert(!debris.dead);
+}
 
 const splitWorld = createWorld({ seed: 25 });
 const stillAsteroid = addEntity(

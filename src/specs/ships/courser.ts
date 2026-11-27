@@ -15,7 +15,7 @@ export const courser = {
   initialLoadout: [
     { mount: 0, module: 'cannonSm' },
     { mount: 1, module: 'thrusterSingleSm' },
-    { mount: 2, module: 'powerPlant1V' },
+    { mount: 2, module: 'powerPlant1E' },
     { mount: 3, module: 'cargoHatchPair' },
     { mount: 5, module: 'cannonSm' },
   ],

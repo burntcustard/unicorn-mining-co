@@ -17,7 +17,7 @@ export const mustang = {
     { mount: 6, module: 'cargoHatch' },
     { mount: 4, module: 'hornDrill' },
     { mount: 5, module: 'searchLight' },
-    { mount: 3, module: 'powerPlant2V' },
+    { mount: 3, module: 'powerPlant2E' },
   ],
   hullSegments: [
     {

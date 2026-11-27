@@ -158,6 +158,8 @@
 
 **position** - A game object's location in the world.
 
+**power plant** - A module that supplies power to a craft. Sizes are 1 (small), 2 (medium), 3 (large), and 4 (extra-large), each available in advanced (a), lightweight (l), heavy (h), and economy (e) ratings.
+
 **power UI** - The ship's power instruments. At standard UI scale, 0.1 MW corresponds to 2 CSS pixels in the HUD power usage bar.
 
 **prediction** - The client's estimate of what happens after player input, before the matching server update arrives.

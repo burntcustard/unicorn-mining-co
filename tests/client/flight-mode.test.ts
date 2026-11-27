@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   FlightMode,
-  PowerPlant2V,
+  PowerPlant2E,
   ThrusterSingleSm,
 } from '../../src/client/objects/modules';
 import { Ship } from '../../src/client/objects/ship';
@@ -53,7 +53,7 @@ const spec: ShipSpec = {
       ],
       mounts: [
         [{ x: 0, y: 0, fits: ['flightMode'] }],
-        [{ x: 2, y: 0, fits: ['powerPlant2V'] }],
+        [{ x: 2, y: 0, fits: ['powerPlant2E'] }],
         [{ x: -2, y: 0, fits: ['flightMode'] }],
       ],
     },
@@ -88,7 +88,7 @@ const makeShip = () => {
   const ship = addEntity(world, new Ship({ world, spec }));
 
   ship.fit(new FlightMode(), ship.mounts[controllerMount]);
-  ship.fit(new PowerPlant2V());
+  ship.fit(new PowerPlant2E());
   ship.fit(new ThrusterSingleSm(), ship.mounts[engineMount]);
   ship.storedPower = ship.powerCapacity;
   return ship;

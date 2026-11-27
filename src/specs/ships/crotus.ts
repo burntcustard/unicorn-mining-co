@@ -16,7 +16,7 @@ export const crotus = {
     { mount: 4, module: 'cargoHatch' },
     { mount: 3, module: 'cargoHatch' },
     { mount: 0, module: 'autogun' },
-    { mount: 6, module: 'powerPlant2V' },
+    { mount: 6, module: 'powerPlant2E' },
   ],
   hullSegments: [
     {

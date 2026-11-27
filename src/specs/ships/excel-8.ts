@@ -17,7 +17,7 @@ export const excel8 = {
     { mount: 0, module: 'thrusterSingleSm' },
     { mount: 1, module: 'thrustBooster' },
     { mount: 2, module: 'thrustBooster' },
-    { mount: 3, module: 'powerPlant1V' },
+    { mount: 3, module: 'powerPlant1E' },
     { mount: 4, module: 'cargoHatchPair' },
   ],
   hullSegments: [

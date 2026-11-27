@@ -17,7 +17,7 @@ export const arrow = {
     { mount: 5, module: 'cargoHatch' },
     { mount: 7, module: 'hornDrill' },
     { mount: 8, module: 'searchLight' },
-    { mount: 4, module: 'powerPlant2V' },
+    { mount: 4, module: 'powerPlant2E' },
   ],
   hullSegments: [
     {

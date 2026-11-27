@@ -1,20 +1,20 @@
 import { colors } from '../../../colors';
 import { renderingLayers } from '../../../rendering-layers';
-import { powerPlantModel1 } from './power-plant-model';
+import { powerPlantModel2 } from './power-plant-model';
 import type { ModuleSpec } from '../../types';
 
-export const powerPlant1V = {
+export const powerPlant2E = {
   icon: './power-plant.svg',
   behavior: 'powerPlant',
   health: 80,
   zIndex: renderingLayers.modulesInsideShipHull,
   shades: colors.violet,
   disablePhysics: true,
-  model: powerPlantModel1,
-  name: 'Power Plant 1e',
-  description: 'An economy power plant for small ships.',
-  mass: 165,
-  price: 375,
-  powerGenerated: 2.9,
-  powerCapacity: 32,
+  model: powerPlantModel2,
+  name: 'Power Plant 2e',
+  description: 'An economy power plant for medium ships.',
+  mass: 350,
+  price: 750,
+  powerGenerated: 6.5,
+  powerCapacity: 48,
 } satisfies ModuleSpec;

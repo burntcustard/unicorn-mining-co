@@ -96,7 +96,7 @@ export const exampleModuleEntries: [ModuleId, ModuleSpec][] = [
   ['searchLight', exampleSearchLight],
   ['shieldGeneratorSm', exampleShield],
   ['shieldGeneratorMd', exampleLargeShield],
-  ['powerPlant2V', examplePowerPlant],
+  ['powerPlant2E', examplePowerPlant],
   ['thrusterSingleMd', exampleThruster],
   ['thrusterSingleSm', exampleSmallThruster],
   ['thrusterTriple', exampleTripleThruster],

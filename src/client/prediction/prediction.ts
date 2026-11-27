@@ -144,6 +144,7 @@ const applyEntity = ({
 
     entity.contents = [...server.contents];
     entity.decay = server.decay;
+    entity.angularDrag = server.angularDrag;
     entity.maxHealth = server.maxHealth;
     entity.resource = server.resource;
     entity.pointCount = server.pointCount;

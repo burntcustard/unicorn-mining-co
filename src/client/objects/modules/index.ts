@@ -108,4 +108,4 @@ export const moduleTypesById = new Map<ModuleId, typeof Module>(
   ].map((Type) => [Type.definitionId, Type]),
 );
 export const moduleTypes = moduleIds.map((id) => moduleTypesById.get(id)!);
-export const PowerPlant2V = moduleTypesById.get('powerPlant2V')!;
+export const PowerPlant2E = moduleTypesById.get('powerPlant2E')!;

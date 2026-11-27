@@ -99,7 +99,7 @@ export const crescent: ShipSpec = {
   angularThrust: 6958,
   turnRate: 2.2,
   initialLoadout: [
-    { mount: 0, module: 'powerPlant2V' },
+    { mount: 0, module: 'powerPlant2E' },
     { mount: 1, module: 'thrusterCrescent', shades: colors.violet },
     { mount: 2, module: 'thrusterCrescent', shades: colors.violet },
     { mount: 3, module: 'flightMode' },

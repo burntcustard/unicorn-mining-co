@@ -27,6 +27,7 @@ pub struct Motion {
     pub default_max_speed: f64,
     pub max_speed_drag: f64,
     pub minimum_speed_squared: f64,
+    pub minimum_spin: f64,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]

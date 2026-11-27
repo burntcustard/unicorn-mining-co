@@ -24,7 +24,7 @@ export const kestrel = {
   initialLoadout: [
     {
       mount: 1,
-      module: 'powerPlant3V',
+      module: 'powerPlant3E',
     },
     {
       mount: 2,
