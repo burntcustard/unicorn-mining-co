@@ -169,7 +169,7 @@ export class FramePrediction {
         });
 
         // The solved mechanics stay in this isolated world. Interpolation only
-        // changes poses and turret bearings, so endpoints need only that data
+        // changes poses and weapon bearings, so endpoints need only that data
         // rather than another checkpoint of every module and cargo item.
         this.endpoint = new Map(
           [...this.world.entities].map(([id, entity]) => [
@@ -183,7 +183,10 @@ export class FramePrediction {
                 entity instanceof Craft
                   ? new Map(
                       entity.modules
-                        .filter((module) => module.turret)
+                        .filter(
+                          (module) =>
+                            module.mount && (module.turret || module.aimLimit),
+                        )
                         .map((module) => [module.id, module.aimRotation]),
                     )
                   : undefined,

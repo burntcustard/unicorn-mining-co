@@ -14,7 +14,7 @@ chunk transforms.
 | `menu-screens`                    | First navigation to Settings, Saves, or Credits, or Play when the authenticated account needs a profile name.                                                                           |
 | `ship-preview`                    | After the main menu's first paint. Play cancels a pending preview.                                                                                                                      |
 | `gameplay`                        | After the ship preview paints, or immediately on Play. Authenticates the connection; Play enters the world and starts the game loop.                                                    |
-| `sound`                           | Loads after the first main menu paint, on an earlier menu press or arrow-key move, or during gameplay preparation. A menu press, a successful arrow-key move, or Play can enable audio. |
+| `sound`                           | Loads after the first main menu paint, on an earlier menu press or arrow-key move, or during gameplay preparation. Loading begins idle buffer preparation. A menu press, a successful arrow-key move, or Play can enable audio. |
 | `docked`, its CSS, and SVG assets | Gameplay preparation loads the assets. The screen opens when the predicted ship is docked, launch is not pending, and no other HTML screen is open.                                     |
 
 Shared dependency chunks, including the ship and autogun-audio updater,
@@ -31,6 +31,10 @@ prepared connections receive no world snapshots, activate no nearby physics,
 and accumulate no playtime. Returning ships remain hidden until Play too.
 Loading gameplay does not start the game loop or change Play to Resume.
 The font remains preloaded by HTML.
+
+Sound preparation works through navigation, loop, and combat buffers before
+opening the audio context. Small idle slices share one queue, and a cue needed
+for playback takes priority over background preparation.
 
 ## Changing a boundary
 

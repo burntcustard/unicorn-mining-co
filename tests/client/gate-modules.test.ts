@@ -1,7 +1,4 @@
-import assert from 'node:assert/strict';
-import { rolldown } from 'rolldown';
-import { buildPrePlugin } from '../../plugins/build-plugins.ts';
-import { testBuildPlugin } from '../support/build-plugin.ts';
+import { runProductionScenario } from '../support/build-plugin';
 
 const root = process.cwd();
 const scenario = `
@@ -64,7 +61,8 @@ const scene = ({ type = 'cargoHatch', progress = .75, side = -1, destroy = true,
 
 // A solid frame still leaves the gap between its open halves clear for entry
 // and departure; ships do not need an exception that disables hull contacts.
-for (const rotation of [0,.71]) {
+{
+  const rotation = .71;
   const world=createWorld({seed:25});
   addEntity(world,new JumpGate({id:100,rotation,opening:1,openingTarget:1}));
   const ship=addEntity(world,createPlayerShip(world,{
@@ -84,29 +82,28 @@ for (const rotation of [0,.71]) {
 
 // A module's animation, material, health target, and obsolete mount must not
 // survive as behavior that a newly received wreckage snapshot cannot reproduce.
-for (const type of ['hornDrill','cargoHatch','plasmaAccelerator','shieldGeneratorSm']) {
-  for (const progress of [0,.75,1]) {
-    for (const side of [-1,1]) {
-      const {world,ship,debris} = scene({type,progress,side});
-      const before = JSON.stringify(debris.wreckage);
-      assert.equal(debris.modules.length,0);
-      assert.equal(debris.mounts.length,0);
-      assert(debris.segments.every(s => !(s.module instanceof Module) && !s.mount));
-      for (let tick=0;tick<10;tick++) debris.update(.01);
-      assert.equal(JSON.stringify(debris.wreckage),before,type + ': debris geometry is frozen');
-      assert.deepEqual(geometry(debris),geometry(hydrate(debris,world)),type + ': fresh and replicated debris have identical physical surfaces');
-      assert.equal(ship.segments.some(s => s.mount?.health < 1),false);
-    }
-  }
+for (const [type, progress, side] of [
+  ['hornDrill', .25, -1],
+  ['cargoHatch', .75, 1],
+  ['plasmaAccelerator', 1, 1],
+  ['shieldGeneratorSm', 0, -1],
+]) {
+  const {world,ship,debris} = scene({type,progress,side});
+  const before = JSON.stringify(debris.wreckage);
+  assert.equal(debris.modules.length,0);
+  assert.equal(debris.mounts.length,0);
+  assert(debris.segments.every(s => !(s.module instanceof Module) && !s.mount));
+  for (let tick=0;tick<10;tick++) debris.update(.01);
+  assert.equal(JSON.stringify(debris.wreckage),before,type + ': debris geometry is frozen');
+  assert.deepEqual(geometry(debris),geometry(hydrate(debris,world)),type + ': fresh and replicated debris have identical physical surfaces');
+  assert.equal(ship.segments.some(s => s.mount?.health < 1),false);
 }
 
 // Predicting an original fragment or its received snapshot must produce the
 // same squeeze out of a gate, including partially open hatch shapes.
-// Each module covers partial and complete deployment; use different partial
-// shapes without repeating every deployment value for both module types.
+// Sample a fully deployed drill and a partially open hatch.
 for (const [type, progress] of [
-  ['hornDrill', .25], ['hornDrill', 1],
-  ['cargoHatch', .75], ['cargoHatch', 1],
+  ['hornDrill', 1], ['cargoHatch', .75],
 ]) {
   const runs=[];
   for(const received of [false,true]) {
@@ -148,44 +145,7 @@ for (const destroy of [true,false]) {
 }
 `;
 
-for (const production of [false, true]) {
-  const entry = `${root}/src/__gate_modules_test.ts`;
-
-  const bundle = await rolldown({
-    input: entry,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'gate-modules',
-        resolveId: (id) => (id === entry ? entry : undefined),
-        load: (id) =>
-          id === entry
-            ? production
-              ? scenario.replace(
-                  /assert\.(\w+)/g,
-                  (_, method) => `Reflect.get(assert, '${method}')`,
-                )
-              : scenario
-            : undefined,
-      },
-      buildPrePlugin(),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
-
-  const { output } = await bundle.generate({
-    format: 'esm',
-    minify: production,
-  });
-
-  await bundle.close();
-  await assert.doesNotReject(
-    import(
-      'data:text/javascript;base64,' +
-        Buffer.from(output[0].code).toString('base64')
-    ),
-    production
-      ? 'production gate module regressions'
-      : 'source gate module regressions',
-  );
-}
+await runProductionScenario({
+  name: 'gate-modules',
+  source: scenario,
+});

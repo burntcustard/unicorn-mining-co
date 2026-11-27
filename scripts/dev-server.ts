@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { watch } from 'node:fs';
+import { readdirSync, watch, type FSWatcher } from 'node:fs';
 
 const fixtures = process.env.SERVER_BENCHMARK_FIXTURES === '1';
 const executable = fixtures ? './bin/benchmark/server' : './bin/server';
@@ -81,28 +81,83 @@ const rebuild = async () => {
   }
 };
 
-// A managed benchmark keeps its compiled simulation fixed until capture ends.
-const watchers = (
-  process.env.NPC_BENCHMARK_SESSION
-    ? []
-    : ['src/server', 'src/specs', 'scripts', 'src/client']
-).map((directory) =>
+const scheduleRebuild = () => {
+  clearTimeout(timer);
+
+  timer = setTimeout(() => {
+    void rebuild();
+  }, 100);
+};
+
+const sourceExtension = /\.(rs|ts|toml|lock)$/;
+
+const watchSourceTree = (directory: string) =>
   watch(directory, { recursive: true }, (_, filename) => {
-    if (!filename || filename.startsWith('target/')) return;
+    if (filename && sourceExtension.test(filename)) scheduleRebuild();
+  });
 
-    if (!/\.(rs|ts|toml|lock)$/.test(filename)) return;
-    clearTimeout(timer);
+const watchServerSources = () => {
+  const root = 'src/server';
+  const children = new Map<string, FSWatcher>();
 
-    timer = setTimeout(() => {
-      void rebuild();
-    }, 100);
-  }),
-);
+  const refreshDirectories = () => {
+    const directories = new Set(
+      readdirSync(root, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && entry.name !== 'target')
+        .map(({ name }) => name),
+    );
+    let changed = false;
+
+    for (const [name, watcher] of children) {
+      if (directories.has(name)) continue;
+      watcher.close();
+      children.delete(name);
+      changed = true;
+    }
+
+    for (const name of directories) {
+      if (children.has(name)) continue;
+      children.set(name, watchSourceTree(`${root}/${name}`));
+      changed = true;
+    }
+
+    return changed;
+  };
+
+  // Exclude Cargo output at registration so generated folders use no watch slots.
+  const watcher = watch(root, (event, filename) => {
+    if (!filename || filename === 'target') return;
+    const directoryChanged = event === 'rename' && refreshDirectories();
+
+    if (directoryChanged || sourceExtension.test(filename)) {
+      scheduleRebuild();
+    }
+  });
+
+  refreshDirectories();
+
+  return () => {
+    watcher.close();
+    children.forEach((watcher) => watcher.close());
+  };
+};
+
+// A managed benchmark keeps its compiled simulation fixed until capture ends.
+const stopWatching = process.env.NPC_BENCHMARK_SESSION
+  ? []
+  : [
+      watchServerSources(),
+      ...['src/specs', 'scripts', 'src/client'].map((directory) => {
+        const watcher = watchSourceTree(directory);
+
+        return () => watcher.close();
+      }),
+    ];
 
 const shutdown = async () => {
   stopping = true;
   clearTimeout(timer);
-  watchers.forEach((watcher) => watcher.close());
+  stopWatching.forEach((stop) => stop());
   command?.kill('SIGTERM');
   await stopServer();
 };

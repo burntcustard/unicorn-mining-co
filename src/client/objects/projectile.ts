@@ -9,7 +9,7 @@ import { PolygonShape } from '../collision/shape/polygon-shape';
 import { Sweep } from '../physics/motion-sweep';
 import { findTimeOfImpact } from '../collision/time-of-impact';
 import { type Collider, outlineColorOf } from '../collision/types';
-import { damage } from './damage';
+import { colliderDamageTarget, damage } from './damage';
 import { explode } from './explosion';
 import { Asteroid } from './asteroid';
 import { type SimulationEvent } from '../protocol/events';
@@ -235,8 +235,7 @@ export class Projectile extends GameObject {
     if (first.physics === false) return this.remove();
 
     const spec = moduleSpecs[this.definitionId];
-    const target = first.asteroidSegment || first.segment || first.owner;
-    const applied = damage(target, spec.damage);
+    const applied = damage(colliderDamageTarget(first), spec.damage);
     const selfApplied = damage(this, spec.damage);
 
     Vec.addScaled(

@@ -35,6 +35,10 @@ import {
   PlasmaAccelerator,
   SearchLight,
 } from '../../src/client/objects/modules/index.ts';
+import {
+  moduleMaximumHealth,
+  type Module,
+} from '../../src/client/objects/modules/module.ts';
 import { paintColors } from '../../src/specs/colors.ts';
 import { type ShipPreview } from '../../src/client/ui/dom/identity.ts';
 import {
@@ -1188,12 +1192,25 @@ export const previewState = () =>
 export const damageHull = () => {
   const health = player.ship.hullHealth;
 
-  health[0] = 2;
+  health[0] = Math.min(2, player.ship.hullSegments[0].health / 2);
   player.ship.hullHealth = health;
   ui.current.update();
 };
 
-export const hullHealth = () => player.ship.hullHealth;
+export const hullState = () => [
+  player.ship.hullHealth[0],
+  player.ship.hullSegments[0].health,
+];
+
+export const weaponDetailData = () => {
+  const plasma: typeof Module = PlasmaAccelerator;
+
+  return [
+    moduleMaximumHealth(Laser),
+    moduleMaximumHealth(plasma),
+    plasma.projectile?.explosion?.radius || 0,
+  ];
+};
 
 export const showroomActivation = async () => {
   const { Ship } = await import('../../src/client/objects/ship');
@@ -1721,13 +1738,18 @@ export const previewInsideHull = async () => {
   }
 };
 
-export const setFuel = (fuel: number, credits: number) => {
-  player.ship.fuel = fuel;
+export const setFuel = (fuel: number | 'full', credits: number) => {
+  player.ship.fuel = fuel === 'full' ? player.ship.fuelCapacity : fuel;
   player.credits = credits;
   ui.current.update();
 };
 
-export const fuelState = () => [player.ship.fuel, player.credits];
+export const fuelState = () => [
+  player.ship.fuel,
+  player.credits,
+  player.ship.fuelCapacity,
+  player.ship.refuelCost,
+];
 
 export const notification = (message: string) => updateNotification(message);
 
@@ -1830,6 +1852,16 @@ export const previewAutogunAudio = async () => {
     }
   };
 
+  const waitForSound = async (played: () => boolean) => {
+    const deadline = performance.now() + 4000;
+
+    // The preview uses simulated frames, but audio prepares buffers in real idle tasks.
+    while (!played() && performance.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 16));
+      draw(1);
+    }
+  };
+
   const source = new Ship();
   const gunMount = source.mounts.findIndex(({ fits }) =>
     fits.includes(Autogun),
@@ -1843,6 +1875,7 @@ export const previewAutogunAudio = async () => {
     source.fit(new Autogun(), source.mounts[gunMount]);
     preview.update(source, { mount: gunMount });
     draw(110);
+    await waitForSound(() => started.some((node) => node.loop));
     const fittedMotor = started.find((node) => node.loop);
 
     // Headless browsers can report a running audio context without advancing
@@ -1858,6 +1891,7 @@ export const previewAutogunAudio = async () => {
     });
 
     draw(1);
+    await waitForSound(() => started.some((node) => !node.loop));
     const fittedClick = started.some((node) => !node.loop);
 
     delete (context as unknown as { currentTime?: number }).currentTime;
@@ -1891,6 +1925,9 @@ export const previewAutogunAudio = async () => {
     preview = shipPreview.createShipPreview(target);
     preview.update(source, { mount: gunMount, candidate: PlasmaAccelerator });
     draw(220);
+    await waitForSound(
+      () => started.filter((node) => !node.loop).length > beforePlasma,
+    );
     const plasmaBeeps = started.filter((node) => !node.loop).length;
 
     return [

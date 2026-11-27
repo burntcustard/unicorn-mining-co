@@ -32,7 +32,7 @@ use super::collector::{
 };
 use super::collector_control::{self, CollectorEnvironment, CollectorShip, Controller};
 use super::contact_forecast::{ContactForecast, ForecastKind, ForecastOptions, ForecastSource};
-use super::flight::{AttackOptions, FlightContext, FlightTarget, Movement, Pilot};
+use super::flight::{AttackOptions, AttackWeapon, FlightContext, FlightTarget, Movement, Pilot};
 use super::marauder::{self, MarauderEnvironment, MarauderSpawn};
 use super::navigation::{DockingGuide, DockingStation, Search};
 use super::perception::{CaptureOptions, ObstacleSnapshot, SIGHT_RANGE, can_see, physical_bounds};
@@ -816,14 +816,13 @@ impl PirateEnvironment for Host<'_, '_> {
         target: FlightTarget,
         options: AttackOptions,
     ) -> (f64, f64, bool) {
-        let context = flight_context(
+        let context = attack_context(
             self.world.running,
             self.state.obstacles.entry(id).or_default(),
-            id,
-            &Movement {
+            AttackContextOptions {
+                ship_id: id,
                 target_id: target.entity_id,
                 pass_distance: options.pass_distance,
-                ..Movement::default()
             },
         );
         pilot.attack(context, target, options)
@@ -1231,22 +1230,55 @@ fn pirate_player(world: &World, player: &NpcPlayer) -> pirate::Player {
     }
 }
 
-fn pirate_ship(ship: &Ship, catalog: &Catalog, resident: bool) -> ShipView {
-    let object = &ship.craft.object;
-    let mut has_hatch = false;
-    let mut has_cannon = false;
-    for mount in &ship.craft.mounts {
-        if let Some(module) = &mount.module
-            && mount.health >= 1.0
-            && ship.craft.hulls[mount.hull].health >= 1.0
-            && !module.parts.is_empty()
+pub(crate) fn attack_weapon(ship: &Ship) -> AttackWeapon {
+    let mut weapon = AttackWeapon::None;
+    for module in intact_modules(ship) {
+        let spec = &module.spec;
+        if spec.behavior == "beam" && spec.reach > 0.0 {
+            return AttackWeapon::Beam { range: spec.reach };
+        }
+        if matches!(weapon, AttackWeapon::None)
+            && spec.behavior == "weapon"
+            && spec.projectile.speed > 0.0
+            && spec.ammo.is_none_or(|ammo| {
+                ship.craft.cargo_contents.iter().any(|entry| {
+                    matches!(entry, CargoObject::Item(item) if item.object.resource == Some(ammo)
+                        && item.rounds.is_some_and(|rounds| rounds > 0))
+                })
+            })
         {
-            has_hatch |= module.spec.behavior == "cargoHatch";
-            has_cannon |= module.definition_id == "cannonSm";
+            weapon = AttackWeapon::Projectile {
+                speed: spec.projectile.speed,
+                cannon: matches!(
+                    module.definition_id.as_str(),
+                    "autogun" | "autogunTurret" | "cannonSm"
+                ),
+            };
         }
     }
+    weapon
+}
+
+fn intact_modules(ship: &Ship) -> impl Iterator<Item = &InstalledModule> {
+    ship.craft.mounts.iter().filter_map(|mount| {
+        let hull = &ship.craft.hulls[mount.hull];
+        let module = mount.module.as_ref()?;
+        (hull.present && hull.health >= 1.0 && mount.health >= 1.0 && !module.parts.is_empty())
+            .then_some(module)
+    })
+}
+
+fn pirate_ship(ship: &Ship, catalog: &Catalog, resident: bool) -> ShipView {
+    let object = &ship.craft.object;
     let radius = physical_bounds(ship, false, catalog.simulation.linear_slop).0;
     let motion = ShipMotion::from_ship(ship, catalog, radius);
+    let mut has_hatch = false;
+    let mut has_weapon = false;
+    for module in intact_modules(ship) {
+        let spec = &module.spec;
+        has_hatch |= spec.behavior == "cargoHatch";
+        has_weapon |= matches!(spec.behavior.as_str(), "weapon" | "beam");
+    }
     ShipView {
         id: object.id,
         name: object.name.clone(),
@@ -1259,7 +1291,8 @@ fn pirate_ship(ship: &Ship, catalog: &Catalog, resident: bool) -> ShipView {
         in_transit: ship.craft.transit_time != 0.0,
         stranded: ship.stranded(),
         has_hatch,
-        has_cannon,
+        has_weapon,
+        weapon: attack_weapon(ship),
         releasing_cargo: ship.releasing_cargo(),
         mined_cargo_value: ship.mined_cargo_value(),
         cargo_space: ship.cargo_space,
@@ -1283,6 +1316,29 @@ fn pirate_ship(ship: &Ship, catalog: &Catalog, resident: bool) -> ShipView {
             })
             .collect(),
     }
+}
+
+pub(crate) struct AttackContextOptions {
+    pub ship_id: i64,
+    pub target_id: i64,
+    pub pass_distance: f64,
+}
+
+pub(crate) fn attack_context<'a>(
+    running: &RunningWorld,
+    snapshot: &'a mut ObstacleSnapshot,
+    options: AttackContextOptions,
+) -> FlightContext<'a> {
+    flight_context(
+        running,
+        snapshot,
+        options.ship_id,
+        &Movement {
+            target_id: options.target_id,
+            pass_distance: options.pass_distance,
+            ..Movement::default()
+        },
+    )
 }
 
 pub(crate) fn flight_context<'a>(

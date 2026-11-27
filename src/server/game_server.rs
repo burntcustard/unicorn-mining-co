@@ -1004,72 +1004,8 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "requires opening a loopback TCP listener"]
-    async fn real_socket_inbox_drains_in_order_and_publishes_disconnect() {
-        let mut catalog = Catalog::load().unwrap();
-        catalog.simulation.simulation_step = 30.0;
-        let catalog = Arc::new(catalog);
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let (observe, mut observed) = mpsc::unbounded_channel();
-        let server = GameServer::start(
-            listener,
-            Router::new(),
-            Recorder(observe, None),
-            Arc::clone(&catalog),
-            ServerOptions {
-                production: true,
-                storage_available: || true,
-                movement: None,
-            },
-        )
-        .unwrap();
-
-        let deadline = Duration::from_secs(2);
-        let mut client = timeout(deadline, open_test_socket(&server, "/game-socket"))
-            .await
-            .unwrap();
-
-        let id = ClientId(1);
-        let control_id = |name| catalog.protocol.control_message_ids[name] as u8;
-        let hello = [0x55, 0x43, 1, control_id("hello"), 0];
-        let input = [0x55, 0x43, 1, control_id("input"), 7, 8, 0, 0, 0];
-        let ack = [0x55, 0x43, 1, control_id("snapshotAck"), 9];
-        let activity = [0x55, 0x43, 1, control_id("activity")];
-        masked_client_packet(client.get_mut(), 2, &hello).await;
-        assert_eq!(
-            timeout(deadline, observed.recv()).await.unwrap(),
-            Some(Call::Receive(id, Control::Hello { player_id: None })),
-        );
-
-        masked_client_packet(client.get_mut(), 2, &input).await;
-        masked_client_packet(client.get_mut(), 2, &ack).await;
-        masked_client_packet(client.get_mut(), 2, &activity).await;
-        for packet in [input.as_slice(), ack.as_slice(), activity.as_slice()] {
-            let expected = decode_client_control(packet, &catalog.protocol, 30.0).unwrap();
-            assert_eq!(
-                timeout(deadline, observed.recv()).await.unwrap(),
-                Some(Call::Receive(id, expected))
-            );
-        }
-
-        masked_client_packet(client.get_mut(), 2, &hello).await;
-        let mut close = [0; 18];
-        timeout(deadline, client.read_exact(&mut close))
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(&close, b"\x88\x10\x03\xf0Already joined");
-        assert_eq!(
-            timeout(deadline, observed.recv()).await.unwrap(),
-            Some(Call::Disconnect(id))
-        );
-        server.stop(Instant::now() + deadline).await.unwrap();
-        assert_eq!(observed.recv().await, Some(Call::Shutdown));
-    }
-
-    #[tokio::test]
     #[ignore = "requires opening loopback TCP and UDP sockets"]
-    async fn movement_waits_for_session_authorization() {
+    async fn loopback_drains_controls_in_order_and_authorizes_movement() {
         let local = tokio::task::LocalSet::new();
         let loopback = "127.0.0.1:0".parse().unwrap();
 
@@ -1101,6 +1037,8 @@ mod tests {
 
                 let control_id = |name| catalog.protocol.control_message_ids[name] as u8;
                 let hello = [0x55, 0x43, 1, control_id("hello"), 0];
+                let input = [0x55, 0x43, 1, control_id("input"), 7, 8, 0, 0, 0];
+                let ack = [0x55, 0x43, 1, control_id("snapshotAck"), 9];
                 let activity = [0x55, 0x43, 1, control_id("activity")];
                 let mut browser = str0m::Rtc::new(std::time::Instant::now());
                 let mut changes = browser.sdp_api();
@@ -1113,16 +1051,32 @@ mod tests {
                         open_test_socket(&server, "/game-socket?snapshotDeltas=1&movement=1").await;
                     masked_client_packet(client.get_mut(), 2, &hello).await;
                     masked_client_packet(client.get_mut(), 1, offer.as_bytes()).await;
+                    if authorized {
+                        masked_client_packet(client.get_mut(), 2, &input).await;
+                        masked_client_packet(client.get_mut(), 2, &ack).await;
+                    }
                     masked_client_packet(client.get_mut(), 2, &activity).await;
                     let socket = sockets.recv().await.unwrap();
-                    assert!(matches!(
+                    let Some(Call::Receive(id, Control::Hello { player_id: None })) =
+                        observed.recv().await
+                    else {
+                        panic!("session must see the hello first");
+                    };
+                    if authorized {
+                        for packet in [input.as_slice(), ack.as_slice()] {
+                            let expected = decode_client_control(
+                                packet,
+                                &catalog.protocol,
+                                catalog.simulation.simulation_step,
+                            )
+                            .unwrap();
+                            assert_eq!(observed.recv().await, Some(Call::Receive(id, expected)));
+                        }
+                    }
+                    assert_eq!(
                         observed.recv().await,
-                        Some(Call::Receive(_, Control::Hello { .. }))
-                    ));
-                    assert!(matches!(
-                        observed.recv().await,
-                        Some(Call::Receive(_, Control::Activity))
-                    ));
+                        Some(Call::Receive(id, Control::Activity))
+                    );
 
                     if authorized {
                         socket.advertise_movement();
@@ -1136,6 +1090,10 @@ mod tests {
                         let mut answer = vec![0; length];
                         client.read_exact(&mut answer).await.unwrap();
                         assert!(answer.starts_with(b"movement\nv=0\r\n"));
+                        masked_client_packet(client.get_mut(), 2, &hello).await;
+                        let mut close = [0; 18];
+                        client.read_exact(&mut close).await.unwrap();
+                        assert_eq!(&close, b"\x88\x10\x03\xf0Already joined");
                     } else {
                         socket.close_with(4003, "Banned");
                         let mut close = [0; 10];
@@ -1144,9 +1102,10 @@ mod tests {
                     }
 
                     drop(client);
-                    assert!(matches!(observed.recv().await, Some(Call::Disconnect(_))));
+                    assert_eq!(observed.recv().await, Some(Call::Disconnect(id)));
                 }
                 server.stop(Instant::now() + deadline).await.unwrap();
+                assert_eq!(observed.recv().await, Some(Call::Shutdown));
             }),
         )
         .await

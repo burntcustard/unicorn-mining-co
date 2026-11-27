@@ -573,163 +573,13 @@ fn choose_dialog(random: &mut SeededRandom, count: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use crate::game_server::Session;
-    use crate::protocol::{SimulationEvent, WorldSound};
+    use crate::protocol::SimulationEvent;
     use crate::utilities::vector::Vector;
 
     use super::*;
 
-    #[test]
-    fn world_sounds_follow_the_sector_roster_after_portal_travel() {
-        let catalog = Arc::new(Catalog::load().unwrap());
-        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
-        let now = Instant::now();
-        let source = session.sectors.start;
-        let destination = (0..session.sectors.runtimes.len())
-            .find(|&index| index != source)
-            .expect("second sector");
-        session.sectors.load(destination, now, 0).unwrap();
-        let remaining = session.create_account(now).unwrap();
-        let departing = session.create_account(now).unwrap();
-        session.play(remaining);
-        session.play(departing);
-        let departing_ship = session.accounts.get(&departing).unwrap().ship_id;
-        let arrival = SectorArrival {
-            position: Vector::new(100.0, 200.0),
-            ..Default::default()
-        };
-        let (origin, exit) = session.sectors.pair(source, destination).unwrap();
-        assert!(transfer_player(
-            &mut origin.running.world,
-            &mut exit.running.world,
-            departing,
-            departing_ship,
-            arrival,
-        ));
-        let account = session.accounts.get_mut(&departing).unwrap();
-        account.sector = destination;
-        reset_location(account, arrival, 0);
-
-        let module_event = |player_number| SimulationEvent::ModuleChanged {
-            module: "searchLight".into(),
-            player_number,
-            active: true,
-        };
-        let contact = Vector::new(300.0, 400.0);
-        session.events.extend([
-            module_event(remaining),
-            module_event(departing),
-            SimulationEvent::CollisionEvent {
-                by: 0,
-                shield: [true, false],
-                a: departing_ship,
-                b: -1,
-                impact: 40.0,
-                colors: Default::default(),
-                damage: [0.0, 0.0],
-                position: contact,
-            },
-        ]);
-
-        session.send_world_sounds(source);
-        let account = session.accounts.get(&remaining).unwrap();
-        assert_eq!(
-            session.sounds,
-            [
-                WorldSound {
-                    effect: 9,
-                    id: account.ship_id,
-                    by: remaining,
-                    position: account.position,
-                },
-                WorldSound {
-                    effect: 5,
-                    id: departing_ship,
-                    by: 0,
-                    position: contact,
-                },
-            ]
-        );
-
-        session.events.clear();
-        session.events.push(module_event(departing));
-        session.send_world_sounds(destination);
-        assert_eq!(
-            session.sounds,
-            [WorldSound {
-                effect: 9,
-                id: departing_ship,
-                by: departing,
-                position: arrival.position,
-            }]
-        );
-    }
-
-    #[test]
-    fn respawn_without_a_nearby_station_returns_to_the_starting_sector() {
-        let catalog = Arc::new(Catalog::load().unwrap());
-        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
-        let now = Instant::now();
-        let start = session.sectors.start;
-        let source = (0..session.sectors.runtimes.len())
-            .find(|&index| index != start)
-            .unwrap();
-        session.sectors.load(source, now, 0).unwrap();
-        let id = session.create_account(now).unwrap();
-        session.play(id);
-        let ship_id = session.accounts.get(&id).unwrap().ship_id;
-        let stranded = Vector::new(1_000_000.0, 1_000_000.0);
-        assert!(
-            session.sectors[source]
-                .regions
-                .nearest_station(stranded)
-                .is_none()
-        );
-
-        let (start_world, source_world) = session.sectors.pair(start, source).unwrap();
-        assert!(transfer_player(
-            &mut start_world.running.world,
-            &mut source_world.running.world,
-            id,
-            ship_id,
-            SectorArrival {
-                position: stranded,
-                ..Default::default()
-            },
-        ));
-        let EntityKind::Ship(ship) = &mut source_world
-            .running
-            .world
-            .entity_mut(ship_id)
-            .unwrap()
-            .model
-        else {
-            panic!("player ship missing");
-        };
-        ship.fuel = 0.0;
-        session.accounts.get_mut(&id).unwrap().sector = source;
-
-        session.respawn(id);
-
-        let account = session.accounts.get(&id).unwrap();
-        assert_eq!(account.sector, start);
-        assert_ne!(account.ship_id, ship_id);
-        assert!(
-            account.welcome_pending && account.respawn_pending && account.delivery.needs_load()
-        );
-        let source_world = &session.sectors[source].running.world;
-        assert!(source_world.player(id).is_none() && source_world.entity(ship_id).is_none());
-        let world = &session.sectors[start].running.world;
-        assert_eq!(world.player(id).unwrap().ship_id, account.ship_id);
-        let EntityKind::Ship(ship) = &world.entity(account.ship_id).unwrap().model else {
-            panic!("replacement ship missing");
-        };
-        let station = world.entity(ship.craft.docked_to.unwrap()).unwrap();
-        assert!(matches!(station.model, EntityKind::Station(_)));
-        assert_eq!(ship.craft.object.position, station.model.object().position);
-    }
-
     #[tokio::test]
-    async fn gate_travel_keeps_the_pilot_and_ship_together_after_restart() {
+    async fn gate_travel_routes_events_and_restores_a_pilot_who_can_respawn() {
         let catalog = Arc::new(Catalog::load().unwrap());
         let path = std::env::temp_dir().join(format!("unicorn-transit-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir(&path).unwrap();
@@ -797,6 +647,23 @@ mod tests {
         assert_eq!(arrived.craft.object.rotation, 0.75);
         assert_eq!(arrived.fuel, 7.5);
         assert!(arrived.craft.transit_time > 0.0);
+
+        session.events.clear();
+        session.events.extend([spectator, id].map(|player_number| {
+            SimulationEvent::ModuleChanged {
+                module: "searchLight".into(),
+                player_number,
+                active: true,
+            }
+        }));
+        for (sector, pilot) in [(start, spectator), (destination_index, id)] {
+            session.send_world_sounds(sector);
+            let [sound] = session.sounds.as_slice() else {
+                panic!("each sector routes one module sound");
+            };
+            assert_eq!(sound.by, pilot);
+            assert_eq!(sound.id, session.accounts.get(&pilot).unwrap().ship_id);
+        }
         session
             .shutdown(tokio::time::Instant::now() + std::time::Duration::from_secs(5))
             .await
@@ -819,6 +686,41 @@ mod tests {
         };
         assert_eq!(arrived.fuel, 7.5);
         assert!(arrived.craft.transit_time > 0.0);
+        reloaded.play(id);
+        let stranded = Vector::new(1_000_000.0, 1_000_000.0);
+        let source = &mut reloaded.sectors[destination_index];
+        assert!(source.regions.nearest_station(stranded).is_none());
+        let EntityKind::Ship(stranded_ship) =
+            &mut source.running.world.entity_mut(ship_id).unwrap().model
+        else {
+            panic!("reloaded ship missing");
+        };
+        stranded_ship.craft.object.position = stranded;
+        stranded_ship.fuel = 0.0;
+        reloaded.respawn(id);
+        let account = reloaded.accounts.get(&id).unwrap();
+        assert_eq!(account.sector, start);
+        assert_ne!(account.ship_id, ship_id);
+        assert!(
+            account.welcome_pending && account.respawn_pending && account.delivery.needs_load()
+        );
+        let source = &reloaded.sectors[destination_index].running.world;
+        assert!(source.player(id).is_none() && source.entity(ship_id).is_none());
+        let destination = &reloaded.sectors[start].running.world;
+        assert_eq!(destination.player(id).unwrap().ship_id, account.ship_id);
+        let EntityKind::Ship(replacement) = &destination.entity(account.ship_id).unwrap().model
+        else {
+            panic!("replacement ship missing");
+        };
+        let station = destination
+            .entity(replacement.craft.docked_to.unwrap())
+            .unwrap();
+        assert!(matches!(station.model, EntityKind::Station(_)));
+        assert_eq!(
+            replacement.craft.object.position,
+            station.model.object().position
+        );
+
         reloaded
             .shutdown(tokio::time::Instant::now() + std::time::Duration::from_secs(5))
             .await

@@ -80,6 +80,18 @@ impl TradeFixture {
         let catalog = &self.session.catalog;
         let world = &mut self.session.sectors[sector].running.world;
         self.station_id = world.ids.entity();
+        let stock = (0..32)
+            .map(|_| {
+                let pack = Item::new(
+                    world.ids.entity(),
+                    "autogunAmmo",
+                    ObjectProperties::default(),
+                    catalog,
+                )
+                .expect("fixture ammunition");
+                CargoObject::Item(Box::new(pack))
+            })
+            .collect();
         let station = Station::new(
             self.station_id,
             "corral-5",
@@ -87,19 +99,12 @@ impl TradeFixture {
                 position: player.position,
                 ..ObjectProperties::default()
             },
-            None,
+            Some(stock),
             catalog,
             || world.ids.entity(),
         )
         .expect("authored fixture station");
         world.add_entity(EntityKind::Station(Box::new(station)), false);
-        let gold = Item::new(
-            world.ids.entity(),
-            "gold",
-            ObjectProperties::default(),
-            catalog,
-        )
-        .expect("authored gold item");
         let autogun = InstalledModule::new(
             world.ids.object(),
             "autogun".to_owned(),
@@ -110,16 +115,10 @@ impl TradeFixture {
             panic!("fixture player must have an active ship");
         };
         ship.craft.docked_to = Some(self.station_id);
-        ship.craft
-            .cargo_contents
-            .push(CargoObject::Item(Box::new(gold)));
         ship.craft.cargo_contents.push(CargoObject::Module(autogun));
         self.session.sectors.commit_ids(sector);
         // A rejected stock action forces a load of the controlled dock state.
         self.reject_stock_request();
-        self.receive(Control::Profile {
-            display_name: "burntcustard".to_owned(),
-        });
     }
 
     fn player_ship(&mut self) -> &mut Ship {
@@ -134,16 +133,8 @@ impl TradeFixture {
 
     fn handle(&mut self, command: Command) -> Result<(), Box<dyn Error>> {
         match command.kind.as_str() {
-            "disconnect" => self.session.disconnect(&self.client),
             "setup" => self.setup(),
             "drift" => self.session.sectors.next_entity_id += 100,
-            "travel" => {
-                self.player_ship().craft.docked_to = None;
-                self.receive(Control::Chat {
-                    channel: 0,
-                    text: "/tp 0 0".to_owned(),
-                });
-            }
             "farStation" | "nearStation" => {
                 let player = self.session.accounts.get(&1).expect("fixture player");
                 let world = &self.session.sectors[player.sector].running.world;
@@ -157,17 +148,6 @@ impl TradeFixture {
                 let ship = self.player_ship();
                 ship.craft.docked_to = None;
                 ship.craft.object.position = position;
-                self.session.send_snapshot(1);
-            }
-            "rotateStation" => {
-                let player = self.session.accounts.get(&1).expect("fixture player");
-                let world = &mut self.session.sectors[player.sector].running.world;
-                world
-                    .entity_mut(self.station_id)
-                    .expect("fixture station")
-                    .model
-                    .object_mut()
-                    .rotation += 0.1;
                 self.session.send_snapshot(1);
             }
             "redock" => {

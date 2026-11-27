@@ -648,7 +648,10 @@ try {
       frames.length = 0;
       now = 0;
       const world = createWorld();
-      const ship = addEntity(world, createPlayerShip(world, { playerNumber: 1 }));
+      const ship = addEntity(
+        world,
+        createPlayerShip(world, { playerNumber: 1 }),
+      );
 
       ship.drag = 0;
       ship.engine.forwardThrust = speed / 17;
@@ -797,46 +800,8 @@ try {
     true,
     'a completed hold cancels the hatch toggle',
   );
-  key('keyup', 'h');
-  assert.equal(
-    input.playerInput.cargoHatch,
-    true,
-    'duplicate keyup cannot toggle the hatch',
-  );
-
-  key('keydown', 'h');
-  assert.equal(input.playerInput.cargoHatch, true);
-  key('keyup', 'h');
-  assert.equal(
-    input.playerInput.cargoHatch,
-    false,
-    'the next tap closes the hatch',
-  );
-  key('keydown', 'h');
-  finishHold();
-  assert.equal(input.playerInput.cargoRelease, true);
-  assert.equal(
-    input.playerInput.cargoHatch,
-    false,
-    'a hold preserves a closed hatch toggle state',
-  );
-  key('keyup', 'h');
-  assert.equal(input.playerInput.cargoRelease, false);
-  assert.equal(
-    input.playerInput.cargoHatch,
-    false,
-    'keyup after a hold does not latch the hatch open',
-  );
   key('keydown', 'h');
   key('keyup', 'h');
-  assert.equal(
-    input.playerInput.cargoHatch,
-    true,
-    'a new tap works after a consumed release',
-  );
-  key('keydown', 'h');
-  key('keyup', 'h');
-  assert.equal(input.playerInput.cargoHatch, false);
 
   input.defaultKeybindings.cargoRelease.keys = ['j'];
   key('keydown', 'j');

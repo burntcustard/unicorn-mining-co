@@ -2,12 +2,20 @@ import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
 import { camera, followTarget } from '../../src/client/camera.ts';
 import type { GameState } from '../../src/client/game.ts';
+import { exposeLatencyBindings } from '../../benchmarking/latency/assets.ts';
 import { latencyBrowserPreload } from '../../benchmarking/latency/browser.ts';
 import {
   installNPCCamera,
   installNPCMirror,
   npcBrowserCall,
 } from '../../benchmarking/npc/browser.ts';
+
+const original =
+  'import {foo} from "./first.js"; const later=()=>import("./later.js"); export{foo,later};';
+const exposed = exposeLatencyBindings(original);
+
+assert(exposed.startsWith(original));
+assert(exposed.endsWith('__latencyRefs.push(later);\n'));
 
 let openedConnections = 0;
 

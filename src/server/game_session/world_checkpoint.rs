@@ -239,7 +239,7 @@ mod tests {
     }
 
     #[test]
-    fn checkpoints_restore_sleeping_state_and_record_later_removals() {
+    fn checkpoints_track_sleeping_entities_removals_and_tick_budget() {
         let catalog = Arc::new(Catalog::load().unwrap());
         let now = Instant::now();
         let mut checkpoint = WorldCheckpoint::new(now);
@@ -280,6 +280,23 @@ mod tests {
         let mut regions = StreamingRegions::new(25, &catalog, None);
         resumed.restore(&mut world, &mut regions, rows).unwrap();
         assert!(world.entity(44).is_none());
+        for id in 30..40 {
+            add(&mut world, id, ObjectProperties::default(), true);
+        }
+        resumed.advance(now + CHECKPOINT_INTERVAL, &mut world, &regions);
+        assert_eq!(resumed.pending_count(), CHECKPOINT_BUDGET);
+        world.remove_entity(30);
+        resumed.advance(now + CHECKPOINT_INTERVAL, &mut world, &regions);
+        let rows: Vec<_> = resumed
+            .capture("start", &mut world, &regions)
+            .into_iter()
+            .filter(|row| (30..40).contains(&row.id))
+            .collect();
+        assert_eq!(rows.len(), 10);
+        assert_eq!(rows[0].id, 30);
+        assert!(rows[0].state.is_none());
+        assert!(rows[1..].iter().all(|row| row.state.is_some()));
+
         regions.sync(&mut world, &[Vector::ZERO]);
         assert_eq!(world.entity(44).unwrap().model.object().health, 628.0);
         world.remove_entity(44);
@@ -287,29 +304,5 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, 44);
         assert!(!rows[0].generated && rows[0].state.is_none());
-    }
-
-    #[test]
-    fn periodic_capture_has_a_fixed_per_tick_budget() {
-        let catalog = Arc::new(Catalog::load().unwrap());
-        let now = Instant::now();
-        let mut checkpoint = WorldCheckpoint::new(now);
-        let mut world = World::new(25.0, Arc::clone(&catalog));
-        let mut regions = StreamingRegions::new(25, &catalog, None);
-        checkpoint
-            .restore(&mut world, &mut regions, vec![])
-            .unwrap();
-        for id in 30..40 {
-            add(&mut world, id, ObjectProperties::default(), true);
-        }
-        checkpoint.advance(now + CHECKPOINT_INTERVAL, &mut world, &regions);
-        assert_eq!(checkpoint.pending_count(), CHECKPOINT_BUDGET);
-        world.remove_entity(30);
-        checkpoint.advance(now + CHECKPOINT_INTERVAL, &mut world, &regions);
-        let rows = checkpoint.capture("start", &mut world, &regions);
-        assert_eq!(rows.len(), 10);
-        assert_eq!(rows[0].id, 30);
-        assert!(rows[0].state.is_none());
-        assert!(rows[1..].iter().all(|row| row.state.is_some()));
     }
 }

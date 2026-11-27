@@ -429,7 +429,7 @@ mod tests {
                 .unwrap()
                 .stored_power
         };
-        session.tick(1);
+        session.update_stored_ships(1, 1.0 / 30.0);
         let account = session.accounts.get(&id).unwrap();
         assert!(
             account
@@ -445,15 +445,15 @@ mod tests {
 
         session.receive(&client, Control::Play);
         session.disconnect(&client);
-        session.tick(1);
+        session.update_stored_ships(2, 1.0 / 30.0);
         assert!(session.accounts.get(&id).unwrap().hidden.is_none());
         let grace_power = stored_power(&session);
         assert!(grace_power > prepared_power);
 
         let cooldown =
             std::time::Duration::from_secs_f64(session.catalog.simulation.flight.launch_duration);
-        session.accounts.get_mut(&id).unwrap().disconnected_at = Some(Instant::now() - cooldown);
-        session.tick(1);
+        session.update_stored_ships(3, 1.0 / 30.0);
+        session.hide_disconnected(Instant::now() + cooldown);
         let account = session.accounts.get(&id).unwrap();
         let active_power = account
             .hidden
@@ -463,7 +463,7 @@ mod tests {
             .stored_power;
         let hidden_power = stored_power(&session);
         assert!(hidden_power > grace_power);
-        session.tick(1);
+        session.update_stored_ships(4, 1.0 / 30.0);
         let account = session.accounts.get(&id).unwrap();
         assert_eq!(
             account

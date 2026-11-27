@@ -2,42 +2,26 @@ import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
 import { browserAction } from '../../benchmarking/rendering/browser-action.ts';
 
-// BiDi encodes objects as [key, RemoteValue] pairs; CDP returns plain objects.
-// Both protocols deliver a string primitive unchanged. Exercise the evaluated
-// browser expression, rather than passing an already serialized fixture to it.
-for (const transport of ['cdp', 'bidi']) {
-  for (const expected of [
-    { 'player-ship-id': 281474976717551, nested: { x: 3, y: -2 } },
-    '{"fps":60}',
-    'ready',
-  ]) {
-    const fixture = Object.fromEntries([
-      [
-        'perf-capture',
-        async (name: string) => {
-          assert.equal(name, '/pirate');
-          return expected;
-        },
-      ],
-    ]);
+// CDP and BiDi both deliver string primitives unchanged. The browser must
+// serialize before returning a value to either transport.
+for (const expected of [
+  { 'player-ship-id': 281474976717551, nested: { x: 3, y: -2 } },
+  '{"fps":60}',
+  'ready',
+]) {
+  const page = {
+    'perf-capture': async (name: string) => {
+      assert.equal(name, '/pirate');
+      return expected;
+    },
+  };
 
-    const evaluate = async (expression: string) => {
-      const value = await runInNewContext(expression, { window: fixture });
+  const evaluate = async (expression: string) => {
+    const result = await runInNewContext(expression, { window: page });
 
-      const remote =
-        transport === 'bidi' && typeof value === 'object'
-          ? {
-              value: Object.entries(value).map(([key, item]) => [
-                key,
-                { value: item },
-              ]),
-            }
-          : { value };
+    assert.equal(typeof result, 'string');
+    return result;
+  };
 
-      assert.equal(typeof remote.value, 'string');
-      return remote.value;
-    };
-
-    assert.deepEqual(await browserAction(evaluate, 'pirate'), expected);
-  }
+  assert.deepEqual(await browserAction(evaluate, 'pirate'), expected);
 }

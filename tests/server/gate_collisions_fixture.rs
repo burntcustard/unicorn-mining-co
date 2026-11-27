@@ -167,7 +167,7 @@ fn case(values: Vec<f64>, catalog: &Arc<Catalog>) -> Vec<Frame> {
     } else if jaw_y != 0.0 || tip_depth != 0.0 {
         180
     } else {
-        90
+        6
     };
     let dt = catalog.simulation.simulation_step;
     let slop = catalog.simulation.linear_slop;

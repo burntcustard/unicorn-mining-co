@@ -9,7 +9,7 @@ import { outlineColorOf } from '../../collision/types';
 import { traceLaser } from './trace-laser';
 import { type Ship } from '../ship';
 import { Asteroid } from '../asteroid';
-import { damage } from '../damage';
+import { colliderDamageTarget, damage } from '../damage';
 import { type Pose } from '../../types';
 import { type SimulationEvent } from '../../protocol/events';
 import { type ModuleSpec } from '../../../specs/modules/types';
@@ -65,10 +65,7 @@ class LaserModule extends Module {
     const { first, length } = this.trace(craft);
 
     if (!first || first.physics === false) return;
-    const applied = damage(
-      first.asteroidSegment || first.segment || first.owner,
-      this.damage * 30 * dt,
-    );
+    const applied = damage(colliderDamageTarget(first), this.damage * 30 * dt);
 
     if (applied <= 0) return;
 

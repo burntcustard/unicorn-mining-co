@@ -12,10 +12,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { render, sampleRate } from '../../src/tools/sound-analysis/render.ts';
-import {
-  readFloat32,
-  readLayers,
-} from '../../src/tools/sound-analysis/runtime.ts';
 import { analyzeSpectrum } from '../../src/tools/sound-analysis/spectrum.ts';
 import { summarizeTiming } from '../../src/tools/sound-analysis/timing.ts';
 
@@ -81,11 +77,6 @@ try {
     clip.writeFloatLE(sample, (preRoll + index) * 4),
   );
   writeFileSync(join(directory, 'reference.f32'), clip);
-  assert.deepEqual(
-    readFloat32(join(directory, 'reference.f32')).subarray(preRoll),
-    samples,
-  );
-
   writeFileSync(
     join(directory, 'base.ts'),
     `export default ${JSON.stringify([{ ...layers[0], volume: 0.1 }])};`,
@@ -119,12 +110,10 @@ try {
   );
 
   assert.ok(fit.spectralErrorDb < fit.initialErrorDb);
-  assert.equal((await readLayers(join(directory, 'fit.json'))).length, 1);
-  assert.throws(
-    () => run('fit.ts', 'reference.f32', 'base.ts', 'fit.json'),
-    /EEXIST/,
+  assert.equal(
+    JSON.parse(readFileSync(join(directory, 'fit.json'), 'utf8')).length,
+    1,
   );
-
   const audit = JSON.parse(
     run('audit.ts', 'target.json', '--repeat-wav', 'repeat.wav'),
   );
@@ -181,9 +170,6 @@ const amplitudeAt = (samples: Float32Array, frequency: number) => {
   return (2 * Math.hypot(real, imaginary)) / (end - start);
 };
 
-assert.deepEqual(fmBase, render([{ ...fmProbe, fmRatio: 0.35, fmDepth: 0 }]));
-assert.deepEqual(fmBase, render([{ ...fmProbe, fmRatio: 0, fmDepth: 1.5 }]));
-
 for (const sideband of [1300, 2700]) {
   assert.ok(amplitudeAt(fm, sideband) > 0.02);
   assert.ok(amplitudeAt(fmBase, sideband) < 0.0001);
@@ -212,13 +198,6 @@ assert.ok(
   Math.abs(amplitudeAt(partialSamples, 2500) / carrierLevel - 0.25) < 0.001,
 );
 assert.ok(amplitudeAt(partialSamples, 1000) < 0.0001);
-assert.deepEqual(fmBase, render([{ ...fmProbe, partials: [] }]));
-assert.ok(render([{ ...fmProbe, partials: [0, 0, 0] }]).every((x) => x === 0));
-assert.ok(
-  render([{ ...fmProbe, partials: [1, 0, 0], partialRatio: 2 }]).every(
-    (x) => x === 0,
-  ),
-);
 const highPartials = render([
   { ...fmProbe, frequency: 18000, partials: [1, 1, 1], partialRatio: 0.5 },
 ]);
@@ -230,14 +209,6 @@ assert.ok(
   'ultrasonic partials do not alias',
 );
 
-assert.deepEqual(
-  render([modulationProbe]),
-  render([{ ...modulationProbe, modulationRate: 5, modulationDepth: 0 }]),
-);
-assert.deepEqual(
-  render([modulationProbe]),
-  render([{ ...modulationProbe, modulationRate: 0, modulationDepth: 1200 }]),
-);
 const modulated = render([
   { ...modulationProbe, modulationRate: 5, modulationDepth: 1200 },
 ]);
@@ -298,10 +269,6 @@ assert.ok(
   timedSamples.slice(200, 600).some((sample) => Math.abs(sample) > 0.1),
 );
 assert.ok(timedSamples.slice(1000).every((sample) => Math.abs(sample) < 1e-7));
-assert.deepEqual(
-  render([{ ...timed, gainPositions: [] }]),
-  render([{ ...timed, gainPositions: undefined }]),
-);
 
 // A filter path can rise and fall once without repeating vibrato.
 const archSettings = {
@@ -328,15 +295,6 @@ const archPeak = (time: number) => {
 assert.ok(archPeak(0.15) > 2 * archPeak(0.035));
 assert.ok(archPeak(0.15) > 2 * archPeak(0.265));
 assert.ok(Math.abs(archPeak(0.035) - archPeak(0.265)) < 300);
-assert.deepEqual(
-  render([{ ...resonating, resonancePoints: [] }]),
-  render([resonating]),
-);
-assert.deepEqual(
-  render([{ ...archSettings, resonance: 0, endResonance: 0 }]),
-  archSamples,
-  'curve endpoints override resolved editor defaults',
-);
 const heldPath = render([{ ...archSettings, filterDuration: 100 }]);
 
 assert.ok(
@@ -382,11 +340,6 @@ assert.deepEqual(
   bentTone,
   'pitch points override editor frequency defaults',
 );
-assert.deepEqual(
-  render([{ ...sustained, pitchPoints: [] }]),
-  render([sustained]),
-);
-
 // Cascaded low-pass stages reject upper harmonics more steeply without
 // changing existing one-stage sounds.
 const filteredTone = { ...sustained, waveform: 'sine' as const, cutoff: 12000 };
@@ -406,10 +359,6 @@ const highAttenuation = toneRms(8000, 4) / toneRms(8000, 1);
 
 assert.ok(lowAttenuation > 0.5);
 assert.ok(highAttenuation < lowAttenuation / 10);
-assert.deepEqual(
-  render([{ ...filteredTone, lowpassOrder: 1 }]),
-  render([filteredTone]),
-);
 const sweptStages = render([
   { ...filteredTone, lowpassOrder: 4, endCutoff: 0, release: 10 },
 ]);

@@ -5,7 +5,9 @@ use crate::simulation::game_object::ObjectProperties;
 use crate::specs::Catalog;
 use crate::utilities::vector::Vector;
 
-use super::flight::{FlightContext, Movement, Pilot, direction_of};
+use super::flight::{
+    AttackOptions, AttackWeapon, FlightContext, FlightTarget, Pilot, direction_of,
+};
 use super::perception::{Obstacle, ObstacleGeometry, clear_segment};
 use super::prediction::{PredictionOptions, Predictor, ShipMotion};
 use super::route::{RouteOptions, RoutePlan};
@@ -19,6 +21,170 @@ fn ship_motion(catalog: &Catalog) -> ShipMotion {
     .unwrap();
     ship.craft.launching = 0.0;
     ShipMotion::from_ship(&ship, catalog, 55.0)
+}
+
+#[test]
+fn combat_pilot_tracks_beam_targets_and_leads_projectile_shots() {
+    let catalog = Catalog::load().unwrap();
+    let mut ship = ship_motion(&catalog);
+    ship.rotation = 0.23;
+    let target = FlightTarget {
+        entity_id: 2,
+        position: Vector::new(300.0, 0.0),
+        velocity: Vector::new(0.0, 180.0),
+        radius: 40.0,
+        is_ship: true,
+    };
+    let context = FlightContext {
+        ship,
+        rules: catalog.npc_movement,
+        tick: 0,
+        simulation_step: catalog.simulation.simulation_step,
+        launching: false,
+        obstacles: &[],
+        target: Some(target),
+    };
+    let options = AttackOptions {
+        pass_distance: 70.0,
+        aim_tolerance: 0.12,
+        weapon: AttackWeapon::Beam { range: 700.0 },
+        aim_prediction_time: 1.0,
+        can_fire: true,
+    };
+    let (_, beam_turn, beam_fire) = Pilot::default().attack(context, target, options);
+    assert!(beam_turn < 0.0 && beam_fire);
+    let (projectile_thrust, projectile_turn, projectile_fire) = Pilot::default().attack(
+        context,
+        target,
+        AttackOptions {
+            weapon: AttackWeapon::Projectile {
+                speed: 300.0,
+                cannon: false,
+            },
+            ..options
+        },
+    );
+    assert!(projectile_turn > 0.0 && !projectile_fire);
+    assert_eq!(
+        projectile_thrust, 1.0,
+        "a clear attack pass uses full thrust"
+    );
+
+    let nearby = FlightTarget {
+        position: Vector::new(210.0, 0.0),
+        velocity: Vector::ZERO,
+        ..target
+    };
+    let (nearby_thrust, _, nearby_fire) = Pilot::default().attack(context, nearby, options);
+    assert_eq!(nearby_thrust, 0.0, "a beam pilot coasts in effective range");
+    assert!(nearby_fire);
+
+    let after_pass = FlightContext {
+        ship: ShipMotion {
+            position: Vector::new(400.0, 0.0),
+            velocity: Vector::new(100.0, 0.0),
+            rotation: 0.0,
+            ..ship
+        },
+        ..context
+    };
+    for weapon in [
+        options.weapon,
+        AttackWeapon::Projectile {
+            speed: 1_000.0,
+            cannon: true,
+        },
+    ] {
+        let (thrust, _, fire) =
+            Pilot::default().attack(after_pass, nearby, AttackOptions { weapon, ..options });
+        assert!(!fire, "the target is now behind the ship");
+        assert_eq!(thrust, 1.0, "the ship accelerates away from the target");
+    }
+
+    // Keep the shot slightly off the predicted intercept for both weapon profiles.
+    let off_axis = FlightContext {
+        ship: ShipMotion {
+            rotation: (180.0_f64 / 1_000.0).atan() + 0.17,
+            ..ship
+        },
+        ..context
+    };
+    for (cannon, can_fire, expected) in [
+        (true, true, true),
+        (false, true, false),
+        (true, false, false),
+    ] {
+        let (_, _, fire) = Pilot::default().attack(
+            off_axis,
+            target,
+            AttackOptions {
+                weapon: AttackWeapon::Projectile {
+                    speed: 1_000.0,
+                    cannon,
+                },
+                can_fire,
+                ..options
+            },
+        );
+        assert_eq!(fire, expected);
+    }
+
+    // The farther intercept exceeds the fallback horizon, and faster shots need less lead.
+    let speed = 625.0;
+    let relative_velocity = Vector::new(145.0, 225.0);
+    let velocity = Vector::new(-50.0, 40.0);
+    let leading_context = FlightContext {
+        ship: ShipMotion {
+            velocity,
+            rotation: (relative_velocity.y / speed).asin() + 0.10,
+            ..ship
+        },
+        ..context
+    };
+    for (distance, projectile_speed, expected_fire) in [
+        (350.0, speed, true),
+        (900.0, speed, true),
+        (900.0, speed * 2.0, false),
+    ] {
+        let moving_target = FlightTarget {
+            position: ship.position + Vector::new(distance, 0.0),
+            velocity: velocity + relative_velocity,
+            ..target
+        };
+        let (_, _, fire) = Pilot::default().attack(
+            leading_context,
+            moving_target,
+            AttackOptions {
+                weapon: AttackWeapon::Projectile {
+                    speed: projectile_speed,
+                    cannon: false,
+                },
+                ..options
+            },
+        );
+        assert_eq!(
+            fire, expected_fire,
+            "firing alignment for a projectile at {projectile_speed} m/s and {distance} m"
+        );
+    }
+
+    let spinning = FlightContext {
+        ship: ShipMotion {
+            spin: ship.maximum_turn_rate * 0.8,
+            ..ship
+        },
+        ..context
+    };
+    let (_, braking_turn, _) = Pilot::default().attack(spinning, target, options);
+    assert!(braking_turn > 0.0 && braking_turn < 0.8);
+
+    let mut looping = Pilot::default();
+    let mut reversed = false;
+    for tick in (0..=240).step_by(6) {
+        let (thrust, turn, _) = looping.attack(FlightContext { tick, ..context }, target, options);
+        reversed |= turn > 0.0 && thrust == 1.0;
+    }
+    assert!(reversed, "a persistent turn triggers a powered reversal");
 }
 
 #[test]
@@ -156,35 +322,6 @@ fn obstacle_motion_matches_integrated_turning_braking_and_stop() {
     }
 }
 
-#[test]
-fn waiting_pilot_faces_the_destination_without_thrusting() {
-    let catalog = Catalog::load().unwrap();
-    let ship = ShipMotion {
-        rotation: -0.5,
-        ..ship_motion(&catalog)
-    };
-    let mut pilot = Pilot::default();
-    let context = FlightContext {
-        ship,
-        rules: catalog.npc_movement,
-        tick: 0,
-        simulation_step: catalog.simulation.simulation_step,
-        launching: false,
-        obstacles: &[],
-        target: None,
-    };
-    let (thrust, turn) = pilot.steer(
-        context,
-        &Movement {
-            position: Vector::new(300.0, 0.0),
-            waiting: true,
-            ..Movement::default()
-        },
-    );
-    assert_eq!(thrust, 0.0);
-    assert!(turn > 0.0);
-}
-
 use super::contact_forecast::{ContactForecast, ForecastKind, ForecastOptions, ForecastSource};
 use super::perception::physical_bounds;
 use crate::gameplay::collision_world::{CollisionEntity, GameCollisions, ObjectCollider};
@@ -228,78 +365,7 @@ impl CollisionEntity for ForecastEntity<'_> {
 }
 
 #[test]
-fn detached_contact_forecast_rejects_station_wall_as_in_go() {
-    let catalog = Catalog::load().unwrap();
-    let rules = &catalog.simulation;
-    let mut id = -1;
-    let mut ship = Ship::new_player(
-        1,
-        "courser",
-        ObjectProperties {
-            position: Vector::new(500.0, 0.0),
-            ..ObjectProperties::default()
-        },
-        &catalog,
-        || {
-            id -= 1;
-            id
-        },
-    )
-    .unwrap();
-    let mut station = Station::new(
-        100,
-        "corral-5",
-        ObjectProperties {
-            radius: Some(400.0),
-            ..ObjectProperties::default()
-        },
-        Some(Vec::new()),
-        &catalog,
-        || unreachable!(),
-    )
-    .unwrap();
-    let mut collisions = GameCollisions::new(&catalog, true);
-    let mut entities = [
-        ForecastEntity::Ship(&mut ship),
-        ForecastEntity::Station(&mut station),
-    ];
-    collisions.capture_poses(&mut entities);
-    collisions.step(&mut entities, 0.0, &catalog, &mut Vec::new());
-    ship.craft.object.position = Vector::new(260.0, 150.0);
-    let (radius, _) = physical_bounds(&ship, false, rules.linear_slop);
-    let motion = ShipMotion::from_ship(&ship, &catalog, radius);
-    let forecast = ContactForecast::new(
-        ForecastOptions {
-            catalog: &catalog,
-            ship_motion: motion,
-            tick: 0,
-            docking: true,
-            can_dock: true,
-            can_collect: false,
-            centers: &[],
-        },
-        ForecastSource {
-            object: &ship.craft.object,
-            kind: ForecastKind::Ship,
-            prepared: collisions.prepared_body(1),
-        },
-        ForecastSource {
-            object: &station.craft.object,
-            kind: ForecastKind::Station {
-                local_movement_radius: station.local_movement_radius,
-            },
-            prepared: collisions.prepared_body(100),
-        },
-        [],
-    );
-    let prediction = forecast
-        .predict(0.0, 0.0, rules.simulation_step, 0.0)
-        .unwrap();
-    assert!(!prediction.safe && !prediction.arrived);
-}
-
-#[test]
-fn detached_pickup_forecast_leaves_live_cargo_and_parent_unchanged() {
+fn contact_forecast_leaves_live_cargo_unchanged_and_rejects_station_wall() {
     let catalog = Catalog::load().unwrap();
     let rules = &catalog.simulation;
     let mut id = -1;
@@ -401,4 +467,36 @@ fn detached_pickup_forecast_leaves_live_cargo_and_parent_unchanged() {
         assert_eq!(current.local_movement.rate, before.local_movement.rate);
     }
     assert!(ship.craft.cargo_contents.is_empty());
+
+    ship.craft.object.position = Vector::new(260.0, 150.0);
+    let (radius, _) = physical_bounds(&ship, false, rules.linear_slop);
+    let motion = ShipMotion::from_ship(&ship, &catalog, radius);
+    let forecast = ContactForecast::new(
+        ForecastOptions {
+            catalog: &catalog,
+            ship_motion: motion,
+            tick: 0,
+            docking: true,
+            can_dock: true,
+            can_collect: false,
+            centers: &[],
+        },
+        ForecastSource {
+            object: &ship.craft.object,
+            kind: ForecastKind::Ship,
+            prepared: collisions.prepared_body(1),
+        },
+        ForecastSource {
+            object: &station.craft.object,
+            kind: ForecastKind::Station {
+                local_movement_radius: station.local_movement_radius,
+            },
+            prepared: collisions.prepared_body(100),
+        },
+        [],
+    );
+    let prediction = forecast
+        .predict(0.0, 0.0, rules.simulation_step, 0.0)
+        .unwrap();
+    assert!(!prediction.safe && !prediction.arrived);
 }

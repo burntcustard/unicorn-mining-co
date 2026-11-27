@@ -22,21 +22,25 @@ pub struct ExplosionSource {
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-enum DamageTarget {
+enum DamageKey {
     Body,
     Hull(usize),
     Mount(usize),
     AsteroidSegment(usize),
 }
 
-fn damage_target(collider: ObjectCollider) -> DamageTarget {
+fn damage_key(collider: ObjectCollider, is_wreckage: bool) -> DamageKey {
+    if is_wreckage {
+        return DamageKey::Body;
+    }
+
     match collider.part {
-        ColliderPart::Hull(index) => DamageTarget::Hull(index),
+        ColliderPart::Hull(index) => DamageKey::Hull(index),
         ColliderPart::Module { mount, .. } | ColliderPart::DrillTip { mount, .. } => {
-            DamageTarget::Mount(mount)
+            DamageKey::Mount(mount)
         }
-        ColliderPart::AsteroidSegment(index) => DamageTarget::AsteroidSegment(index),
-        _ => DamageTarget::Body,
+        ColliderPart::AsteroidSegment(index) => DamageKey::AsteroidSegment(index),
+        _ => DamageKey::Body,
     }
 }
 
@@ -117,6 +121,7 @@ fn damage_nearby<W: WeaponWorld>(
             continue;
         }
         let is_asteroid = object.kind == "asteroid";
+        let is_wreckage = context.world.weapon_target_is_wreckage(entity);
         let incarnation = entity.collision_incarnation();
         let mut contacts = SmallVec::<[(ObjectCollider, Vector); 16]>::new();
         entity.with_colliders(|colliders| {
@@ -139,13 +144,13 @@ fn damage_nearby<W: WeaponWorld>(
             }
         });
 
-        let mut damaged = SmallVec::<[DamageTarget; 16]>::new();
+        let mut damaged = SmallVec::<[DamageKey; 16]>::new();
         if let Some(exclude) = exclude.filter(|exclude| exclude.owner == id) {
-            damaged.push(damage_target(exclude));
+            damaged.push(damage_key(exclude, is_wreckage));
         }
         for (collider, position) in contacts {
-            let target = damage_target(collider);
-            if damaged.contains(&target) {
+            let key = damage_key(collider, is_wreckage);
+            if damaged.contains(&key) {
                 continue;
             }
 
@@ -163,7 +168,7 @@ fn damage_nearby<W: WeaponWorld>(
                 continue;
             }
 
-            damaged.push(target);
+            damaged.push(key);
             context.events.push(SimulationEvent::CollisionEvent {
                 a: source.id,
                 b: id,

@@ -358,8 +358,12 @@ impl SavedCraft {
                 craft.object.id
             ));
         }
+        let restore_hull_health = craft.wreckage.is_empty();
         for (hull, saved) in craft.hulls.iter_mut().zip(self.hulls) {
-            hull.health = saved.health;
+            // Older saves may contain impact damage to wreckage segment health.
+            if restore_hull_health {
+                hull.health = saved.health;
+            }
             hull.present = saved.present;
             hull.position = saved.position;
             hull.original_position = saved.original_position;
@@ -443,7 +447,7 @@ impl SavedModule {
         module.shades = self.shades;
         module.charge_cooldown = self.charge_cooldown;
         module.fire_cooldown = self.fire_cooldown;
-        module.aim_rotation = self.aim_rotation;
+        module.aim_rotation = module.bounded_aim_rotation(self.aim_rotation);
         module.fitted_order = self.fitted_order;
         Ok(module)
     }

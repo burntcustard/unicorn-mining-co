@@ -172,48 +172,44 @@ for(const uiVisible of [false,true]){
   renderUI({ctx,uiVisible:false,uiWidth:800,uiHeight:600,uiScale:1},[],{shipDestroyed:false,shipStranded:true});
   assert(textAlphas.length>0&&textAlphas.every(alpha=>alpha===1),'a stranded ship gets a visible respawn hint even with a hidden HUD');
 }
-console.log('${server} ship destruction snapshots hydrate in source and production');`;
+console.log('${server} ship destruction snapshots hydrate in production');`;
 
-for (const production of [false, true]) {
-  const entry = `${root}/src/__ship_destruction_test.ts`;
+const entry = `${root}/src/__ship_destruction_test.ts`;
 
-  const bundle = await rolldown({
-    input: entry,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'ship-destruction-test',
-        resolveId: (id) => (id === entry ? entry : undefined),
-        load: (id) =>
-          id === entry
-            ? production
-              ? stripIfdef(
-                  scenario.replace(
-                    /assert\.(\w+)/g,
-                    (_, method) => `Reflect.get(assert, '${method}')`,
-                  ),
-                )
-              : scenario
-            : undefined,
-        transform: (code, id) =>
-          id.endsWith('/src/client/network/network.ts')
-            ? code + '\nexport {makeEntity};'
-            : undefined,
-      },
-      buildPrePlugin(),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
+const bundle = await rolldown({
+  input: entry,
+  external: ['node:assert/strict'],
+  plugins: [
+    {
+      name: 'ship-destruction-test',
+      resolveId: (id) => (id === entry ? entry : undefined),
+      load: (id) =>
+        id === entry
+          ? stripIfdef(
+              scenario.replace(
+                /assert\.(\w+)/g,
+                (_, method) => `Reflect.get(assert, '${method}')`,
+              ),
+            )
+          : undefined,
+      transform: (code, id) =>
+        id.endsWith('/src/client/network/network.ts')
+          ? code + '\nexport {makeEntity};'
+          : undefined,
+    },
+    buildPrePlugin(),
+    testBuildPlugin(),
+  ],
+});
 
-  const { output } = await bundle.generate({
-    format: 'esm',
-    minify: production,
-  });
+const { output } = await bundle.generate({
+  format: 'esm',
+  minify: true,
+});
 
-  await bundle.close();
-  assert.equal(output[0].type, 'chunk');
-  await import(
-    'data:text/javascript;base64,' +
-      Buffer.from(output[0].code).toString('base64')
-  );
-}
+await bundle.close();
+assert.equal(output[0].type, 'chunk');
+await import(
+  'data:text/javascript;base64,' +
+    Buffer.from(output[0].code).toString('base64')
+);

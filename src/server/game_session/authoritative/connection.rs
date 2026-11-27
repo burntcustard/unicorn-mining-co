@@ -251,38 +251,3 @@ impl AuthoritativeSession {
         }
     }
 }
-
-#[cfg(all(test, feature = "test-fixtures"))]
-mod tests {
-    use crate::websocket::FixtureSocket;
-
-    use super::*;
-
-    #[test]
-    fn leaving_hides_the_ship_immediately_and_allows_reentry() {
-        let catalog = Arc::new(Catalog::load().unwrap());
-        let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
-        let mut socket = FixtureSocket::new();
-        let client = Client {
-            id: ClientId(1),
-            socket: socket.socket(),
-        };
-
-        session.receive(&client, Control::Hello { player_id: None });
-        socket.drain(|_| {});
-        let id = session.sockets[&client.id];
-        let account = session.accounts.get(&id).unwrap();
-        let (sector, ship) = (account.sector, account.ship_id);
-        assert!(session.sectors[sector].running.world.entity(ship).is_some());
-
-        session.receive(&client, Control::Leave);
-        assert!(session.sectors[sector].running.world.entity(ship).is_none());
-        assert_eq!(session.sockets[&client.id], id);
-
-        session.receive(&client, Control::Play);
-        assert!(session.sectors[sector].running.world.entity(ship).is_some());
-
-        session.disconnect(&client);
-        assert!(session.sectors[sector].running.world.entity(ship).is_some());
-    }
-}

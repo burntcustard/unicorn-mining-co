@@ -287,8 +287,10 @@ export async function preparePropertyCache(
 export function buildPlugin(
   flags: Record<string, boolean> = {},
   cache?: Awaited<ReturnType<typeof preparePropertyCache>>,
+  { sourceMaps = false }: { sourceMaps?: boolean } = {},
 ) {
   const nameCache = {};
+  const sourceMap = sourceMaps ? { includeSources: true } : undefined;
   let reserved: string[];
   let mangleQueue = Promise.resolve();
 
@@ -316,21 +318,28 @@ export function buildPlugin(
       // Transform modules before Rolldown assigns them to chunks. One cache
       // gives every use of a property the same spelling across lazy imports.
       const result = mangleQueue.then(() =>
-        minify(javascript, propertyMangleOptions(nameCache, reserved)),
+        minify(sourceMaps ? { [id]: javascript } : javascript, {
+          ...propertyMangleOptions(nameCache, reserved),
+          sourceMap,
+        }),
       );
 
       mangleQueue = result.then(() => {});
 
-      return result.then(({ code }) => ({ code }));
+      return result.then(({ code, map }) => ({
+        code,
+        map: map as string | undefined,
+      }));
     },
     renderChunk: {
       order: 'post',
-      handler(code) {
-        return minify(code, {
+      handler(code, { fileName }) {
+        return minify(sourceMaps ? { [fileName]: code } : code, {
           compress: false,
           mangle: true,
           module: true,
-        }).then(({ code }) => ({ code }));
+          sourceMap,
+        }).then(({ code, map }) => ({ code, map: map as string | undefined }));
       },
     },
     generateBundle: {

@@ -1,15 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { prepareNPCFixture } from '../../benchmarking/npc/fixture.ts';
 
 const entry = resolve('benchmarking/npc/run.ts');
 const directory = mkdtempSync(join(tmpdir(), 'unicorn-npc-startup-'));
@@ -139,16 +134,11 @@ try {
     const output = join(cwd, 'report.json');
     const actions = join(cwd, 'actions.log');
 
-    mkdirSync(fixture, { recursive: true });
-    writeFileSync(
-      otherManifest,
-      JSON.stringify({ directory: fixture, items: 6 }),
-    );
+    prepareNPCFixture({ directory: fixture, manifestPath: otherManifest });
     writeFileSync(actions, '');
 
     if (scenario.kind !== 'missing-fixture') {
-      mkdirSync(dirname(manifest), { recursive: true });
-      writeFileSync(manifest, JSON.stringify({ directory: fixture, items: 6 }));
+      prepareNPCFixture({ directory: fixture, manifestPath: manifest });
     }
 
     const result = spawnSync(

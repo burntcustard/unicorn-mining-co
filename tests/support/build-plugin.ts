@@ -1,6 +1,8 @@
 import type { Plugin } from 'vite';
 import { readFileSync } from 'node:fs';
-import { buildPlugin } from '../../plugins/build-plugins';
+import { rolldown } from 'rolldown';
+import { stripIfdef } from '../../plugins/replace-pre-terser';
+import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins';
 
 const cache = process.env.TEST_BUILD_CACHE
   ? JSON.parse(readFileSync(process.env.TEST_BUILD_CACHE, 'utf8'))
@@ -31,4 +33,53 @@ export function testBuildPlugin() {
 
   delete fixturePlugin.generateBundle;
   return fixturePlugin;
+}
+
+/**
+ * Run a scenario with the production transforms and browser API stubs.
+ */
+export async function runProductionScenario({
+  name,
+  source,
+  modules = {},
+}: {
+  name: string;
+  source: string;
+  modules?: Record<string, string>;
+}) {
+  const entry = `${process.cwd()}/src/__${name}_test.ts`;
+  const replacements = Object.entries(modules);
+
+  const bundle = await rolldown({
+    input: entry,
+    external: ['node:assert/strict'],
+    plugins: [
+      {
+        name,
+        resolveId: (id) => (id === entry ? entry : undefined),
+        load: (id) =>
+          id === entry
+            ? stripIfdef(
+                source.replace(
+                  /assert\.(\w+)/g,
+                  (_, method) => `Reflect.get(assert, '${method}')`,
+                ),
+              )
+            : replacements.find(([path]) => id.endsWith(path))?.[1],
+      },
+      buildPrePlugin(),
+      testBuildPlugin(),
+    ],
+  });
+
+  try {
+    const { output } = await bundle.generate({ format: 'esm', minify: true });
+    const code = output[0].code + `\n//# sourceURL=${name}.fixture.js`;
+
+    return await import(
+      `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`
+    );
+  } finally {
+    await bundle.close();
+  }
 }

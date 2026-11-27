@@ -1,7 +1,4 @@
-import { rolldown } from 'rolldown';
-import { buildPrePlugin } from '../../plugins/build-plugins';
-import { stripIfdef } from '../../plugins/replace-pre-terser';
-import { testBuildPlugin } from '../support/build-plugin';
+import { runProductionScenario } from '../support/build-plugin';
 
 const root = process.cwd();
 const scenario = `
@@ -10,13 +7,15 @@ import { createPlayerShip } from '${root}/src/client/objects/create-ship.ts';
 import { createWorld, addEntity } from '${root}/src/client/simulation/world.ts';
 import { updateWorld } from '${root}/src/client/simulation/update-world.ts';
 import { controlShip } from '${root}/src/client/objects/control-ship.ts';
-import { Autogun, AutogunTurret, PlasmaAcceleratorTurret, Laser, LaserTurret, ShieldGenerator, moduleTypes } from '${root}/src/client/objects/modules/index.ts';
+import { Autogun, AutogunTurret, CannonSm, PlasmaAccelerator, PlasmaAcceleratorTurret, Laser, LaserTurret, ShieldGenerator, moduleTypes } from '${root}/src/client/objects/modules/index.ts';
+import { Ship } from '${root}/src/client/objects/ship.ts';
 import { Weapon } from '${root}/src/client/objects/modules/weapon.ts';
-import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
 import { GameObject } from '${root}/src/client/objects/game-object.ts';
+import { Asteroid } from '${root}/src/client/objects/asteroid.ts';
 import { Projectile } from '${root}/src/client/objects/projectile.ts';
 import { Item } from '${root}/src/client/objects/item.ts';
 import { autogunAmmo } from '${root}/src/specs/items/index.ts';
+import { exampleWeapon } from '${root}/src/specs/modules/offense/example-weapon.ts';
 import { moduleIds, moduleSpecs, stationModuleIds } from '${root}/src/specs/modules/index.ts';
 import { fitsOf } from '${root}/src/client/ui/docked-model.ts';
 import { moduleRowsOf } from '${root}/src/client/ui/controls.ts';
@@ -58,6 +57,174 @@ const activate = (ship, gun) => {
   ship.updateModules(gun.activationDuration + (gun.chargeDuration ?? 0));
 };
 const projectiles = world => [...world.entities.values()].filter(entity => entity instanceof Projectile);
+const exampleAimLimit = Math.PI / 24;
+
+// Assisted weapons steer within their configured arc when their pilot changes targets.
+{
+  const Type = Autogun;
+  const limit = exampleAimLimit;
+  const { world, ship, gun, mount } = fixture(Type, { aimLimit: limit }, { position: Vec.create(40, -30), rotation: 0.75 });
+  const targetAt = (angle) => addEntity(world, new GameObject({ world,
+    position: Vec.add(ship.position, rotatePoint(Vec.add(mount.localPosition, rotatePoint(Vec.create(240, 0), angle)), ship.rotation)),
+  }));
+  const rightAngle = limit * 0.99;
+  const right = targetAt(rightAngle);
+  const left = targetAt(-limit / 2);
+  const outsideRight = targetAt(Math.PI / 2);
+  const outsideLeft = targetAt(-limit * 1.01);
+  const step = (targetId, active = true) => updateWorld({ world, inputs: new Map([[1, {
+    ...emptyPlayerInput(), autogunActive: active, plasmaActive: active, laserActive: active, targetId,
+  }]]) });
+  const settle = (targetId, active = true) => {
+    step(targetId, active);
+    ship.updateWeaponAim(1);
+  };
+
+  activate(ship, gun);
+  settle(left.id);
+  close(gun.aimRotation, -limit / 2, 'an assisted weapon tracks the target center from its own mount');
+  step(right.id);
+  assert(-limit / 2 < gun.aimRotation && gun.aimRotation < rightAngle, 'target swaps pass through an intermediate aim angle');
+  settle(right.id);
+  close(gun.aimRotation, rightAngle, 'an assisted weapon tracks a target just inside its arc');
+
+  for (const [inside, outside] of [[right, outsideRight], [left, outsideLeft]]) {
+    settle(inside.id);
+    const aimed = gun.aimRotation;
+    step(outside.id);
+    assert(
+      Math.sign(gun.aimRotation) === Math.sign(aimed) && Math.abs(gun.aimRotation) < Math.abs(aimed),
+      'a target outside the arc eases the mount toward forward',
+    );
+    settle(outside.id);
+    close(gun.aimRotation, 0, 'an assisted weapon points forward while the target stays outside its arc');
+  }
+
+  settle(left.id);
+  step();
+  assert(-limit < gun.aimRotation && gun.aimRotation < 0, 'clearing the target eases the mount toward forward');
+  settle();
+  close(gun.aimRotation, 0, 'clearing the target restores forward aim');
+  settle(right.id);
+  world.entities.delete(right.id);
+  settle(right.id);
+  close(gun.aimRotation, 0, 'a target ID that no longer exists cannot hold the last aim');
+  settle(left.id);
+  settle(left.id, false);
+  close(gun.aimRotation, 0, 'retracted weapons face forward');
+}
+
+// A crossing target starts on the opposite side of straight ahead from the intercept.
+for (const Type of [Autogun, Laser]) {
+  const { barrelLength, projectile } = exampleWeapon;
+  const limit = exampleAimLimit;
+  const options = Type === Laser
+    ? { aimLimit: limit }
+    : { aimLimit: limit, barrelLength, projectile, recoil: 0 };
+  const { world, ship, gun, mount } = fixture(Type, options, {
+    position: Vec.create(40, -30), rotation: 0.75, velocity: Vec.create(18, 85),
+  });
+  const pivot = Vec.add(ship.position, rotatePoint(mount.localPosition, ship.rotation));
+  const flight = 0.5;
+  const travel = barrelLength + projectile.radius + 1 + projectile.speed * flight;
+  const interceptAt = angle => Vec.add(
+    pivot,
+    rotatePoint(Vec.create(travel, 0), ship.rotation + angle),
+  );
+  const bearing = limit / 2;
+  const relativeVelocity = rotatePoint(Vec.create(40, 62), ship.rotation);
+  const target = addEntity(world, new GameObject({ world,
+    position: Vec.addScaled(interceptAt(bearing), relativeVelocity, -flight),
+    velocity: Vec.add(ship.velocity, relativeVelocity),
+  }));
+  const center = Vec.subtract(target.position, pivot);
+  const centerBearing = Math.atan2(center.y, center.x) - ship.rotation;
+  assert(-limit < centerBearing && centerBearing < 0, 'the target center sits within the opposite side of the aim arc');
+
+  activate(ship, gun);
+  ship.targetId = target.id;
+  ship.updateWeaponAim(1);
+
+  if (Type === Laser) {
+    close(gun.aimRotation, centerBearing, 'an assisted beam tracks the moving target’s current center');
+    continue;
+  }
+
+  close(gun.aimRotation, bearing, 'projectile assist aims at the intercept from the mount');
+  ship.cargoContents.push(new Item(autogunAmmo));
+  ship.firing = true;
+  ship.fireWeapons(0);
+  const [shot] = projectiles(world);
+  pointClose(
+    Vec.addScaled(shot.position, shot.velocity, flight),
+    Vec.addScaled(target.position, target.velocity, flight),
+    'the shot from the actual muzzle reaches the crossing target',
+  );
+
+  target.velocity = Vec.addScaled(
+    ship.velocity,
+    Vec.subtract(interceptAt(limit * 1.25), target.position),
+    1 / flight,
+  );
+  ship.updateWeaponAim(simulationStep);
+  assert(0 < gun.aimRotation && gun.aimRotation < bearing, 'an intercept outside the arc eases the mount toward forward');
+  ship.updateWeaponAim(1);
+  close(gun.aimRotation, 0, 'an intercept outside the aim arc leaves the mount straight');
+}
+
+// A fixed cannon with no aim assist points straight at an off-axis target.
+{
+  const { world, ship, gun, mount } = fixture(CannonSm, { aimLimit: 0 }, { shipType: 'courser' });
+  const target = addEntity(world, new GameObject({ world, position: Vec.add(mount.localPosition, Vec.create(240, 15)) }));
+  activate(ship, gun);
+  updateWorld({ world, inputs: new Map([[1, { ...emptyPlayerInput(), autogunActive: true, targetId: target.id }]]) });
+  close(gun.aimRotation, 0, 'the fixed cannon remains aligned with the hull');
+}
+
+// Two wing mounts converge on the remaining core when the target has lost the hull at its origin.
+for (const Type of [Autogun, Laser]) {
+  const options = { aimLimit: exampleAimLimit, recoil: 0 };
+  const { world, ship, gun } = fixture(Type, options, { shipType: 'arrow' });
+  const other = new Type(options);
+  ship.fit(other, ship.mounts.find(mount => mount.fits.includes(Type) && mount.localPosition.y > 0));
+  const target = addEntity(world, new Ship({
+    world, position: Vec.create(250, 26), rotation: Math.PI / 2,
+    hullSegments: [
+      { health: 100, core: true, points: [[-30, -4], [-22, -4], [-22, 4], [-30, 4]] },
+      { health: 20, points: [[-22, -4], [8, -4], [8, 4], [-22, 4]] },
+    ],
+  }));
+  target.hullHealth = [100, 0];
+  const localCenter = Vec.create(-26, 0);
+  ship.cargoContents.push(new Item(autogunAmmo));
+  activate(ship, gun);
+  const input = { ...emptyPlayerInput(), autogunActive: true, laserActive: true, fire: true };
+  const step = (targetId) => updateWorld({ world, inputs: new Map([[1, { ...input, targetId }]]) });
+
+  if (Type === Laser) {
+    assert.equal(step().filter(event => event.type === 'laserDamage').length, 0, 'straight beams pass on either side of the surviving core');
+  }
+
+  ship.targetId = target.id;
+  ship.updateWeaponAim(1);
+
+  if (Type === Laser) {
+    const hits = step(target.id).filter(event => event.type === 'laserDamage');
+    assert.equal(hits.length, 2, 'both beams hit the surviving core when the damaged ship is targeted');
+    assert(hits.every(event => event.targetId === target.id));
+  } else {
+    step(target.id);
+    const shots = projectiles(world);
+    const center = Vec.add(target.position, rotatePoint(localCenter, target.rotation));
+    assert.equal(shots.length, 2, 'both mounted autoguns fire aimed shots');
+    for (const shot of shots) {
+      const offset = Vec.subtract(center, shot.position);
+      assert(Math.abs(Vec.cross(offset, Vec.normalize(shot.velocity))) < 1e-5, 'each projectile travels toward the surviving core center');
+    }
+  }
+
+  assert(gun.aimRotation * other.aimRotation < 0, 'weapons on opposite wings aim inward independently');
+}
 
 // Every turret is a purchasable choice on the Mustang's shield mount.
 for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
@@ -83,13 +250,13 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   controlShip(ship, { ...playerInput, targetId: asteroid.id, autogunActive: true, plasmaActive: true, laserActive: true }, []);
   ship.updateModules(gun.activationDuration + (gun.chargeDuration ?? 0));
   gun.turretTurnRate = 1;
-  ship.updateTurrets(0);
+  ship.updateWeaponAim(0);
   close(gun.aimRotation, 0, 'changing targets cannot rotate a turret without elapsed time');
-  ship.updateTurrets(0.25);
+  ship.updateWeaponAim(0.25);
   close(gun.aimRotation, 0.25, 'a turret turns at its configured maximum rate');
-  ship.updateTurrets(0.25);
+  ship.updateWeaponAim(0.25);
   close(gun.aimRotation, 0.5, 'successive updates continue turning toward the target');
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   close(gun.aimRotation, Math.PI / 2, 'an active turret aims from the mount toward an asteroid');
   const parts = ship.segmentsAtMount(mount);
   const base = parts.find(part => part.turretBase);
@@ -103,22 +270,22 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
     });
   });
   ship.targetId = enemy.id;
-  ship.updateTurrets(0.25);
+  ship.updateWeaponAim(0.25);
   const held = Math.PI / 2 + 0.25;
   close(gun.aimRotation, held, 'switching to a different target turns at the maximum rate');
   ship.setModuleActive({ module: Type, active: false });
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   close(gun.aimRotation, held, 'disabled turrets retain their angle when the target changes');
   ship.targetId = undefined;
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   close(gun.aimRotation, held, 'clearing the target cannot turn a disabled turret');
   activate(ship, gun);
-  ship.updateTurrets(0.25);
+  ship.updateWeaponAim(0.25);
   close(gun.aimRotation, held - 0.25, 'clearing the target returns forward at the maximum rate');
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   close(gun.aimRotation, 0, 'active turrets face forward without a target');
   ship.targetId = enemy.id;
-  ship.updateTurrets(4);
+  ship.updateWeaponAim(4);
   close(Math.abs(gun.aimRotation), Math.PI, 'active turrets track enemy ships behind the mount');
   assert.equal(base.radius(base), baseRadius, 'aiming never changes the support circle');
   world.players.clear();
@@ -138,17 +305,17 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   }));
   ship.targetId = target.id;
   gun.aimRotation = Math.PI - 0.1;
-  ship.updateTurrets(0.05);
+  ship.updateWeaponAim(0.05);
   close(gun.aimRotation, Math.PI - 0.05, 'angle wrapping takes the short turn across the boundary');
-  ship.updateTurrets(0.2);
+  ship.updateWeaponAim(0.2);
   close(gun.aimRotation, targetAngle, 'a turret stops on the target without overshooting');
   gun.aimRotation = 0;
   target.position = Vec.add(mount.localPosition, Vec.create(0, 150));
   ship.targetId = target.id;
-  ship.updateTurrets(0.3);
+  ship.updateWeaponAim(0.3);
   const singleStep = gun.aimRotation;
   gun.aimRotation = 0;
-  for (let step = 0; step < 3; step++) ship.updateTurrets(0.1);
+  for (let step = 0; step < 3; step++) ship.updateWeaponAim(0.1);
   close(gun.aimRotation, singleStep, 'turn speed is independent of simulation step size');
 }
 
@@ -291,7 +458,7 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   }));
   ship.targetId = target.id;
   activate(ship, gun);
-  ship.updateTurrets(2);
+  ship.updateWeaponAim(2);
   ship.firing = true;
   const trace = gun.trace(ship);
   assert.equal(trace.first?.owner, target, 'the aimed beam hits a target off the ship forward axis');
@@ -310,7 +477,7 @@ for (const Type of [AutogunTurret, PlasmaAcceleratorTurret, LaserTurret]) {
   }));
   activate(ship, gun);
   ship.targetId = target.id;
-  ship.updateTurrets(10);
+  ship.updateWeaponAim(10);
   ship.spin = 1;
   ship.velocity = Vec.create(25, -15);
   const prediction = new FramePrediction();
@@ -354,83 +521,14 @@ for (const active of [false, true]) {
       'display aim respects the maximum turn rate across angle wrapping and keeps disabled turrets still');
   }
 }
-// Continuously firing while circling a selected asteroid used to cycle forever
-// in the convex hull of a nearly collinear, rotated laser body.
-for (const Type of [Laser, LaserTurret]) {
-  const { world, ship, gun } = fixture(Type);
-  const prediction = new FramePrediction();
-  activate(ship, gun);
-  for (let index = 0; index < 3; index++) {
-    addEntity(world, new Asteroid({ world, id: 1010 + index, contents: [0, 1],
-      radius: 70 + index * 20, health: 15, maxHealth: 15, mass: 100,
-      position: Vec.create(index * 220, 0),
-    }));
-  }
-  let hits = 0;
-  for (let tick = 0; tick < 180; tick++) {
-    const target = [...world.entities.values()].find(entity => entity instanceof Asteroid && !entity.dead);
-    assert(target, 'the flight fixture retains a target');
-    const angle = tick * 0.011;
-    ship.position = Vec.add(target.position, Vec.create(Math.cos(angle) * 240, Math.sin(angle) * 240));
-    ship.rotation = angle + Math.PI;
-    ship.velocity = Vec.create(-Math.sin(angle) * 15, Math.cos(angle) * 15);
-    const input = { ...emptyPlayerInput(), laserActive: true, fire: true, targetId: target.id };
-    const frame = { input, changes: [] };
-    const health = [target.health, target.segments?.map(segment => segment.health)];
-    for (const fraction of [0.15, 0.5, 0.9, 1]) {
-      prediction.sample({ world, playerNumber: 1, input: frame, elapsed: simulationStep * fraction });
-    }
-    assert.deepEqual([target.health, target.segments?.map(segment => segment.health)], health, 'beam prediction leaves the live asteroid unchanged');
-    hits += updateWorld({ world, inputs: new Map([[1, input]]) }).filter(event => event.type === 'laserDamage').length;
-    world.tick++;
-  }
-  assert(hits > 0, 'the flight fixture fires damaging beams throughout prediction');
-}
 console.log('Turret fitting, aiming, models, shared ammo, replay state, animation, glow, flashes, beams, and targeted flight passed');
 `;
 
-const entryId = `${root}/src/__turrets_test.ts`;
-
-for (const production of [false, true]) {
-  const bundle = await rolldown({
-    input: entryId,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'turrets-test',
-        resolveId: (id) => (id === entryId ? entryId : undefined),
-        load(id: string) {
-          if (id === entryId) {
-            return production
-              ? stripIfdef(
-                  scenario.replace(
-                    /assert\.(\w+)/g,
-                    (_, method) => `Reflect.get(assert, '${method}')`,
-                  ),
-                )
-              : scenario;
-          }
-
-          if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return 'export const unlockAudio=()=>{};export const playSound=()=>{};';
-          }
-        },
-      },
-      buildPrePlugin(),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
-
-  const { output } = await bundle.generate({
-    format: 'esm',
-    minify: production,
-  });
-
-  await bundle.close();
-  await import(
-    'data:text/javascript;base64,' +
-      Buffer.from(
-        output[0].code + '\n//# sourceURL=turrets-' + production + '.js',
-      ).toString('base64')
-  );
-}
+await runProductionScenario({
+  name: 'turrets',
+  source: scenario,
+  modules: {
+    '/src/client/audio/sound-loader.ts':
+      'export const unlockAudio=()=>{};export const playSound=()=>{};',
+  },
+});

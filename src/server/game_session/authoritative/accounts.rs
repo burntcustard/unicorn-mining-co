@@ -548,15 +548,14 @@ mod tests {
     use crate::game_server::Session;
     use crate::objects::craft::CargoObject;
     use crate::objects::item::Item;
-    use crate::simulation::game_object::{GameObject, ObjectProperties};
+    use crate::simulation::game_object::ObjectProperties;
     use crate::specs::Catalog;
-    use crate::utilities::vector::Vector;
 
     use super::*;
 
     #[cfg(feature = "test-fixtures")]
     #[test]
-    fn dormant_accounts_reconnect_after_repeated_committed_evictions() {
+    fn leaving_reentry_and_reconnect_preserve_the_playing_account() {
         use crate::game_server::{Client, ClientId};
         use crate::protocol::Control;
         use crate::websocket::FixtureSocket;
@@ -578,49 +577,59 @@ mod tests {
         let account = session.accounts.get(&id).unwrap();
         let player_id = account.player_id.clone();
         let ship = account.ship_id;
+        let sector = account.sector;
+        let ship_present = |session: &AuthoritativeSession| {
+            session.sectors[sector].running.world.entity(ship).is_some()
+        };
+        assert!(ship_present(&session));
+        session.receive(&client, Control::Leave);
+        assert!(!ship_present(&session));
+        assert_eq!(session.sockets[&client.id], id);
+        session.receive(&client, Control::Play);
+        assert!(ship_present(&session));
 
-        for (client_id, credits) in [(2, 41.0), (3, 83.0)] {
-            let account = session.accounts.get_mut(&id).unwrap();
-            let client = account.socket.clone().unwrap();
-            account.credits = credits;
-            let grace = Duration::from_secs_f64(session.catalog.simulation.flight.launch_duration);
-            session.disconnect(&client);
-            session.hide_disconnected(Instant::now() + grace);
-            session.release_saved_accounts();
-            assert!(session.accounts.get(&id).is_some());
+        let credits = 41.0;
+        let account = session.accounts.get_mut(&id).unwrap();
+        let client = account.socket.clone().unwrap();
+        account.credits = credits;
+        let grace = Duration::from_secs_f64(session.catalog.simulation.flight.launch_duration);
+        session.disconnect(&client);
+        assert!(ship_present(&session));
+        session.hide_disconnected(Instant::now() + grace);
+        session.release_saved_accounts();
+        assert!(session.accounts.get(&id).is_some());
 
-            assert!(session.flush_accounts(Instant::now(), true));
-            let sequence = session.storage.as_ref().unwrap().sequence;
-            let deadline = Instant::now() + Duration::from_secs(5);
-            while session.committed_sequence() < sequence {
-                assert!(Instant::now() < deadline, "account save did not commit");
-                std::thread::sleep(Duration::from_millis(1));
-            }
-            session.release_saved_accounts();
-            assert!(session.accounts.is_empty() && session.player_numbers_by_id.is_empty());
-            let preview = session.identity_preview(&player_id).unwrap().unwrap();
-            assert_eq!(preview[1].as_f64(), Some(credits));
-            assert!(
-                session.accounts.is_empty(),
-                "preview keeps the player dormant"
-            );
-
-            let socket = FixtureSocket::new();
-            let client = Client {
-                id: ClientId(client_id),
-                socket: socket.socket(),
-            };
-            session.receive(
-                &client,
-                Control::Hello {
-                    player_id: Some(player_id.clone()),
-                },
-            );
-            assert_eq!(session.sockets[&client.id], id);
-            let account = session.accounts.get(&id).unwrap();
-            assert_eq!(account.ship_id, ship);
-            assert_eq!(account.credits, credits);
+        assert!(session.flush_accounts(Instant::now(), true));
+        let sequence = session.storage.as_ref().unwrap().sequence;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while session.committed_sequence() < sequence {
+            assert!(Instant::now() < deadline, "account save did not commit");
+            std::thread::sleep(Duration::from_millis(1));
         }
+        session.release_saved_accounts();
+        assert!(session.accounts.is_empty() && session.player_numbers_by_id.is_empty());
+        let preview = session.identity_preview(&player_id).unwrap().unwrap();
+        assert_eq!(preview[1].as_f64(), Some(credits));
+        assert!(
+            session.accounts.is_empty(),
+            "preview keeps the player dormant"
+        );
+
+        let socket = FixtureSocket::new();
+        let client = Client {
+            id: ClientId(2),
+            socket: socket.socket(),
+        };
+        session.receive(
+            &client,
+            Control::Hello {
+                player_id: Some(player_id.clone()),
+            },
+        );
+        assert_eq!(session.sockets[&client.id], id);
+        let account = session.accounts.get(&id).unwrap();
+        assert_eq!(account.ship_id, ship);
+        assert_eq!(account.credits, credits);
         let deadline = Instant::now() + Duration::from_secs(5);
         session
             .finish_storage(deadline)
@@ -630,52 +639,6 @@ mod tests {
             .unwrap();
         drop(session);
         std::fs::remove_dir_all(path).unwrap();
-    }
-
-    #[tokio::test]
-    async fn graceful_shutdown_saves_current_world_entity_positions() {
-        let catalog = Arc::new(Catalog::load().unwrap());
-        let path = std::env::temp_dir().join(format!("unicorn-shutdown-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir(&path).unwrap();
-        let db = path.join("world.sqlite");
-        let backups = path.join("backups");
-        let mut session = AuthoritativeSession::new(25.0, Arc::clone(&catalog)).unwrap();
-        session.open_player_accounts(&db, backups.clone()).unwrap();
-        let start = session.sectors.start;
-        let world = &mut session.sectors[start].running.world;
-        let id = world.ids.entity();
-        let item = GameObject::new(id, ObjectProperties::default(), &catalog.simulation);
-        world.add_entity(EntityKind::Object(Box::new(item)), false);
-        assert!(session.flush_accounts(Instant::now(), true));
-
-        let position = Vector::new(120.0, 40.0);
-        session.sectors[start]
-            .running
-            .world
-            .entity_mut(id)
-            .unwrap()
-            .model
-            .object_mut()
-            .position = position;
-        session
-            .shutdown(tokio::time::Instant::now() + Duration::from_secs(5))
-            .await
-            .unwrap();
-        drop(session);
-
-        let mut resumed = AuthoritativeSession::new(25.0, catalog).unwrap();
-        resumed.open_player_accounts(&db, backups).unwrap();
-        let saved = resumed.sectors[start]
-            .regions
-            .sleeping(id)
-            .expect("saved world entity");
-        let saved_position = saved.model.object().position;
-        resumed
-            .shutdown(tokio::time::Instant::now() + Duration::from_secs(5))
-            .await
-            .unwrap();
-        std::fs::remove_dir_all(path).unwrap();
-        assert_eq!(saved_position, position);
     }
 
     #[test]

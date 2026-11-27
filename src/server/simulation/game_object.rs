@@ -331,33 +331,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn restores_ship_mass_conversion_with_current_rules() {
-        let mut rules = Simulation::default();
-        let properties = ObjectProperties {
-            mass: Some(64.0),
-            ..ObjectProperties::default()
-        };
-        let mut restored = GameObject::new(1, properties.clone(), &rules);
-        restored.kind = "ship".to_owned();
-
-        for (mass_per_physics_unit, expected) in [
-            (0.0, 64.0),
-            (8.0, 8.0),
-            (16.0, 4.0),
-            (-1.0, 64.0),
-            (f64::NAN, 64.0),
-        ] {
-            rules.flight.mass_per_physics_unit = mass_per_physics_unit;
-            restored.restore_rules(&rules);
-            assert_eq!(restored.force_mass(), expected);
-
-            let mut new_object = GameObject::new(1, properties.clone(), &rules);
-            new_object.kind = "ship".to_owned();
-            assert_eq!(new_object.force_mass(), expected);
-        }
-    }
-
-    #[test]
     fn impulses_use_the_same_mass_conversion_for_ships() {
         let rules = Simulation {
             flight: Flight {

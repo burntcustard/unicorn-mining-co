@@ -1,8 +1,4 @@
-/* global Buffer, process */
-import { rolldown } from 'rolldown';
-import { buildPrePlugin } from '../../plugins/build-plugins.ts';
-import { stripIfdef } from '../../plugins/replace-pre-terser.ts';
-import { testBuildPlugin } from '../support/build-plugin.ts';
+import { runProductionScenario } from '../support/build-plugin';
 
 const root = process.cwd();
 const scenario = `
@@ -282,46 +278,11 @@ updateSparks(1);assert.equal(sparks.length,0);
 console.log('Generic effect geometry, animation, placement, lifetime and presentation passed');
 `;
 
-const entryId = `${root}/src/__explosion_effects_test.ts`;
-
-for (const production of [false, true]) {
-  const bundle = await rolldown({
-    input: entryId,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'explosion-effects-test',
-        resolveId: (id) => (id === entryId ? entryId : undefined),
-        load(id: string) {
-          if (id === entryId) {
-            return production
-              ? stripIfdef(
-                  scenario.replace(
-                    /assert\.(\w+)/g,
-                    (_, method) => `Reflect.get(assert, '${method}')`,
-                  ),
-                )
-              : scenario;
-          }
-
-          if (id.endsWith('/src/client/audio/sound-loader.ts')) {
-            return 'export const playSound=()=>{};export const updateThrusterSound=()=>{};';
-          }
-        },
-      },
-      buildPrePlugin(),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
-
-  const { output } = await bundle.generate({
-    format: 'esm',
-    minify: production,
-  });
-
-  await bundle.close();
-  await import(
-    'data:text/javascript;base64,' +
-      Buffer.from(output[0].code).toString('base64')
-  );
-}
+await runProductionScenario({
+  name: 'explosion-effects',
+  source: scenario,
+  modules: {
+    '/src/client/audio/sound-loader.ts':
+      'export const playSound=()=>{};export const updateThrusterSound=()=>{};',
+  },
+});

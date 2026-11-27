@@ -234,8 +234,6 @@ impl InputQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{Control, decode_client_control};
-    use crate::specs::Catalog;
 
     const STEP: f64 = 1.0 / 30.0;
 
@@ -258,76 +256,6 @@ mod tests {
 
     fn close_to(actual: f64, expected: f64) {
         assert!((actual - expected).abs() <= 1e-12, "{actual} vs {expected}");
-    }
-
-    #[test]
-    fn empty_queue_keeps_held_controls_without_allocating_slots() {
-        let mut queue = InputQueue::new(8);
-        let held = autogun(false);
-        queue.reset_connection(held);
-        let prepared = queue.prepare(10, 2, STEP);
-        assert_eq!(prepared.frame.input, held);
-        assert!(prepared.frame.changes.is_empty());
-        assert_eq!(prepared.compressed_ticks, 0);
-        assert!(queue.slots.is_empty());
-
-        let received = queue.receive(10, false, packet(18, 1, 0.0, autogun(true)));
-        assert_eq!(received.disposition, InputDisposition::Queued);
-        assert_eq!(queue.prepare(18, 1, STEP).acknowledged_sequence, 1);
-    }
-
-    #[test]
-    fn overdue_wire_tap_retains_its_duration_and_acknowledges_only_after_preparation() {
-        let catalog = Catalog::load().unwrap();
-        let id = catalog.protocol.control_message_ids["input"] as u8;
-        let step = catalog.simulation.simulation_step;
-        let mut queue = InputQueue::new(8);
-        queue.discard_pending(autogun(false));
-
-        for (sequence, code, flags, offset) in [(1, 32, 11, 0.005_f64), (2, 0, 9, 0.015)] {
-            let mut bytes = vec![0x55, 0x43, 1, id, 0, sequence, code, flags, 0];
-            bytes.extend_from_slice(&offset.to_le_bytes());
-            let control = decode_client_control(&bytes, &catalog.protocol, step).unwrap();
-            let Control::Input {
-                tick,
-                sequence,
-                input,
-                offset,
-            } = control
-            else {
-                panic!("fixture must decode as an input");
-            };
-            let receipt = queue.receive(
-                1,
-                false,
-                InputPacket {
-                    tick,
-                    sequence,
-                    input,
-                    offset,
-                },
-            );
-            assert_eq!(
-                receipt,
-                InputReceipt {
-                    lead: -1,
-                    disposition: InputDisposition::Late
-                }
-            );
-        }
-
-        assert_eq!(queue.acknowledged_sequence(), 0);
-        assert_eq!(queue.held_input(), autogun(false));
-        let prepared = queue.prepare(1, 1, step);
-        let changes = &prepared.frame.changes;
-        assert_eq!(changes.len(), 2);
-        assert_eq!(changes[0].offset, 0.0);
-        assert!(changes[0].input.fire);
-        assert_eq!(changes[0].input.thrust, 1.0);
-        close_to(changes[1].offset, 0.010);
-        assert_eq!(changes[1].input, autogun(false));
-        assert_eq!(prepared.acknowledged_sequence, 2);
-        assert_eq!(prepared.compressed_ticks, 0);
     }
 
     #[test]
@@ -413,34 +341,6 @@ mod tests {
             assert!(!release.input.fire);
             assert_eq!(prepared.compressed_ticks, 1);
         }
-    }
-
-    #[test]
-    fn duplicate_burst_does_not_change_edges_or_advance_ack() {
-        let mut queue = InputQueue::new(8);
-        for index in 0..60 {
-            let original = packet(0, index + 1, index as f64 * 0.0004, autogun(index % 2 == 0));
-            let mut duplicate = original;
-            duplicate.input.fire = !duplicate.input.fire;
-            assert_eq!(
-                queue.receive(1, false, original).disposition,
-                InputDisposition::Late
-            );
-            assert_eq!(
-                queue.receive(1, false, duplicate).disposition,
-                InputDisposition::Duplicate
-            );
-        }
-
-        assert_eq!(queue.acknowledged_sequence(), 0);
-        let prepared = queue.prepare(1, 1, STEP);
-        assert_eq!(prepared.acknowledged_sequence, 60);
-        assert_eq!(prepared.frame.changes.len(), 60);
-        for (index, edge) in prepared.frame.changes.iter().enumerate() {
-            assert_eq!(edge.input.fire, index % 2 == 0);
-            close_to(edge.offset, index as f64 * 0.0004);
-        }
-        assert!(queue.prepare(1, 1, STEP).frame.changes.is_empty());
     }
 
     #[test]

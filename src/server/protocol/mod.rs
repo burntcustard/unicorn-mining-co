@@ -3,8 +3,8 @@ mod binary_snapshot;
 mod events;
 mod input_frame;
 mod regions;
-#[cfg(any(test, feature = "test-fixtures"))]
-pub mod snapshot_fixture;
+#[cfg(test)]
+mod snapshot_fixture;
 mod sounds;
 mod wire;
 

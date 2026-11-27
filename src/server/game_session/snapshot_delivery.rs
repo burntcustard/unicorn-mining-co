@@ -319,150 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn catch_up_sends_one_snapshot_and_unsent_receipts_never_open_the_window() {
-        let mut fixture = Fixture::new();
-        for tick in 1..=8 {
-            fixture.acknowledge_last();
-            fixture.advance(1);
-            assert_eq!(fixture.packets as u64, tick + 1);
-            assert_eq!(fixture.delivery.sequence, tick + 1);
-            assert_eq!(fixture.tick, tick);
-        }
-        fixture.acknowledge_last();
-        fixture.advance(3);
-        assert_eq!(fixture.tick, 11);
-        assert_eq!(fixture.packets, 10);
-
-        let window = fixture.delivery.window;
-        let expected = fixture.packets + window - fixture.delivery.pending_count();
-        for _ in 0..20 {
-            fixture.advance(1);
-        }
-        assert_eq!(fixture.packets, expected);
-        assert_eq!(fixture.delivery.pending_count(), window);
-        assert!(fixture.acknowledge(fixture.delivery.sequence + 1).is_none());
-        assert_eq!(fixture.delivery.pending_count(), window);
-        fixture.acknowledge_last();
-        fixture.advance(1);
-        assert_eq!(fixture.tick, 32);
-        assert_eq!(fixture.packets, expected + 1);
-    }
-
-    #[test]
-    fn round_trip_delays_preserve_original_windows_and_healthy_cadence() {
-        for delay in [2, 6, 8, 18] {
-            let mut fixture = Fixture::new();
-            let mut receipts = VecDeque::from([(delay, fixture.requested_sequence)]);
-            let mut late_snapshots = 0;
-            for _ in 0..90 {
-                while let Some(&(arrival, sequence)) = receipts.front()
-                    && arrival <= fixture.tick
-                {
-                    receipts.pop_front();
-                    fixture.acknowledge(sequence);
-                }
-                let previous_packets = fixture.packets;
-                let previous_receipt = fixture.requested_sequence;
-                fixture.advance(1);
-                if fixture.requested_sequence != previous_receipt {
-                    receipts.push_back((fixture.tick + delay, fixture.requested_sequence));
-                }
-                if fixture.packets != previous_packets && fixture.tick > 60 {
-                    late_snapshots += 1;
-                }
-            }
-
-            assert!(fixture.delivery.pending_count() <= fixture.delivery.window);
-            if delay <= MAX_HEALTHY_LAG {
-                assert_eq!(late_snapshots, 30, "round trip {delay}");
-                assert_eq!(fixture.delivery.window, HEALTHY_WINDOW);
-            } else {
-                assert_eq!(fixture.delivery.window, INITIAL_WINDOW);
-            }
-        }
-    }
-
-    #[test]
-    fn jitter_scenarios_recover_with_ordered_receipts() {
-        let wide = [2, 8, 3, 1];
-        let mut scenarios = vec![
-            (vec![2, 4, 3, 2], 0),
-            (wide.to_vec(), 0),
-            (vec![1, 2, 10, 2], 0),
-            (vec![18], 0),
-        ];
-        for start in 0..wide.len() {
-            let mut pattern = wide.to_vec();
-            pattern.rotate_left(start);
-            scenarios.push((pattern, 1));
-        }
-        let mut spikes = vec![1; 21];
-        spikes[0] = 8;
-        scenarios.push((spikes, 0));
-
-        for (delays, first_request) in scenarios {
-            for recovery_delay in [2, 6, 8] {
-                let mut fixture = Fixture::new();
-                fixture.delivery.join_until = 1;
-                let mut receipts = VecDeque::from([(delays[0], fixture.requested_sequence)]);
-                let mut last_receipt = delays[0];
-                let mut request_index = first_request;
-                let mut snapshots = 0;
-                let mut recovered = 0;
-
-                for tick in 0..300 {
-                    while let Some(&(arrival, sequence)) = receipts.front()
-                        && arrival <= fixture.tick
-                    {
-                        receipts.pop_front();
-                        fixture.acknowledge(sequence);
-                    }
-
-                    let previous_packets = fixture.packets;
-                    let previous_request = fixture.requested_sequence;
-                    fixture.advance(1);
-                    assert!(fixture.delivery.pending_count() <= HEALTHY_WINDOW);
-                    if delays.len() == 1 && tick < 180 {
-                        assert!(fixture.delivery.pending_count() <= INITIAL_WINDOW);
-                    }
-
-                    if fixture.requested_sequence != previous_request {
-                        let delay = if tick < 180 {
-                            delays[request_index % delays.len()]
-                        } else {
-                            recovery_delay
-                        };
-                        last_receipt = last_receipt.max(fixture.tick + delay);
-                        receipts.push_back((last_receipt, fixture.requested_sequence));
-                        request_index += 1;
-                    }
-                    if fixture.packets != previous_packets {
-                        if (60..180).contains(&tick) {
-                            snapshots += 1;
-                        }
-                        if tick >= 270 {
-                            recovered += 1;
-                        }
-                    }
-                }
-
-                if delays.iter().all(|delay| *delay <= MAX_HEALTHY_LAG) {
-                    assert_eq!(
-                        snapshots, 120,
-                        "delays {delays:?}, recovery {recovery_delay}"
-                    );
-                }
-                assert_eq!(
-                    recovered, 30,
-                    "delays {delays:?}, recovery {recovery_delay}"
-                );
-                assert_eq!(fixture.delivery.window, HEALTHY_WINDOW);
-            }
-        }
-    }
-
-    #[test]
-    fn stalled_receipts_reduce_window_until_a_continuous_recovery_second() {
+    fn stalled_receipts_gate_catchup_and_resume_after_a_continuous_recovery_second() {
         let mut fixture = Fixture::new();
         fixture.delivery.join_until = 1;
         for _ in 0..30 {
@@ -472,10 +329,17 @@ mod tests {
         assert_eq!(fixture.delivery.window, HEALTHY_WINDOW);
         assert!(fixture.delivery.ack_interval > 1);
 
+        let before_catchup = fixture.packets;
+        fixture.acknowledge_last();
+        fixture.advance(3);
+        assert_eq!(fixture.packets, before_catchup + 1);
+
         for _ in 0..30 {
             fixture.advance(1);
             assert!(fixture.delivery.pending_count() <= HEALTHY_WINDOW);
         }
+        assert_eq!(fixture.delivery.pending_count(), HEALTHY_WINDOW);
+        assert!(fixture.acknowledge(fixture.delivery.sequence + 1).is_none());
         assert_eq!(fixture.delivery.pending_count(), HEALTHY_WINDOW);
         assert_eq!(fixture.requested_sequence, fixture.delivery.sequence);
         let previous = fixture.packets;

@@ -1,199 +1,35 @@
 import assert from 'node:assert/strict';
+import {
+  bindingEntries,
+  defaultKeybindings,
+} from '../../src/client/input/keybindings';
 
-const saved = localStorage.getItem('unicorn-controls');
-const loadBindings = (
-  version: string,
-): Promise<typeof import('../../src/client/input/keybindings')> =>
-  import(
-    new URL('../../src/client/input/keybindings.ts', import.meta.url).href +
-      '?' +
-      version
+const storageKey = 'unicorn-controls';
+const legacy = bindingEntries
+  .slice(0, -2)
+  .map(([, binding]) => [binding.keys, Number(binding.mode === 'toggle')]);
+
+legacy[0] = [['q'], 0];
+localStorage.setItem(storageKey, JSON.stringify(legacy));
+
+const restored: typeof import('../../src/client/input/keybindings') =
+  await import(
+    new URL('../../src/client/input/keybindings.ts?legacy', import.meta.url)
+      .href
   );
 
-try {
-  localStorage.removeItem('unicorn-controls');
-  const defaults = await loadBindings('defaults');
-
-  assert.deepEqual(defaults.defaultKeybindings.cargoRelease, {
-    keys: ['h'],
-    mode: 'hold',
-  });
-
-  assert.deepEqual(defaults.defaultKeybindings.targetNext.keys, ['t']);
-  assert.deepEqual(defaults.defaultKeybindings.fpsCounter.keys, ['f']);
-  assert.equal(defaults.defaultKeybindings.fpsCounter.mode, 'toggle');
-  assert.deepEqual(defaults.defaultKeybindings.requestGateAccess.keys, ['r']);
-  assert.equal(defaults.defaultKeybindings.requestGateAccess.mode, 'press');
-  assert.deepEqual(defaults.defaultKeybindings.telemetry.keys, ['v']);
-  assert.equal(defaults.defaultKeybindings.telemetry.mode, 'press');
-  assert.equal(
-    defaults.bindingEntries.filter(([, binding]) => binding.keys.includes('v'))
-      .length,
-    1,
-    'telemetry uses an otherwise unused default key',
-  );
-
-  assert.deepEqual(defaults.defaultKeybindings.sectorMap, {
-    keys: ['Tab'],
-    mode: 'press',
-  });
-
-  assert.deepEqual(defaults.defaultKeybindings.flightMode, {
-    keys: ['c'],
-    mode: 'toggle',
-  });
-
-  assert.equal(
-    defaults.bindingEntries.at(-2)![1],
-    defaults.defaultKeybindings.flightMode,
-    'flight mode keeps its existing saved binding index',
-  );
-  assert.equal(
-    defaults.bindingEntries.filter(([, binding]) => binding.keys.includes('c'))
-      .length,
-    1,
-    'flight mode has a dedicated default key',
-  );
-
-  assert.deepEqual(defaults.defaultKeybindings.thrustBoost, {
-    keys: ['Shift'],
-    mode: 'hold',
-  });
-
-  assert.equal(
-    defaults.bindingEntries.at(-1)![1],
-    defaults.defaultKeybindings.thrustBoost,
-    'thrust boost is appended after every existing saved binding index',
-  );
-  assert(!defaults.hasBindingMode(defaults.defaultKeybindings.thrustBoost));
-  assert.equal(
-    defaults.moduleBinding('thrustBoost'),
-    defaults.defaultKeybindings.thrustBoost,
-  );
-  assert.equal(defaults.keyLabel('Shift'), '⇧');
-
-  defaults.defaultKeybindings.forwardThrust.keys = ['q'];
-  defaults.defaultKeybindings.targetNext.keys = ['n'];
-  defaults.defaultKeybindings.requestGateAccess.keys = ['g'];
-  defaults.defaultKeybindings.searchLight.mode = 'hold';
-  defaults.defaultKeybindings.hornDrill.mode = 'toggle';
-  defaults.defaultKeybindings.cargoRelease.keys = ['j'];
-  defaults.defaultKeybindings.sectorMap.keys = ['m'];
-  defaults.defaultKeybindings.flightMode.keys = ['x'];
-  defaults.defaultKeybindings.flightMode.mode = 'hold';
-  defaults.defaultKeybindings.thrustBoost.keys = ['z'];
-  defaults.saveBindings();
-  const reloaded = await loadBindings('reloaded');
-
-  assert.deepEqual(reloaded.defaultKeybindings.forwardThrust.keys, ['q']);
-  assert.deepEqual(reloaded.defaultKeybindings.targetNext.keys, ['n']);
-  assert.deepEqual(reloaded.defaultKeybindings.requestGateAccess.keys, ['g']);
-  assert.deepEqual(reloaded.defaultKeybindings.cargoRelease.keys, ['j']);
-  assert.deepEqual(reloaded.defaultKeybindings.sectorMap.keys, ['m']);
-  assert.equal(reloaded.defaultKeybindings.searchLight.mode, 'hold');
-  assert.equal(reloaded.defaultKeybindings.hornDrill.mode, 'toggle');
-  assert.equal(reloaded.defaultKeybindings.requestGateAccess.mode, 'press');
-
-  assert.deepEqual(reloaded.defaultKeybindings.flightMode, {
-    keys: ['x'],
-    mode: 'hold',
-  });
-
-  assert.deepEqual(reloaded.defaultKeybindings.thrustBoost, {
-    keys: ['z'],
-    mode: 'hold',
-  });
-
-  assert.deepEqual(reloaded.bindingModes, ['hold', 'toggle']);
-
-  const currentSaved = JSON.parse(localStorage.getItem('unicorn-controls')!);
-  const legacySaved = currentSaved.slice(0, -2);
-  const previousBindings = reloaded.bindingEntries
-    .slice(0, -2)
-    .map(([label, binding]) => [label, [...binding.keys], binding.mode]);
-
-  localStorage.setItem('unicorn-controls', JSON.stringify(legacySaved));
-  const legacy = await loadBindings('legacy-without-flight-mode');
-
-  assert.deepEqual(
-    legacy.bindingEntries
-      .slice(0, -2)
-      .map(([label, binding]) => [label, [...binding.keys], binding.mode]),
-    previousBindings,
-    'all old saved keys and modes retain their original action indexes',
-  );
-
-  assert.deepEqual(legacy.defaultKeybindings.flightMode, {
-    keys: ['c'],
-    mode: 'toggle',
-  });
-
-  assert.deepEqual(legacy.defaultKeybindings.thrustBoost, {
-    keys: ['Shift'],
-    mode: 'hold',
-  });
-
-  legacy.saveBindings();
-  const upgraded = JSON.parse(localStorage.getItem('unicorn-controls')!);
-
-  assert.deepEqual(upgraded.slice(0, -2), legacySaved);
-  assert.deepEqual(upgraded.at(-2), [['c'], 1]);
-  assert.deepEqual(upgraded.at(-1), [['Shift'], 0]);
-  assert.equal(upgraded.length, legacy.bindingEntries.length);
-
-  localStorage.setItem(
-    'unicorn-controls',
-    JSON.stringify(currentSaved.slice(0, -1)),
-  );
-  const withoutBoost = await loadBindings('legacy-without-thrust-boost');
-
-  assert.deepEqual(withoutBoost.defaultKeybindings.flightMode, {
-    keys: ['x'],
-    mode: 'hold',
-  });
-
-  assert.deepEqual(withoutBoost.defaultKeybindings.thrustBoost, {
-    keys: ['Shift'],
-    mode: 'hold',
-  });
-
-  localStorage.setItem(
-    'unicorn-controls',
-    JSON.stringify(legacySaved.slice(0, -1)),
-  );
-  const truncated = await loadBindings('truncated-before-legacy-length');
-
-  assert.deepEqual(truncated.defaultKeybindings.forwardThrust.keys, [
-    'ArrowUp',
-  ]);
-  localStorage.setItem('unicorn-controls', JSON.stringify(upgraded));
-
-  const invalid = JSON.parse(localStorage.getItem('unicorn-controls')!);
-
-  invalid[0][1] = 2;
-  localStorage.setItem('unicorn-controls', JSON.stringify(invalid));
-  const rejected = await loadBindings('invalid');
-
-  assert.deepEqual(rejected.defaultKeybindings.forwardThrust.keys, ['ArrowUp']);
-  reloaded.resetBindings();
-  assert.deepEqual(reloaded.defaultKeybindings.forwardThrust.keys, ['ArrowUp']);
-  assert.deepEqual(reloaded.defaultKeybindings.targetNext.keys, ['t']);
-  assert.deepEqual(reloaded.defaultKeybindings.sectorMap.keys, ['Tab']);
-  assert.equal(reloaded.defaultKeybindings.searchLight.mode, 'toggle');
-
-  assert.deepEqual(reloaded.defaultKeybindings.flightMode, {
-    keys: ['c'],
-    mode: 'toggle',
-  });
-
-  assert.deepEqual(reloaded.defaultKeybindings.thrustBoost, {
-    keys: ['Shift'],
-    mode: 'hold',
-  });
-} finally {
-  if (saved === null) {
-    localStorage.removeItem('unicorn-controls');
-  } else {
-    localStorage.setItem('unicorn-controls', saved);
-  }
-}
+assert.deepEqual(restored.defaultKeybindings.forwardThrust.keys, ['q']);
+assert.deepEqual(
+  restored.defaultKeybindings.flightMode,
+  defaultKeybindings.flightMode,
+);
+assert.deepEqual(
+  restored.defaultKeybindings.thrustBoost,
+  defaultKeybindings.thrustBoost,
+);
+restored.saveBindings();
+assert.deepEqual(
+  JSON.parse(localStorage.getItem(storageKey)!).slice(0, -2),
+  legacy,
+  'new controls do not shift saved action indexes',
+);

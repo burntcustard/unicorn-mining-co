@@ -10,7 +10,7 @@ use crate::utilities::vector::Vector;
 use crate::utilities::{TickTimerOptions, tick_due};
 
 use super::collection::collection_hatch;
-use super::flight::{AttackOptions, FlightTarget, Movement, Pilot};
+use super::flight::{AttackOptions, AttackWeapon, FlightTarget, Movement, Pilot};
 use super::navigation::{DockingGuide, Search};
 use super::prediction::ShipMotion;
 
@@ -78,7 +78,8 @@ pub struct ShipView {
     pub in_transit: bool,
     pub stranded: bool,
     pub has_hatch: bool,
-    pub has_cannon: bool,
+    pub has_weapon: bool,
+    pub weapon: AttackWeapon,
     pub releasing_cargo: bool,
     pub mined_cargo_value: f64,
     pub cargo_space: usize,
@@ -823,7 +824,7 @@ impl Pirate {
             environment.sell_cargo(self.ship_id, &mut self.state.credits, self.ammunition);
         }
         let mut remove = ship.dead || ship.docked || !ship.resident;
-        if !remove && !self.state.defeated && (!ship.has_hatch || !ship.has_cannon) {
+        if !remove && !self.state.defeated && (!ship.has_hatch || !ship.has_weapon) {
             let state = &mut self.state;
             state.defeated = true;
             state.activity = Activity::Returning;
@@ -1022,14 +1023,21 @@ impl Pirate {
                 self.state.activity = Activity::Fighting;
             }
             self.state.collect_after = 0.0;
-            let projectile_speed = catalog.module_specs["cannonSm"].projectile.speed;
+            input.laser_active = true;
+            input.plasma_active = true;
+            input.target_id = Some(enemy.id);
+            let firing_distance = match ship.weapon {
+                AttackWeapon::Beam { range } => rules.firing_distance.min(range),
+                AttackWeapon::Projectile { .. } => rules.firing_distance,
+                AttackWeapon::None => 0.0,
+            };
             let options = AttackOptions {
                 pass_distance: rules.pass_distance,
                 aim_tolerance: rules.aim_tolerance,
-                projectile_speed,
+                weapon: ship.weapon,
                 aim_prediction_time: rules.aim_prediction_time,
                 can_fire: ship.motion.position.distance_squared(enemy.motion.position)
-                    < rules.firing_distance * rules.firing_distance,
+                    < firing_distance * firing_distance,
             };
             (input.thrust, input.turn, input.fire) =
                 environment.attack(self.ship_id, &mut self.pilot, enemy.target(), options);

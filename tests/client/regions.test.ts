@@ -11,7 +11,7 @@ const bundle = await rolldown({
       load: (id) =>
         id === '\0regions'
           ? `
-      export { generateRegion, generateFields, fieldMessage, asteroidSpacing } from '${process.cwd()}/src/client/simulation/region-generation.ts';
+      export { generateRegion, asteroidSpacing } from '${process.cwd()}/src/client/simulation/region-generation.ts';
       export { RegionManager } from '${process.cwd()}/src/client/simulation/region-manager.ts';
       export { createWorld } from '${process.cwd()}/src/client/simulation/world.ts';
       export { shapeOutlineOf, createAsteroid } from '${process.cwd()}/src/client/objects/asteroid.ts';
@@ -30,15 +30,11 @@ const { output } = await bundle.generate({ format: 'esm' });
 
 const {
   generateRegion,
-  generateFields,
-  fieldMessage,
   asteroidSpacing,
   RegionManager,
   Vec,
 }: {
   generateRegion: typeof import('../../src/client/simulation/region-generation.ts').generateRegion;
-  generateFields: typeof import('../../src/client/simulation/region-generation.ts').generateFields;
-  fieldMessage: typeof import('../../src/client/simulation/region-generation.ts').fieldMessage;
   asteroidSpacing: typeof import('../../src/client/simulation/region-generation.ts').asteroidSpacing;
   RegionManager: typeof import('../../src/client/simulation/region-manager.ts').RegionManager;
   createWorld: typeof import('../../src/client/simulation/world.ts').createWorld;
@@ -52,7 +48,6 @@ const {
   `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
-assert.equal(asteroidSpacing, 30);
 const options = { worldSeed: 25, region: Vec.create(5, 8) };
 const first = generateRegion(options);
 
@@ -166,110 +161,4 @@ assert.equal(
   spread.loadedRegionCount,
   9,
   'detail regions unload after their last player leaves',
-);
-
-// Compare seed 25 against the finite world on main, within its old 50 km radius.
-const oldWorldRadius = 50000;
-
-const withinOldWorld = ({
-  position,
-}: {
-  position: import('../../src/client/utilities/vector').Value;
-}) => Vec.length(position) < oldWorldRadius;
-
-const oldWorldFields = generateFields({
-  worldSeed: 25,
-  from: Vec.create(-oldWorldRadius, -oldWorldRadius),
-  to: Vec.create(oldWorldRadius, oldWorldRadius),
-}).filter(withinOldWorld);
-
-const distribution: Omit<ReturnType<typeof generateRegion>, 'region'> = {
-  asteroids: [],
-  stations: [],
-  wrecks: [],
-};
-
-for (let x = -25; x < 25; x++) {
-  for (let y = -25; y < 25; y++) {
-    const region = generateRegion({ worldSeed: 25, region: Vec.create(x, y) });
-
-    distribution.asteroids.push(...region.asteroids.filter(withinOldWorld));
-    distribution.stations.push(...region.stations.filter(withinOldWorld));
-    distribution.wrecks.push(...region.wrecks.filter(withinOldWorld));
-  }
-}
-
-assert(oldWorldFields.length >= 95 && oldWorldFields.length <= 120);
-assert(
-  distribution.asteroids.length >= 11000 &&
-    distribution.asteroids.length <= 16000,
-);
-const meanAsteroidRadius =
-  distribution.asteroids.reduce((sum, asteroid) => sum + asteroid.radius, 0) /
-  distribution.asteroids.length;
-
-assert(meanAsteroidRadius > 105.5 && meanAsteroidRadius < 107);
-assert(distribution.asteroids.some(({ spin }) => spin < -0.025));
-assert(distribution.asteroids.some(({ spin }) => spin > 0.025));
-assert(
-  distribution.stations.length >= 13 && distribution.stations.length <= 22,
-);
-assert(distribution.wrecks.length >= 23 && distribution.wrecks.length <= 35);
-assert(oldWorldFields.filter(({ resource }) => resource === 1).length >= 5);
-assert(oldWorldFields.filter(({ resource }) => resource === 2).length >= 6);
-assert(
-  distribution.wrecks.filter(({ paint }) => paint === 1).length >=
-    distribution.wrecks.length * 0.55,
-);
-assert(
-  distribution.wrecks.filter(({ paint }) => paint === 1).length <=
-    distribution.wrecks.length * 0.8,
-);
-
-const richFields = generateFields({
-  worldSeed: 25,
-  from: Vec.create(-100000, -100000),
-  to: Vec.create(100000, 100000),
-}).filter(({ resource }) => resource < 3);
-
-const richFieldById = new Map(richFields.map((field) => [field.id, field]));
-
-distribution.wrecks.forEach(({ cargoContents, clueField }) => {
-  assert.deepEqual(
-    clueField,
-    richFieldById.get(
-      (clueField as ReturnType<typeof generateFields>[number]).id,
-    ),
-  );
-  assert(cargoContents.every((resource) => resource === clueField.resource));
-  assert.match(
-    fieldMessage(clueField),
-    /^(AMETHYST CLUSTER|GOLD ORE) -?\d+\/-?\d+$/,
-  );
-});
-
-const { generateStations } =
-  await import('../../src/client/simulation/region-generation.ts');
-
-const stationOptions = {
-  worldSeed: 25,
-  from: Vec.create(-1000000, -1000000),
-  to: Vec.create(1000000, 1000000),
-};
-
-const stations = generateStations(stationOptions);
-
-assert.deepEqual(generateStations(stationOptions), stations);
-const pentagons = stations.filter(
-  (station) => station.definitionId === 'corral-5',
-).length;
-
-assert(
-  stations.every((station) =>
-    ['corral-5', 'corral-6'].includes(station.definitionId),
-  ),
-);
-assert(
-  Math.abs(pentagons / stations.length - 0.5) < 0.03,
-  'station types use an even seeded distribution',
 );

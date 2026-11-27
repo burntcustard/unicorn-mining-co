@@ -16,7 +16,7 @@ import { outlineColorOf, type Collider, type Contact } from './types';
 import { contactSpeedThreshold } from '../../specs/physics';
 import { linearSlop } from '../../specs/physics';
 import { type SimulationEvent } from '../protocol/events';
-import { damage } from '../objects/damage';
+import { colliderDamageTarget, damage } from '../objects/damage';
 import { Craft } from '../objects/craft';
 import { Asteroid } from '../objects/asteroid';
 import { Station } from '../objects/station';
@@ -576,10 +576,7 @@ export class GameCollisions {
           [other, collider],
         ].entries()) {
           if (hit.owner.dead) continue;
-          applied[index] = damage(
-            hit.segment || hit.asteroidSegment || hit.owner,
-            amount,
-          );
+          applied[index] = damage(colliderDamageTarget(hit), amount);
 
           if (hit.owner instanceof Asteroid && hit.owner.world) {
             hit.owner.fracture({

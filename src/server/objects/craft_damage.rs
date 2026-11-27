@@ -130,10 +130,10 @@ impl Craft {
         let (broken, hulls): (Vec<_>, Vec<_>) = order
             .into_iter()
             .partition(|&index| self.hulls[index].health < 1.0);
-        let broken_center = self.center_of_hulls(&broken);
+        let broken_center = self.center_of_hulls(broken.iter().copied());
         if !self.suppress_drops {
             for index in broken {
-                let origin = self.center_of_hulls(&[index]);
+                let origin = self.center_of_hulls([index]);
                 let part = self.hull_wreckage_part(index, origin, true);
                 effects
                     .spawns
@@ -162,14 +162,14 @@ impl Craft {
             self.cockpit
                 .and_then(|core| groups.iter().position(|group| group.contains(&core)))
         };
-        let center = self.center_of_hulls(&hulls);
+        let center = self.center_of_hulls(hulls.iter().copied());
         let mut fragment_count = 0;
         if !self.suppress_drops {
             for (index, group) in groups.iter().enumerate() {
                 if kept == Some(index) {
                     continue;
                 }
-                let origin = self.center_of_hulls(group);
+                let origin = self.center_of_hulls(group.iter().copied());
                 let parts = group
                     .iter()
                     .map(|&index| self.hull_wreckage_part(index, origin, false))
@@ -194,8 +194,10 @@ impl Craft {
         if let Some(kept) = kept {
             let kept = &groups[kept];
             if fragment_count > 0 {
-                let direction =
-                    rotate_point(self.center_of_hulls(kept) - center, self.object.rotation);
+                let direction = rotate_point(
+                    self.center_of_hulls(kept.iter().copied()) - center,
+                    self.object.rotation,
+                );
                 let mass = self.object.force_mass();
                 apply_force(
                     &mut self.object.velocity,
@@ -243,16 +245,15 @@ impl Craft {
         effects
     }
 
-    fn center_of_hulls(&self, hulls: &[usize]) -> Vector {
-        if hulls.is_empty() {
-            return Vector::ZERO;
-        }
+    pub(super) fn center_of_hulls(&self, hulls: impl IntoIterator<Item = usize>) -> Vector {
         let mut center = Vector::ZERO;
-        for &index in hulls {
+        let mut count = 0;
+        for index in hulls {
             let hull = &self.hulls[index];
             center += hull.position + hull.collider_plan.middle;
+            count += 1;
         }
-        center * (1.0 / hulls.len() as f64)
+        center * (1.0 / count.max(1) as f64)
     }
 
     fn hull_wreckage_part(&self, index: usize, origin: Vector, broken: bool) -> WreckagePart {

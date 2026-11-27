@@ -9,6 +9,10 @@ import {
   summarizeNPCCollection,
   validateNPCActivity,
 } from '../../benchmarking/npc/report.ts';
+import {
+  npcDocked,
+  npcObservations,
+} from '../../benchmarking/npc/observations.ts';
 
 const launch = { at: 1000, kind: 'launch', itemId: 0 };
 const events = [
@@ -384,3 +388,47 @@ await assert.rejects(
 
 assert.deepEqual(rejected, [1, 2, 4, 4, 4]);
 assert.deepEqual(valid, [3]);
+
+const docking = {
+  type: 'chat' as const,
+  channel: 0,
+  sender: 'NPC benchmark',
+  senderRole: 'friendly',
+  text: '/npc-benchmark-docked 281474976710965 2100',
+};
+
+assert.deepEqual(npcDocked(docking), { id: 281474976710965, tick: 2100 });
+assert.equal(npcDocked({ ...docking, sender: 'Another player' }), undefined);
+assert.equal(
+  npcDocked({ ...docking, text: '/npc-benchmark-docked 0 12' }),
+  undefined,
+);
+
+const observations = npcObservations();
+
+observations.observe({ ships: [] });
+
+for (const [position, cargo, visible] of [
+  [{ x: 0, y: 0 }, 0, true],
+  [{ x: 3, y: 4 }, 3, false],
+] as const) {
+  observations.observe({
+    ships: [{ id: 7, position, cargo, state: 'Collecting', visible }],
+  });
+}
+
+assert.deepEqual(observations.summary(), {
+  samples: 3,
+  'occupied-samples': 2,
+  'maximum-active': 1,
+  ships: [
+    {
+      'ship-id': 7,
+      samples: 2,
+      'visible-samples': 1,
+      'path-distance': 5,
+      'maximum-cargo': 3,
+      states: ['Collecting'],
+    },
+  ],
+});

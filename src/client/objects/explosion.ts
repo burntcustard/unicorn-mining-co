@@ -1,6 +1,6 @@
 import { type GameObject } from './game-object';
 import { Asteroid } from './asteroid';
-import { damage as applyDamage } from './damage';
+import { colliderDamageTarget, damage as applyDamage } from './damage';
 import { contactBetween } from '../collision/contact-between';
 import { type Collider, outlineColorOf } from '../collision/types';
 import { type SimulationEvent } from '../protocol/events';
@@ -8,6 +8,11 @@ import { type EffectSpec } from '../effects/effect';
 import { applyForce, physicsMass } from '../physics/apply-force';
 import * as Vec from '../utilities/vector';
 import { createRandom } from '../utilities/seeded-random';
+
+const damageKey = (
+  collider: Collider,
+  target = colliderDamageTarget(collider),
+) => (target === collider.owner ? target : collider.segment?.mount || target);
 
 export const explode = ({
   damage = 0,
@@ -41,15 +46,11 @@ export const explode = ({
     });
   }
 
-  const targetOf = (collider: Collider) =>
-    collider.asteroidSegment || collider.segment || collider.owner;
-  const healthOf = (collider: Collider) =>
-    collider.segment?.mount || targetOf(collider);
-
   // Snapshot the targets: fragments and resources from this blast are pushed,
   // but must not receive the damage a second time.
   if (damage) {
     const entities = [...world.entities.values()];
+    const blast = { position: object.position, radius };
 
     for (const entity of entities) {
       if (entity === object || entity.dead || entity.buried) continue;
@@ -63,21 +64,21 @@ export const explode = ({
 
       const damaged = new Set();
 
-      if (exclude) damaged.add(healthOf(exclude));
+      if (exclude?.owner === entity) damaged.add(damageKey(exclude));
 
       for (const collider of entity.hitbox()) {
         if (collider.physics === false || collider.pickupPoint) continue;
-        const contact = contactBetween(
-          { position: object.position, radius },
-          collider,
-        );
-        const target = healthOf(collider);
+        const target = colliderDamageTarget(collider);
+        const key = damageKey(collider, target);
 
-        if (!contact || damaged.has(target)) continue;
-        const applied = applyDamage(targetOf(collider), damage);
+        if (damaged.has(key)) continue;
+        const contact = contactBetween(blast, collider);
+
+        if (!contact) continue;
+        const applied = applyDamage(target, damage);
 
         if (!applied) continue;
-        damaged.add(target);
+        damaged.add(key);
 
         events.push({
           type: 'collision',

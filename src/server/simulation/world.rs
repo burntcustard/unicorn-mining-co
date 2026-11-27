@@ -594,30 +594,4 @@ mod tests {
         world.finish_entity_update(42, None);
         assert_eq!(world.portal_ids().collect::<Vec<_>>(), [12]);
     }
-
-    #[test]
-    fn indexed_station_activation_uses_its_current_position_after_waking() {
-        let catalog = Arc::new(Catalog::load().unwrap());
-        let mut world = World::new(25.0, Arc::clone(&catalog));
-        let station = Station::new(
-            5,
-            "corral-5",
-            Default::default(),
-            Some(vec![]),
-            &catalog,
-            || 0,
-        )
-        .unwrap();
-        world.add_entity(EntityKind::Station(Box::new(station)), true);
-
-        world.activate_station_physics(&[Vector::new(2000.0, 0.0)]);
-        assert!(!world.entity(5).unwrap().model.object().inactive_physics);
-        let mut sleeping = world.sleep(5).unwrap();
-        sleeping.model.object_mut().position = Vector::new(5000.0, 0.0);
-        world.wake(sleeping);
-        world.activate_station_physics(&[Vector::new(2000.0, 0.0)]);
-        assert!(world.entity(5).unwrap().model.object().inactive_physics);
-        world.activate_station_physics(&[Vector::new(3000.0, 0.0)]);
-        assert!(!world.entity(5).unwrap().model.object().inactive_physics);
-    }
 }

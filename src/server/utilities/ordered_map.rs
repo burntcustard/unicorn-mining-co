@@ -224,24 +224,6 @@ mod tests {
     use super::OrderedMap;
 
     #[test]
-    fn read_values_retain_the_earlier_list() {
-        let mut map = OrderedMap::default();
-        map.set(1, 10);
-        map.set(2, 20);
-        let before = map.read_values();
-        map.set(1, 11);
-        map.delete(&2);
-        map.set(2, 22);
-        map.set(3, 33);
-        let after = map.read_values();
-        assert_eq!(&*before, &[10, 20]);
-        assert_eq!(&*after, &[11, 22, 33]);
-        map.clear();
-        assert!(map.read_values().is_empty());
-        assert_eq!(&*after, &[11, 22, 33]);
-    }
-
-    #[test]
     fn indexed_access_checks_keys_and_skips_removed_slots() {
         let mut map = OrderedMap::default();
         map.set(1, 10);

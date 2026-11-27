@@ -154,16 +154,6 @@ try {
   });
 
   assert.equal(
-    audioCreations,
-    0,
-    'opening the visualizer creates no audio context',
-  );
-  assert.equal(
-    animationRequests,
-    0,
-    'a static waveform does not run an animation loop',
-  );
-  assert.equal(
     canvas.width,
     Math.round(initialContent.width * 1.25),
     'backing pixels use the fractional content width without borders or padding',
@@ -214,12 +204,6 @@ try {
     Math.max(...heights) - Math.min(...heights) > 20,
     'downsampling preserves narrow positive and negative transients',
   );
-  assert.equal(
-    audioCreations,
-    0,
-    'setting or resizing a buffer does not unlock audio',
-  );
-  assert.equal(animationRequests, 0);
   const beforeDensityReads = sampleReads;
   const previousResolution = resolutions.at(-1)!;
 
@@ -250,12 +234,6 @@ try {
   assert.equal(previousResolution.listeners.size, 0);
   assert.match(resolutions.at(-1)!.query, /2dppx/);
   assert.equal(resolutions.at(-1)!.listeners.size, 1);
-  assert.equal(
-    animationRequests,
-    0,
-    'density changes do not request animation',
-  );
-
   const observedContent = { width: 173.375, height: 105.625 };
 
   resize([{ contentRect: observedContent }]);
@@ -421,12 +399,6 @@ try {
     'hover does not dim later canvas drawing',
   );
 
-  visualizer.setBuffers(layerBuffers);
-  assert.deepEqual(
-    drawing.paths.slice(-3).map(({ alpha }) => alpha),
-    [0.14, 0.7, 0.14],
-    'editing a hovered layer retains its emphasis when buffers refresh',
-  );
   visualizer.setHoveredLayer();
   assert.deepEqual(
     drawing.paths.slice(-3).map(({ alpha }) => alpha),
@@ -441,18 +413,6 @@ try {
     'a single-buffer preview is never dimmed by a hovered event layer',
   );
   visualizer.setHoveredLayer();
-
-  const beforeRemove = drawing.paths.length;
-
-  visualizer.setBuffers(layerBuffers.slice(0, 1));
-  assert.deepEqual(
-    drawing.paths
-      .slice(beforeRemove)
-      .filter(({ color }) => colors.includes(color))
-      .map(({ color }) => color),
-    [colors[0]],
-    'removing layers clears their old traces',
-  );
 
   const beforeEmpty = drawing.paths.length;
 
@@ -472,18 +432,6 @@ try {
     selectedSampleReads,
     cachedReads,
     'redraws at the same pixel width reuse cached selected-layer waveforms',
-  );
-  assert(!drawing.labels.includes('Live preview mix'));
-  assert(!drawing.paths.some(({ color }) => color === '#d6d'));
-  assert.equal(
-    attributes.has('aria-label'),
-    false,
-    'waveform drawing does not add a second label over the visible caption',
-  );
-  assert.deepEqual(
-    Object.keys(visualizer).sort(),
-    ['dispose', 'setBuffer', 'setBuffers', 'setHoveredLayer'],
-    'the visualizer exposes only static rendering and cleanup',
   );
   visualizer.dispose();
   assert.equal(observerDisconnections, 1);

@@ -130,11 +130,11 @@ impl Item {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::load_example_catalog;
 
     #[test]
-    fn ammunition_keeps_pickup_point_and_authored_rounds() -> Result<(), crate::specs::CatalogError>
-    {
-        let catalog = Catalog::load()?;
+    fn ammunition_keeps_pickup_point_and_authored_rounds() {
+        let catalog = load_example_catalog().unwrap();
         let item = Item::new(
             8,
             "autogunAmmo",
@@ -145,7 +145,7 @@ mod tests {
             },
             &catalog,
         )
-        .expect("stock ammunition definition");
+        .expect("example ammunition definition");
 
         assert_eq!(item.object.radius, 3.0);
         assert_eq!(item.rounds, Some(catalog.item_specs["autogunAmmo"].rounds));
@@ -155,6 +155,5 @@ mod tests {
         assert_eq!(point.hitbox.radius, 0.0);
         assert!(point.pickup_point);
         assert!(!point.hitbox.physics);
-        Ok(())
     }
 }

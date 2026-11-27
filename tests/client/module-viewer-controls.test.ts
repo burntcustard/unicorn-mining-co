@@ -145,6 +145,15 @@ try {
   const { catalog } = (await server.ssrLoadModule(
     '/src/tools/module-viewer/catalog.ts',
   )) as typeof import('../../src/tools/module-viewer/catalog');
+  const { moduleIds } = (await server.ssrLoadModule(
+    '/src/specs/modules/index.ts',
+  )) as typeof import('../../src/specs/modules');
+
+  assert.deepEqual(
+    catalog.map(({ id }) => id).sort(),
+    [...moduleIds].sort(),
+    'the viewer includes each registered module once',
+  );
   const category = controls.get('#category')!;
   const folder = controls.get('#folder')!;
   const models = controls.get('#models')!;

@@ -3,7 +3,7 @@ import { linesPath, shapePath } from '../../utilities/drawing';
 import * as Vec from '../../utilities/vector';
 import { Module, type ModuleRenderOptions } from './module';
 import { outlineColorOf, type Collider } from '../../collision/types';
-import { damage } from '../damage';
+import { colliderDamageTarget, damage } from '../damage';
 import { type SimulationEvent } from '../../protocol/events';
 import { type Segment } from '../../types';
 import { Asteroid } from '../asteroid';
@@ -46,8 +46,9 @@ class HornDrillModule extends Module {
     world: SimulationWorld;
     dt: number;
   }) {
-    const targetPart = target.segment || target.asteroidSegment || target.owner;
-    const healthTarget = target.segment?.mount || targetPart;
+    const targetPart = colliderDamageTarget(target);
+    const healthTarget =
+      ('mount' in targetPart && targetPart.mount) || targetPart;
     const before = healthTarget.health;
 
     if (

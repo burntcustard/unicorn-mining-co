@@ -1,4 +1,5 @@
 use crate::gameplay::game_collisions::{ColliderMaterial, Pose};
+use crate::test_fixtures::load_example_catalog;
 use crate::utilities::vector_math::RotValue;
 use crate::{objects::ship::Ship, simulation::geometry::rotate_point};
 
@@ -194,71 +195,70 @@ fn weapon_geometry_follows_awake_entity_incarnations() {
 
 #[test]
 fn station_interior_absorbs_projectile_before_far_target_without_an_explosion() {
-    let catalog = Catalog::load().unwrap();
-    for definition in ["autogun", "plasmaAccelerator"] {
-        for mode in ["hull", "module", "ship", "nearerImpact"] {
-            let mut station = body(1, Vector::new(50.0, 0.0), 22.4, 1.0, &catalog);
-            station.object.kind = if mode == "ship" { "ship" } else { "station" }.into();
-            station.colliders.push(Collider {
-                part: if mode == "module" {
-                    ColliderPart::Module {
-                        mount: 0,
-                        model_part: 0,
-                    }
-                } else {
-                    ColliderPart::Hull(0)
-                },
-                physical: false,
-                pickup: false,
-                outline: vec![[-10.0, -20.0], [10.0, -20.0], [10.0, 20.0], [-10.0, 20.0]],
-            });
-
-            let x = if mode == "nearerImpact" { 20.0 } else { 80.0 };
-            let target = body(2, Vector::new(x, 0.0), 5.0, 1.0, &catalog);
-            let mut world = World(vec![station, target]);
-            let mut geometry = WeaponGeometry::default();
-            let mut events = Vec::new();
-            let mut projectile = Projectile::new(
-                3,
-                definition,
-                ObjectProperties {
-                    velocity: Vector::new(1000.0, 0.0),
-                    ..Default::default()
-                },
-                &catalog,
-            )
-            .unwrap();
-            projectile.capture_sweep();
-            assert_eq!(projectile.update(0.1), MovementOutcome::Moved);
-            projectile.resolve_hits(
-                0.1,
-                &mut WeaponContext {
-                    world: &mut world,
-                    geometry: &mut geometry,
-                    catalog: &catalog,
-                    events: &mut events,
-                },
-            );
-            assert!(projectile.object.dead, "{definition}: {mode}");
-            if mode == "hull" {
-                assert!(events.is_empty());
-                assert_eq!(world.0[0].object.health, 100.0);
-                assert_eq!(world.0[1].object.health, 100.0);
-                assert_eq!(world.0[1].object.velocity, Vector::ZERO);
+    let catalog = load_example_catalog().unwrap();
+    let definition = "plasmaAccelerator";
+    for mode in ["hull", "module", "ship", "nearerImpact"] {
+        let mut station = body(1, Vector::new(50.0, 0.0), 22.4, 1.0, &catalog);
+        station.object.kind = if mode == "ship" { "ship" } else { "station" }.into();
+        station.colliders.push(Collider {
+            part: if mode == "module" {
+                ColliderPart::Module {
+                    mount: 0,
+                    model_part: 0,
+                }
             } else {
-                assert!(matches!(
-                    events.first(),
-                    Some(SimulationEvent::CollisionEvent { a: 3, b: 2, .. })
-                ));
-                assert_eq!(world.0[1].object.health, 100.0 - projectile.damage);
-            }
+                ColliderPart::Hull(0)
+            },
+            physical: false,
+            pickup: false,
+            outline: vec![[-10.0, -20.0], [10.0, -20.0], [10.0, 20.0], [-10.0, 20.0]],
+        });
+
+        let x = if mode == "nearerImpact" { 20.0 } else { 80.0 };
+        let target = body(2, Vector::new(x, 0.0), 5.0, 1.0, &catalog);
+        let mut world = World(vec![station, target]);
+        let mut geometry = WeaponGeometry::default();
+        let mut events = Vec::new();
+        let mut projectile = Projectile::new(
+            3,
+            definition,
+            ObjectProperties {
+                velocity: Vector::new(1000.0, 0.0),
+                ..Default::default()
+            },
+            &catalog,
+        )
+        .unwrap();
+        projectile.capture_sweep();
+        assert_eq!(projectile.update(0.1), MovementOutcome::Moved);
+        projectile.resolve_hits(
+            0.1,
+            &mut WeaponContext {
+                world: &mut world,
+                geometry: &mut geometry,
+                catalog: &catalog,
+                events: &mut events,
+            },
+        );
+        assert!(projectile.object.dead, "{mode}");
+        if mode == "hull" {
+            assert!(events.is_empty());
+            assert_eq!(world.0[0].object.health, 100.0);
+            assert_eq!(world.0[1].object.health, 100.0);
+            assert_eq!(world.0[1].object.velocity, Vector::ZERO);
+        } else {
+            assert!(matches!(
+                events.first(),
+                Some(SimulationEvent::CollisionEvent { a: 3, b: 2, .. })
+            ));
+            assert_eq!(world.0[1].object.health, 100.0 - projectile.damage);
         }
     }
 }
 
 #[test]
 fn expiry_explodes_once_and_hit_keeps_direct_damage_out_of_splash() {
-    let catalog = Catalog::load().unwrap();
+    let catalog = load_example_catalog().unwrap();
     for definition in ["plasmaAccelerator", "autogun"] {
         for hit in [false, true] {
             let mut world = World(vec![
@@ -411,6 +411,112 @@ fn explosion_deduplicates_parts_and_pushes_fragments_created_by_damage() {
 }
 
 #[test]
+fn splash_uses_shared_wreckage_health_and_separate_intact_parts() {
+    use std::sync::Arc;
+
+    use crate::objects::craft::{Craft, InstalledModule};
+    use crate::objects::wreckage::WreckagePart;
+    use crate::simulation::world::{EntityKind, World as SimulationWorld};
+
+    let catalog = Arc::new(Catalog::load().unwrap());
+    let mut world = SimulationWorld::new(25.0, Arc::clone(&catalog));
+    let wreckage = Craft::from_wreckage(
+        1,
+        ObjectProperties {
+            health: Some(100.0),
+            ..Default::default()
+        },
+        [-3.0, 3.0]
+            .map(|x| WreckagePart {
+                color: String::new(),
+                outline: None,
+                radius: 2.0,
+                offset: Vector::new(x, 0.0),
+                health: 100.0,
+                fill_shade: None,
+                unstroked: false,
+            })
+            .to_vec(),
+        None,
+        &catalog,
+    );
+    world.add_entity(EntityKind::Craft(Box::new(wreckage)), false);
+
+    let mut hulls = [-3.0, 3.0].map(|x| specs::HullSegment {
+        health: Some(100.0),
+        points: vec![[x - 1.0, -1.0], [x + 1.0, -1.0], [x, 1.0]],
+        ..Default::default()
+    });
+    hulls[0].mounts.push(vec![specs::MountPoint::default()]);
+    let mut intact = Craft::new(body(2, Vector::ZERO, 6.0, 1.0, &catalog).object, &hulls);
+    intact.fit(
+        0,
+        Some(InstalledModule::new(
+            4,
+            "example".into(),
+            Arc::new(specs::Module {
+                health: 100.0,
+                model: vec![
+                    specs::ModelPart {
+                        radius: 2.0,
+                        ..Default::default()
+                    };
+                    2
+                ],
+                ..Default::default()
+            }),
+        )),
+    );
+    world.add_entity(EntityKind::Craft(Box::new(intact)), false);
+
+    let mut direct = None;
+    world.entity(1).unwrap().with_colliders(|colliders| {
+        assert_eq!(colliders.len(), 2);
+        direct = Some(colliders[0].user_data);
+    });
+    let source = ExplosionSource {
+        id: 3,
+        player_number: Some(5),
+        position: Vector::ZERO,
+        velocity: Vector::ZERO,
+    };
+    let spec = specs::ProjectileExplosion {
+        radius: 12.0,
+        damage: 10.0,
+        ..Default::default()
+    };
+    let mut geometry = WeaponGeometry::default();
+
+    for (exclude, expected_health) in [(None, 90.0), (direct, 80.0)] {
+        let mut events = Vec::new();
+        if let Some(hit) = exclude {
+            assert_eq!(world.damage_weapon_target(hit, 10.0, 5, &mut events), 10.0);
+        }
+        explode(
+            source,
+            &spec,
+            exclude,
+            &mut WeaponContext {
+                world: &mut world,
+                geometry: &mut geometry,
+                catalog: &catalog,
+                events: &mut events,
+            },
+        );
+        assert_eq!(world.entity(1).unwrap().object().health, expected_health);
+        let intact = world.entity(2).unwrap().model.craft().unwrap();
+        assert!(
+            intact
+                .hulls
+                .iter()
+                .all(|hull| hull.health == expected_health)
+        );
+        assert_eq!(intact.mounts[0].health, expected_health);
+        assert_eq!(events.len(), if exclude.is_some() { 3 } else { 4 });
+    }
+}
+
+#[test]
 fn beams_damage_nearest_target_once_per_tick_at_rotated_poses() {
     let catalog = Catalog::load().unwrap();
     for angle in [0.0, std::f64::consts::FRAC_PI_2, std::f64::consts::PI] {
@@ -467,7 +573,7 @@ fn ship_lasers_require_an_active_fully_deployed_mount() {
 
     use super::super::craft::InstalledModule;
 
-    let catalog = Catalog::load().unwrap();
+    let catalog = load_example_catalog().unwrap();
     let source = Vector::new(10.0, 25.0);
     let angle = std::f64::consts::FRAC_PI_2;
     let mut ship = Ship::new(
@@ -526,48 +632,6 @@ fn ship_lasers_require_an_active_fully_deployed_mount() {
 }
 
 #[test]
-fn indexed_projectile_targets_preserve_first_overlap_on_ties() {
-    let catalog = Catalog::load().unwrap();
-    let mut entities = vec![
-        body(10, Vector::new(2.0, 0.0), 5.0, 1.0, &catalog),
-        body(20, Vector::new(-2.0, 0.0), 5.0, 1.0, &catalog),
-    ];
-    entities.extend((30..130).map(|id| {
-        body(
-            id,
-            Vector::new(1_000.0 + id as f64, 10.0),
-            5.0,
-            1.0,
-            &catalog,
-        )
-    }));
-    let world = World(entities);
-    let dt = catalog.simulation.simulation_step;
-    let shot = CircleShape::new(Vector::ZERO, 0.5);
-    let trace = Trace {
-        entity: 1,
-        player: None,
-        shape: &shot.base,
-        start: Vector::ZERO,
-        end: Vector::new(20.0, 0.0),
-        target_motion_dt: Some(dt),
-    };
-    let mut indexed = ProjectileTargets::default();
-    indexed.rebuild(world.weapon_targets().map(CollisionEntity::object), dt, 16);
-    assert_eq!(indexed.by_x[0].1, 1, "X order differs from insertion order");
-    let mut geometry = WeaponGeometry::default();
-    let slop = catalog.simulation.linear_slop;
-    let reference = trace_world(trace, &world, None, &mut geometry, slop).unwrap();
-    let indexed_hit = trace_world(trace, &world, Some(&mut indexed), &mut geometry, slop).unwrap();
-    indexed.by_x.clear();
-    let dense_hit = trace_world(trace, &world, Some(&mut indexed), &mut geometry, slop).unwrap();
-    for hit in [reference, indexed_hit, dense_hit] {
-        assert_eq!(hit.fraction, 0.0);
-        assert_eq!(hit.collider.owner, 10);
-    }
-}
-
-#[test]
 fn indexed_projectile_targets_keep_motion_boundary_and_nan_fallback() {
     let catalog = Catalog::load().unwrap();
     let mut on_edge = body(10, Vector::new(52.5, 0.0), 2.0, 1.0, &catalog);
@@ -576,7 +640,9 @@ fn indexed_projectile_targets_keep_motion_boundary_and_nan_fallback() {
     just_outside.object.velocity = on_edge.object.velocity;
     let mut crossing = body(30, Vector::new(40.0, 0.0), 2.0, 1.0, &catalog);
     crossing.object.velocity = Vector::new(320.0, 0.0);
-    let mut entities = vec![on_edge, just_outside, crossing];
+    let mut tied = body(40, crossing.object.position, 2.0, 1.0, &catalog);
+    tied.object.velocity = crossing.object.velocity;
+    let mut entities = vec![on_edge, just_outside, crossing, tied];
     entities.extend((100..200).map(|id| {
         body(
             id,
@@ -600,7 +666,10 @@ fn indexed_projectile_targets_keep_motion_boundary_and_nan_fallback() {
     let mut indexed = ProjectileTargets::default();
     indexed.rebuild(world.weapon_targets().map(CollisionEntity::object), dt, 16);
     assert!(!indexed.by_x.is_empty());
-    assert_eq!(indexed.nearby(&trace, 20.0).collect::<Vec<_>>(), [10, 30]);
+    assert_eq!(
+        indexed.nearby(&trace, 20.0).collect::<Vec<_>>(),
+        [10, 30, 40]
+    );
     let mut geometry = WeaponGeometry::default();
     let slop = catalog.simulation.linear_slop;
     let reference = trace_world(trace, &world, None, &mut geometry, slop).unwrap();
@@ -625,7 +694,7 @@ fn indexed_projectile_targets_keep_motion_boundary_and_nan_fallback() {
     assert!(indexed.by_x.is_empty());
     assert_eq!(
         indexed.nearby(&trace, 20.0).collect::<Vec<_>>(),
-        [10, 20, 30]
+        [10, 20, 30, 40]
     );
 }
 

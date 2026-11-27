@@ -25,7 +25,7 @@ import type { ModuleSpec } from '../../src/specs/modules/types';
 // Reuse protocol/control slots in isolated test catalogs. No examples are
 // registered in the playable catalog, shops, loadouts, or production bundles.
 export const exampleModuleEntries: [ModuleId, ModuleSpec][] = [
-  ['laser', exampleBeam],
+  ['laser', { ...exampleBeam, aimLimit: Math.PI / 24 }],
   // Exercise ammo, spin-down, fading, and the absence of recoil/explosions.
   [
     'autogun',

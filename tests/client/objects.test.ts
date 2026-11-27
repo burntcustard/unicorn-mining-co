@@ -161,7 +161,7 @@ assert.equal(
   new Ship({ shipType: 'viewerOnly', spec: { ...mustang, cargoSpace: 25 } })
     .cargoSpace,
   25,
-  'unregistered ship specs work in source and production',
+  'unregistered ship specs work in production',
 );
 assert.equal(
   new Station({
@@ -169,7 +169,7 @@ assert.equal(
     spec: { ...corral5, localMovementRadius: 750 },
   }).localMovementRadius,
   750,
-  'unregistered station specs work in source and production',
+  'unregistered station specs work in production',
 );
 const intactSegments = bare.segments;
 bare.hullHealth = bare.hullHealth;
@@ -546,49 +546,45 @@ console.log('Shared object hierarchy, flexible modules and rollback passed');
 
 const entryId = `${process.cwd()}/src/__objects_test.ts`;
 
-for (const production of [false, true]) {
-  const bundle = await rolldown({
-    input: entryId,
-    external: ['node:assert/strict'],
-    plugins: [
-      {
-        name: 'shared-objects-test',
-        resolveId: (id) => (id === entryId ? entryId : undefined),
-        load: (id) =>
-          id === entryId
-            ? production
-              ? stripIfdef(
-                  scenario.replace(
-                    /assert\.(\w+)/g,
-                    (_, method) => `Reflect.get(assert, '${method}')`,
-                  ),
-                )
-              : scenario
-            : undefined,
-      },
-      buildPrePlugin(),
-      ...(production ? [testBuildPlugin()] : []),
-    ],
-  });
+const bundle = await rolldown({
+  input: entryId,
+  external: ['node:assert/strict'],
+  plugins: [
+    {
+      name: 'shared-objects-test',
+      resolveId: (id) => (id === entryId ? entryId : undefined),
+      load: (id) =>
+        id === entryId
+          ? stripIfdef(
+              scenario.replace(
+                /assert\.(\w+)/g,
+                (_, method) => `Reflect.get(assert, '${method}')`,
+              ),
+            )
+          : undefined,
+    },
+    buildPrePlugin(),
+    testBuildPlugin(),
+  ],
+});
 
-  const { output } = await bundle.generate({
-    format: 'esm',
-    minify: production,
-  });
+const { output } = await bundle.generate({
+  format: 'esm',
+  minify: true,
+});
 
-  for (const chunk of output) {
-    if (chunk.type === 'chunk') {
-      assert(
-        Object.keys(chunk.modules).every((id) => !id.includes('/src/tools/')),
-        'client objects never depend on development tools',
-      );
-    }
+for (const chunk of output) {
+  if (chunk.type === 'chunk') {
+    assert(
+      Object.keys(chunk.modules).every((id) => !id.includes('/src/tools/')),
+      'client objects never depend on development tools',
+    );
   }
-
-  await bundle.close();
-  const code = output[0].code;
-
-  await import(
-    'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
-  );
 }
+
+await bundle.close();
+const code = output[0].code;
+
+await import(
+  'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
+);

@@ -265,7 +265,7 @@ impl SavedShip {
                 saved.fire_cooldown,
                 catalog,
             )?;
-            module.aim_rotation = saved.aim_rotation;
+            module.aim_rotation = module.bounded_aim_rotation(saved.aim_rotation);
             ship.fit(saved.mount, Some(module));
             let mount = &mut ship.craft.mounts[saved.mount];
             if let Some(health) = saved.health {

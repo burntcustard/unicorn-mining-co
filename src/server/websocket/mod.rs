@@ -344,18 +344,13 @@ impl WebSocket {
 pub(crate) struct FixtureSocket {
     socket: WebSocket,
     outbound: mpsc::Receiver<Outbound>,
-    close_code: u16,
 }
 
 #[cfg(feature = "test-fixtures")]
 impl FixtureSocket {
     pub(crate) fn new() -> Self {
         let (socket, outbound) = WebSocket::new(None, 16);
-        Self {
-            socket,
-            outbound,
-            close_code: 0,
-        }
+        Self { socket, outbound }
     }
 
     pub(crate) fn enable_station_replication(&mut self) {
@@ -374,17 +369,10 @@ impl FixtureSocket {
 
     pub(crate) fn drain(&mut self, mut packet: impl FnMut(&[u8])) {
         while let Ok(frame) = self.outbound.try_recv() {
-            let payload = &frame.bytes[FRAME_HEADER_SIZE..];
-            if frame.closing {
-                self.close_code = u16::from_be_bytes([payload[0], payload[1]]);
-            } else {
-                packet(payload);
+            if !frame.closing {
+                packet(&frame.bytes[FRAME_HEADER_SIZE..]);
             }
         }
-    }
-
-    pub(crate) fn close_code(&self) -> u16 {
-        self.close_code
     }
 }
 

@@ -1,12 +1,14 @@
 import { renderingLayers } from '../../rendering-layers';
 import { colors } from '../../colors';
 import { laserBeam } from '../../effects/laser-beam';
+import { weaponAimLimit } from '../../craft';
 import type { ModuleSpec } from '../types';
 
 export const laser = {
   icon: './laser.svg',
   description: 'Focus a continuous beam onto your target.',
   behavior: 'beam',
+  aimLimit: weaponAimLimit,
   mass: 100,
   name: 'Beam Laser',
   health: 0,

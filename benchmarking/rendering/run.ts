@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import {
+  copyFile,
   mkdtemp,
   mkdir,
   readFile,
@@ -33,17 +34,70 @@ const options = parseRenderingOptions({
 
 if (options.help) {
   console.log(
-    'Usage: node benchmarking/rendering/run.ts [--browser chrome|firefox] [--scenario all|live|large|combat|flight|pirate] [--seconds 30] [--cpu-throttle 1] [--output PATH]',
+    'Usage: node benchmarking/rendering/run.ts [--browser chrome|firefox] [--scenario all|live|large|combat|flight|pirate] [--seconds 30 | --until-ship-destroyed | --until-two-ships-destroyed] [--cpu-throttle 1] [--output PATH]',
   );
   process.exit(0);
 }
 
 const browserName = options.browser;
 const seconds = options.seconds;
+const shipDestructionLimit = options.shipDestructionLimit;
+const untilShipDestroyed = shipDestructionLimit > 0;
 const output = options.output;
+const trace = browserName === 'chrome' && Boolean(process.env.GAMEPLAY_TRACE);
+const traceSeconds = Number(process.env.GAMEPLAY_TRACE_SECONDS || 0);
+
+if (trace) {
+  assert(
+    Number.isFinite(traceSeconds) && traceSeconds >= 0,
+    'Invalid GAMEPLAY_TRACE_SECONDS',
+  );
+}
+
 let width: number, height: number;
 
 type Reply = Record<string, any>;
+
+type ShipDestruction = {
+  shipId: number;
+  at: number;
+  tick: number;
+  startedAt: number;
+  startTick: number;
+};
+
+const readPirateFixture = async () =>
+  JSON.parse(
+    await readFile('benchmarking/_local/rendering-pirate-fixture.json', 'utf8'),
+  ) as {
+    directory: string;
+    untilShipDestroyed?: boolean;
+    shipDestructionLimit?: number;
+  };
+
+const waitForShipDestruction = async ({
+  path,
+  since,
+  signal,
+}: {
+  path: string;
+  since: number;
+  signal: AbortSignal;
+}) => {
+  for (;;) {
+    try {
+      const destruction = JSON.parse(
+        await readFile(path, 'utf8'),
+      ) as ShipDestruction;
+
+      if (destruction.startedAt >= since) return destruction;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+
+    await delay(25, undefined, { signal });
+  }
+};
 
 const readRetainedCombat = async (path: string) => {
   const deadline = Date.now() + 2000;
@@ -98,6 +152,8 @@ const report: Reply = {
   startedAt: new Date().toISOString(),
   browser: browserName,
   seconds,
+  untilShipDestroyed,
+  shipDestructionLimit,
   cpuThrottle: options.cpuThrottle,
   scenarios: options.scenarios,
   productionTransforms: true,
@@ -110,7 +166,8 @@ const report: Reply = {
     nativeDisplay: true,
     fullscreen: 'kiosk',
     profiler: Boolean(process.env.GAMEPLAY_PROFILE),
-    trace: Boolean(process.env.GAMEPLAY_TRACE),
+    trace,
+    ...(trace && traceSeconds > 0 && { traceSeconds }),
   },
   snapshotNote:
     'Live and pirate cases start fresh pages with normal server networking. Large, combat, and flight reset isolated deterministic worlds in the running page.',
@@ -139,6 +196,23 @@ process.once('SIGINT', onInterrupt);
 process.once('SIGTERM', onTerminate);
 
 try {
+  const pirateFixture = untilShipDestroyed
+    ? await readPirateFixture()
+    : undefined;
+
+  if (untilShipDestroyed) {
+    const flag =
+      shipDestructionLimit === 2
+        ? '--until-two-ships-destroyed'
+        : '--until-ship-destroyed';
+
+    assert(
+      pirateFixture?.untilShipDestroyed &&
+        (pirateFixture.shipDestructionLimit ?? 1) === shipDestructionLimit,
+      `Prepare the pirate fixture with npm run benchmark:pirate:prepare -- ${flag}`,
+    );
+  }
+
   stylesheets = (await readdir('dist'))
     .filter((name) => name.endsWith('.css'))
     .sort((a, b) => {
@@ -247,6 +321,7 @@ const modules = new Map([${modules.map((name, index) => `[${JSON.stringify(name)
 const loadedGameModule = name => Promise.resolve(modules.get(name));
 const {game}=m2, {network}=m1, {player}=m3;
 const {camera}=m13;
+const twoShipDestructions=${shipDestructionLimit === 2};
 let perfFixture;
 Reflect.set(window, 'perf-capture', async action => {
   if(action==='/setup') return JSON.stringify(await (${setup}));
@@ -293,26 +368,69 @@ Reflect.set(window, 'perf-capture', async action => {
       if(performance.now()-started>15000)throw Error('Pirate rendering requires the local NPC fixture; prepare it with npm run benchmark:pirate:prepare');
       await new Promise(resolve=>setTimeout(resolve,50));
     }
-    let desired,lastThink=0;
+    let desired,lastTick;
+    const pilot=createPiratePilot();
     const hold=()=>{
       const now=performance.now(),ship=player.ship;
-      if(!desired || now-lastThink>=100){
-        lastThink=now;
-        const entities=[...network.world.entities.values()];
-        const enemies=entities.filter(object=>object.kind==='ship' && object.hostile && !object.dead).toSorted((a,b)=>Math.hypot(a.position.x-ship.position.x,a.position.y-ship.position.y)-Math.hypot(b.position.x-ship.position.x,b.position.y-ship.position.y));
-        desired=pirateControls({ship,target:enemies[0],asteroids:entities.filter(object=>object.kind==='asteroid')});
+      const tick=network.world.tick;
+      if(tick===lastTick)return;
+      lastTick=tick;
+      const entities=[...network.world.entities.values()];
+      const enemies=entities.filter(object=>object.kind==='ship' && object.hostile && !object.dead).toSorted((a,b)=>Math.hypot(a.position.x-ship.position.x,a.position.y-ship.position.y)-Math.hypot(b.position.x-ship.position.x,b.position.y-ship.position.y));
+      const input=pirateControls({ship,target:enemies[0],asteroids:entities.filter(object=>object.kind==='asteroid'),pilot,now});
+      input.shieldGenerator=twoShipDestructions;
+      if(!desired || !m14.sameInput(desired,input)){
+        const {targetId,...controls}=input;
+        Object.assign(m12.playerInput,controls);
+        network.recordInput({input});
       }
-      if(!m14.sameInput(m12.playerInput,desired)){
-        Object.assign(m12.playerInput,desired);
-        network.recordInput({input:m12.playerInput});
-      }
+      desired=input;
     };
     hold();
-    const original=network.updateFrame;network.updateFrame=options=>{hold();return original.call(network,options)};
-    return Object.fromEntries([['player-ship-id',network.shipId]]);
+    const spectate=()=>{
+      const following=game.viewShip;
+      const current=following && network.world.entities.get(following.id);
+      if(current && !current.dead){
+        game.viewShip=current;
+        return;
+      }
+      const survivors=[...network.world.entities.values()].filter(object=>object.kind==='ship' && object.hostile && !object.dead);
+      for(const definition of ['mustang','arrow','excel8']){
+        const survivor=survivors.find(ship=>ship.definitionId===definition);
+        if(!survivor)continue;
+        game.viewShip=survivor;
+        m13.centerCamera(game,survivor);
+        return;
+      }
+    };
+    const original=network.updateFrame;
+    network.updateFrame=options=>{
+      if(!twoShipDestructions || !network.shipDestroyed){
+        // The scripted target belongs to the pilot. Player HUD input is separate.
+        hold();
+        options.input=desired;
+      }
+      const updated=original.call(network,options);
+      if(twoShipDestructions && network.shipDestroyed)spectate();
+      return updated;
+    };
+    return Object.fromEntries([
+      ['player-ship-id',network.shipId],
+      ['courser-shield-fitted',twoShipDestructions ? player.ship.modules.some(module=>module instanceof m8.ShieldGeneratorXs) : undefined],
+    ]);
   }
   if(action==='/measure'){
-    const result=await (${measureGameplay(seconds * 1000).replaceAll('window.perfFixture', 'perfFixture')});
+    const shieldActiveAtCaptureStart=twoShipDestructions ? player.ship.moduleActive({module:m8.ShieldGeneratorXs}) : undefined;
+    const result=await (${measureGameplay({ milliseconds: seconds === undefined ? undefined : seconds * 1000, trace }).replaceAll('window.perfFixture', 'perfFixture')});
+    const overlay = document.querySelector('.hud > .hud-overlay');
+    const selectors = ['.hud-modules', '.hud-stores', '.hud-sector', '.hud-credits', '.hud-target', '.hud-map'];
+    let hudPanels = 0;
+    const panels = Object.fromEntries(selectors.map(selector => {
+      const element = overlay?.querySelector(selector);
+      hudPanels += Number(Boolean(element));
+      const style = element && getComputedStyle(element);
+      return [selector.slice(5), Boolean(element && element.getClientRects().length && style.visibility !== 'hidden' && Number(style.opacity) > 0)];
+    }));
     return JSON.stringify(Object.fromEntries([
       ['fps',result.fps],['frames',result.frames],['p95',result.p95],['p99',result.p99],['missed',result.missed],['max',result.max],['hidden-during-capture',result.hidden],
       ['late-frames',result.lateFrames],['refresh-rate',result.refreshRate],['frame-period-ms',result.framePeriod],
@@ -327,6 +445,8 @@ Reflect.set(window, 'perf-capture', async action => {
       ['minimap-attributes',document.querySelector('.hud-map canvas').getContext('2d').getContextAttributes()],
       ['audio-state',Reflect.get(window,'perf-audio-context')?.state || 'absent'],
       ['browser-errors',Reflect.get(window,'perf-errors')],
+      ['hud-panels',hudPanels],['hud-visible',Object.values(panels).filter(Boolean).length],['hud-panel-visibility',panels],
+      ['hud-overlay-visible',Boolean(overlay && Number(getComputedStyle(overlay).opacity) > 0)],
       ['scene-surfaces',document.querySelectorAll('.world-surface').length],
       ['surface-style-errors',[...document.querySelectorAll('.world-surface')].filter(element=>!element.style.cssText.includes('matrix(') || element.style.cssText.includes('NaN')).length],
       ['background-style-errors',[...document.querySelectorAll('.background-layer')].filter(element=>!element.style.cssText.includes('translate(')).length],
@@ -344,7 +464,10 @@ Reflect.set(window, 'perf-capture', async action => {
       ,['pirate-projectile-samples',result.pirateProjectileSamples],['pirate-rounds-used',result.pirateRoundsUsed],['living-pirate-samples',result.livingPirateSamples]
       ,['ammunition-exhausted',result.ammunitionExhausted],['pirate-rounds-remaining',result.pirateRoundsRemaining]
       ,['prediction-diagnostics',result.predictionDiagnostics]
+      ,['network-observations',result.networkObservations]
       ,['combatants',result.combatants],['capture-start-epoch-ms',result.captureStartedEpochMs],['capture-end-epoch-ms',result.captureEndedEpochMs]
+      ,['spectated-ship-id',game.viewShip?.id]
+      ,['courser-shield-active-at-capture-start',shieldActiveAtCaptureStart]
     ]));
   }
   throw Error('Unknown rendering action: '+action);
@@ -389,7 +512,10 @@ Reflect.set(window, 'perf-capture', async action => {
         },
       },
       buildPrePlugin(),
-      { ...buildPlugin(), generateBundle: undefined },
+      {
+        ...buildPlugin({}, undefined, { sourceMaps: trace }),
+        generateBundle: undefined,
+      },
     ],
   });
 
@@ -400,11 +526,24 @@ Reflect.set(window, 'perf-capture', async action => {
     dir: directory,
     format: 'esm',
     minify: !process.env.GAMEPLAY_PROFILE,
+    sourcemap: trace ? 'hidden' : false,
     entryFileNames: 'fixture.js',
     chunkFileNames: '[name]-[hash].js',
   });
 
   await bundle.close();
+
+  if (trace) {
+    const traceSources = output.replace(/\.json$/, '') + '-trace-sources';
+
+    await mkdir(traceSources, { recursive: true });
+    await Promise.all(
+      (await readdir(directory)).map((file) =>
+        copyFile(join(directory, file), join(traceSources, file)),
+      ),
+    );
+    report.diagnostics.traceSources = traceSources;
+  }
 
   // Shipping HTML builds the first-paint background separately, without gameplay
   // property rewrites. Keep that boundary here too, including native CSS names.
@@ -660,14 +799,14 @@ Reflect.set(window, 'perf-capture', async action => {
       new Promise<never>((_, reject) => {
         timer = setTimeout(
           () => reject(new Error('Gameplay browser evaluation timed out')),
-          seconds * 1000 + 20000,
+          (seconds ?? 0) * 1000 + 20000,
         );
       }),
     ]).finally(() => clearTimeout(timer));
   };
 
-  const evaluate = async (expression: string) => {
-    const result = await bounded(
+  const evaluate = async (expression: string, { timeout = true } = {}) => {
+    const request =
       browserName === 'chrome'
         ? send('Runtime.evaluate', {
             expression,
@@ -678,8 +817,9 @@ Reflect.set(window, 'perf-capture', async action => {
             expression,
             awaitPromise: true,
             target: { context },
-          }),
-    );
+          });
+
+    const result = await (timeout ? bounded(request) : request);
 
     if (result.exceptionDetails || result.type === 'exception') {
       throw Error(JSON.stringify(result));
@@ -689,6 +829,46 @@ Reflect.set(window, 'perf-capture', async action => {
   };
 
   const action = (name: string) => browserAction(evaluate, name);
+
+  const measurePirateDestructions = async ({
+    playerShipId,
+    since,
+  }: {
+    playerShipId: number;
+    since: number;
+  }) => {
+    const observation = new AbortController();
+    const signal = AbortSignal.any([observation.signal, cancellation.signal]);
+
+    const stop = async () => {
+      const destructions = await Promise.all(
+        Array.from({ length: shipDestructionLimit }, (_, index) => {
+          const suffix = index ? `-${index + 1}` : '';
+          const path = join(
+            pirateFixture!.directory,
+            `destruction-${playerShipId}${suffix}.json`,
+          );
+
+          return waitForShipDestruction({ path, since, signal });
+        }),
+      );
+
+      await evaluate("Reflect.set(window, 'perf-combat-complete', true)");
+      return destructions;
+    };
+
+    try {
+      return await Promise.all([
+        browserAction(
+          (expression) => evaluate(expression, { timeout: false }),
+          'measure',
+        ),
+        stop(),
+      ]);
+    } finally {
+      observation.abort();
+    }
+  };
 
   const idleIntervals = JSON.parse(
     await evaluate(`new Promise(resolve=>{
@@ -860,10 +1040,30 @@ Reflect.set(window, 'perf-capture', async action => {
       );
     };
 
+    const scenarioStartedAt = Date.now();
+
     await prepareScenario(scenario);
     setupInfo.at(-1).readiness = await action(
       scenario === 'combat' ? 'fixture' : scenario,
     );
+
+    if (shipDestructionLimit === 2) {
+      assert.equal(
+        setupInfo.at(-1).readiness['courser-shield-fitted'],
+        true,
+        'The benchmark Courser must have a bubble shield fitted',
+      );
+    }
+
+    if (trace) {
+      await send('Tracing.start', {
+        categories:
+          'toplevel,devtools.timeline,v8,blink,blink.user_timing,cc,gpu,disabled-by-default-v8.gc,disabled-by-default-v8.cpu_profiler',
+        transferMode: 'ReturnAsStream',
+        streamCompression: 'gzip',
+      });
+    }
+
     await pause(1000);
 
     if (process.env.GAMEPLAY_PROFILE && browserName === 'firefox') {
@@ -873,16 +1073,47 @@ Reflect.set(window, 'perf-capture', async action => {
       });
     }
 
-    if (process.env.GAMEPLAY_TRACE && browserName === 'chrome') {
-      await send('Tracing.start', {
-        categories:
-          'devtools.timeline,v8,blink,cc,gpu,disabled-by-default-v8.gc,disabled-by-default-v8.cpu_profiler',
-        transferMode: 'ReturnAsStream',
-        streamCompression: 'gzip',
-      });
-    }
+    const playerShipId = setupInfo.at(-1).readiness?.['player-ship-id'];
 
-    const raw = JSON.parse(await action('measure'));
+    const capture = untilShipDestroyed
+      ? measurePirateDestructions({
+          playerShipId,
+          since: scenarioStartedAt,
+        })
+      : action('measure').then((measurement) => [measurement, []] as const);
+
+    const endTrace = async () => {
+      await (traceSeconds
+        ? Promise.race([
+            capture,
+            delay(traceSeconds * 1000, undefined, { ref: false }),
+          ])
+        : capture);
+      const complete = new Promise<Reply>((resolve) =>
+        notifications.set('Tracing.tracingComplete', resolve),
+      );
+
+      await send('Tracing.end');
+      return complete;
+    };
+
+    const [[measurement, destructions], traceResult] = await Promise.all([
+      capture,
+      trace ? endTrace() : undefined,
+    ]);
+
+    const raw = JSON.parse(measurement);
+    const playerDestroyed = destructions.some(
+      (destruction) => destruction.shipId === playerShipId,
+    );
+
+    const shipDestructions = destructions.map((destruction) => ({
+      ...destruction,
+      encounterSeconds: (destruction.at - destruction.startedAt) / 1000,
+      simulationSeconds:
+        (destruction.tick - destruction.startTick) * simulationStep,
+      captureSeconds: (destruction.at - raw['capture-start-epoch-ms']) / 1000,
+    }));
 
     const result = {
       scenario,
@@ -893,17 +1124,16 @@ Reflect.set(window, 'perf-capture', async action => {
         ]),
       ),
       raw,
+      ...(untilShipDestroyed && {
+        shipDestructions,
+        firstShipDestruction: shipDestructions[0],
+      }),
     } as Reply;
 
     await recordResult(result);
 
-    if (process.env.GAMEPLAY_TRACE && browserName === 'chrome') {
-      const complete = new Promise<Reply>((resolve) =>
-        notifications.set('Tracing.tracingComplete', resolve),
-      );
-
-      await send('Tracing.end');
-      const { stream } = await complete;
+    if (traceResult) {
+      const { stream } = traceResult;
       const chunks: Buffer[] = [];
 
       for (;;) {
@@ -928,27 +1158,6 @@ Reflect.set(window, 'perf-capture', async action => {
       console.log(await send('moz:profiler.stop'));
     }
 
-    Object.assign(
-      result,
-      JSON.parse(
-        await evaluate(`JSON.stringify((() => {
-          const overlay = document.querySelector('.hud > .hud-overlay');
-          const names = ['modules', 'stores', 'sector', 'credits', 'target', 'map'];
-          const panels = Object.fromEntries(names.map(name => {
-            const element = overlay?.querySelector('.hud-' + name);
-            const style = element && getComputedStyle(element);
-            return [name, Boolean(element && element.getClientRects().length && style.visibility !== 'hidden' && Number(style.opacity) > 0)];
-          }));
-          return {
-            'hud-panels': names.filter(name => overlay?.querySelector('.hud-' + name)).length,
-            'hud-visible': Object.values(panels).filter(Boolean).length,
-            'hud-panel-visibility': panels,
-            'hud-overlay-visible': Boolean(overlay && Number(getComputedStyle(overlay).opacity) > 0)
-          };
-        })())`),
-      ),
-    );
-
     assert.equal(
       result['hidden-during-capture'],
       false,
@@ -972,25 +1181,35 @@ Reflect.set(window, 'perf-capture', async action => {
 
     assert.deepEqual(result.viewport, [width, height]);
     assert.deepEqual(result.canvas, [width, height]);
-    assert.equal(result.zoom, 1.5);
-    assert.equal(result['hud-panels'], 6, 'all gameplay HUD panels must exist');
-    assert(result['hud-overlay-visible'], 'the gameplay HUD must be visible');
 
-    for (const panel of ['stores', 'sector', 'credits', 'map']) {
-      assert(
-        result['hud-panel-visibility'][panel],
-        `the ${panel} HUD panel must be visible`,
-      );
+    if (!playerDestroyed) assert.equal(result.zoom, 1.5);
+    assert.equal(result['hud-panels'], 6, 'all gameplay HUD panels must exist');
+
+    if (!playerDestroyed) {
+      assert(result['hud-overlay-visible'], 'the gameplay HUD must be visible');
+
+      for (const panel of ['stores', 'sector', 'credits', 'map']) {
+        assert(
+          result['hud-panel-visibility'][panel],
+          `the ${panel} HUD panel must be visible`,
+        );
+      }
     }
 
-    assert(result.alive, 'the test must exercise a living ship');
+    if (!untilShipDestroyed) {
+      assert(result.alive, 'the test must exercise a living ship');
+    }
+
     assert.equal(
       result['audio-state'],
       'running',
       'exercise normal unlocked audio',
     );
 
-    if (['large', 'combat', 'flight', 'pirate'].includes(scenario)) {
+    if (
+      !untilShipDestroyed &&
+      ['large', 'combat', 'flight', 'pirate'].includes(scenario)
+    ) {
       assert.equal(
         result['ammunition-exhausted'],
         false,
@@ -1032,17 +1251,38 @@ Reflect.set(window, 'perf-capture', async action => {
 
       assert.equal(
         combatants.length,
-        3,
-        'The encounter must contain three real combatants',
+        4,
+        'The encounter must contain four real combatants',
       );
       assert.deepEqual(
         combatants
           .map((ship) => ship['ship-type'])
           .sort((a, b) => a.localeCompare(b)),
-        ['Arrow', 'Courser', 'Mustang'],
+        ['Arrow', 'Courser', 'Excel-8', 'Mustang'],
       );
 
-      for (const ship of combatants) {
+      assert.equal(
+        new Set(destructions.map(({ shipId }) => shipId)).size,
+        shipDestructionLimit,
+        'The recorded destructions must be of distinct ships',
+      );
+
+      for (const [index, destruction] of destructions.entries()) {
+        const previous = destructions[index - 1];
+
+        assert(
+          combatants.some((ship) => ship['ship-id'] === destruction.shipId),
+          'Every destroyed ship must belong to the encounter',
+        );
+        assert(
+          !previous ||
+            (previous.startTick === destruction.startTick &&
+              previous.tick <= destruction.tick),
+          'Ship destructions must be in order from the same encounter',
+        );
+      }
+
+      for (const ship of untilShipDestroyed ? [] : combatants) {
         assert(
           ship['alive-samples'] === ship.samples,
           `Combatant ${ship['ship-type']} must stay alive`,
@@ -1056,11 +1296,14 @@ Reflect.set(window, 'perf-capture', async action => {
           `Combatant ${ship['ship-type']} must actually fire`,
         );
 
-        if (ship['ship-type'] !== 'Arrow') {
+        if (['Courser', 'Mustang'].includes(ship['ship-type'])) {
           assert(
             ship['rounds-used'] > 0 && ship['ammo-end'] > 0,
             `Combatant ${ship['ship-type']} must fire its finite normal ammunition`,
           );
+        }
+
+        if (ship['ship-type'] !== 'Arrow') {
           assert(
             ship['new-projectile-ids'].length > 0 &&
               ship['new-cooldown-cycles'] > 0,
@@ -1167,12 +1410,7 @@ Reflect.set(window, 'perf-capture', async action => {
 
   if (pirateResult) {
     try {
-      const manifest = JSON.parse(
-        await readFile(
-          'benchmarking/_local/rendering-pirate-fixture.json',
-          'utf8',
-        ),
-      );
+      const manifest = await readPirateFixture();
       const shipId = setupInfo.find((info) => info.scenario === 'pirate')
         .readiness['player-ship-id'];
       const path = join(manifest.directory, `combat-${shipId}.json`);
@@ -1203,17 +1441,24 @@ Reflect.set(window, 'perf-capture', async action => {
         .map((ship) => ship['ship-id']);
 
       assert(
-        hits.some(
-          (hit: Reply) =>
-            npcIds.includes(hit.targetId) &&
-            (pirateResult.combatants as Reply[]).some(
-              (ship) => ship.role !== 'player' && ship['player-id'] === hit.by,
+        pirateResult.firstShipDestruction
+          ? hits.length > 0
+          : hits.some(
+              (hit: Reply) =>
+                npcIds.includes(hit.targetId) &&
+                (pirateResult.combatants as Reply[]).some(
+                  (ship) =>
+                    ship.role !== 'player' && ship['player-id'] === hit.by,
+                ),
             ),
-        ),
-        'The two real NPCs must exchange weapon damage, rather than only circling the player',
+        pirateResult.firstShipDestruction
+          ? 'Combatants must land authoritative weapon hits before destruction'
+          : 'The NPCs must exchange weapon damage during capture',
       );
 
-      for (const ship of pirateResult.combatants as Reply[]) {
+      for (const ship of pirateResult.firstShipDestruction
+        ? []
+        : (pirateResult.combatants as Reply[])) {
         assert(
           hits.some(
             (hit: Reply) =>

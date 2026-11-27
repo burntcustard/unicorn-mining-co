@@ -222,45 +222,43 @@ const extraGlyphs = {
 Object.assign(glyphPaths, extraGlyphs);
 
 try {
-  for (const production of [false, true]) {
-    Reflect.set(document.fonts, 'check', () => false);
-    const entry = production ? `${root}/src/__text-test.ts` : 'text-test';
+  Reflect.set(document.fonts, 'check', () => false);
+  const entry = `${root}/src/__text-test.ts`;
 
-    const bundle = await rolldown({
-      input: entry,
-      external: ['node:assert/strict'],
-      plugins: [
-        {
-          name: 'text-test',
-          resolveId: (id) => (id === entry ? entry : undefined),
-          load: (id) => {
-            if (id === entry) {
-              return scenario.replace(
-                /assert\.(\w+)/g,
-                (_, method) => `Reflect.get(assert, '${method}')`,
-              );
-            }
-          },
+  const bundle = await rolldown({
+    input: entry,
+    external: ['node:assert/strict'],
+    plugins: [
+      {
+        name: 'text-test',
+        resolveId: (id) => (id === entry ? entry : undefined),
+        load: (id) => {
+          if (id === entry) {
+            return scenario.replace(
+              /assert\.(\w+)/g,
+              (_, method) => `Reflect.get(assert, '${method}')`,
+            );
+          }
         },
-        buildPrePlugin({ DEBUG: !production }),
-        ...(production ? [testBuildPlugin()] : []),
-      ],
-    });
+      },
+      buildPrePlugin(),
+      testBuildPlugin(),
+    ],
+  });
 
-    const { output } = await bundle.generate({ format: 'esm' });
+  const { output } = await bundle.generate({ format: 'esm' });
 
-    await bundle.close();
-    assert.ok(
-      Object.values(glyphPaths).every(
-        (path) => !path || !output[0].code.includes(path),
-      ),
-      'glyph paths are not shipped in the browser bundle',
-    );
-    await import(
-      'data:text/javascript;base64,' +
-        Buffer.from(output[0].code).toString('base64')
-    );
-  }
+  await bundle.close();
+  assert.ok(
+    Object.values(glyphPaths).every(
+      (path) => !path || !output[0].code.includes(path),
+    ),
+    'glyph paths are not shipped in the browser bundle',
+  );
+  await import(
+    'data:text/javascript;base64,' +
+      Buffer.from(output[0].code).toString('base64')
+  );
 } finally {
   for (const character of Object.keys(extraGlyphs)) {
     Reflect.deleteProperty(glyphPaths, character);

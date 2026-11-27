@@ -183,7 +183,10 @@ const centerOf = (segments: Segment[]) =>
   Vec.scale(
     segments.reduce(
       (center, { middle, localPosition }) =>
-        Vec.add(center, Vec.add(Vec.create(...middle!), localPosition)),
+        Vec.add(
+          center,
+          Vec.add(Vec.create(middle?.[0], middle?.[1]), localPosition),
+        ),
       Vec.create(),
     ),
     1 / segments.length,
@@ -547,6 +550,16 @@ export class Craft extends GameObject {
     }
 
     return connected;
+  }
+
+  protected hullTargetPosition() {
+    const hulls = this.segments.filter(
+      ({ hull, health }) => hull && !(health < 1),
+    );
+
+    return hulls.length && hulls.length < this.hullSegments.length
+      ? Vec.add(this.position, rotatePoint(centerOf(hulls), this.rotation))
+      : this.position;
   }
 
   fracture(hulls: Segment[], destroyed: boolean, wreckage?: boolean) {
@@ -1028,7 +1041,11 @@ export class Craft extends GameObject {
       module.fireCooldown = state.fireCooldown ?? 0;
       module.chargeCooldown = state.chargeCooldown ?? 0;
 
-      module.aimRotation = state.aimRotation ?? 0;
+      const aimRotation = state.aimRotation ?? 0;
+
+      module.aimRotation = module.turret
+        ? aimRotation
+        : approach(0, aimRotation, module.aimLimit ?? 0);
 
       module.shades = state.shades ? shadesOf(state.shades) : undefined;
 
@@ -1308,7 +1325,8 @@ export class Craft extends GameObject {
     const fragment = new Craft({
       id: this.world ? entityId(this.world) : undefined,
       world: this.world,
-      collections: this.collections,
+      // World fragments enter the scene after snapshot reconciliation.
+      collections: this.world ? [] : this.collections,
       random: this.random,
       shades: own.shades || this.shades,
       velocity,

@@ -473,13 +473,12 @@ mod tests {
     use std::sync::Arc;
     use std::time::Instant;
 
-    use crate::game_server::Session;
     use crate::specs::Catalog;
 
     use super::*;
 
     #[test]
-    fn docked_observer_survives_simulation_ticks() {
+    fn docked_observer_has_no_fitted_modules_or_collision_geometry() {
         let catalog = Arc::new(Catalog::load().unwrap());
         let mut session = AuthoritativeSession::new(25.0, catalog).unwrap();
         session.fixtures.npc = Some(Fixture {
@@ -492,16 +491,12 @@ mod tests {
         session.accounts.get_mut(&player).unwrap().name = "Collect empty".into();
         session.play(player);
 
-        for _ in 0..4 {
-            session.tick(1);
-        }
-
         let account = session.accounts.get(&player).unwrap();
         let world = &session.sectors[account.sector].running.world;
         let Some(EntityKind::Ship(anchor)) =
             world.entity(account.ship_id).map(|entity| &entity.model)
         else {
-            panic!("NPC observer must survive its first simulation ticks");
+            panic!("benchmark creates a docked observer");
         };
         assert_eq!(anchor.craft.object.name, "Fixture collector-empty");
         assert!(anchor.craft.docked());

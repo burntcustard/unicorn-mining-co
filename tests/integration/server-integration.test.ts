@@ -1,31 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { resolve } from 'node:path';
+import { on, once } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import WebSocket from 'ws';
 import { rolldown } from 'rolldown';
-import { ProtocolClient } from '../../benchmarking/server/client.ts';
-import { loadProtocolRuntime } from '../../benchmarking/utilities/protocol-runtime.ts';
-import { paintColors } from '../../src/specs/colors.ts';
-import { buildPlugin, buildPrePlugin } from '../../plugins/build-plugins.ts';
-import {
-  decodeServerControl,
-  encodeClientMessage,
-} from '../../src/client/protocol/binary-control';
-import {
-  decodeBinarySnapshot,
-  mergeModuleStates,
-  snapshotDeltaQuery,
-} from '../../src/client/protocol/binary-snapshot';
-import { emptyPlayerInput } from '../../src/client/protocol/input';
-import type {
-  ReplicatedEntity,
-  ReplicatedModule,
-} from '../../src/client/protocol/network';
+import { buildPrePlugin } from '../../plugins/build-plugins.ts';
+import { testBuildPlugin } from '../support/build-plugin';
 
-// Exercise production-mangled field access and tags against the server wire.
 const entry = resolve('src/__wire_integration.ts');
 
 const bundle = await rolldown({
@@ -37,164 +21,153 @@ const bundle = await rolldown({
       load: (id) =>
         id === entry
           ? `
-        import {encodeClientMessage,decodeServerControl} from '${resolve('src/client/protocol/binary-control.ts')}';
-        import {decodeBinarySnapshot} from '${resolve('src/client/protocol/binary-snapshot.ts')}';
-        import {emptyPlayerInput} from '${resolve('src/client/protocol/input.ts')}';
-        export default [
-          playerId=>encodeClientMessage({type:'hello',playerId}),
-          tick=>encodeClientMessage({type:'input',tick,sequence:1,input:{...emptyPlayerInput(),thrust:1}}),
-          sequence=>encodeClientMessage({type:'snapshotAck',sequence}),
-          packet=>{const message=decodeServerControl(packet);return [message.type==='welcome',message.playerId,message.playerNumber,message.shipId,message.serverTick,message.unlockedPaints,message.credits];},
-          packet=>{const message=decodeBinarySnapshot(packet);return [message.type==='load',message.snapshotSequence,message.acknowledgedSequence,message.serverTick,message.fullEntities.length];},
-          ()=>encodeClientMessage({type:'activity'}),
-          packet=>{const message=decodeServerControl(packet);return message.type==='sounds' ? message.sounds.map(sound=>[sound.effect,sound.id,sound.by,sound.position.x,sound.position.y]) : undefined;},
-          position=>encodeClientMessage({type:'sectorMap',position}),
-          packet=>{const message=decodeServerControl(packet);return message.type==='sectorMap' ? message.mapMarkers.map(marker=>[marker.kind==='field',marker.kind==='ship',marker.id,marker.position.x,marker.position.y,marker.radius,marker.name,marker.definitionId,marker.color]) : undefined;},
-        ];`
+        import { encodeClientMessage, decodeServerControl } from './client/protocol/binary-control.ts';
+        import { decodeBinarySnapshot, snapshotDeltaQuery } from './client/protocol/binary-snapshot.ts';
+        import { emptyPlayerInput } from './client/protocol/input.ts';
+
+        export const deltaQuery = snapshotDeltaQuery;
+        export const hello = () => encodeClientMessage({ type: 'hello', playerId: null });
+        export const sendHatchInput = tick => encodeClientMessage({
+          type: 'input', tick, sequence: 1, input: { ...emptyPlayerInput(), cargoHatch: true },
+        });
+        export const map = () => encodeClientMessage({ type: 'sectorMap', position: { x: 0, y: 0 } });
+        export const ack = sequence => encodeClientMessage({ type: 'snapshotAck', sequence });
+
+        export const welcome = packet => {
+          const message = decodeServerControl(packet);
+          if (message.type === 'welcome') return [message.playerNumber, message.shipId, message.playerId, message.credits];
+        };
+        export const mapShips = packet => {
+          const message = decodeServerControl(packet);
+          if (message.type === 'sectorMap') {
+            return message.mapMarkers.filter(marker => marker.kind === 'ship').map(marker => marker.id);
+          }
+        };
+        export const soundSources = packet => {
+          const message = decodeServerControl(packet);
+          if (message.type === 'sounds') {
+            return message.sounds.filter(sound => sound.effect === 0).map(sound => [sound.id, sound.by]);
+          }
+        };
+        export const snapshot = packet => {
+          const message = decodeBinarySnapshot(packet);
+          const load = message.type === 'load';
+          return [load, message.snapshotSequence, message.acknowledgedSequence, message.serverTick, load ? message.fullEntities.map(entity => entity.id) : []];
+        };
+        `
           : undefined,
     },
     buildPrePlugin(),
-    { ...buildPlugin(), generateBundle: undefined },
+    testBuildPlugin(),
   ],
 });
 
 const { output } = await bundle.generate({ format: 'esm' });
 
 await bundle.close();
-const production = (
-  await import(
-    `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
-  )
-).default;
 
-assert.deepEqual(
-  production[0](null),
-  encodeClientMessage({
-    type: 'hello',
-    playerId: null,
-  }),
+type Bytes = Uint8Array;
+
+const codec: {
+  deltaQuery: string;
+  hello(): Bytes;
+  sendHatchInput(tick: number): Bytes;
+  map(): Bytes;
+  ack(sequence: number): Bytes;
+  welcome(packet: Bytes): [number, number, string, number] | undefined;
+  mapShips(packet: Bytes): number[] | undefined;
+  soundSources(packet: Bytes): [number, number][] | undefined;
+  snapshot(
+    packet: Bytes,
+  ): [boolean, number | undefined, number, number, number[]];
+} = await import(
+  `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
 
-const decodeSounds = (packet: Uint8Array) => {
-  const message = decodeServerControl(packet);
+const directory = mkdtempSync(resolve(tmpdir(), 'unicorn-integration-'));
 
-  return message.type === 'sounds'
-    ? message.sounds.map((sound) => [
-        sound.effect,
-        sound.id,
-        sound.by,
-        sound.position.x,
-        sound.position.y,
-      ])
-    : undefined;
-};
+const databasePath = resolve(directory, 'world.sqlite');
+let server: ReturnType<typeof spawn> | undefined;
 
-const source = [
-  (playerId: string | null) =>
-    encodeClientMessage({ type: 'hello', playerId }),
-  (tick: number) =>
-    encodeClientMessage({
-      type: 'input',
-      tick,
-      sequence: 1,
-      input: { ...emptyPlayerInput(), thrust: 1 },
-    }),
-  (sequence: number) => encodeClientMessage({ type: 'snapshotAck', sequence }),
-  (packet: Uint8Array) => {
-    const message = decodeServerControl(packet);
+async function start() {
+  const child = spawn(resolve('bin/server'), [], {
+    env: {
+      ...process.env,
+      PORT: '0',
+      ASSET_DIR: resolve('dist'),
+      APP_ENV: 'production',
+      DATABASE_PATH: databasePath,
+      MOVEMENT_BIND_ADDRESS: '127.0.0.1:0',
+      MOVEMENT_PUBLIC_ADDRESS: '127.0.0.1:0',
+    },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
 
-    assert(message.type === 'welcome' || message.type === 'progress');
+  server = child;
 
-    if (message.type === 'progress') {
-      return [
-        false,
-        null,
-        null,
-        null,
-        null,
-        message.unlockedPaints,
-        message.credits,
-      ];
-    }
-
-    return [
-      true,
-      message.playerId,
-      message.playerNumber,
-      message.shipId,
-      message.serverTick,
-      message.unlockedPaints,
-      message.credits,
-    ];
-  },
-  (packet: Uint8Array) => {
-    const message = decodeBinarySnapshot(packet);
-
-    return [
-      message.type === 'load',
-      message.snapshotSequence,
-      message.acknowledgedSequence,
-      message.serverTick,
-      message.fullEntities.length,
-    ];
-  },
-  () => encodeClientMessage({ type: 'activity' }),
-  (packet: Uint8Array) => {
-    const message = decodeServerControl(packet);
-
-    return message.type === 'sounds'
-      ? message.sounds.map((sound) => [
-          sound.effect,
-          sound.id,
-          sound.by,
-          sound.position.x,
-          sound.position.y,
-        ])
-      : undefined;
-  },
-];
-
-const sockets: WebSocket[] = [];
-const paintClients: ProtocolClient[] = [];
-let paintPulse: ReturnType<typeof setInterval>;
-
-const databaseDirectory = mkdtempSync(
-  resolve(tmpdir(), 'unicorn-integration-'),
-);
-
-const server = spawn(resolve('bin/server'), [], {
-  env: {
-    ...process.env,
-    PORT: '0',
-    ASSET_DIR: resolve('dist'),
-    APP_ENV: 'production',
-    DATABASE_PATH: resolve(databaseDirectory, 'world.sqlite'),
-  },
-  stdio: ['ignore', 'ignore', 'pipe'],
-});
-
-const timeout = setTimeout(() => {
-  sockets.forEach((socket) => socket.terminate());
-  server.kill('SIGTERM');
-}, 120000);
-
-try {
-  const address = await new Promise<string>((resolveAddress, reject) => {
+  return new Promise<string>((resolveAddress, reject) => {
     let log = '';
 
-    server.on('error', reject);
-    server.once('exit', (code) =>
+    child.once('error', reject);
+    child.once('exit', (code) =>
       reject(new Error(`Server exited before startup: ${code}\n${log}`)),
     );
 
-    server.stderr.on('data', (data) => {
+    child.stderr.on('data', (data) => {
       log += data;
       const match = log.match(/listening on .*:(\d+)/);
 
       if (match) resolveAddress(`http://127.0.0.1:${match[1]}`);
     });
   });
+}
 
+async function stop(signal: 'SIGTERM' | 'SIGKILL') {
+  if (!server || server.exitCode !== null || server.signalCode !== null) return;
+  const stopped = once(server, 'exit');
+
+  server.kill(signal);
+  await stopped;
+}
+
+const sockets: WebSocket[] = [];
+
+const timeout = setTimeout(() => {
+  sockets.forEach((socket) => socket.terminate());
+  server?.kill('SIGKILL');
+}, 30000);
+
+type Peer = { socket: WebSocket; messages: ReturnType<typeof on> };
+
+async function receive<T>(
+  { socket, messages }: Peer,
+  packetName: string,
+  select: (
+    packet: Bytes,
+    snapshot?: ReturnType<typeof codec.snapshot>,
+  ) => T | undefined,
+) {
+  for (;;) {
+    const { done, value } = await messages.next();
+
+    if (done) break;
+    const [packet, binary] = value as [Buffer, boolean];
+
+    assert(binary);
+    const snapshot = packet[1] === 0x43 ? undefined : codec.snapshot(packet);
+    const sequence = snapshot?.[1];
+
+    if (sequence !== undefined) socket.send(codec.ack(sequence));
+    const selected = select(packet, snapshot);
+
+    if (selected !== undefined) return selected;
+  }
+
+  throw new Error(`Socket closed before ${packetName}`);
+}
+
+try {
+  const address = await start();
   const health = await fetch(`${address}/healthz`);
 
   assert.equal(health.status, 200);
@@ -212,514 +185,129 @@ try {
   assert.match(asset.headers.get('cache-control')!, /immutable/);
   assert.equal((await fetch(`${address}/missing`)).status, 404);
 
-  const connect = async (
-    codec: any[],
-    playerId: string | null = null,
-    query = '',
-  ) => {
-    const socket = new WebSocket(
-      address.replace('http', 'ws') + '/game-socket' + query,
-      { origin: address.replace('http', 'https') },
-    );
+  async function join(query = '') {
+    const url = new URL('/game-socket' + query, address);
+
+    url.protocol = 'ws:';
+
+    const socket = new WebSocket(url, {
+      origin: address.replace('http:', 'https:'),
+    });
 
     sockets.push(socket);
+    await once(socket, 'open');
 
-    return new Promise<{ playerId: string; playerNumber: number; shipId: number }>(
-      (resolveClient, reject) => {
-        let welcome: any[];
-        let received = 0;
-        let acknowledged = false;
-        let accountReceived = false;
-        let loadBytes = 0;
-        let snapshotBytes = 0;
+    const peer = {
+      socket,
+      messages: on(socket, 'message', { close: ['close'] }),
+    };
 
-        socket.on('error', reject);
+    let pilot: ReturnType<typeof codec.welcome>;
 
-        socket.on('close', (code) => {
-          if (received < 3 || !acknowledged) {
-            reject(new Error(`Socket closed before snapshots: ${code}`));
-          }
-        });
+    const ready = receive(
+      peer,
+      'the welcome and initial load',
+      (packet, snapshot) => {
+        if (!snapshot) {
+          pilot ??= codec.welcome(packet);
+          return;
+        }
 
-        socket.on('open', () => {
-          socket.send(codec[0](playerId));
-          socket.send(codec[5]());
-        });
+        const [load, , , tick, loadedIds] = snapshot;
 
-        socket.on('message', (data, binary) => {
-          try {
-            assert(binary);
-            const packet = new Uint8Array(data as Buffer);
-
-            if (packet[1] === 0x43) {
-              const control = codec[3](packet);
-
-              if (!control[0]) {
-                assert.equal(control[5], 511);
-                assert.equal(control[6], 2000);
-                accountReceived = true;
-                return;
-              }
-
-              welcome = control;
-              assert(welcome[0]);
-              assert.equal(welcome[5], 511);
-              assert.equal(welcome[6], 2000);
-              socket.send(codec[1](welcome[4]));
-
-              // A purchase outside a station is rejected and returns account state.
-              socket.send(
-                encodeClientMessage({
-                  type: 'dock',
-                  action: 'buy',
-                  module: 4,
-                  moduleId: -999,
-                }),
-              );
-
-              return;
-            }
-
-            const snapshot = codec[4](packet);
-
-            received++;
-
-            if (snapshot[0]) {
-              loadBytes = packet.length;
-            } else {
-              snapshotBytes = packet.length;
-            }
-
-            if (snapshot[1] !== undefined) socket.send(codec[2](snapshot[1]));
-            acknowledged ||= snapshot[2] === 1;
-
-            if (welcome && received >= 3 && acknowledged && accountReceived) {
-              console.log(
-                `Server ${codec === source ? 'source' : 'production'} codec: load ${loadBytes} B, snapshot ${snapshotBytes} B`,
-              );
-              socket.removeAllListeners('message');
-              socket.close();
-
-              resolveClient({
-                playerId: welcome[1],
-                playerNumber: welcome[2],
-                shipId: welcome[3],
-              });
-            }
-          } catch (error) {
-            reject(error);
-          }
-        });
+        if (load && pilot) {
+          assert(
+            loadedIds.includes(pilot[1]),
+            'the initial load includes the owned ship',
+          );
+          return { ...peer, pilot, tick, loadBytes: packet.length };
+        }
       },
     );
-  };
 
-  const first = await connect(source);
-
-  await once(sockets.at(-1)!, 'close');
-  const resumed = await connect(
-    production,
-    first.playerId,
-    `?${snapshotDeltaQuery}`,
-  );
-
-  assert.equal(resumed.playerNumber, first.playerNumber);
-  assert.equal(resumed.shipId, first.shipId);
-  await once(sockets.at(-1)!, 'close');
-
-  // A second pilot receives the first pilot's actual server-generated audio.
-  const join = () => {
-    const socket = new WebSocket(
-      address.replace('http', 'ws') + '/game-socket',
-    );
-
-    sockets.push(socket);
-
-    return new Promise<{
-      socket: WebSocket;
-      playerNumber: number;
-      shipId: number;
-      tick: number;
-      entities: Map<number, ReplicatedEntity>;
-    }>((resolveClient, reject) => {
-      const entities = new Map<number, ReplicatedEntity>();
-
-      let welcome: Extract<
-        ReturnType<typeof decodeServerControl>,
-        { type: 'welcome' }
-      >;
-
-      socket.on('error', reject);
-
-      socket.on('open', () =>
-        socket.send(
-          encodeClientMessage({
-            type: 'hello',
-            playerId: null,
-          }),
-        ),
-      );
-
-      socket.on('message', (data) => {
-        try {
-          const packet = new Uint8Array(data as Buffer);
-
-          if (packet[1] === 0x43) {
-            const control = decodeServerControl(packet);
-
-            if (control.type === 'welcome') welcome = control;
-            return;
-          }
-
-          const snapshot = decodeBinarySnapshot(packet);
-
-          if (snapshot.type === 'load') entities.clear();
-
-          for (const record of snapshot.fullEntities) {
-            const previous = entities.get(record.id);
-
-            mergeModuleStates(record, previous);
-            const entity = { ...previous, ...record } as ReplicatedEntity;
-
-            for (const [key, value] of Object.entries(record)) {
-              if (value === null) {
-                delete (entity as unknown as Record<string, unknown>)[key];
-              }
-            }
-
-            entities.set(record.id, entity);
-          }
-
-          if (snapshot.entityIds) {
-            const ids = new Set(snapshot.entityIds);
-
-            for (const id of entities.keys()) {
-              if (!ids.has(id)) entities.delete(id);
-            }
-          }
-
-          if (snapshot.snapshotSequence !== undefined) {
-            socket.send(
-              encodeClientMessage({
-                type: 'snapshotAck',
-                sequence: snapshot.snapshotSequence,
-              }),
-            );
-          }
-
-          if (welcome) {
-            resolveClient({
-              socket,
-              playerNumber: welcome.playerNumber,
-              shipId: welcome.shipId,
-              tick: snapshot.serverTick,
-              entities,
-            });
-          }
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
-  };
-
-  const actor = await join();
-  const observer = await join();
-
-  const mapped = new Promise<any[]>((resolveMap, reject) => {
-    actor.socket.on('message', (data) => {
-      try {
-        const packet = new Uint8Array(data as Buffer);
-
-        if (packet[1] !== 0x43) return;
-        const message = decodeServerControl(packet);
-
-        if (message.type !== 'sectorMap') return;
-        const markers = message.mapMarkers.map((marker) => [
-          marker.kind === 'field',
-          marker.kind === 'ship',
-          marker.id,
-          marker.position.x,
-          marker.position.y,
-          marker.radius,
-          marker.name,
-          marker.definitionId,
-          marker.color,
-        ]);
-
-        assert.deepEqual(
-          production[8](packet),
-          markers,
-          'production map properties decode server markers',
-        );
-        assert(
-          markers.every((marker) => !marker[0]),
-          'fields are generated locally rather than streamed',
-        );
-        assert(
-          markers.some((marker) => marker[1] && marker[2] === actor.shipId),
-          'map includes own player',
-        );
-        assert(
-          markers.some((marker) => marker[1] && marker[2] === observer.shipId),
-          'map includes other player',
-        );
-        resolveMap(markers);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
-
-  const mapRequest = encodeClientMessage({
-    type: 'sectorMap',
-    position: { x: 0, y: 0 },
-  });
-
-  assert.deepEqual(production[7]({ x: 0, y: 0 }), mapRequest);
-  actor.socket.send(mapRequest);
-  await mapped;
-
-  // Both sockets observe the same changing ship through one shared batch.
-  const mixedModules = new Promise<void>((resolveMixed, reject) => {
-    const updates = new Map<number, Map<number, ReplicatedModule[]>>();
-
-    const handlers: {
-      socket: WebSocket;
-      handle: (data: WebSocket.RawData) => void;
-    }[] = [];
-
-    for (const [index, { socket, entities }] of [actor, observer].entries()) {
-      const handle = (data: WebSocket.RawData) => {
-        try {
-          const packet = new Uint8Array(data as Buffer);
-
-          if (packet[1] !== 0x4d) return;
-          const snapshot = decodeBinarySnapshot(packet);
-          const modules = entities.get(actor.shipId)?.modules;
-
-          if (snapshot.type !== 'snapshot' || !modules?.length) return;
-
-          assert.deepEqual(production[4](packet), [
-            false,
-            snapshot.snapshotSequence,
-            snapshot.acknowledgedSequence,
-            snapshot.serverTick,
-            snapshot.fullEntities.length,
-          ]);
-
-          const atTick = updates.get(snapshot.serverTick) ?? new Map();
-
-          atTick.set(index, modules);
-          updates.set(snapshot.serverTick, atTick);
-
-          if (atTick.has(0) && atTick.has(1)) {
-            assert.deepEqual(atTick.get(0), atTick.get(1));
-            handlers.forEach(({ socket, handle }) =>
-              socket.off('message', handle),
-            );
-            resolveMixed();
-          }
-        } catch (error) {
-          reject(error);
-        }
-      };
-
-      handlers.push({ socket, handle });
-      socket.on('message', handle);
-    }
-  });
-
-  const heard = new Promise<void>((resolveSound, reject) => {
-    observer.socket.on('message', (data) => {
-      try {
-        const packet = new Uint8Array(data as Buffer);
-
-        if (packet[1] !== 0x43) return;
-        const original = decodeSounds(packet);
-        const compact = production[6](packet);
-
-        assert.deepEqual(
-          compact,
-          original,
-          'production and source sound codecs agree on the server audio packet',
-        );
-
-        if (
-          original?.some(
-            (sound: number[]) =>
-              sound[0] === 0 &&
-              sound[1] === actor.shipId &&
-              sound[2] === actor.playerNumber,
-          )
-        ) {
-          resolveSound();
-        }
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
-
-  actor.socket.send(
-    encodeClientMessage({
-      type: 'input',
-      tick: Math.max(actor.tick, observer.tick),
-      sequence: 1,
-      input: { ...emptyPlayerInput(), cargoHatch: true },
-    }),
-  );
-
-  await Promise.all([heard, mixedModules]);
-  const actorClosed = once(actor.socket, 'close');
-  const observerClosed = once(observer.socket, 'close');
-
-  actor.socket.close();
-  observer.socket.close();
-  await Promise.all([actorClosed, observerClosed]);
-
-  // Paint a real fitted module through the station and observe later sparse updates.
-  const { runtime } = await loadProtocolRuntime(
-    resolve(databaseDirectory, 'runtime'),
-  );
-
-  const makePaintClient = (index: number, clientRuntime = runtime) => {
-    const client = new ProtocolClient({
-      url: address,
-      index,
-      players: 2,
-      runtime: clientRuntime,
-      preparationTimeoutMs: 90000,
-    });
-
-    paintClients.push(client);
-    return client;
-  };
-
-  const painter = makePaintClient(0);
-  let captureSparse = false;
-  let sparsePackets = 0;
-
-  const observerRuntime = {
-    ...runtime,
-    decodeBinarySnapshot(
-      data: Parameters<typeof runtime.decodeBinarySnapshot>[0],
-    ) {
-      const snapshot = runtime.decodeBinarySnapshot(data);
-
-      if (
-        captureSparse &&
-        snapshot.fullEntities.some(
-          (entity) =>
-            entity.id === painter.shipId &&
-            entity.modules?.some(
-              (module) =>
-                module.type === undefined || module.shades?.length === 0,
-            ),
-        )
-      ) {
-        sparsePackets++;
-      }
-
-      return snapshot;
-    },
-  };
-
-  // Fresh CPU cases reuse client indices even though their profiles persist.
-  const paintObserver = makePaintClient(0, observerRuntime);
-
-  paintPulse = setInterval(
-    () => paintClients.forEach((client) => client.activity()),
-    5000,
-  );
-  await Promise.all(paintClients.map((client) => client.ready()));
-  await Promise.all(
-    paintClients.map((client) =>
-      client.until(
-        () => Boolean(client.ship.targetLabel),
-        'Waiting for the CPU client display name to reach its ship',
-        5000,
-      ),
-    ),
-  );
-  assert.notEqual(painter.ship.targetLabel, paintObserver.ship.targetLabel);
-  await painter.dock();
-
-  const hatchType = runtime.catalog.moduleIds.indexOf('cargoHatch');
-  const hatch = painter.ship.modules?.find(
-    (module) => module.type === hatchType && module.mount >= 0,
-  );
-
-  assert(hatch?.id !== undefined, 'the actor has a fitted cargo hatch');
-  const hatchId = hatch.id;
-  const another = painter.ship.modules?.find((module) => module.id !== hatchId);
-  const previousOtherShades = another?.shades;
-  const ownHatch = () =>
-    painter.ship?.modules?.find((module) => module.id === hatchId);
-  const observedShip = () => paintObserver.entities.get(painter.shipId);
-  const observedHatch = () =>
-    observedShip()?.modules?.find((module) => module.id === hatchId);
-  const isYellow = (shades?: readonly string[]) =>
-    shades?.length === paintColors[2].length &&
-    shades.every((shade, index) => shade === paintColors[2][index]);
-
-  await painter.craftAction(
-    { action: 'paint', mount: hatch.mount, moduleId: hatchId, paint: 2 },
-    () => !!isYellow(ownHatch()?.shades),
-  );
-  // The benchmark launch helper flies outward for ten seconds, which can
-  // take the ship beyond the stationary observer's replication range.
-  painter.input({ ...emptyPlayerInput(), launch: true });
-  await painter.until(() => !painter.ship?.dockedTo, 'Ship begins launching');
-  painter.input(emptyPlayerInput());
-  await paintObserver.until(
-    () => !!isYellow(observedHatch()?.shades),
-    'Observer sees the repainted hatch',
-  );
-  captureSparse = true;
-  painter.input({ ...emptyPlayerInput(), cargoHatch: true });
-  await paintObserver.until(
-    () =>
-      !!observedHatch()?.segments.some(
-        (segment) => segment.active > 0 || segment.activationProgress > 0,
-      ),
-    'Observer sees the repainted hatch animate',
-  );
-  assert(sparsePackets > 0, 'the observer received sparse module updates');
-  assert(
-    isYellow(observedHatch()?.shades),
-    'animation retains the repainted palette',
-  );
-
-  if (another) {
-    assert.deepEqual(
-      observedShip()?.modules?.find((module) => module.id === another.id)
-        ?.shades,
-      previousOtherShades,
-      'painting one module preserves another module palette',
-    );
+    socket.send(codec.hello());
+    return ready;
   }
 
-  assert.deepEqual(painter.errors, []);
-  assert.deepEqual(paintObserver.errors, []);
-  console.log(
-    'Local actor and observer preserve painted module color during animation',
+  const actor = await join(`?${codec.deltaQuery}`);
+  const observer = await join();
+  const [playerNumber, shipId, playerId, credits] = actor.pilot;
+  const mapped = receive(actor, 'the sector map', (packet) =>
+    packet[1] === 0x43 ? codec.mapShips(packet) : undefined,
   );
-  console.log(
-    'Server assets, health, source/production UC+UM codecs, input acknowledgment and reconnect passed',
+
+  actor.socket.send(codec.map());
+  const shipIds = await mapped;
+
+  assert(shipIds.includes(shipId), 'map includes the requesting player');
+  assert(shipIds.includes(observer.pilot[1]), 'map includes another player');
+
+  const heard = receive(observer, 'the cargo hatch sound', (packet) =>
+    packet[1] === 0x43 &&
+    codec
+      .soundSources(packet)
+      ?.some(([ship, player]) => ship === shipId && player === playerNumber)
+      ? true
+      : undefined,
   );
+
+  const acknowledged = receive(
+    actor,
+    'input acknowledgment',
+    (packet, snapshot) => {
+      if (snapshot && !snapshot[0] && snapshot[2] === 1) return packet.length;
+    },
+  );
+
+  actor.socket.send(codec.sendHatchInput(Math.max(actor.tick, observer.tick)));
+  const [snapshotBytes] = await Promise.all([acknowledged, heard]);
+
+  console.log(
+    `Production codec load ${actor.loadBytes} B, snapshot ${snapshotBytes} B`,
+  );
+
+  // Reuse the wire session's actual accounts to exercise crash recovery.
+  await stop('SIGKILL');
+  const database = new DatabaseSync(databasePath);
+
+  try {
+    const saved = database
+      .prepare('SELECT ship FROM players WHERE id = ?')
+      .get(playerId);
+
+    assert(typeof saved?.ship === 'string');
+    assert.equal(JSON.parse(saved.ship).id, shipId);
+    const corrupt = database
+      .prepare('UPDATE players SET ship = ? WHERE id = ?')
+      .run('{', observer.pilot[2]);
+
+    assert.equal(corrupt.changes, 1);
+  } finally {
+    database.close();
+  }
+
+  const identity = new URL('/api/identity', await start());
+  const saved = await fetch(identity, { method: 'POST', body: playerId });
+
+  assert.equal(saved.status, 200);
+  const [, savedCredits, savedShip] = await saved.json();
+
+  assert.equal(savedCredits, credits);
+  assert(
+    Array.isArray(savedShip[3]) && savedShip[3].length > 0,
+    'the dormant ship retains its installed modules',
+  );
+
+  const unavailable = await fetch(identity, {
+    method: 'POST',
+    body: observer.pilot[2],
+  });
+
+  assert.equal(unavailable.status, 503);
+  assert.equal(unavailable.headers.get('cache-control'), 'no-store');
 } finally {
   clearTimeout(timeout);
-  clearInterval(paintPulse);
-  await Promise.all(paintClients.map((client) => client.close()));
   sockets.forEach((socket) => socket.terminate());
-
-  if (server.exitCode === null) {
-    const stopped = once(server, 'exit');
-
-    server.kill('SIGTERM');
-    await stopped;
-  }
-
-  rmSync(databaseDirectory, { recursive: true, force: true });
+  await stop('SIGTERM');
+  rmSync(directory, { recursive: true, force: true });
 }

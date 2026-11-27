@@ -28,6 +28,7 @@ export interface ModuleRenderOptions {
 
 export class Module extends GameObject {
   aimRotation = 0;
+  declare aimLimit?: number;
   static [key: string]: any;
   static definitionId: ModuleId;
   static mass = 0;

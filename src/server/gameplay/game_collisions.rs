@@ -634,7 +634,7 @@ mod tests {
     }
 
     #[test]
-    fn synchronizing_geometry_preserves_unchanged_fixture_ids() {
+    fn synchronizing_geometry_reuses_unchanged_and_reactivates_inactive_fixtures() {
         let catalog = Catalog::load().unwrap();
         let mut world = World::new(&catalog.simulation);
         let body = world.create_body();
@@ -683,39 +683,20 @@ mod tests {
         assert_ne!(geometry.fixtures[0], original[0]);
         assert_eq!(geometry.fixtures[1], original[1]);
         assert!(world.fixture(original[0]).is_none());
-    }
-
-    #[test]
-    fn inactive_colliders_keep_a_stable_source_until_activation() {
-        let catalog = Catalog::load().unwrap();
-        let mut world = World::new(&catalog.simulation);
-        let mut geometry = CollisionGeometry::new(world.create_body());
-        let mut pose = GeometryPose {
-            pose: Pose::default(),
-            mass: 10.0,
-            force_mass: 10.0,
-            angular_inertia_scale: 0.8,
-            source: Some(1),
-        };
-        let mut colliders = [
-            collider(Vector::ZERO, 1),
-            ColliderGeometry {
-                collides: false,
-                ..collider(Vector::new(7.0, 0.0), 2)
-            },
-        ];
+        let moved = geometry.fixtures[0];
+        pose.source = Some(4);
+        colliders[1].collides = false;
         geometry.synchronize(&mut world, pose, &colliders);
         assert!(geometry.matches_source(pose));
-        assert_eq!(geometry.fixtures.len(), 1);
-        let original = geometry.fixtures[0];
+        assert_eq!(geometry.fixtures, [moved]);
 
-        pose.source = Some(2);
+        pose.source = Some(5);
         colliders[1].collides = true;
         assert!(!geometry.matches_source(pose));
         geometry.synchronize(&mut world, pose, &colliders);
         assert!(geometry.matches_source(pose));
         assert_eq!(geometry.fixtures.len(), 2);
-        assert_eq!(geometry.fixtures[0], original);
+        assert_eq!(geometry.fixtures[0], moved);
     }
 
     #[test]

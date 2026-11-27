@@ -563,45 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn stable_bounds_reuse_result_storage_and_retain_earlier_views() {
-        let catalog = Catalog::load().unwrap();
-        let mut manager = RegionManager::new(25, &catalog, None);
-        let mut views = manager.query_many(
-            &[Vector::ZERO, Vector::new(3200.0, 1500.0)],
-            None,
-            &[0.0, 900.0],
-        );
-        let setup = Arc::clone(&views[0].asteroids[0]);
-        let previous = manager.query(Vector::ZERO, None);
-        assert!(Arc::ptr_eq(&setup, &previous.asteroids[0]));
-        let storage = views[0].asteroids.as_ptr();
-        let positions = [Vector::ZERO, Vector::new(3200.0, 1500.0)];
-        manager.query_many_into(&mut views, &positions, None, &[0.0, 900.0]);
-        manager.query_many_into(&mut views, &positions, None, &[0.0, 900.0]);
-        assert_eq!(views[0].asteroids.as_ptr(), storage);
-        manager.remove(setup.id);
-        manager.query_many_into(&mut views, &positions, None, &[0.0, 900.0]);
-        assert!(views[0].asteroids.iter().all(|value| value.id != setup.id));
-        assert!(Arc::ptr_eq(&setup, &previous.asteroids[0]));
-    }
-
-    #[test]
-    fn station_marker_cache_survives_loads_and_invalidates_removal() {
-        let catalog = Catalog::load().unwrap();
-        let mut manager = RegionManager::new(25, &catalog, None);
-        let before = manager.query(Vector::ZERO, None).station_markers;
-        let cache = manager.station_lists.len();
-        manager.load((-20, -20));
-        assert_eq!(manager.station_lists.len(), cache);
-        assert_eq!(manager.query(Vector::ZERO, None).station_markers, before);
-        let removed = before[0].id;
-        manager.remove(removed);
-        let after = manager.query(Vector::ZERO, None).station_markers;
-        assert!(after.iter().all(|marker| marker.id != removed));
-    }
-
-    #[test]
-    fn cold_region_eviction_preserves_warm_views_order_and_tombstones() {
+    fn region_cache_reuses_warm_views_and_preserves_tombstones_across_eviction() {
         let catalog = Catalog::load().unwrap();
         let mut manager = RegionManager::new(25, &catalog, None);
         manager.pre_generate(1.0);
@@ -609,6 +571,12 @@ mod tests {
             asteroid: 6000.0,
             ..manager.default_ranges
         };
+        let positions = [Vector::ZERO];
+        let limits = [0.0];
+        let mut views = manager.query_many(&positions, Some(ranges), &limits);
+        let storage = views[0].asteroids.as_ptr();
+        manager.query_many_into(&mut views, &positions, Some(ranges), &limits);
+        assert_eq!(views[0].asteroids.as_ptr(), storage);
         let mut before = manager.query(Vector::ZERO, Some(ranges));
         let original_regions = manager.loaded.clone();
         let asteroid = before

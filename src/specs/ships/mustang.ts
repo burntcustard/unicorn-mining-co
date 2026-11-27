@@ -100,7 +100,7 @@ export const mustang = {
       ],
     },
     {
-      health: 40,
+      health: 60,
       core: true,
       mounts: [
         [

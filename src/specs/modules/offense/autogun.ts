@@ -3,6 +3,7 @@ import { colors } from '../../colors';
 import { autogunExplosion } from '../../effects/autogun-explosion';
 import { autogunMuzzleFlash } from '../../effects/autogun-muzzle-flash';
 import { autogunAmmo } from '../../items';
+import { weaponAimLimit } from '../../craft';
 import type { ModuleSpec } from '../types';
 
 export const autogun = {
@@ -10,6 +11,7 @@ export const autogun = {
   description:
     "Fire a rapid stream of kinetic projectiles.\nDon't forget to buy ammo!",
   behavior: 'weapon',
+  aimLimit: weaponAimLimit,
   mass: 100,
   name: 'Autogun',
   health: 0,

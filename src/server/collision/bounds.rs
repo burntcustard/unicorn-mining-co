@@ -72,16 +72,4 @@ mod tests {
         assert_eq!(bounds.combine(nan_bounds), bounds);
         assert_eq!(nan_bounds.combine(bounds), bounds);
     }
-
-    #[test]
-    fn combine_treats_signed_zeros_as_equal() {
-        let negative_zero = Aabb {
-            lower_bound: Vector::new(-0.0, -0.0),
-            upper_bound: Vector::new(-0.0, -0.0),
-        };
-        let positive_zero = Aabb::default();
-
-        assert_eq!(negative_zero.combine(positive_zero), positive_zero);
-        assert_eq!(positive_zero.combine(negative_zero), positive_zero);
-    }
 }

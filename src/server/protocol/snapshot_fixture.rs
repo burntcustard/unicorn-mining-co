@@ -1,4 +1,4 @@
-//! Wire fixtures for client snapshot decoding.
+//! Input records for the fixed snapshot wire packets.
 
 use std::collections::BTreeMap;
 
@@ -11,13 +11,6 @@ use super::{
     ModuleState, ProtocolError, Snapshot, Vector, WreckageSegment, append_entity_record_delta,
     encode_snapshot,
 };
-
-pub fn packets(catalog: &Catalog) -> Result<BTreeMap<&'static str, String>, ProtocolError> {
-    let mut packets = module_snapshots(catalog)?;
-    packets.insert("snapshot", full_snapshot(catalog)?);
-    packets.insert("edge", edge_snapshot(catalog)?);
-    Ok(packets)
-}
 
 pub(super) fn point(x: f64, y: f64) -> FieldData<'static> {
     FieldData::Point(Vector { x, y })
