@@ -69,6 +69,7 @@
 [x] Prevent ESC from turning ship modules off
 [ ] Improve player-name already taken message
 [x] Test increasing the post-stall limit from 2 toward the normal cap of 9[...]
+[ ] New turret models & consider making turret shells draw above not under ship
 
 ## MVP
 
